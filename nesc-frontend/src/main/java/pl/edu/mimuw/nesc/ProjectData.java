@@ -7,33 +7,35 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Contains the result of parsing process.
+ * Contains the result of parsing process for entire project.
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public final class ParseResult {
+public final class ProjectData {
 
-    private final Map<String, FileResult> files;
+    // TODO: what should this class contain?
+
+    private final Map<String, FileData> files;
 
     // TODO: extend attributes list
 
     /**
-     * Creates new ParseResult instance.
+     * Creates new ProjectData instance.
      */
-    public ParseResult() {
+    public ProjectData() {
         this.files = new HashMap<>();
     }
 
     /**
      * Adds result of parsing of new file.
      *
-     * @param fileResult object containing result of single file parsing
+     * @param fileData object containing result of single file parsing
      */
-    public void addFile(FileResult fileResult) {
-        checkNotNull(fileResult, "file result cannot be null");
-        final String fileName = fileResult.getFileName();
+    public void addFile(FileData fileData) {
+        checkNotNull(fileData, "file result cannot be null");
+        final String fileName = fileData.getFilePath();
         checkState(!this.files.containsKey(fileName), "duplicated entry for file " + fileName);
-        this.files.put(fileName, fileResult);
+        this.files.put(fileName, fileData);
     }
 
     /**
@@ -42,7 +44,7 @@ public final class ParseResult {
      * @param file file path
      * @return object containing result of parsing of specified file
      */
-    public FileResult getFile(String file) {
+    public FileData getFile(String file) {
         checkNotNull(file, "file cannot be null");
         return this.files.get(file);
     }
@@ -52,13 +54,13 @@ public final class ParseResult {
      *
      * @return map of results
      */
-    public Map<String, FileResult> getFilesMap() {
+    public Map<String, FileData> getFilesMap() {
         return this.files;
     }
 
     @Override
     public String toString() {
-        return "{ ParseResult; {files=" + files + "}}";
+        return "{ ProjectData; {files=" + files + "}}";
     }
 
 }

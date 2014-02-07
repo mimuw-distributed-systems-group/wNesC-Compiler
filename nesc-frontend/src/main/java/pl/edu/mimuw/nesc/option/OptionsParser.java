@@ -1,15 +1,9 @@
 package pl.edu.mimuw.nesc.option;
 
+import org.apache.commons.cli.*;
+
 import java.io.IOException;
 import java.util.List;
-
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
 
 /**
  * Options parser.
@@ -24,25 +18,25 @@ public class OptionsParser {
 
     /**
      * Creates options parser.
-     *
-     * @throws IOException
      */
-    public OptionsParser() throws IOException {
+    public OptionsParser() {
         this.parser = new DefaultParser();
         this.options = new Options();
         this.helpFormatter = new HelpFormatter();
-        buildOptions();
     }
 
     /**
      * Parses the program's arguments and converts them into compiler options.
      *
      * @param args program's arguments
+     * @return options holder
      * @throws ParseException
+     * @throws IOException
      */
-    public void parse(String[] args) throws ParseException {
+    public OptionsHolder parse(String[] args) throws ParseException, IOException {
+        buildOptions();
         final CommandLine commandLine = parser.parse(this.options, args);
-        OptionsHolder.instance().setOptions(commandLine);
+        return new OptionsHolder(commandLine);
     }
 
     /**

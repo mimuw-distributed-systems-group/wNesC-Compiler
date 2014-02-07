@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.parser;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Stack;
 
 import com.google.common.base.Preconditions;
@@ -46,6 +47,10 @@ public final class SymbolTable {
 		public Integer get(String name) {
 			return this.definitions.get(name);
 		}
+
+        public Map<String, Integer> getAll() {
+            return this.definitions;
+        }
 
 		public Scope getParent() {
 			return this.parent;
@@ -119,6 +124,10 @@ public final class SymbolTable {
 	public void add(String name, int type) {
 		this.scopes.peek().add(name, type);
 	}
+
+    public boolean isGlobalLevel() {
+        return this.scopes.size() == 1;
+    }
 
 	@Override
 	public String toString() {

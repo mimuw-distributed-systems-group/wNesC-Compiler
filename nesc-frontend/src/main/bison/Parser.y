@@ -1,26 +1,22 @@
 /* TODO: borrowed from..., licence, etc... */
 %code imports {
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.LinkedList;
-
 import com.google.common.base.Preconditions;
 import com.google.common.io.Files;
-
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.common.FileType;
 import pl.edu.mimuw.nesc.common.SourceLanguage;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
-import pl.edu.mimuw.nesc.lexer.*;
-import pl.edu.mimuw.nesc.preprocessor.MacrosManager;
-import pl.edu.mimuw.nesc.ParseExecutor;
+import pl.edu.mimuw.nesc.lexer.TokenPrinter;
 import pl.edu.mimuw.nesc.semantic.*;
 import pl.edu.mimuw.nesc.semantic.nesc.*;
 
-import static pl.edu.mimuw.nesc.semantic.Semantics.current;
+import java.io.IOException;
+import java.util.LinkedList;
+import java.util.List;
+
 import static java.lang.String.format;
+import static pl.edu.mimuw.nesc.semantic.Semantics.current;
 }
 
 %define package {pl.edu.mimuw.nesc.parser}
@@ -3478,6 +3474,10 @@ string_chain:
      */
     private String filePath;
     /**
+     * File type.
+     */
+    private FileType fileType;
+    /**
      * Lexer.
      */
     private pl.edu.mimuw.nesc.lexer.Lexer lex;
@@ -3485,14 +3485,6 @@ string_chain:
      * Lexer wrapper.
      */
     private LexerWrapper lexer;
-    /**
-     * Parse executor.
-     */
-    private ParseExecutor parseExecutor;
-    /**
-     * Macros manager.
-     */
-    private MacrosManager macrosManager;
     /**
      * Indicates whether parsing was successful.
      */
@@ -3514,7 +3506,10 @@ string_chain:
      * {@link TypeElementUtils#isTypedef(LinkedList<TypeElement>)}.
      */
     private boolean wasTypedef;
-
+    /**
+     *
+     */
+    private ParserListener parserListener;
     /**
      * The root of parsed AST (nesc entity).
      */
@@ -3536,34 +3531,59 @@ string_chain:
      *            lexer
      * @param symbolTable
      *            symbol table
-     * @param parseExecutor
-     *            parse executor
-     * @param macrosManager
-     *            macros manager
+     * @param fileType
+     *            fileType file type
      */
     public Parser(String filePath,
                   pl.edu.mimuw.nesc.lexer.Lexer lex,
                   SymbolTable symbolTable,
-                  ParseExecutor parseExecutor,
-                  MacrosManager macrosManager) {
+                  FileType fileType) {
         Preconditions.checkNotNull(filePath, "file path cannot be null");
         Preconditions.checkNotNull(lex, "lexer cannot be null");
         Preconditions.checkNotNull(symbolTable, "symbol table cannot be null");
-        Preconditions.checkNotNull(parseExecutor, "parse executor cannot be null");
-        Preconditions.checkNotNull(macrosManager, "macros manager cannot be null");
+        Preconditions.checkNotNull(fileType, "file type cannot be null");
 
         this.filePath = filePath;
+        this.fileType = fileType;
         this.currentEntityName = Files.getNameWithoutExtension(filePath);
         this.symbolTable = symbolTable;
         this.lex = lex;
         this.lexer = new LexerWrapper(lex, this.symbolTable);
         this.yylexer = lexer;
-        this.parseExecutor = parseExecutor;
-        this.macrosManager = macrosManager;
 
         this.errors = false;
         this.pstate = new ParserState();
-        this.lexer.pushtoken(new Symbol(Lexer.DISPATCH_NESC, 0, 0, null, null));
+
+        switch (fileType) {
+            case HEADER:
+            case C:
+                this.lexer.pushtoken(new Symbol(Lexer.DISPATCH_C, 0, 0, null, null));
+                break;
+            case NESC:
+                this.lexer.pushtoken(new Symbol(Lexer.DISPATCH_NESC, 0, 0, null, null));
+                break;
+            default:
+                throw new RuntimeException("not handled file type " + fileType);
+        }
+
+    }
+
+    /**
+     * Returns lexer.
+     *
+     * @return lexer
+     */
+    public pl.edu.mimuw.nesc.lexer.Lexer getLexer() {
+        return this.lex;
+    }
+
+    public void setListener(ParserListener listener) {
+        Preconditions.checkNotNull(listener, "listener cannot be null");
+        this.parserListener = listener;
+    }
+
+    public void removeListener() {
+        this.parserListener = null;
     }
 
     /**
@@ -3703,6 +3723,10 @@ string_chain:
         } else {
             addIdentifier(name);
         }
+
+        if (this.symbolTable.isGlobalLevel() && this.parserListener != null) {
+            this.parserListener.globalId(name, isTypedef ? Lexer.TYPEDEF_NAME : Lexer.IDENTIFIER);
+        }
     }
 
     /**
@@ -3719,18 +3743,24 @@ string_chain:
     }
 
     private void requireInterface(String interfaceName) {
-        this.parseExecutor.parseEntity(currentEntityName, interfaceName);
+        if (this.parserListener != null) {
+            this.parserListener.interfaceDependency(filePath, interfaceName);
+        }
     }
 
     private void requireComponent(String componentName) {
-        this.parseExecutor.parseEntity(currentEntityName, componentName);
+        if (this.parserListener != null) {
+            this.parserListener.componentDependency(filePath, componentName);
+        }
     }
 
     private void extdefsFinish() {
         if (this.debug) {
             System.out.println("extdefs finish;");
         }
-        this.macrosManager.saveMacros(this.lex);
+        if (this.parserListener != null) {
+            this.parserListener.extdefsFinished();
+        }
     }
 
     /**

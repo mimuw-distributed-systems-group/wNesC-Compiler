@@ -101,7 +101,7 @@ public final class NescLexer extends AbstractLexer {
     public void start() {
         for (LexerListener listener : listeners) {
             sourceStack.push(startFile);
-            listener.fileChanged(null, startFile, true);
+            listener.fileChanged(Optional.<String>absent(), startFile, true);
         }
     }
 
@@ -147,7 +147,8 @@ public final class NescLexer extends AbstractLexer {
         for (Map.Entry<String, Macro> macro : preprocessorMacros.entrySet()) {
             final String macroName = macro.getKey();
             final Macro object = macro.getValue();
-            final PreprocessorMacro pm = new PreprocessorMacro(macroName, object);
+            final Optional<String> path = Optional.fromNullable(getSourcePath(object.getSource()));
+            final PreprocessorMacro pm = new PreprocessorMacro(macroName, path, object);
             result.put(macroName, pm);
         }
         return result;
@@ -333,7 +334,7 @@ public final class NescLexer extends AbstractLexer {
                 .column(token.getColumn())
                 .file(getCurrentFile())
                 .body(token.getText())
-                .multiline(token.getType() == Token.CPPCOMMENT)
+                .isC(token.getType() == Token.CCOMMENT)
                 .build();
 
         for (LexerListener listener : this.listeners) {
@@ -474,7 +475,7 @@ public final class NescLexer extends AbstractLexer {
         @Override
         public void handleSourceChange(Source source, String event) {
             // FIXME: check exactly lexer flow
-            final String path = source == null ? null : source.getPath();
+            final String path = getSourcePath(source);
             if (path == null) {
                 return;
             }
@@ -512,6 +513,15 @@ public final class NescLexer extends AbstractLexer {
                 listener.fileChanged(Optional.fromNullable(from), to, push);
             }
         }
+    }
+
+    private static String getSourcePath(Source source) {
+        final String path = (source == null) ? null : source.getPath();
+        /* Skip paths like <internal-data>. */
+        if (path == null || path.charAt(0) == '<') {
+            return null;
+        }
+        return path;
     }
 
 }

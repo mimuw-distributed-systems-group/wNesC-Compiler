@@ -18,12 +18,12 @@ public final class Comment {
 
 	private final Location location;
 	private final String body;
-	private final boolean isMultiline;
+	private final boolean isC;
 
 	private Comment(Builder builder) {
 		this.location = new Location(builder.file, builder.line, builder.column);
 		this.body = builder.body;
-		this.isMultiline = builder.multiline;
+		this.isC = builder.isC;
 	}
 
 	public Location getLocation() {
@@ -34,8 +34,8 @@ public final class Comment {
 		return body;
 	}
 
-	public boolean isMultiline() {
-		return isMultiline;
+	public boolean isC() {
+		return isC;
 	}
 
     @Override
@@ -43,7 +43,7 @@ public final class Comment {
         return "Comment{" +
                 "location=" + location +
                 ", body='" + body.substring(0, Math.min(body.length(), 100)) + '\'' +
-                ", isMultiline=" + isMultiline +
+                ", isC=" + isC +
                 '}';
     }
 
@@ -56,7 +56,7 @@ public final class Comment {
 		private int column;
 		private String file;
 		private String body;
-		private boolean multiline;
+		private boolean isC;
 
 		public Builder() {
 		}
@@ -81,8 +81,8 @@ public final class Comment {
 			return this;
 		}
 
-		public Builder multiline(boolean multiline) {
-			this.multiline = multiline;
+		public Builder isC(boolean isC) {
+			this.isC = isC;
 			return this;
 		}
 

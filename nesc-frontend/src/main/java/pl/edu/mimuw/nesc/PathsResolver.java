@@ -28,14 +28,12 @@ public final class PathsResolver {
     private final String projectPath;
     private final List<String> sourcePaths;
     private final List<String> quoteIncludePaths;
-    private final List<String> includeFilePaths;
     private final List<String> searchOrder;
 
     private PathsResolver(Builder builder) {
         this.projectPath = builder.projectPath;
         this.sourcePaths = builder.sourcePaths;
         this.quoteIncludePaths = builder.quoteIncludePaths;
-        this.includeFilePaths = builder.includeFilePaths;
         this.searchOrder = new ArrayList<>(sourcePaths.size() + 1);
         this.searchOrder.add(projectPath);
         this.searchOrder.addAll(sourcePaths);
@@ -77,16 +75,6 @@ public final class PathsResolver {
      */
     public List<String> getQuoteIncludePaths() {
         return quoteIncludePaths;
-    }
-
-    /**
-     * Returns a list of file paths which should be included into the main
-     * entity (configuration) of project.
-     *
-     * @return a list of file paths
-     */
-    public List<String> getIncludeFilePaths() {
-        return includeFilePaths;
     }
 
     /**
@@ -144,7 +132,6 @@ public final class PathsResolver {
         private String projectPath;
         private List<String> sourcePaths;
         private List<String> quoteIncludePaths;
-        private List<String> includeFilePaths;
 
         public Builder() {
         }
@@ -164,16 +151,10 @@ public final class PathsResolver {
             return this;
         }
 
-        public Builder includeFilePaths(List<String> includeFilePaths) {
-            this.includeFilePaths = includeFilePaths;
-            return this;
-        }
-
         public PathsResolver build() {
             checkNotNull(projectPath);
             checkNotNull(sourcePaths);
             checkNotNull(quoteIncludePaths);
-            checkNotNull(includeFilePaths);
             return new PathsResolver(this);
         }
 

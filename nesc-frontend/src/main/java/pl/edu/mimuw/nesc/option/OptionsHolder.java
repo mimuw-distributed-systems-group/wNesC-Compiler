@@ -1,6 +1,5 @@
 package pl.edu.mimuw.nesc.option;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.cli.CommandLine;
 
@@ -8,6 +7,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Compiler's options holder.
@@ -22,23 +23,11 @@ public class OptionsHolder {
     public static final String NESC_SEARCH_PATH_NAME = "I";
     public static final String NESC_IQUOTE = "iquote";
     public static final String NESC_DEFINE = "D";
-    private static final OptionsHolder INSTANCE = new OptionsHolder();
-    private CommandLine cmd;
 
-    private OptionsHolder() {
-    }
+    private final CommandLine cmd;
 
-    public static OptionsHolder instance() {
-        return INSTANCE;
-    }
-
-    /**
-     * Sets compiler's options. Should be called only by {@link OptionsParser}.
-     *
-     * @param cmd command line
-     */
-    void setOptions(CommandLine cmd) {
-        Preconditions.checkNotNull(cmd);
+    public OptionsHolder(CommandLine cmd) {
+        checkNotNull(cmd);
         this.cmd = cmd;
     }
 

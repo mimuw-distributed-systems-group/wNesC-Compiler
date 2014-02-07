@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.preprocessor;
 
+import com.google.common.base.Optional;
 import org.anarres.cpp.Macro;
 
 /**
@@ -17,22 +18,38 @@ import org.anarres.cpp.Macro;
 public class PreprocessorMacro {
 
 	private final String name;
+    private final Optional<String> sourceFile;
 	private final Macro processedObject;
+    private final boolean isPrivate;
 
-	public PreprocessorMacro(String name, Macro processedObject) {
+    public PreprocessorMacro(String name, Optional<String> sourceFile, Macro processedObject) {
+        this(name, sourceFile, processedObject, false);
+    }
+
+	public PreprocessorMacro(String name, Optional<String> sourceFile, Macro processedObject, boolean isPrivate) {
 		this.name = name;
+        this.sourceFile = sourceFile;
 		this.processedObject = processedObject;
+        this.isPrivate = isPrivate;
 	}
 
 	public String getName() {
 		return name;
 	}
 
-	public Macro getProcessedObject() {
+    public Optional<String> getSourceFile() {
+        return sourceFile;
+    }
+
+    public Macro getProcessedObject() {
 		return processedObject;
 	}
 
-	@Override
+    public boolean isPrivate() {
+        return isPrivate;
+    }
+
+    @Override
 	public String toString() {
 		return "{ PreprocessorMacro; {name=" + name + ", processedObject=" + processedObject + "}}";
 	}

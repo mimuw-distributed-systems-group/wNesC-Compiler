@@ -80,7 +80,7 @@ public class IncludeDirective extends PreprocessorDirective {
         @Override
         protected void verify() {
             super.verify();
-            checkState(fileName != null, "fileName must be set");
+            checkState(fileName != null, "filePath must be set");
             // checkState(filePath != null, "filePath must be set"); // FIXME
             checkState(argumentLocation != null, "argument location must be set");
         }
