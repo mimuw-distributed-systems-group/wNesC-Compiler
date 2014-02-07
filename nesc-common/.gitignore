@@ -5,3 +5,6 @@
 /target
 
 *~
+*.class
+*.iml
+

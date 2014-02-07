@@ -6,4 +6,7 @@
 /bin
 /target
 /src/main/python/__pycache__
+
 *~
+*.class
+*.iml
