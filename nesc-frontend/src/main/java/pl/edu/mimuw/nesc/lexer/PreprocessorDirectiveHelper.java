@@ -221,15 +221,12 @@ final class PreprocessorDirectiveHelper {
         assert (directive.getTokenList().size() == 3);
         assert (directive.getTokenList().get(2).getType() == Token.IDENTIFIER);
 
-        // FIXME: set proper macro name and location, currently preprocessor
-        // contains some bugs and do not return macro name.
-        //final Token macroToken = directive.getTokenList().get(2);
+        final Token macroToken = directive.getTokenList().get(2);
 
-        builder.macro("eee")//macro(macroToken.getText())
-                .macroLocation(1, 1, 2);
-        //        .macroLocation(macroToken.getLine(),
-        //                macroToken.getColumn() + 1,
-        //                macroToken.getText().length());
+        builder.macro(macroToken.getText())
+                .macroLocation(macroToken.getLine(),
+                        macroToken.getColumn() + 1,
+                        macroToken.getText().length());
         return builder;
     }
 
