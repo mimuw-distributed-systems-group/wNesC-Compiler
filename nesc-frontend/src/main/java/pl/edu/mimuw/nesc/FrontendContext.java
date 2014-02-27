@@ -62,8 +62,12 @@ public final class FrontendContext {
         return defaultIncludeFiles;
     }
 
-    @Override
-    public FrontendContext clone() {
+    /**
+     * Clones only a part of current instance (only options are cloned).
+     *
+     * @return the new instance of {@link FrontendContext}
+     */
+    public FrontendContext basicCopy() {
         return new FrontendContext(this.options);
     }
 }

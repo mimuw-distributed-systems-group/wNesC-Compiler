@@ -99,8 +99,8 @@ public final class NescLexer extends AbstractLexer {
 
     @Override
     public void start() {
-        for (LexerListener listener : listeners) {
-            sourceStack.push(startFile);
+        sourceStack.push(startFile);
+        if (listener != null) {
             listener.fileChanged(Optional.<String>absent(), startFile, true);
         }
     }
@@ -337,7 +337,7 @@ public final class NescLexer extends AbstractLexer {
                 .isC(token.getType() == Token.CCOMMENT)
                 .build();
 
-        for (LexerListener listener : this.listeners) {
+        if (listener != null) {
             listener.comment(comment);
         }
     }
@@ -496,6 +496,14 @@ public final class NescLexer extends AbstractLexer {
         }
 
         @Override
+        public boolean beforeInclude(String filePath) {
+            if (listener != null) {
+                return listener.beforeInclude(filePath);
+            }
+            return false;
+        }
+
+        @Override
         public void handlePreprocesorDirective(Source source, org.anarres.cpp.PreprocessorDirective directive) {
             final String sourceFile = source.getPath();
             assert (sourceFile != null);
@@ -503,13 +511,18 @@ public final class NescLexer extends AbstractLexer {
             final pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective frontendDirective =
                     NescLexer.this.preprocessorDirectiveHelper.buildPreprocessorDirective(directive, sourceFile);
 
-            for (LexerListener listener : listeners) {
+            if (listener != null) {
                 listener.preprocessorDirective(frontendDirective);
             }
         }
 
+        @Override
+        public void handleMacroExpansion(Source tokens, int i, int i2, String s) {
+            // TODO
+        }
+
         private void notifyFileChange(String from, String to, boolean push) {
-            for (LexerListener listener : listeners) {
+            if (listener != null) {
                 listener.fileChanged(Optional.fromNullable(from), to, push);
             }
         }

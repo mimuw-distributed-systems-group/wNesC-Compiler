@@ -26,18 +26,17 @@ public interface Lexer {
     void start();
 
     /**
-     * Adds listener for lexer callbacks.
+     * Sets listener for lexer callbacks.
      *
      * @param listener listener
      */
-    void addListener(LexerListener listener);
+    void setListener(LexerListener listener);
 
     /**
-     * Unregisters listener.
+     * Removes listener.
      *
-     * @return <code>true</code> if lexer contained the specified listener
      */
-    boolean removeListener(LexerListener listener);
+    void removeListener();
 
     /**
      * Returns next token from preprocessed source file. Each token contains

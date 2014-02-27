@@ -23,6 +23,15 @@ public interface LexerListener {
     void fileChanged(Optional<String> from, String to, boolean push);
 
     /**
+     * Called when preprocessor is about to include file.
+     *
+     * @param filePath file path
+     * @return <code>true</code> if specified file should be skipped,
+     * <code>false</code> otherwise
+     */
+    boolean beforeInclude(String filePath);
+
+    /**
      * Called when the preprocessor directive was recognized.
      *
      * @param preprocessorDirective preprocessor directive

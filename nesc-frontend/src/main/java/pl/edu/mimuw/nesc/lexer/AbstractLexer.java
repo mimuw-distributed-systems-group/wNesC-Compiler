@@ -9,6 +9,8 @@ import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 
 import com.google.common.base.Preconditions;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * Skeleton of lexer.
  * 
@@ -24,7 +26,7 @@ public abstract class AbstractLexer implements Lexer {
 	protected final Collection<PreprocessorMacro> macros;
     protected final Map<String, String> unparsedMacros;
 
-	protected final List<LexerListener> listeners;
+	protected LexerListener listener;
 
 	protected AbstractLexer(String mainFilePath, List<String> userIncludePaths, List<String> systemIncludePaths,
 			List<String> includeFilePaths, Collection<PreprocessorMacro> macros, Map<String, String> unparsedMacros) {
@@ -34,20 +36,17 @@ public abstract class AbstractLexer implements Lexer {
 		this.includeFilePaths = includeFilePaths;
 		this.macros = macros;
         this.unparsedMacros = unparsedMacros;
-
-		this.listeners = new ArrayList<>();
 	}
 
 	@Override
-	public void addListener(LexerListener listener) {
-		Preconditions.checkNotNull(listener, "listener cannot be null");
-		this.listeners.add(listener);
+	public void setListener(LexerListener listener) {
+		checkNotNull(listener, "listener cannot be null");
+		this.listener = listener;
 	}
 
 	@Override
-	public boolean removeListener(LexerListener listener) {
-		Preconditions.checkNotNull(listener, "listener cannot be null");
-		return this.listeners.remove(listener);
+	public void removeListener() {
+		this.listener = null;
 	}
 
 }

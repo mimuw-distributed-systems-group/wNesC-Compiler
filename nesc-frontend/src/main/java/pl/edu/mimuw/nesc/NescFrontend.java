@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc;
 
+import com.google.common.base.Optional;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
@@ -53,10 +54,11 @@ public final class NescFrontend implements Frontend {
         checkNotNull(contextRef, "context reference cannot be null");
         LOG.info("Rebuild; contextRef=" + contextRef);
 
-        final FrontendContext context = getContext(contextRef).clone();
+        final FrontendContext context = getContext(contextRef).basicCopy();
         setContext(context, contextRef);
 
-        final String startFile = context.getPathsResolver().getEntityFile(context.getOptions().getEntryEntity());
+        final Optional<String> startFile = context.getPathsResolver()
+                .getEntityFile(context.getOptions().getEntryEntity());
 
         // FIXME exception
         try {
@@ -65,7 +67,7 @@ public final class NescFrontend implements Frontend {
             e.printStackTrace();
         }
 
-        update(contextRef, startFile);
+        update(contextRef, startFile.get());
 
         final ProjectData result = new ProjectData();
         for (Map.Entry<String, FileCache> entry : context.getCache().entrySet()) {

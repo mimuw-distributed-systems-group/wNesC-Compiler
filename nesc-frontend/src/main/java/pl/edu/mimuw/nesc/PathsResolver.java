@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc;
 
+import com.google.common.base.Optional;
 import com.google.common.io.Files;
 
 import java.io.File;
@@ -91,10 +92,10 @@ public final class PathsResolver {
      * interface of specified name.
      *
      * @param name configuration's, module's or interface's name
-     * @return path to file containing entity definition or <code>null</code>
-     * when no file matches given entity name
+     * @return path to file containing entity definition or
+     * <code>Optional.absent()</code> when no file matches given entity name
      */
-    public String getEntityFile(String name) {
+    public Optional<String> getEntityFile(String name) {
         checkNotNull(name, "entity name cannot be null");
 
         for (String searchPath : this.searchOrder) {
@@ -115,11 +116,11 @@ public final class PathsResolver {
                 final String childName = Files.getNameWithoutExtension(child.getName());
                 final String extension = Files.getFileExtension(child.getName());
                 if (name.equals(childName) && "nc".equals(extension)) {
-                    return child.getPath();
+                    return Optional.of(child.getPath());
                 }
             }
         }
-        return null;
+        return Optional.absent();
     }
 
     /**

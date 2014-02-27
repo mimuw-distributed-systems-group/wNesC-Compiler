@@ -24,13 +24,15 @@ import java.util.*;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static pl.edu.mimuw.nesc.common.FileType.C;
 import static pl.edu.mimuw.nesc.common.FileType.HEADER;
-import static pl.edu.mimuw.nesc.common.util.file.FileUtils.*;
+import static pl.edu.mimuw.nesc.common.util.file.FileUtils.fileTypeFromExtension;
 import static pl.edu.mimuw.nesc.filesgraph.walker.FilesGraphWalkerFactory.ofDfsPostOrderWalker;
 
 /**
+ * The class responsible for processing source files in proper order.
+ *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public class ParseExecutor {
+public final class ParseExecutor {
 
     private static final Logger LOG = Logger.getLogger(ParseExecutor.class);
 
@@ -48,7 +50,7 @@ public class ParseExecutor {
     }
 
     /**
-     * Parses file. Cached data is used when possible.kk
+     * Parses file. Cached data is used when possible.
      *
      * @param filePath            file path
      * @param includeDefaultFiles indicates if default files should be
@@ -109,18 +111,26 @@ public class ParseExecutor {
      */
     private static final class ParseFileExecutor implements LexerListener, ParserListener {
 
-        private static final EnumSet<FileType> INCLUDE_FILE_TYPES = EnumSet.of(C, HEADER);
-
         private final FrontendContext context;
+        /**
+         * Files which cached data was already used in parsing process.
+         * Each file should be "visited" at most once.
+         */
         private final Set<String> visitedFiles;
-        private final Map<String, FileCache.Builder> fileCacheBuilders;
+        /**
+         * Cache builder of currently parsed file.
+         */
+        private final FileCache.Builder fileCacheBuilder;
         private final boolean includeDefaultFiles;
 
         private NescLexer lexer;
         private Parser parser;
         private SymbolTable.Scope globalScope;
 
-        private String currentFile;
+        // TODO: maybe use some kind of place holder to unable to modify
+        // these value after assignments.
+        private String currentFilePath;
+        private FileType fileType;
 
 
         /**
@@ -134,7 +144,7 @@ public class ParseExecutor {
         public ParseFileExecutor(FrontendContext context, boolean includeDefaultFiles) {
             this.context = context;
             this.visitedFiles = new HashSet<>();
-            this.fileCacheBuilders = new HashMap<>();
+            this.fileCacheBuilder = FileCache.builder();
             this.includeDefaultFiles = includeDefaultFiles;
         }
 
@@ -146,27 +156,28 @@ public class ParseExecutor {
          * @throws pl.edu.mimuw.nesc.exception.LexerException
          */
         public void parseFile(final String filePath) throws IOException, LexerException {
+            checkNotNull(filePath, "file path cannot be null");
             LOG.info("Start parsing file: " + filePath);
 
+            /* Set file path. */
+            this.currentFilePath = filePath;
+
             /* Infer file type. */
-            final FileType fileType = fileTypeFromExtension(filePath);
+            this.fileType = fileTypeFromExtension(currentFilePath);
             LOG.debug("Inferred file type: " + fileType);
 
             /*
-             * Update files graph. Remove node corresponding to currently
-             * parsed file and all adjacent edges from files graph.
-             * Create "fresh" node.
+             * Update files graph. Remove outgoing edges (dependencies) of the
+             * node corresponding to currently parsed file. The ingoing edges
+             * must be preserved since dependencies of other untouched files
+             * have not been changed.
+             * (Create files graph node if absent).
              */
-            context.getFilesGraph().removeFile(filePath);
-            final GraphFile graphFile = new GraphFile(filePath, fileType);
-            context.getFilesGraph().addFile(graphFile);
+            createFilesGraphNode(currentFilePath, fileType);
+            context.getFilesGraph().removeOutgoingDependencies(currentFilePath);
 
-            /* Clear cache. */
-            context.getCache().remove(filePath);
-
-            /* Prepare file cache builder. */
-            final FileCache.Builder builder = FileCache.builder();
-            this.fileCacheBuilders.put(filePath, builder);
+            /* Clear cache for current file. */
+            context.getCache().remove(currentFilePath);
 
             /*
              * Collect macros and global definitions from files included by
@@ -185,25 +196,25 @@ public class ParseExecutor {
              * Build symbol table with given global scope.
              * Put global definitions from header files included by default.
              */
-            globalScope = SymbolTable.Scope.ofGlobalScope();
-            final SymbolTable symbolTable = new SymbolTable(globalScope);
+            this.globalScope = SymbolTable.Scope.ofGlobalScope();
+            final SymbolTable symbolTable = new SymbolTable(this.globalScope);
             for (Map.Entry<String, Integer> entry : idTypes.entrySet()) {
                 symbolTable.add(entry.getKey(), entry.getValue());
             }
 
 		    /* Setup lexer */
-            lexer = NescLexer.builder().mainFile(filePath)
+            this.lexer = NescLexer.builder().mainFile(currentFilePath)
                     .systemIncludePaths(context.getPathsResolver().getSearchOrder())
                     .userIncludePaths(context.getPathsResolver().getSearchOrder())
                     .unparsedMacros(context.getPredefinedMacros())
                     .macros(macros.values())
                     .build();
 
-            lexer.addListener(this);
+            lexer.setListener(this);
             lexer.start();
 
             /* Setup parser */
-            parser = new Parser(filePath, lexer, symbolTable, fileType);
+            this.parser = new Parser(currentFilePath, lexer, symbolTable, fileType);
             parser.setListener(this);
 
 		    /* Parsing */
@@ -214,7 +225,7 @@ public class ParseExecutor {
             parser.removeListener();
 
 		    /* Cleanup lexer. */
-            lexer.removeListener(this);
+            lexer.removeListener();
             lexer.close();
 
 		    /* Errors occurred. */
@@ -228,6 +239,12 @@ public class ParseExecutor {
 
             /* Finalize file processing. */
 
+            /*
+             * Public macros for nesc entities are handled on extdefsFinished
+             * callback. For c and header files all macros are public so that
+             * they are handled at the end of file.
+             * (Handling means putting into cache structures).
+             */
             if (C.equals(fileType) || HEADER.equals(fileType)) {
                 handlePublicMacros(lexer.getMacros());
             }
@@ -235,104 +252,106 @@ public class ParseExecutor {
             final Node entity = parser.getEntityRoot();
             final List<Declaration> extdefs = parser.getExtdefs();
 
-            builder.filePath(filePath)
+            fileCacheBuilder.filePath(currentFilePath)
+                    .fileType(fileType)
                     .entityRoot(entity);
 
-            buildFileCaches(extdefs, false);
+            for (Declaration extdef : extdefs) {
+                fileCacheBuilder.extdef(extdef);
+            }
 
+            final FileCache cache = fileCacheBuilder.build();
+            context.getCache().put(currentFilePath, cache);
+            LOG.info("Put file cache into context; file: " + currentFilePath);
 
-            LOG.info("File parsing finished: " + filePath);
+            LOG.info("File parsing finished: " + currentFilePath);
         }
 
         @Override
         public void fileChanged(Optional<String> from, String to, boolean push) {
-            LOG.debug("File changed from " + from + " to " + to + "; " + (push ? "push" : "pop"));
+            // nothing to do
+        }
 
-            this.currentFile = to;
-
-            if (push) {
-                final FileType fileType = fileTypeFromExtension(to);
-                /* Update files graph. */
-                if (from.isPresent()) {
-                    if (!this.context.getFilesGraph().containsFile(to)) {
-                        final GraphFile graphFile = new GraphFile(to, fileType);
-                        this.context.getFilesGraph().addFile(graphFile);
-                    }
-                    this.context.getFilesGraph().addEdge(from.get(), to);
-                }
-
-                /*
-                 * Check if a new C or header file will be processed now. If
-                 * the file is seen for the first time, create proper
-                 * structure for the file.
-                 */
-                if ((isHeaderFile(to) || isCFile(to))
-                        //&& !context.getCache().containsKey(to)
-                        && !this.fileCacheBuilders.containsKey(to)) {
-                    final FileCache.Builder builder = FileCache.builder()
-                            .filePath(to)
-                            .entityRoot(null);
-                    this.fileCacheBuilders.put(to, builder);
-                }
-            }
+        @Override
+        public boolean beforeInclude(String filePath) {
+            includeDependency(currentFilePath, filePath);
+            /*
+             * Never include body of files, they should be parsed separately.
+             */
+            return true;
         }
 
         @Override
         public void preprocessorDirective(PreprocessorDirective directive) {
-            final FileCache.Builder builder = this.fileCacheBuilders.get(directive.getSourceFile());
-            builder.directive(directive);
+            fileCacheBuilder.directive(directive);
         }
 
         @Override
         public void comment(Comment comment) {
-            final String source = comment.getLocation().getFilename();
-            final FileCache.Builder builder = this.fileCacheBuilders.get(source);
-            builder.comment(comment);
+            fileCacheBuilder.comment(comment);
         }
 
         @Override
         public void extdefsFinished() {
-            LOG.info("Extdefs finished; file: " + currentFile);
-            /* Handle public macros. */
-            // TODO private macros are currently ignored
-            handlePublicMacros(this.lexer.getMacros());
+            LOG.info("Extdefs finished; file: " + currentFilePath);
 
-            /* Collect extdefs for included files. */
-            final List<Declaration> extdefs = parser.getExtdefs();
-            buildFileCaches(extdefs, true);
+            /* Handle public macros. */
+            // TODO private macros are currently ignored, handle them at the
+            // end of file
+            handlePublicMacros(lexer.getMacros());
         }
 
         @Override
         public void globalId(String id, Integer type) {
-            this.fileCacheBuilders.get(currentFile).globalId(id, type);
+            fileCacheBuilder.globalId(id, type);
         }
 
         @Override
         public void interfaceDependency(String currentEntityPath, String interfaceName) {
-            dependency(currentEntityPath, interfaceName);
+            nescDependency(currentEntityPath, interfaceName);
+            // TODO update components graph
         }
 
         @Override
         public void componentDependency(String currentEntityPath, String componentName) {
-            dependency(currentEntityPath, componentName);
+            nescDependency(currentEntityPath, componentName);
+            // TODO update components graph
         }
 
-        private void dependency(String currentEntityPath, String dependencyName) {
-            final String filePath = this.context.getPathsResolver().getEntityFile(dependencyName);
-            if (filePath == null) {
-                // TODO
+        private void nescDependency(String currentEntityPath, String dependencyName) {
+            final Optional<String> filePathOptional = context.getPathsResolver().getEntityFile(dependencyName);
+            if (!filePathOptional.isPresent()) {
+                // TODO entity cannot be found
                 return;
             }
 
+            fileDependency(currentEntityPath, filePathOptional.get());
+        }
+
+        private void includeDependency(String currentFilePath, String includedFilePath) {
+            fileDependency(currentFilePath, includedFilePath);
+        }
+
+        /**
+         * Resolves dependency upon specified file. It checks whether the
+         * file's data was already used or the file is already cached or
+         * the file needs to be parsed.
+         *
+         * @param currentFilePath current file path
+         * @param otherFilePath   other file path
+         */
+        private void fileDependency(String currentFilePath, String otherFilePath) {
             /* Check if file was already visited. */
-            if (this.visitedFiles.contains(filePath)) {
+            if (visitedFiles.contains(otherFilePath)) {
                 return;
             }
-            /* Check if file data cached. If not, it must be parsed first. */
-            if (!this.context.getCache().containsKey(filePath)) {
-                final ParseExecutor executor = new ParseExecutor(this.context);
+            /*
+             * Check if file data is cached. If not, it must be parsed first.
+             */
+            if (!context.getCache().containsKey(otherFilePath)) {
+                final ParseExecutor executor = new ParseExecutor(context);
                 try {
-                    executor.parse(filePath, this.includeDefaultFiles);
+                    executor.parse(otherFilePath, includeDefaultFiles);
                 } catch (IOException e) {
                     // TODO
                     e.printStackTrace();
@@ -342,29 +361,48 @@ public class ParseExecutor {
             final Map<String, PreprocessorMacro> macros = new HashMap<>();
             final Map<String, Integer> idTypes = new HashMap<>();
 
-            collectParsedData(macros, idTypes, filePath);
+            collectParsedData(macros, idTypes, otherFilePath);
 
             /* Put cached data into proper structures. */
             for (Map.Entry<String, Integer> entry : idTypes.entrySet()) {
-                this.globalScope.add(entry.getKey(), entry.getValue());
+                globalScope.add(entry.getKey(), entry.getValue());
             }
-            this.lexer.addMacros(macros.values());
+            lexer.addMacros(macros.values());
 
             /* Update files graph. */
-            this.context.getFilesGraph().addEdge(currentEntityPath, filePath);
-
+            updateFilesGraph(currentFilePath, otherFilePath);
         }
 
+        /**
+         * Collects cached data from files included by default and all
+         * its dependencies.
+         * The data is put into structures passed as parameters.
+         * It skips files that have already been visited.
+         *
+         * @param macros  preprocessor macros
+         * @param idTypes map that associates id names to id types (i.e.
+         *                typename, identifier, componentref)
+         */
         private void collectDefaultData(Map<String, PreprocessorMacro> macros,
                                         Map<String, Integer> idTypes) {
             final CollectAction action = new CollectAction(context, visitedFiles, macros, idTypes);
             final FilesGraphWalker walker = ofDfsPostOrderWalker(context.getFilesGraph(), action);
 
-            for (String filePath : this.context.getOptions().getDefaultIncludeFiles()) {
+            for (String filePath : context.getOptions().getDefaultIncludeFiles()) {
                 walker.walk(filePath);
             }
         }
 
+        /**
+         * Collects cached data from specified file and all its dependencies.
+         * The data is put into structures passed as parameters.
+         * It skips files that have already been visited.
+         *
+         * @param macros   preprocessor macros
+         * @param idTypes  map that associates id names to id types (i.e.
+         *                 typename, identifier, componentref)
+         * @param filePath file path of file which data should be collected
+         */
         private void collectParsedData(Map<String, PreprocessorMacro> macros,
                                        Map<String, Integer> idTypes,
                                        String filePath) {
@@ -372,42 +410,6 @@ public class ParseExecutor {
             final FilesGraphWalker walker = ofDfsPostOrderWalker(context.getFilesGraph(), action);
 
             walker.walk(filePath);
-        }
-
-        private void buildFileCaches(List<Declaration> extdefs, boolean onlyIncludedFiles) {
-            LOG.info("Building file caches; onlyIncludedFiles=" + onlyIncludedFiles);
-            /*
-             * NOTE: The extdefs list of the currently parsed file containing
-             * entity definition may contain declarations that does not come
-             * from the main file. The actual source of declaration may be
-             * header file which was included into the current file. Therefore
-             * the declarations should be associated with the files of their
-             * actual origin (and put into the proper structures).
-             */
-            for (Declaration extdef : extdefs) {
-                /*
-                 * FIXME: temporarily all declarations are associated with
-                 * current file to be able to determine the actual source of
-                 * extdef, the location field must be set.
-                 * TODO: put globalIds to proper builders
-                 */
-            }
-
-            for (Map.Entry<String, FileCache.Builder> entry : this.fileCacheBuilders.entrySet()) {
-                final String filePath = entry.getKey();
-                final FileType fileType = fileTypeFromExtension(filePath);
-                final FileCache.Builder builder = entry.getValue();
-
-                builder.fileType(fileType);
-
-                if (onlyIncludedFiles && !INCLUDE_FILE_TYPES.contains(fileType)) {
-                    continue;
-                }
-
-                final FileCache cache = builder.build();
-                this.context.getCache().put(filePath, cache);
-                LOG.info("Put file cache into context; file: " + filePath);
-            }
         }
 
         private void handlePublicMacros(Map<String, PreprocessorMacro> macros) {
@@ -422,18 +424,34 @@ public class ParseExecutor {
                  * Only macros from "real" source files are taken into
                  * account (not predefined or internal).
                  */
-                if (sourceFilePath.isPresent()) {
-                    final FileCache.Builder builder = this.fileCacheBuilders.get(sourceFilePath.get());
-
-                    /*
-                     * Macros may come from file that was parsed previously and
-                     * the lexer was fed with them. They should be ignored.
-                     */
-                    if (builder != null) {
-                        builder.macro(macroName, preprocessorMacro);
-                    }
+                if (sourceFilePath.isPresent() && currentFilePath.equals(sourceFilePath.get())) {
+                    fileCacheBuilder.macro(macroName, preprocessorMacro);
                 }
             }
+        }
+
+        private void createFilesGraphNode(String filePath, FileType fileType) {
+            if (context.getFilesGraph().containsFile(filePath)) {
+                return;
+            }
+            final GraphFile graphFile = new GraphFile(filePath, fileType);
+            context.getFilesGraph().addFile(graphFile);
+        }
+
+        /**
+         * Updates files graph. Creates nodes if absent. Adds edge from
+         * the first specified file to the second one.
+         *
+         * @param currentFilePath current file path
+         * @param otherFilePath   other file path
+         */
+        private void updateFilesGraph(String currentFilePath, String otherFilePath) {
+            final FileType fileType = fileTypeFromExtension(otherFilePath);
+            if (!context.getFilesGraph().containsFile(otherFilePath)) {
+                final GraphFile graphFile = new GraphFile(otherFilePath, fileType);
+                context.getFilesGraph().addFile(graphFile);
+            }
+            context.getFilesGraph().addEdge(currentFilePath, otherFilePath);
         }
 
     }

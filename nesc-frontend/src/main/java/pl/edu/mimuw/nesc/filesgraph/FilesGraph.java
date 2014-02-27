@@ -51,6 +51,20 @@ public class FilesGraph {
         }
     }
 
+    public void removeOutgoingDependencies(String fileName) {
+        final GraphFile graphFile = this.files.get(fileName);
+        if (graphFile == null) {
+            // TODO
+        }
+        removeOutgoingDependencies(graphFile);
+    }
+
+    public void removeOutgoingDependencies(GraphFile graphFile) {
+        for (GraphFile user : graphFile.getIsUsedBy().values()) {
+            user.removeUsedFile(graphFile.getFilePath());
+        }
+    }
+
     public void addEdge(String from, String to) {
         checkState(this.files.containsKey(from), "unknown file from " + from);
         checkState(this.files.containsKey(to), "unknown file to " + to);
