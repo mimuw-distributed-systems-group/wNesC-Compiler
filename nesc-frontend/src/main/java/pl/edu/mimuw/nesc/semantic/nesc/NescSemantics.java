@@ -1,109 +1,46 @@
 package pl.edu.mimuw.nesc.semantic.nesc;
 
+import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.common.util.list.Lists;
+
 import java.util.LinkedList;
 
-import pl.edu.mimuw.nesc.ast.CString;
-import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.NescDeclaration;
-import pl.edu.mimuw.nesc.ast.gen.AstType;
-import pl.edu.mimuw.nesc.ast.gen.Attribute;
-import pl.edu.mimuw.nesc.ast.gen.DataDecl;
-import pl.edu.mimuw.nesc.ast.gen.Declaration;
-import pl.edu.mimuw.nesc.ast.gen.Declarator;
-import pl.edu.mimuw.nesc.ast.gen.Node;
-import pl.edu.mimuw.nesc.ast.gen.TypeArgument;
-import pl.edu.mimuw.nesc.ast.gen.TypeElement;
-import pl.edu.mimuw.nesc.ast.gen.TypeParmDecl;
-import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
-import pl.edu.mimuw.nesc.ast.gen.Word;
-import pl.edu.mimuw.nesc.common.SourceLanguage;
-import pl.edu.mimuw.nesc.common.util.list.Lists;
-import pl.edu.mimuw.nesc.semantic.Semantics;
+import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
+import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
 
 /**
- * 
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
- * 
  */
-public class NescSemantics {
+public final class NescSemantics {
 
-	/**
-	 * Defines internal nesc @-style attributes.
-	 */
-	public static void initInternalNescAttributes() {
-		// TODO
-		// in my opinion this should be private and called in static block.
-	}
+    public static Declaration declareTemplateParameter(Optional<Declarator> declarator,
+                                                       LinkedList<TypeElement> elements,
+                                                       LinkedList<Attribute> attributes) {
+        /* Either declarator or elements is present. */
+        final Location startLocation = declarator.isPresent()
+                ? declarator.get().getLocation()
+                : getStartLocation(elements).get();
+        final Location endLocation = declarator.isPresent()
+                ? getEndLocation(declarator.get().getEndLocation(), elements, attributes)
+                : getEndLocation(startLocation, elements, attributes); // elements in not empty, $1 will not be used
 
-	/**
-	 * Return the "identifier part" of path, i.e., remove any directory and
-	 * extension
-	 * 
-	 * @param path
-	 * @return
-	 */
-	public static String elementName(String path) {
-		// TODO
-		return null;
-	}
+        final VariableDecl variableDecl = new VariableDecl(startLocation, declarator.orNull(), attributes, null, null);
+        variableDecl.setEndLocation(endLocation);
+        final DataDecl dataDecl = new DataDecl(startLocation, elements, Lists.<Declaration>newList(variableDecl));
+        dataDecl.setEndLocation(endLocation);
+        return dataDecl;
+    }
 
-	public static Node compile(Location location, NescDeclaration container,
-			String name, boolean nameIsPath) {
-		// TODO
-		return null;
-	}
+    public static TypeArgument makeTypeArgument(AstType astType) {
+        final TypeArgument typeArgument = new TypeArgument(astType.getLocation(), astType);
+        typeArgument.setEndLocation(astType.getEndLocation());
+        typeArgument.setType(astType.getType());
+        return typeArgument;
+    }
 
-	public static NescDeclaration load(SourceLanguage sl, Location location,
-			String name, boolean nameIsPath) {
-		// TODO
-		return null;
-	}
-	
-	// TODO
-
-	public static NescDeclaration startNescEntity(SourceLanguage language,
-			Word name) {
-		assert (language != null);
-		assert (name != null);
-
-		NescDeclaration declaration = new NescDeclaration(language, name
-				.getCstring().getData(), Semantics.getGlobalEnvironment());
-
-		Semantics.current.startSemantics(language, declaration,
-				declaration.getEnvironment());
-
-		return declaration;
-	}
-
-	public static TypeParmDecl declareTypeParameter(Location location,
-			CString id, LinkedList<Attribute> attributes, Object fixme) {
-		// FIXME dd_list extra_attr
-		TypeParmDecl decl = new TypeParmDecl(location, id, null);
-
-		// TODO
-
-		return decl;
-	}
-
-	public static Declaration declareTemplateParameter(Declarator declarator,
-			LinkedList<TypeElement> elements, LinkedList<Attribute> attributes) {
-		Location location = declarator != null ? declarator.getLocation()
-				: elements.get(0).getLocation();
-		VariableDecl variableDecl = new VariableDecl(location, declarator,
-				attributes, null, null, null);
-		DataDecl dataDecl = new DataDecl(location, elements,
-				Lists.<Declaration> newList(variableDecl));
-		return dataDecl;
-	}
-
-	public static TypeArgument makeTypeArgument(AstType astType) {
-		TypeArgument typeArgument = new TypeArgument(astType.getLocation(),
-				astType);
-		typeArgument.setType(astType.getType());
-		return typeArgument;
-	}
-
-	private NescSemantics() {
-	}
+    private NescSemantics() {
+    }
 
 }

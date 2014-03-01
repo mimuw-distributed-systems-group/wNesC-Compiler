@@ -6,8 +6,8 @@ from ast_core import *
 
 # ===== Naming convention =====
 #
-# All class names are not only borrowed from nodetypes.def file but also
-# adjusted to Java naming convention. Class names start with capital letter.
+# All class names are borrowed from nodetypes.def and adjusted to Java naming
+# convention. Class names start with capital letter.
 #
 # Examples:
 #  node -> Node
@@ -34,12 +34,13 @@ from ast_core import *
 #                                    Base types
 #==============================================================================
 
+
 # The common supertype of all AST nodes.
 class Node(BasicASTNode):
     location = ReferenceField("Location")
+    endLocation = ReferenceField("Location", constructor_variable=0)
     next = ReferenceField("Node", constructor_variable=0)
     parent = ReferenceField("Node", constructor_variable=0)
-    # parent_ptr = ReferenceField("")
     instantiation = ReferenceField("Node", constructor_variable=0)
 
 
@@ -169,16 +170,15 @@ class EllipsisDecl(BasicASTNode):
 class Enumerator(BasicASTNode):
     superclass = Declaration
     # CSTRING is optional.
-    cstring = ReferenceField("CString")
+    name = StringField()
     arg1 = ReferenceField("Expression")
     ddecl = ReferenceField("DataDeclaration")
 
 
-#
 class OldIdentifierDecl(BasicASTNode):
     superclass = Declaration
     # CSTRING in an old-style parameter list.
-    cstring = ReferenceField("CString")
+    name = StringField()
     ddecl = ReferenceField("DataDeclaration")
 
 
@@ -219,7 +219,7 @@ class VariableDecl(BasicASTNode):
     arg1 = ReferenceField("Expression")
     asmStmt = ReferenceField("AsmStmt")
     # DDECL points to the declaration for this item.
-    ddecl = ReferenceField("DataDeclaration")
+    ddecl = ReferenceField("DataDeclaration", constructor_variable=0)
     # DECLARED_TYPE is the type in this declaration (which may be different
     # than that in DDECL->TYPE).
     declaredType = ReferenceField("Type", constructor_variable=0)
@@ -382,7 +382,7 @@ class ArrayDeclarator(BasicASTNode):
 # Declaration of CSTRING
 class IdentifierDeclarator(BasicASTNode):
     superclass = Declarator
-    cstring = ReferenceField("CString")
+    name = StringField()
 
 
 #==============================================================================
@@ -468,12 +468,10 @@ class ForStmt(BasicASTNode):
     stmt = ReferenceField("Statement")
 
 
-#
 class BreakStmt(BasicASTNode):
     superclass = Statement
 
 
-#
 class ContinueStmt(BasicASTNode):
     superclass = Statement
 
@@ -484,7 +482,6 @@ class ReturnStmt(BasicASTNode):
     arg1 = ReferenceField("Expression")
 
 
-#
 class GotoStmt(BasicASTNode):
     superclass = Statement
     idLabel = ReferenceField("IdLabel")
@@ -496,7 +493,6 @@ class ComputedGotoStmt(BasicASTNode):
     arg1 = ReferenceField("Expression")
 
 
-#
 class EmptyStmt(BasicASTNode):
     superclass = Statement
 
@@ -510,12 +506,9 @@ class ErrorExpr(BasicASTNode):
     superclass = Expression
 
 
-#
 class Unary(BasicASTNode):
     superclass = Expression
     arg1 = ReferenceField("Expression")
-
-#
 
 
 class Binary(BasicASTNode):
@@ -523,15 +516,12 @@ class Binary(BasicASTNode):
     arg1 = ReferenceField("Expression")
     arg2 = ReferenceField("Expression")
 
+
 # A comma separated list of expressions.
-
-
 class Comma(BasicASTNode):
     superclass = Expression
     # A list of expressions.
     arg1 = ReferenceListField("Expression")
-
-#
 
 
 class SizeofType(BasicASTNode):
@@ -539,32 +529,27 @@ class SizeofType(BasicASTNode):
     asttype = ReferenceField("AstType")
 
 
-#
 class AlignofType(BasicASTNode):
     superclass = Expression
     asttype = ReferenceField("AstType")
 
 
-#
 class LabelAddress(BasicASTNode):
     superclass = Expression
     idLabel = ReferenceField("IdLabel")
 
 
-#
 class Cast(BasicASTNode):
     superclass = Unary
     asttype = ReferenceField("AstType")
 
 
-#
 class CastList(BasicASTNode):
     superclass = Expression
     asttype = ReferenceField("AstType")
     initExpr = ReferenceField("Expression")
 
 
-#
 class Conditional(BasicASTNode):
     superclass = Expression
     condition = ReferenceField("Expression")
@@ -572,14 +557,12 @@ class Conditional(BasicASTNode):
     arg2 = ReferenceField("Expression")
 
 
-#
 class Identifier(BasicASTNode):
     superclass = Expression
-    cstring = ReferenceField("CString")
+    name = StringField()
     ddecl = ReferenceField("DataDeclaration")
 
 
-#
 class CompoundExpr(BasicASTNode):
     superclass = Expression
     stmt = ReferenceField("Statement")
@@ -604,12 +587,10 @@ class ArrayRef(BasicASTNode):
     arg1 = ReferenceField("Expression")
     arg2 = ReferenceListField("Expression")
 
-#
-
 
 class FieldRef(BasicASTNode):
     superclass = Unary
-    cstring = ReferenceField("CString")
+    name = StringField()
     fdecl = ReferenceField("FieldDeclaration", constructor_variable=0)
 
 
@@ -661,7 +642,6 @@ class Not(BasicASTNode):
     superclass = Unary
 
 
-#
 class Increment(BasicASTNode):
     superclass = Unary
     temp1 = ReferenceField("DataDeclaration", constructor_variable=0)
@@ -712,7 +692,6 @@ class Rshift(BasicASTNode):
     superclass = Binary
 
 
-#
 class Comparison(BasicASTNode):
     superclass = Binary
 
@@ -761,7 +740,6 @@ class Oror(BasicASTNode):
     superclass = Binary
 
 
-#
 class Assignment(BasicASTNode):
     superclass = Binary
     temp1 = ReferenceField("DataDeclaration", constructor_variable=0)
@@ -811,32 +789,26 @@ class BitxorAssign(BasicASTNode):
     superclass = Assignment
 
 
-#
 class InitList(BasicASTNode):
     superclass = Expression
     args = ReferenceListField("Expression")
 
 
-#
 class InitSpecific(BasicASTNode):
     superclass = Expression
     designator = ReferenceListField("Designator")
     initExpr = ReferenceField("Expression")
-
-#
 
 
 class Designator(BasicASTNode):
     superclass = Node
 
 
-#
 class DesignateField(BasicASTNode):
     superclass = Designator
-    cstring = ReferenceField("CString")
+    name = StringField()
 
 
-#
 class DesignateIndex(BasicASTNode):
     superclass = Designator
     arg1 = ReferenceField("Expression")
@@ -851,7 +823,7 @@ class DesignateIndex(BasicASTNode):
 # appear in the AST.
 class LexicalCst(BasicASTNode):
     superclass = Expression
-    cstring = ReferenceField("CString")
+    string = StringField()
 
 
 # A single lexical string - a sequence of these gets concatenated to
@@ -866,7 +838,7 @@ class StringCst(BasicASTNode):
 class StringAst(BasicASTNode):
     superclass = Expression
     strings = ReferenceListField("StringCst")
-    ddecl = ReferenceField("DataDeclaration")
+    ddecl = ReferenceField("DataDeclaration", constructor_variable=0)
 
 
 #==============================================================================
@@ -875,7 +847,7 @@ class StringAst(BasicASTNode):
 
 class IdLabel(BasicASTNode):
     superclass = Label
-    cstring = ReferenceField("CString")
+    id = StringField()
     ldecl = ReferenceField("LabelDeclaration", constructor_variable=0)
 
 
@@ -895,7 +867,7 @@ class DefaultLabel(BasicASTNode):
 
 class Word(BasicASTNode):
     superclass = Node
-    cstring = ReferenceField("CString")
+    name = StringField()
 
 
 class AsmOperand(BasicASTNode):
@@ -915,13 +887,14 @@ class AsmOperand(BasicASTNode):
 
 class NescDecl(BasicASTNode):
     superclass = Declaration
-    word1 = ReferenceField("Word")
+    name = ReferenceField("Word")
     attributes = ReferenceListField("Attribute")
     cdecl = ReferenceField("NescDeclaration", constructor_variable=0)
 
 
 class Interface(BasicASTNode):
     superclass = NescDecl
+    parameters = ReferenceListField("Declaration")
     decls = ReferenceListField("Declaration")
 
 
@@ -933,24 +906,42 @@ class Component(BasicASTNode):
     implementation = ReferenceField("Implementation")
 
 
-class Implementation(BasicASTNode):
-    superclass = Node
-    ienv = ReferenceField("Environment")
-    cdecl = ReferenceField("NescDeclaration", constructor_variable=0)
-
-
 class Configuration(BasicASTNode):
-    superclass = Implementation
-    decls = ReferenceListField("Declaration")
+    superclass = Component
 
 
 class Module(BasicASTNode):
+    superclass = Component
+
+
+class BinaryComponent(BasicASTNode):
+    superclass = Component
+
+
+class Implementation(BasicASTNode):
+    superclass = Node
+    ienv = ReferenceField("Environment", constructor_variable=0)
+    cdecl = ReferenceField("NescDeclaration", constructor_variable=0)
+
+
+class ConfigurationImpl(BasicASTNode):
     superclass = Implementation
     decls = ReferenceListField("Declaration")
 
 
-class BinaryComponent(BasicASTNode):
+class ModuleImpl(BasicASTNode):
     superclass = Implementation
+    decls = ReferenceListField("Declaration")
+
+
+class BinaryComponentImpl(BasicASTNode):
+    superclass = Implementation
+
+
+# This node was not present in original compiler.
+class ComponentsUses(BasicASTNode):
+    superclass = Declaration
+    components = ReferenceListField("ComponentRef")
 
 
 #==============================================================================
@@ -959,35 +950,43 @@ class BinaryComponent(BasicASTNode):
 
 class RpInterface(BasicASTNode):
     superclass = Declaration
-    required = BoolField()
-    decls = ReferenceListField("Declaration")
+    declarations = ReferenceListField("Declaration")
+
+
+class RequiresInterface(BasicASTNode):
+    superclass = RpInterface
+
+
+class ProvidesInterface(BasicASTNode):
+    superclass = RpInterface
 
 
 class InterfaceRef(BasicASTNode):
     superclass = Declaration
-    word1 = ReferenceField("Word")
-    args = ReferenceListField("Expression")
-    word2 = ReferenceField("Word")
-    gparms = ReferenceListField("Declaration")
+    name = ReferenceField("Word")
+    arguments = ReferenceListField("Expression")
+    alias = ReferenceField("Word")
+    genericParameters = ReferenceListField("Declaration")
     attributes = ReferenceListField("Attribute")
-    ddecl = ReferenceField("DataDeclaration")
+    ddecl = ReferenceField("DataDeclaration", constructor_variable=0)
 
 
 class ComponentRef(BasicASTNode):
     superclass = Declaration
-    word1 = ReferenceField("Word")
-    word2 = ReferenceField("Word")
+    name = ReferenceField("Word")
+    alias = ReferenceField("Word")
     isAbstract = BoolField()
-    args = ReferenceListField("Expression")
+    arguments = ReferenceListField("Expression")
     cdecl = ReferenceField("NescDeclaration", constructor_variable=0)
 
 
 class Connection(BasicASTNode):
     superclass = Declaration
-    ep1 = ReferenceField("EndPoint")
-    ep2 = ReferenceField("EndPoint")
+    endPoint1 = ReferenceField("EndPoint")
+    endPoint2 = ReferenceField("EndPoint")
 
 
+# requires/provides
 class RpConnection(BasicASTNode):
     superclass = Connection
 
@@ -1003,8 +1002,8 @@ class EndPoint(BasicASTNode):
 
 class ParameterisedIdentifier(BasicASTNode):
     superclass = Node
-    word1 = ReferenceField("Word")
-    args = ReferenceListField("Expression")
+    name = ReferenceField("Word")
+    arguments = ReferenceListField("Expression")
 
 
 #==============================================================================
@@ -1032,19 +1031,19 @@ class InterfaceRefDeclarator(BasicASTNode):
 
 class InterfaceDeref(BasicASTNode):
     superclass = Unary
-    cstring = ReferenceField("CString")
+    name = StringField()
     ddecl = ReferenceField("DataDeclaration")
 
 
 class ComponentDeref(BasicASTNode):
     superclass = Unary
-    cstring = ReferenceField("CString")
+    name = StringField()
     ddecl = ReferenceField("DataDeclaration")
 
 
 class ComponentTyperef(BasicASTNode):
     superclass = Typename
-    cstring = ReferenceField("CString")
+    name = StringField()
 
 
 class AtomicStmt(BasicASTNode):
@@ -1062,7 +1061,7 @@ class NxUnionRef(BasicASTNode):
 
 class NescAttribute(BasicASTNode):
     superclass = Attribute
-    arg1 = ReferenceField("Expression")
+    value = ReferenceField("Expression")
     tdecl = ReferenceField("TagDeclaration", constructor_variable=0)
 
 
@@ -1077,8 +1076,9 @@ class TargetAttribute(BasicASTNode):
 
 class TypeParmDecl(BasicASTNode):
     superclass = Declaration
-    cstring = ReferenceField("CString")
-    ddecl = ReferenceField("DataDeclaration")
+    name = StringField()
+    attributes = ReferenceListField("Attribute")
+    ddecl = ReferenceField("DataDeclaration", constructor_variable=0)
 
 
 class TypeArgument(BasicASTNode):

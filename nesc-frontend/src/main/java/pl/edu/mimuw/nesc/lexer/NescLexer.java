@@ -2,10 +2,7 @@ package pl.edu.mimuw.nesc.lexer;
 
 import com.google.common.base.Optional;
 import org.anarres.cpp.*;
-import pl.edu.mimuw.nesc.ast.CString;
-import pl.edu.mimuw.nesc.ast.gen.LexicalCst;
 import pl.edu.mimuw.nesc.parser.Symbol;
-import pl.edu.mimuw.nesc.parser.Value;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 
 import java.io.File;
@@ -13,6 +10,7 @@ import java.io.IOException;
 import java.util.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static pl.edu.mimuw.nesc.lexer.SymbolFactory.getSymbolCode;
 import static pl.edu.mimuw.nesc.parser.Parser.Lexer.*;
 
 /**
@@ -109,7 +107,7 @@ public final class NescLexer extends AbstractLexer {
     public Symbol nextToken() throws pl.edu.mimuw.nesc.exception.LexerException {
         try {
             Symbol s = popSymbol();
-            //System.out.println(s.print());
+            System.out.println(s);
             return s;
             //return popSymbol();
         } catch (LexerException | IOException e) {
@@ -218,9 +216,17 @@ public final class NescLexer extends AbstractLexer {
          * Handle token which should produce parser token.
          */
 
-        builder.line(token.getLine())
-                .column(token.getColumn() + 1)
-                .file(getCurrentFile());
+        builder.file(getCurrentFile())
+                .line(token.getLine())
+                .column(token.getColumn() + 1);
+        /*
+         * XXX: generally endColumn should looks like:
+         *     token.getColumn() +   1 + (token.text().length() - 1)
+         *     ^                     ^                  ^
+         *     token start position  |                  |
+         *               jcpp starts counting from 0    |
+         *                both range ends are inclusive, subtract one from token length
+         */
 
         switch (token.getType()) {
             case Token.IDENTIFIER:
@@ -272,17 +278,24 @@ public final class NescLexer extends AbstractLexer {
          * Split '@name' token into two tokens AT(@) and IDENTIFIER (name).
          */
         if (text.charAt(0) != '@') {
-            final int code = SymbolFactory.getSymbolCode(text);
+            final int code = getSymbolCode(text);
             builder.symbolCode(code)
-                    .value(new Value.IdToken(text));
+                    .value(text)
+                    .endLine(token.getLine())
+                    .endColumn(token.getColumn() + text.length());
         } else {
-            builder.symbolCode(AT);
+            builder.symbolCode(AT)
+                    .endLine(token.getLine())
+                    .endColumn(token.getColumn() + 1);
 
             final String identifier = text.substring(1);
             final Symbol idSymbol = Symbol.builder()
-                    .value(new Value.IdToken(identifier))
+                    .value(identifier)
+                    .file(getCurrentFile())
                     .line(token.getLine())
-                    .column(token.getColumn() + 1)
+                    .column(token.getColumn() + 1)  // +1 for @
+                    .endLine(token.getLine())
+                    .endColumn(token.getColumn() + text.length())
                     .build();
             pushSymbol(idSymbol);
         }
@@ -290,49 +303,39 @@ public final class NescLexer extends AbstractLexer {
 
     private void lexNumber(Token token, Symbol.Builder builder) {
         final NumericValue numeric = (NumericValue) token.getValue();
-        final String text = token.getText();
 
-        /*
-         * Negative number value recognized. Should be split into two separate
-         * tokens: minus and number value.
-         */
-        if (text.charAt(0) == '-') {
-            builder.symbolCode(MINUS);
-
-            final String numberString = text.substring(1);
-            final Symbol numberSymbol = Symbol.builder()
-                    .symbolCode(INTEGER_LITERAL)
-                    .file(getCurrentFile())
-                    .column(token.getColumn() + 1)
-                    .line(token.getLine())
-                    .value(new LexicalCst(null, new CString(numberString)))
-                    .build();
-            pushSymbol(numberSymbol);
-        } else {
-            // FIXME distinguish between int and double or unify those two literals
-            // TODO remove CString AST node
-            builder.symbolCode(INTEGER_LITERAL)
-                    .value(new LexicalCst(null, new CString(numeric.toString())));
-        }
+        // FIXME distinguish between int and double or unify those two literals
+        builder.symbolCode(INTEGER_LITERAL)
+                .value(numeric.toString())
+                .endLine(token.getLine())
+                .endColumn(token.getColumn() + token.getText().length());
     }
 
-    private void lexString(Token token, Symbol.Builder builder) {
+    private void lexString(Token token, Symbol.Builder builder) throws IOException, LexerException {
         final String string = (String) token.getValue();
+
         builder.symbolCode(STRING_LITERAL)
-                .value(string);
+                .value(string)
+                .endLine(token.getLine())
+                .endColumn(token.getColumn() + token.getText().length());
+        // FIXME: end location, string literal may be broken by backslash!
+        // TODO: get next token location and subtract one from column (line the same)
+        // currently preprocessor does not handle backslashes properly
     }
 
     private void lexCharacter(Token token, Symbol.Builder builder) {
         final String character = (String) token.getValue();
         builder.symbolCode(CHARACTER_LITERAL)
-                .value(new LexicalCst(null, new CString(character)));
+                .value(character)
+                .endLine(token.getLine())
+                .endColumn(token.getColumn() + token.getText().length());
     }
 
     private void handleComment(Token token) {
         final Comment comment = Comment.builder()
+                .file(getCurrentFile())
                 .line(token.getLine())
                 .column(token.getColumn())
-                .file(getCurrentFile())
                 .body(token.getText())
                 .isC(token.getType() == Token.CCOMMENT)
                 .build();
@@ -343,7 +346,7 @@ public final class NescLexer extends AbstractLexer {
     }
 
     private void lexOtherToken(Token token, Symbol.Builder builder) throws IOException, LexerException {
-        final int code = SymbolFactory.getSymbolCode(token.getType());
+        final int code = getSymbolCode(token.getType());
         if (code == SymbolFactory.UNKNOWN_TOKEN) {
             throw new IllegalArgumentException("Unknown token " + code);
         }
@@ -352,16 +355,22 @@ public final class NescLexer extends AbstractLexer {
          */
         if (code == LT) {
             final Token next = popToken();
-            final int nextCode = SymbolFactory.getSymbolCode(next.getType());
+            final int nextCode = getSymbolCode(next.getType());
 
             if (nextCode == MINUS) {
-                builder.symbolCode(LEFT_ARROW);
+                builder.symbolCode(LEFT_ARROW)
+                        .endLine(token.getLine())
+                        .endColumn(token.getColumn() + 2);
             } else {
-                builder.symbolCode(LT);
+                builder.symbolCode(LT)
+                        .endLine(token.getLine())
+                        .endColumn(token.getColumn() + 1);
                 pushToken(next);
             }
         } else {
-            builder.symbolCode(code);
+            builder.symbolCode(code)
+                    .endLine(token.getLine())
+                    .endColumn(token.getColumn() + token.getText().length());
         }
     }
 
@@ -517,8 +526,8 @@ public final class NescLexer extends AbstractLexer {
         }
 
         @Override
-        public void handleMacroExpansion(Source tokens, int i, int i2, String s) {
-            // TODO
+        public void handleMacroExpansion(Source source, int line, int column, String macro) {
+            System.out.println("MACRO expansion " + line + ", " + column + "; " + macro);
         }
 
         private void notifyFileChange(String from, String to, boolean push) {

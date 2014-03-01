@@ -4,7 +4,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.LinkedList;
 
-import pl.edu.mimuw.nesc.ast.CString;
 import pl.edu.mimuw.nesc.ast.Environment;
 import pl.edu.mimuw.nesc.ast.KnownCst;
 import pl.edu.mimuw.nesc.ast.Location;
@@ -49,28 +48,11 @@ import pl.edu.mimuw.nesc.common.util.list.Lists;
  */
 public final class Semantics {
 
-	public static SemanticState current = new SemanticState();
-
-	private static final Environment globalEnvironment;
-
-	static {
-		globalEnvironment = new Environment(null, true, true);
-	}
-
-	/**
-	 * Returns global environment.
-	 * 
-	 * @return global environment
-	 */
-	public static Environment getGlobalEnvironment() {
-		return globalEnvironment;
-	}
-
 	public static Declarator finishArrayOrFnDeclarator(Declarator nested,
 			NestedDeclarator declarator) {
 		checkNotNull(nested);
 		checkNotNull(declarator);
-		
+
 		declarator.setDeclarator(nested);
 		return declarator;
 	}
@@ -111,25 +93,6 @@ public final class Semantics {
 		FunctionDecl fn = null;
 		// TODO
 		return fn;
-	}
-
-	/**
-	 * Start a new scope.
-	 * 
-	 * @param parmLevel
-	 */
-	public static void pushlevel(boolean parmLevel) {
-		Environment parent = current.peekEnv();
-		current.pushEnv(new Environment(parent, parmLevel, false));
-	}
-
-	/**
-	 * Pop back to enclosing scope
-	 * 
-	 * @return
-	 */
-	public static Environment poplevel() {
-		return current.popEnv();
 	}
 
 	/*
@@ -182,27 +145,15 @@ public final class Semantics {
 		Location location = (declarator != null) ? declarator.getLocation()
 				: elements.get(0).getLocation();
 		VariableDecl variableDecl = new VariableDecl(location, declarator,
-				attributes, null, null, null);
+				attributes, null, null);
 		DataDecl dataDecl = new DataDecl(location, elements,
 				Lists.<Declaration> newList(variableDecl));
 		// TODO
 		return dataDecl;
 	}
 
-	/**
-	 * Allow parameters to be redeclared. mark_forward should be TRUE if these
-	 * are "forward" parameter declarations (gcc extension).
-	 * 
-	 * @param parms
-	 * @param mark_Forward
-	 */
-	public static void allowParameterRedeclaration(
-			LinkedList<Declaration> parms, boolean mark_Forward) {
-		// TODO
-	}
-
 	public static OldIdentifierDecl declareOldParameter(Location location,
-			CString id) {
+			String id) {
 		OldIdentifierDecl decl = new OldIdentifierDecl(location, id, null);
 		// TODO
 		return decl;
@@ -301,7 +252,7 @@ public final class Semantics {
 		return new FieldDecl(location, declarator, atributes, bitfield);
 	}
 
-	public static Enumerator makeEnumerator(Location location, CString id,
+	public static Enumerator makeEnumerator(Location location, String id,
 			Expression value) {
 		Enumerator ast = null;
 		// TODO
@@ -324,6 +275,8 @@ public final class Semantics {
 				: declarator.getLocation();
 
 		AstType type = new AstType(location, declarator, elements);
+        // FIXME
+        type.setEndLocation(Location.getDummyLocation());
 		// TODO
 		return type;
 	}
@@ -352,103 +305,17 @@ public final class Semantics {
 		return l1;
 	}
 
-	/*
-	 * TODO void declarator_name(declarator d, const char **oname, const char
-	 * **iname); const char *nice_declarator_name(declarator d);
-	 */
-
-	public static DataDeclaration implicitlyDeclare(Identifier fnid) {
-		// TODO
-		return null;
-	}
-
-	public static void pushLabelLevel() {
-		// TODO
-	}
-
-	public static void popLabelLevel() {
-		// TODO
-	}
-
-	public static void initDataDeclaration(DataDeclaration dd, Declaration ast,
-			String name, Type t) {
-		// TODO
-	}
-
-	public static Declarator finishFunctionDeclarator(
-			FunctionDeclarator declarator) {
-		// TODO
-
-		return declarator;
-	}
-
 	public static Declarator makePointerDeclarator(Location location,
 			Declarator declarator, LinkedList<TypeElement> quals) {
 		declarator = new QualifiedDeclarator(location, declarator, quals);
 		return new PointerDeclarator(location, declarator);
 	}
 
-	public static int duplicateDecls(DataDeclaration newdecl,
-			DataDeclaration olddecl, boolean differentBindingLevel,
-			boolean newinitialised) {
-		// TODO
-		return 0;
-	}
-
-	public static void checkVariableScflags(StorageFlag scf, Location location,
-			String kind, String name) {
-		// TODO scf - enumset
-		// TODO
-	}
-
-	public static void parseDeclarator(LinkedList<TypeElement> modifiers,
-			Declarator d, boolean bitfield, boolean requireParmNames,
-			Integer oclass, StorageFlag oscf, String[] ointf, String[] oname,
-			Type ot, Boolean owarnDefaultedInt,
-			FunctionDeclarator ofunction_declarator,
-			LinkedList<Attribute> oattributes) {
-		// TODO oclass, ocsf <- out params, oscf should be EnumSet
-		// TODO
-	}
-
-	public static void checkArraySize(Expression size, String printName) {
-		// TODO
-	}
-
-	public static void layoutEnumStart(TagDeclaration tdecl) {
-		// TODO
-	}
-
-	public static void layoutEnumEnd(TagDeclaration tdecl) {
-		// TODO
-	}
-
-	public static KnownCst layoutEnumValue(Enumerator e) {
-		// TODO
-		return null;
-	}
-
-	public static void layoutStruct(TagDeclaration tdecl) {
-		// TODO
-	}
-
-	public static String tagkindName(int tagkind) {
-		// TODO
-		// FIXME int -> enum
-		return null;
-	}
-
-	public static boolean handleModeattribute(Location location,
-			DataDeclaration ddecl, String mode) {
-		// TODO
-		return false;
-	}
-
 	/*
 	 * Make "word" argument of attributes into an expression
 	 */
 	public static LinkedList<Expression> makeAttrArgs(Location location,
-			CString id, LinkedList<Expression> args) {
+                                                      String id, LinkedList<Expression> args) {
 		// args may be null
 		// FIXME bad_decl
 		Identifier identifier = new Identifier(location, id, null);
@@ -459,16 +326,6 @@ public final class Semantics {
 			args = Lists.<Expression>newList(identifier);
 		}
 		return args;
-	}
-
-	public static DataDeclaration declareBuiltinType(String name, Type t) {
-		// TODO
-		return null;
-	}
-
-	private static LinkedList<Attribute> checkParameter(DataDeclaration dd,
-			LinkedList<TypeElement> elements, VariableDecl vd) {
-		return null;
 	}
 
 	private static TagRef makeTagRef(Location location, StructKind structKind,

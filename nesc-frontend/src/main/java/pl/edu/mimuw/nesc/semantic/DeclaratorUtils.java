@@ -84,7 +84,7 @@ public final class DeclaratorUtils {
 
 		@Override
 		public String visitIdentifierDeclarator(IdentifierDeclarator elem, Void arg) {
-			return elem.getCstring().getData();
+			return elem.getName();
 		}
 
 		@Override
@@ -94,7 +94,7 @@ public final class DeclaratorUtils {
 
 		@Override
 		public String visitInterfaceRefDeclarator(InterfaceRefDeclarator elem, Void arg) {
-			return elem.getWord1().getCstring().getData();
+			return elem.getWord1().getName();
 		}
 
 	}

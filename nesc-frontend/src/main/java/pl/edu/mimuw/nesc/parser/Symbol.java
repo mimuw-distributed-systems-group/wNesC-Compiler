@@ -1,7 +1,7 @@
 package pl.edu.mimuw.nesc.parser;
 
+import com.google.common.base.Objects;
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.gen.LexicalCst;
 
 /**
  * <p>
@@ -13,164 +13,127 @@ import pl.edu.mimuw.nesc.ast.gen.LexicalCst;
  * </p>
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
- *
  */
 public class Symbol {
 
-	/**
-	 *
-	 * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
-	 *
-	 */
-	public static class Builder {
+    public static Builder builder() {
+        return new Builder();
+    }
 
-		private int symbolCode;
-		private int line;
-		private int column;
-		private String file;
-		private Object value;
+    private int symbolCode;
+    private final Location startLocation;
+    private final Location endLocation;
+    private final String value;
 
-		public Builder symbolCode(int symbolCode) {
-			this.symbolCode = symbolCode;
-			return this;
-		}
+    private Symbol(Builder builder) {
+        this.symbolCode = builder.symbolCode;
+        this.value = builder.value;
+        this.startLocation = new Location(builder.file, builder.line, builder.column);
+        this.endLocation = new Location(builder.file, builder.endLine, builder.endColumn);
+    }
 
-		public Builder line(int line) {
-			this.line = line;
-			return this;
-		}
+    public int getSymbolCode() {
+        return symbolCode;
+    }
 
-		public Builder column(int column) {
-			this.column = column;
-			return this;
-		}
+    public void setSymbolCode(int symbolCode) {
+        this.symbolCode = symbolCode;
+    }
 
-		public Builder file(String file) {
-			this.file = file;
-			return this;
-		}
+    public Location getLocation() {
+        return startLocation;
+    }
 
-		public Builder value(Object value) {
-			this.value = value;
-			return this;
-		}
+    public Location getEndLocation() {
+        return endLocation;
+    }
 
-		public Symbol build() {
-			return new Symbol(this);
-		}
+    public String getValue() {
+        return value;
+    }
 
-	}
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                .add("symbolCode", symbolCode)
+                .add("startLocation", startLocation)
+                .add("endLocation", endLocation)
+                .add("value", value)
+                .toString();
+    }
 
-	public static Builder builder() {
-		return new Builder();
-	}
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(symbolCode, startLocation, endLocation, value);
+    }
 
-	private int symbolCode;
-	private final int line;
-	private final int column;
-	private final String file;
-	private final Object value;
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final Symbol other = (Symbol) obj;
+        return Objects.equal(this.symbolCode, other.symbolCode)
+                && Objects.equal(this.startLocation, other.startLocation)
+                && Objects.equal(this.endLocation, other.endLocation)
+                && Objects.equal(this.value, other.value);
+    }
 
-	/**
-	 * Creates new symbol.
-	 *
-	 * @param symbolCode
-	 *            symbol code defined in {@link Parser}
-	 * @param line
-	 *            line
-	 * @param column
-	 *            Column
-	 * @param file
-	 *            source file
-	 * @param value
-	 *            value associated with token
-	 */
-	public Symbol(int symbolCode, int line, int column, String file, Object value) {
-		this.symbolCode = symbolCode;
-		this.line = line;
-		this.column = column;
-		this.file = file;
-		this.value = value;
-	}
+    /**
+     * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+     */
+    public static class Builder {
 
-	private Symbol(Builder builder) {
-		this.symbolCode = builder.symbolCode;
-		this.line = builder.line;
-		this.column = builder.column;
-		this.file = builder.file;
-		this.value = builder.value;
-	}
+        private int symbolCode;
+        private int line;
+        private int column;
+        private int endLine;
+        private int endColumn;
+        private String file;
+        private String value;
 
-	/**
-	 * Returns symbol code.
-	 *
-	 * @return symbol code
-	 */
-	public int getSymbolCode() {
-		return symbolCode;
-	}
+        public Builder symbolCode(int symbolCode) {
+            this.symbolCode = symbolCode;
+            return this;
+        }
 
-	/**
-	 * Sets symbol code.
-	 *
-	 * @param symbolCode
-	 *            new symbol code
-	 */
-	void setSymbolCode(int symbolCode) {
-		this.symbolCode = symbolCode;
-	}
+        public Builder line(int line) {
+            this.line = line;
+            return this;
+        }
 
-	/**
-	 * Returns line number.
-	 *
-	 * @return line number
-	 */
-	public int getLine() {
-		return line;
-	}
+        public Builder column(int column) {
+            this.column = column;
+            return this;
+        }
 
-	/**
-	 * Returns column number.
-	 *
-	 * @return column number
-	 */
-	public int getColumn() {
-		return column;
-	}
+        public Builder endLine(int line) {
+            this.endLine = line;
+            return this;
+        }
 
-	/**
-	 * Returns file path which current token comes from.
-	 *
-	 * @return file path
-	 */
-	public String getFile() {
-		return file;
-	}
+        public Builder endColumn(int column) {
+            this.endColumn = column;
+            return this;
+        }
 
-	/**
-	 * Returns value associated with token.
-	 *
-	 * @return value
-	 */
-	public Object getValue() {
-		return value;
-	}
+        public Builder file(String file) {
+            this.file = file;
+            return this;
+        }
 
-	public Location getLocation() {
-		return new Location(file, line, column);
-	}
+        public Builder value(String value) {
+            this.value = value;
+            return this;
+        }
 
-	@Override
-	public String toString() {
-		return "#" + symbolCode;
-	}
+        public Symbol build() {
+            // TODO: verify?
+            return new Symbol(this);
+        }
 
-	public String print() {
-		Object v = value;
-		if (value instanceof LexicalCst) {
-			v = ((LexicalCst) value).getCstring().getData();
-		}
-		return "{" + symbolCode + " at (" + file + ", " + line + ", " + column + ") + [" + v + "]};";
-	}
-
+    }
 }

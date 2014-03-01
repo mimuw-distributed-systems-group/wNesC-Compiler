@@ -2,7 +2,6 @@ package pl.edu.mimuw.nesc.semantic;
 
 import java.util.LinkedList;
 
-import pl.edu.mimuw.nesc.ast.CString;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.Type;
 import pl.edu.mimuw.nesc.ast.gen.AstType;
@@ -37,24 +36,16 @@ public class Init {
 		// TODO
 	}
 
-	public static void push_init_level(int implicit) {
-		// TODO
-	}
-
 	public static Designator setInitIndex(Location location, Expression first, Expression last) {
 		Designator designator = new DesignateIndex(location, first, last);
 		// TODO
 		return designator;
 	}
 
-	public static Designator setInitLabel(Location location, CString fieldname) {
+	public static Designator setInitLabel(Location location, String fieldname) {
 		Designator designator = new DesignateField(location, fieldname);
 		// TODO
 		return designator;
-	}
-
-	public static void processInitElement(Expression value) {
-		// TODO
 	}
 
 	public static Expression makeInitSpecific(LinkedList<Designator> dlist, Expression initval) {
@@ -75,12 +66,6 @@ public class Init {
 		return initList;
 	}
 
-	public static Expression makeCastList(Location location, AstType type, Expression init) {
-		// TODO
-		return null;
-	}
-
 	private Init() {
-		throw new RuntimeException("Object of this class should never be created");
 	}
 }

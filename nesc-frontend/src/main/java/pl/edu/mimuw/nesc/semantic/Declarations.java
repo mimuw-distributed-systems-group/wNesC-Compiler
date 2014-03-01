@@ -25,12 +25,19 @@ import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
  */
 public class Declarations {
 
+    private static final ErrorDecl ERROR_DECLARATION;
+
+    static {
+        ERROR_DECLARATION = new ErrorDecl(Location.getDummyLocation());
+        ERROR_DECLARATION.setEndLocation(Location.getDummyLocation());
+    }
+
 	// TODO extern data_declaration bad_decl;
 
 	public static VariableDecl startDecl(Declarator declarator, AsmStmt asmStmt,
 			LinkedList<TypeElement> elements, boolean initialised, LinkedList<Attribute> attributes) {
 		VariableDecl variableDecl = new VariableDecl(declarator.getLocation(), declarator,
-				attributes, null, asmStmt, null);
+				attributes, null, asmStmt);
 		// TODO
 		return variableDecl;
 	}
@@ -55,12 +62,10 @@ public class Declarations {
 	}
 
 	public static ErrorDecl makeErrorDecl() {
-		ErrorDecl result = new ErrorDecl(null); // FIXME use "dummy_location"
-		return result;
+		return ERROR_DECLARATION;
 	}
 
 	private Declarations() {
-		throw new RuntimeException("Object of this class should never be created");
 	}
 
 }

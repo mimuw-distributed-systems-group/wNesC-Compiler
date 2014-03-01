@@ -2,7 +2,6 @@ package pl.edu.mimuw.nesc.semantic;
 
 import java.util.LinkedList;
 
-import pl.edu.mimuw.nesc.ast.CString;
 import pl.edu.mimuw.nesc.ast.LeftUnaryOperation;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.Type;
@@ -72,6 +71,14 @@ import pl.edu.mimuw.nesc.ast.gen.Unary;
  * 
  */
 public class Expressions {
+
+    private static final ErrorExpr ERROR_EXPRESSION;
+
+    static {
+        final Location errorLocation = new Location("", 0, 0);
+        ERROR_EXPRESSION = new ErrorExpr(errorLocation);
+        ERROR_EXPRESSION.setEndLocation(errorLocation);
+    }
 
 	/* Return TRUE if no error and lhstype and rhstype are not error_type */
 	public static boolean check_assignment(Type lhstype, Type rhstype,
@@ -348,7 +355,7 @@ public class Expressions {
 		return result;
 	}
 
-	public static Identifier makeIdentifier(Location location, CString id,
+	public static Identifier makeIdentifier(Location location, String id,
 			boolean maybeImplicit) {
 		Identifier result = new Identifier(location, id, null); // FIXME
 		// TODO
@@ -363,7 +370,7 @@ public class Expressions {
 	}
 
 	public static FieldRef makeFieldRef(Location location, Expression object,
-			CString field) {
+			String field) {
 		FieldRef result = new FieldRef(location, object, field);
 		// TODO
 		return result;
@@ -456,12 +463,11 @@ public class Expressions {
 		}
 	}
 
-	public static ErrorExpr makeErrorExpr() {
-		return new ErrorExpr(null); // FIXME dummy location
-	}
+    public static ErrorExpr makeErrorExpr() {
+        return ERROR_EXPRESSION;
+    }
 
-	private Expressions() {
-		throw new RuntimeException(
-				"Object of this class should never be created");
-	}
+    private Expressions() {
+    }
 }
+

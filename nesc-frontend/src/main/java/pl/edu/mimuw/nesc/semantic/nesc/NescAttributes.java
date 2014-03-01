@@ -1,67 +1,52 @@
 package pl.edu.mimuw.nesc.semantic.nesc;
 
-import java.util.LinkedList;
-
-import pl.edu.mimuw.nesc.ast.FieldDeclaration;
-import pl.edu.mimuw.nesc.ast.IValue;
-import pl.edu.mimuw.nesc.ast.NescDeclaration;
-import pl.edu.mimuw.nesc.ast.TagDeclaration;
-import pl.edu.mimuw.nesc.ast.Type;
-import pl.edu.mimuw.nesc.ast.datadeclaration.DataDeclaration;
-import pl.edu.mimuw.nesc.ast.gen.Attribute;
+import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
+import pl.edu.mimuw.nesc.ast.gen.InitList;
 import pl.edu.mimuw.nesc.ast.gen.NescAttribute;
 import pl.edu.mimuw.nesc.ast.gen.Word;
 
-public class NescAttributes {
+import java.util.LinkedList;
 
-	public static void InitNescAttributes() {
-		// TODO
-	}
+import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
+import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
 
-	public static NescAttribute startAttributeUse(Word name) {
-		NescAttribute attr = new NescAttribute(name.getLocation(), name, null);
-		// TODO
-		return attr;
-	}
+public final class NescAttributes {
 
-	public static Attribute finishAttributeUse(NescAttribute attr, LinkedList<Expression> init) {
-		// TODO
-		return null;
-	}
+    public static NescAttribute startAttributeUse(Word name) {
+        final NescAttribute attr = new NescAttribute(null, name, null);
 
-	/*
-	 * TODO define_internal_attriubte
-	 */
+        /*
+         * TODO: there is a nice trick to handle error recovery
+         * see: nesc-attributes.c#start_attribute_use
+         *
+         * Create new environment so that we can track whether this is a
+         * deputy scope or not. Using an environment makes it easy to
+         * recover parsing errors: we just call poplevel in the appropriate
+         * error production (see nattrib rules in c-parse.y).
+         */
 
-	/*
-	 * Returns: The initialiser for field name in attr, or NULL if it's not
-	 * found
-	 */
+        return attr;
+    }
 
-	public static IValue lookupAttributeField(NescAttribute attr, String name) {
-		// TODO
-		return null;
-	}
+    public static NescAttribute finishAttributeUse(Location startLocation, Location endLocation,
+                                                   NescAttribute attribute, LinkedList<Expression> initializer) {
 
-	public static void handleNescTypeAttribute(NescAttribute attr, Type t) {
-		// TODO
-	}
+        final Expression initList;
+        if (initializer.isEmpty()) {
+            initList = new InitList(Location.getDummyLocation(), initializer);
+        } else {
+            final Location initStartLocation = getStartLocation(initializer).get();
+            final Location initEndLocation = getEndLocation(initializer).get();
 
-	public static void handleNescDeclAttribute(NescAttribute attr, DataDeclaration ddecl) {
-		// TODO
-	}
+            initList = new InitList(initStartLocation, initializer);
+            initList.setEndLocation(initEndLocation);
+        }
 
-	public static void handleNescFieldAttribute(NescAttribute attr, FieldDeclaration fdecl) {
-		// TODO
-	}
-
-	public static void handleNescTagAttribute(NescAttribute attr, TagDeclaration tdecl) {
-		// TODO
-	}
-
-	public static void handleNescNescdeclAttribute(NescAttribute attr, NescDeclaration ndecl) {
-		// TODO
-	}
+        attribute.setValue(initList);
+        attribute.setLocation(startLocation);
+        attribute.setEndLocation(endLocation);
+        return attribute;
+    }
 
 }

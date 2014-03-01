@@ -1,13 +1,14 @@
 /* TODO: borrowed from..., licence, etc... */
 %code imports {
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.io.Files;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.common.FileType;
-import pl.edu.mimuw.nesc.common.SourceLanguage;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.lexer.TokenPrinter;
+import pl.edu.mimuw.nesc.parser.value.ValueBoolean;
 import pl.edu.mimuw.nesc.semantic.*;
 import pl.edu.mimuw.nesc.semantic.nesc.*;
 
@@ -16,7 +17,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static java.lang.String.format;
-import static pl.edu.mimuw.nesc.semantic.Semantics.current;
 }
 
 %define package {pl.edu.mimuw.nesc.parser}
@@ -40,21 +40,21 @@ import static pl.edu.mimuw.nesc.semantic.Semantics.current;
  * All identifiers that are not reserved words and are not declared typedefs
  * in the current block.
  */
-%token <Value.IdToken> IDENTIFIER
+%token <Symbol> IDENTIFIER
 
 /*
  * All identifiers that are declared typedefs in the current block. In some
  * contexts, they are treated just like IDENTIFIER, but they can also serve
  * as typespecs in declarations.
  */
-%token <Value.IdToken> TYPEDEF_NAME
+%token <Symbol> TYPEDEF_NAME
 
 /*
  * An identifier that is declared as a component reference in the current
  * block, and which is going to be used to refer to a typedef from the
  * component via the component-ref DOT identifier syntax.
  */
-%token <Value.IdToken> COMPONENTREF
+%token <Symbol> COMPONENTREF
 
 /*
  * Reserved words that specify storage class.
@@ -77,47 +77,47 @@ import static pl.edu.mimuw.nesc.semantic.Semantics.current;
  * Character or numeric constants. yylval is the node for the constant.
  * TODO: string or int/float/char ?
  */
-%token <LexicalCst> INTEGER_LITERAL
-%token <LexicalCst> FLOATING_POINT_LITERAL
-%token <LexicalCst> CHARACTER_LITERAL
-%token <String> STRING_LITERAL
+%token <Symbol> INTEGER_LITERAL
+%token <Symbol> FLOATING_POINT_LITERAL
+%token <Symbol> CHARACTER_LITERAL
+%token <Symbol> STRING_LITERAL
 
 /*
  * String constants in raw form.
  * TODO: What is MAGIC_STRING?
  */
-%token <Value.IdToken> MAGIC_STRING
+%token <Symbol> MAGIC_STRING
 
 /*
  * All kind of parentheses, operators, etc.
  */
-%token        LBRACK RBRACK
-%token        LPAREN RPAREN
-%token        LBRACE RBRACE
-%token        COLON SEMICOLON DOT COMMA
-%token        ARROW LEFT_ARROW AT QUESTION ELLIPSIS
-%token        STAR DIV MOD PLUS MINUS AND XOR OR TILDE NOT LSHIFT RSHIFT ANDAND OROR
-%token        LT GT LTEQ GTEQ EQEQ NOTEQ
-%token        EQ MULEQ DIVEQ MODEQ PLUSEQ MINUSEQ LSHIFTEQ RSHIFTEQ ANDEQ XOREQ OREQ
+%token <Symbol>   LBRACK RBRACK
+%token <Symbol>   LPAREN RPAREN
+%token <Symbol>   LBRACE RBRACE
+%token <Symbol>   COLON SEMICOLON DOT COMMA
+%token <Symbol>   ARROW LEFT_ARROW AT QUESTION ELLIPSIS
+%token <Symbol>   STAR DIV MOD PLUS MINUS AND XOR OR TILDE NOT LSHIFT RSHIFT ANDAND OROR
+%token <Symbol>   LT GT LTEQ GTEQ EQEQ NOTEQ
+%token <Symbol>   EQ MULEQ DIVEQ MODEQ PLUSEQ MINUSEQ LSHIFTEQ RSHIFTEQ ANDEQ XOREQ OREQ
 
 /* the reserved words */
 /* SCO include files test "ASM", so use something else. */
-%token        SIZEOF ENUM IF ELSE WHILE DO FOR SWITCH CASE DEFAULT
-%token        BREAK CONTINUE RETURN GOTO ASM_KEYWORD TYPEOF ALIGNOF
-%token        ATTRIBUTE EXTENSION LABEL
-%token        REALPART IMAGPART VA_ARG OFFSETOF
+%token <Symbol>   SIZEOF ENUM IF ELSE WHILE DO FOR SWITCH CASE DEFAULT
+%token <Symbol>   BREAK CONTINUE RETURN GOTO ASM_KEYWORD TYPEOF ALIGNOF
+%token <Symbol>   ATTRIBUTE EXTENSION LABEL
+%token <Symbol>   REALPART IMAGPART VA_ARG OFFSETOF
 
 /* the dispatching (fake) tokens */
-%token <Value.IToken> DISPATCH_C DISPATCH_NESC DISPATCH_PARM DISPATCH_TYPE
+%token <Symbol>   DISPATCH_C DISPATCH_NESC DISPATCH_PARM DISPATCH_TYPE
 
 /* nesC reserved words */
-%token <Value.IToken> ATOMIC USES INTERFACE COMPONENTS PROVIDES MODULE
-%token <Value.IToken> INCLUDES CONFIGURATION AS IMPLEMENTATION CALL
-%token <Value.IToken> SIGNAL POST GENERIC NEW
+%token <Symbol>   ATOMIC USES INTERFACE COMPONENTS PROVIDES MODULE
+%token <Symbol>   INCLUDES CONFIGURATION AS IMPLEMENTATION CALL
+%token <Symbol>   SIGNAL POST GENERIC NEW
 %token <Value.StructKindToken> NX_STRUCT NX_UNION STRUCT UNION
 /* words reserved for nesC's future. Some may never be used... */
-%token <Value.IToken> ABSTRACT COMPONENT EXTENDS
-%token <Value.IdToken> TARGET_ATTRIBUTE0 TARGET_ATTRIBUTE1 TARGET_DEF
+%token <Symbol>   ABSTRACT COMPONENT EXTENDS
+%token <Symbol>   TARGET_ATTRIBUTE0 TARGET_ATTRIBUTE1 TARGET_DEF
 
 /*
  * ========== Precedences and associativity ==========
@@ -202,13 +202,13 @@ import static pl.edu.mimuw.nesc.semantic.Semantics.current;
 %type <IdLabel> id_label
 %type <LinkedList<IdLabel>> maybe_label_decls label_decls label_decl
 %type <LinkedList<IdLabel>> identifiers_or_typenames
-%type <Value.IdToken> identifier type_parm
+%type <Symbol> identifier type_parm
 %type <Value.IExpr> if_prefix
 %type <Value.IStmts> stmt_or_labels
 %type <Value.IStmt> simple_if stmt_or_label
 %type <LeftUnaryOperation> unop
-%type <Value.IToken> extension TILDE NOT compstmt_start LBRACE SEMICOLON
-%type <Value.IToken> sizeof alignof
+%type <Symbol> extension compstmt_start
+%type <Symbol> sizeof alignof
 %type <Label> label
 %type <LinkedList<Statement>> stmts xstmts
 %type <Statement> compstmt_or_error compstmt
@@ -250,7 +250,7 @@ import static pl.edu.mimuw.nesc.semantic.Semantics.current;
 %type <LinkedList<TypeElement>> maybe_type_quals_attrs fn_quals
 %type <AstType> typename
 %type <Word> idword any_word tag
-%type <LinkedList<String>> fieldlist
+%type <LinkedList<Symbol>> fieldlist
 %type <Value.StructKindToken> structkind
 
 %type <NescCallKind> callkind
@@ -270,14 +270,15 @@ import static pl.edu.mimuw.nesc.semantic.Semantics.current;
 %type <Declaration> target_def
 %type <InterfaceRef> interface_ref interface_type
 %type <ComponentRef> component_ref component_ref2
-%type <LinkedList<ComponentRef>> component_list cuses
+%type <LinkedList<ComponentRef>> component_list
+%type <ComponentsUses> cuses
 %type <Connection> connection
-%type <LinkedList<Declaration>> configuration_decl
+%type <Declaration> configuration_decl
 %type <LinkedList<Declaration>> configuration_decls
 %type <EndPoint> endpoint
 %type <ParameterisedIdentifier> parameterised_identifier
 %type <Implementation> iconfiguration imodule
-%type <Boolean> generic
+%type <ValueBoolean> generic
 %type <Expression> generic_arg
 %type <LinkedList<Expression>> generic_arglist generic_args
 %type <Interface> interface
@@ -368,54 +369,22 @@ include_list:
 interface:
       ncheader INTERFACE idword
     {
-		// push new level regardless the interface is generic or not
+		/* Push new level regardless the interface is generic or not. */
 	    pushLevel(false);
-        NescSemantics.startNescEntity(SourceLanguage.INTERFACE, $3);
     }
-      interface_parms nesc_attributes
+      interface_parms nesc_attributes LBRACE datadef_list RBRACE
     {
-        Attributes.handleNescdeclAttributes($6, current.container);
-    }
-      LBRACE datadef_list RBRACE
-    {
-        Interface intf = new Interface(null, $6, $3, $9);
-        intf.setCdecl(current.container);
-
-        if (intf.getCdecl().isAbstract()) {
-            Semantics.poplevel();
-        }
+        final Interface iface = new Interface($2.getLocation(), $6, $3, $5, $8);
         popLevel();
-
-        $$ = intf;
+        $$ = iface;
     }
     ;
 
 interface_parms:
       /* empty */
-    {
-        $$ = Lists.<Declaration>newList();
-    }
+    { $$ = Lists.<Declaration>newList(); }
     | LT interface_parm_list GT
-    {
-        NescDeclaration intf = current.container;
-        intf.setParameters($2);
-        Environment env = current.isEnvEmpty() ? null : current.peekEnv();
-        intf.setParameterEnv(env);
-        $$ = $2;
-
-        // A new scope level is needed.
-        Semantics.pushlevel(false);
-        // The interface env counts as global.
-        Environment env2 = current.peekEnv();
-        env2.setGlobalLevel(true);
-        /*
-         * FIXME: in startNescEntity, at the top of current.env the
-         * Environment of newly created NescDeclaration is pushed.
-         * Why is it set in NescDeclaration once again?
-         */
-        // intf.setEnvironment(current.env.peek());
-        intf.setAbstract(true);
-    }
+    { $$ = $2; }
     ;
 
 interface_parm_list:
@@ -428,9 +397,12 @@ interface_parm_list:
 interface_parm:
       type_parm nesc_attributes
     {
-        final String paramName = $1.id.getData();
+        final String paramName = $1.getValue();
         addTypename(paramName);
-        $$ = NescSemantics.declareTypeParameter(null, $1.id, $2, null);
+        final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
+        final TypeParmDecl decl = new TypeParmDecl($1.getLocation(), paramName, $2);
+        decl.setEndLocation(endLocation);
+        $$ = decl;
     }
     ;
 
@@ -450,7 +422,6 @@ parameters:
       LBRACK
     {
         pushLevel(true);    // for parsing purposes
-        Semantics.pushlevel(true);
     }
       parameters1
     { $$ = $3; }
@@ -477,23 +448,15 @@ component:
 module:
       generic MODULE idword
     {
-    	// FIXME: push/pop level, the same for configuration
         pushLevel(false);   // FIXME parmlevel
-        NescSemantics.startNescEntity(SourceLanguage.COMPONENT, $3);
-        current.container.setAbstract($1);
     }
-      component_parms nesc_attributes
+      component_parms nesc_attributes LBRACE requires_or_provides_list RBRACE imodule
     {
-        Attributes.handleNescdeclAttributes($6, current.container);
-    }
-      LBRACE requires_or_provides_list RBRACE imodule
-    {
-        // FIXME all_tasks
-        LinkedList<Declaration> intfs =
-                Lists.<Declaration>chain(Lists.<Declaration>newList(), $9);
-        Component component = new Component(null, $6, $3, $1, $5, intfs, $11);
-        $$ = component;
+        final Location location = $1.getLocation() != null ? $1.getLocation() : $2.getLocation();
+        final Module module = new Module(location, $6, $3, $8, $10, $1.getValue(), $5);
+        module.setEndLocation($10.getEndLocation());
         popLevel();
+        $$ = module;
     }
     ;
 
@@ -501,74 +464,43 @@ configuration:
       generic CONFIGURATION idword
     {
         pushLevel(false);   // FIXME parmlevel
-        NescSemantics.startNescEntity(SourceLanguage.COMPONENT, $3);
-        current.container.setAbstract($1);
-        current.container.setConfiguration(true);
     }
-      component_parms nesc_attributes
+      component_parms nesc_attributes LBRACE requires_or_provides_list RBRACE iconfiguration
     {
-        Attributes.handleNescdeclAttributes($6, current.container);
-    }
-      LBRACE requires_or_provides_list RBRACE iconfiguration
-    {
-        Component component = new Component(null, $6, $3, $1, $5, $9, $11);
-        $$ = component;
+        final Location location = $1.getLocation() != null ? $1.getLocation() : $2.getLocation();
+        final Configuration configuration = new Configuration(location, $6, $3, $8, $10, $1.getValue(), $5);
+        configuration.setEndLocation($10.getEndLocation());
         popLevel();
+        $$ = configuration;
     }
     ;
 
 binary_component:
-      COMPONENT idword
+      COMPONENT idword nesc_attributes LBRACE requires_or_provides_list RBRACE
     {
-        NescSemantics.startNescEntity(SourceLanguage.COMPONENT, $2);
-    }
-      nesc_attributes
-    {
-        Attributes.handleNescdeclAttributes($4, current.container);
-    }
-      LBRACE requires_or_provides_list RBRACE
-    {
-        BinaryComponent dummy = new BinaryComponent(null,
-                NescComponents.startImplementation());
-        Component component = new Component(null, $4, $2, false, null, $7,
-                dummy);
+        final BinaryComponentImpl dummy = new BinaryComponentImpl(null);
+        final BinaryComponent component = new BinaryComponent($1.getLocation(), $3, $2, $5, dummy, false,
+                Lists.<Declaration>newList());
+        component.setEndLocation($6.getEndLocation());
         $$ = component;
     }
     ;
 
 generic:
       GENERIC
-    { $$ = true; }
+    { $$ = new ValueBoolean($1.getLocation(), $1.getEndLocation(), true); }
     | /* empty */
-    { $$ = false; }
+    { $$ = new ValueBoolean(Location.getDummyLocation(), Location.getDummyLocation(), false); }
     ;
 
 component_parms:
       /* empty */
     {
-        if (current.container.isAbstract()) {
-            //error("generic components require a parameter list");
-        }
         $$ = Lists.<Declaration>newList();
     }
     | LPAREN template_parms RPAREN
     {
-        NescDeclaration comp = current.container;
-        if (!comp.isAbstract()) {
-            //error("generic components require a parameter list");
-        }
-        comp.setParameters($2);
-        comp.setParameterEnv(current.isEnvEmpty() ? null : current.peekEnv());
         $$ = $2;
-
-        /*
-         * Only generic components need a new scope.
-         */
-        pushLevel(false);    // FIXME: too late, you fool!
-        Semantics.pushlevel(false);
-        Environment env = current.peekEnv();
-        env.setGlobalLevel(true);
-        comp.setEnvironment(env);
     }
     ;
 
@@ -605,31 +537,27 @@ template_parm:
       declspecs_ts xreferror after_type_declarator maybe_attribute
     {
         declareName($3, $1);
-        $$ = NescSemantics.declareTemplateParameter($3, $1, $4);
+        $$ = NescSemantics.declareTemplateParameter(Optional.of($3), $1, $4);
     }
     | declspecs_ts xreferror notype_declarator maybe_attribute
     {
         declareName($3, $1);
-        $$ = NescSemantics.declareTemplateParameter($3, $1, $4);
+        $$ = NescSemantics.declareTemplateParameter(Optional.of($3), $1, $4);
     }
     | declspecs_nots xreferror notype_declarator maybe_attribute
     {
         declareName($3, $1);
-        $$ = NescSemantics.declareTemplateParameter($3, $1, $4);
+        $$ = NescSemantics.declareTemplateParameter(Optional.of($3), $1, $4);
     }
     | declspecs_ts xreferror
     {
-        // TODO: what we are supposed to do?
-        $$ = NescSemantics.declareTemplateParameter(null, $1, null);
+        $$ = NescSemantics.declareTemplateParameter(Optional.<Declarator>absent(), $1, Lists.<Attribute>newList());
     }
     ;
 
 requires_or_provides_list:
       requires_or_provides_list_
-    {
-        current.specSection = SemanticState.SpecSection.NORMAL;
-        $$ = $1;
-    }
+    { $$ = $1; }
     ;
 
 requires_or_provides_list_:
@@ -645,29 +573,36 @@ requires_or_provides:
     | provides
     { $$ = Lists.<Declaration>newList($1); }
     |
-    { current.specSection = SemanticState.SpecSection.NORMAL; }
       just_datadef
     {
-        // TODO check if null
-        $$ = Lists.<Declaration>newList($2);
+        // TODO check if null?
+        if ($1 == null) {
+            $$ = Lists.<Declaration>newList();
+        } else {
+            $$ = Lists.<Declaration>newList($1);
+        }
     }
     ;
 
 requires:
-      USES
-    { current.specSection = SemanticState.SpecSection.USES; }
-      parameterised_interface_list
+      USES parameterised_interface_list
     {
-        $$ = new RpInterface(null, true, $3);
+        final RequiresInterface requires = new RequiresInterface($1.getLocation(), $2);
+        // list maybe empty (erroneous but possible case)
+        final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), AstUtils.getEndLocation($2));
+        requires.setEndLocation(endLocation);
+        $$ = requires;
     }
     ;
 
 provides:
-      PROVIDES
-    { current.specSection = SemanticState.SpecSection.PROVIDES; }
-      parameterised_interface_list
+      PROVIDES parameterised_interface_list
     {
-        $$ = new RpInterface(null, false, $3);
+        final ProvidesInterface provides = new ProvidesInterface($1.getLocation(), $2);
+        // list maybe empty (erroneous but possible case)
+        final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), AstUtils.getEndLocation($2));
+        provides.setEndLocation(endLocation);
+        $$ = provides;
     }
     ;
 
@@ -690,17 +625,16 @@ parameterised_interface:
     { $$ = $1; }
     | interface_ref nesc_attributes SEMICOLON
     {
-        Environment env = current.isEnvEmpty() ? null : current.peekEnv();
-        NescComponents.declareInterfaceRef($1, null, env, $2);
+        NescComponents.declareInterfaceRef($1, Lists.<Declaration>newList(), $2);
+        $1.setEndLocation($3.getEndLocation());
         $$ = $1;
     }
     | interface_ref parameters nesc_attributes SEMICOLON
     {
-        $1.setGparms($2);
-        popLevel();        // for parsing purposes
-        Semantics.poplevel();
-        Environment env = current.isEnvEmpty() ? null : current.peekEnv();
-        NescComponents.declareInterfaceRef($1, $2, env, $3);
+        NescComponents.declareInterfaceRef($1, $2, $3);
+        $1.setEndLocation($4.getEndLocation());
+        // NOTICE: corresponding pushLevel() called in parameters
+        popLevel();
         $$ = $1;
     }
     ;
@@ -710,7 +644,8 @@ interface_ref:
     { $$ = $1; }
     | interface_type AS idword
     {
-        $1.setWord2($3);
+        $1.setAlias($3);
+        $1.setEndLocation($3.getEndLocation()); // maybe updated in higher productions
         $$ = $1;
     }
     ;
@@ -718,19 +653,22 @@ interface_ref:
 interface_type:
       INTERFACE idword
     {
-        requireInterface($2.getCstring().getData());
-        $$ = new InterfaceRef(null, $2, Lists.<Expression>newList(), null,
-                Lists.<Declaration>newList(), Lists.<Attribute>newList(),
-                null);
+        requireInterface($2.getName());
+        final InterfaceRef ifaceRef = new InterfaceRef($1.getLocation(), $2, Lists.<Expression>newList(), null,
+                Lists.<Declaration>newList(), Lists.<Attribute>newList());
+        ifaceRef.setEndLocation($2.getEndLocation());   // maybe updated in higher productions
+        $$ = ifaceRef;
     }
     | INTERFACE idword
     {
-        requireInterface($2.getCstring().getData());
+        requireInterface($2.getName());
     }
       LT typelist GT
     {
-        $$ = new InterfaceRef(null, $2, $5, null, Lists.<Declaration>newList(),
-                Lists.<Attribute>newList(), null);
+        final InterfaceRef ifaceRef = new InterfaceRef($1.getLocation(), $2, $5, null, Lists.<Declaration>newList(),
+                Lists.<Attribute>newList());
+        ifaceRef.setEndLocation($6.getEndLocation());   // maybe updated in higher productions
+        $$ = ifaceRef;
     }
     ;
 
@@ -742,17 +680,22 @@ typelist:
     ;
 
 iconfiguration:
-      IMPLEMENTATION
-    { $<Environment>$ = NescComponents.startImplementation(); }
-      LBRACE configuration_decls RBRACE
+      IMPLEMENTATION LBRACE configuration_decls RBRACE
     {
-        $$ = new Configuration(null, $<Environment>2, $4);
+        // FIXME $3
+        final ConfigurationImpl impl = new ConfigurationImpl($1.getLocation(), Lists.<Declaration>newList());
+        impl.setEndLocation($4.getEndLocation());
+        $$ = impl;
     }
     ;
 
 cuses:
       COMPONENTS component_list SEMICOLON
-    { $$ = $2; }
+    {
+        final ComponentsUses cuses = new ComponentsUses($1.getLocation(), $2);
+        cuses.setEndLocation($3.getEndLocation());
+        $$ = cuses;
+    }
     ;
 
 component_list:
@@ -765,28 +708,34 @@ component_list:
 component_ref:
       component_ref2
     {
-        requireComponent($1.getWord1().getCstring().getData());
-        /* Put component alias into parser's symbol table. */
-        final String componentAlias = $1.getWord1().getCstring().getData();
+        requireComponent($1.getName().getName());
+        /* Put component's name into parser's symbol table. */
+        final String componentAlias = $1.getName().getName();
         addComponentRef(componentAlias);
-        $$ = NescConfiguration.requireComponent($1, null);
     }
     | component_ref2 AS idword
     {
-        requireComponent($1.getWord1().getCstring().getData());
-        /* Put component alias into parser's symbol table. */
-        final String componentAlias = $3.getCstring().getData();
+        requireComponent($1.getName().getName());
+        /* Put component's alias into parser's symbol table. */
+        final String componentAlias = $3.getName();
         addComponentRef(componentAlias);
-        $$ = NescConfiguration.requireComponent($1, $3);
+        $1.setEndLocation($3.getEndLocation());
     }
     ;
 
 component_ref2:
       idword
-    { $$ = new ComponentRef(null, $1, null, false,
-            Lists.<Expression>newList()); }
+    {
+        final ComponentRef ref = new ComponentRef($1.getLocation(), $1, null, false, Lists.<Expression>newList());
+        ref.setEndLocation($1.getEndLocation());   // maybe updated in higher productions
+        $$ = ref;
+    }
     | NEW idword LPAREN generic_args RPAREN
-    { $$ = new ComponentRef(null, $2, null, true, $4); }
+    {
+        final ComponentRef ref = new ComponentRef($1.getLocation(), $2, null, true, $4);
+        ref.setEndLocation($5.getEndLocation());   // maybe updated in higher productions
+        $$ = ref;
+    }
     ;
 
 generic_args:
@@ -798,7 +747,7 @@ generic_args:
 
 generic_arglist:
       generic_arg
-    { $$ = Lists.<Expression>newList(); }
+    { $$ = Lists.<Expression>newList($1); }
     | generic_arglist COMMA generic_arg
     { $$ = Lists.<Expression>chain($1, $3); }
     ;
@@ -818,6 +767,7 @@ generic_type:
     { $$ = NescSemantics.makeTypeArgument($1); }
     ;
 
+// FIXME
 configuration_decls:
       configuration_decls configuration_decl
     { $$ = Lists.<Declaration>chain($1, $2); }
@@ -827,22 +777,20 @@ configuration_decls:
 
 configuration_decl:
       connection
-    { $$ = Lists.<Declaration>newList($1); }
+    { $$ = $1; }
     | just_datadef
-    // FIXME
-    //{ $$ = Lists.<Declaration>newList($1); }
-    { $$ = Lists.<Declaration>newList(); }
+    { $$ = $1; }
     | cuses
-    { $$ = Lists.<ComponentRef, Declaration>convert($1); }
+    { $$ = $1; }
     ;
 
 connection:
       endpoint EQ endpoint SEMICOLON
-    { $$ = new EqConnection(null, $1, $3); }
+    { $$ = new EqConnection($1.getLocation(), $1, $3); }
     | endpoint ARROW endpoint SEMICOLON
-    { $$ = new RpConnection(null, $3, $1); }
+    { $$ = new RpConnection($1.getLocation(), $1, $3); }
     | endpoint LEFT_ARROW endpoint SEMICOLON
-    { $$ = new RpConnection(null, $1, $3); }
+    { $$ = new RpConnection($1.getLocation(), $3, $1); }
     ;
 
 endpoint:
@@ -852,7 +800,7 @@ endpoint:
         $$ = $1;
     }
     | parameterised_identifier
-    { $$ = new EndPoint(null, Lists.<ParameterisedIdentifier>newList($1)); }
+    { $$ = new EndPoint($1.getLocation(), Lists.<ParameterisedIdentifier>newList($1)); }
     ;
 
 parameterised_identifier:
@@ -863,13 +811,13 @@ parameterised_identifier:
     ;
 
 imodule:
-      IMPLEMENTATION
+      IMPLEMENTATION LBRACE extdefs RBRACE
     {
-        $<Environment>$ = NescComponents.startImplementation();
-        // TODO all_tasks = null
+        // FIXME $3
+        final ModuleImpl impl = new ModuleImpl($1.getLocation(), Lists.<Declaration>newList());
+        impl.setEndLocation($4.getEndLocation());
+        $$ = impl;
     }
-    LBRACE extdefs RBRACE
-    { $$ = new Module(null, $<Environment>2, $4); }
     ;
 
 /* the reason for the strange actions in this rule
@@ -879,7 +827,7 @@ can find a valid list of type and sc specs in $0. */
 extdefs:
     {
         $<TypeElement>$ = null;
-        $<LinkedList>$ = Lists.<TypeElement> newList();
+        $<LinkedList>$ = Lists.<TypeElement>newList();
         wasTypedef = false;
     }
     extdef
@@ -890,7 +838,7 @@ extdefs:
     | extdefs
     {
         $<TypeElement>$ = null;
-        $<LinkedList>$ = Lists.<TypeElement> newList();
+        $<LinkedList>$ = Lists.<TypeElement>newList();
         wasTypedef = false;
     }
     extdef
@@ -995,7 +943,7 @@ fndef2:
     {
           // TODO
           $$ = Semantics.finishFunction($6);
-          //popLevel();
+          //popLevel();     // FIXME: to pop or not to pop? test it.
           popDeclspecStack();
     }
     ;
@@ -1009,12 +957,20 @@ identifier:
 
 id_label:
       identifier
-    { $$ = new IdLabel(null, $1.id); }
+    {
+        final IdLabel label = new IdLabel($1.getLocation(), $1.getValue());
+        label.setEndLocation($1.getEndLocation());
+        $$ = label;
+    }
     ;
 
 idword:
       identifier
-    { $$ = new Word(null, $1.id); }
+    {
+        final Word id = new Word($1.getLocation(), $1.getValue());
+        id.setEndLocation($1.getEndLocation());
+        $$ = id;
+    }
     ;
 
 unop:
@@ -1296,19 +1252,19 @@ primary:
       IDENTIFIER
     {
         // FIXME first and third argument.
-        $$ = Expressions.makeIdentifier(null, $1.id, true);
+        $$ = Expressions.makeIdentifier(null, $1.getValue(), true);
     }
     | INTEGER_LITERAL
     {
-        $$ = $1;
+        $$ = new LexicalCst($1.getLocation(), $1.getValue());
     }
     | FLOATING_POINT_LITERAL
     {
-        $$ = $1;
+        $$ = new LexicalCst($1.getLocation(), $1.getValue());
     }
     | CHARACTER_LITERAL
     {
-        $$ = $1;
+        $$ = new LexicalCst($1.getLocation(), $1.getValue());
     }
     | string
     {
@@ -1330,17 +1286,17 @@ primary:
     | function_call
     {
     	// FIXME
-    	$$ = Expressions.makeIdentifier(null, new CString("fixme"), true);
+    	$$ = Expressions.makeIdentifier(null, "fixme", true);
     }
     | VA_ARG LPAREN expr_no_commas COMMA typename RPAREN
     {
     	// FIXME
-    	$$ = Expressions.makeIdentifier(null, new CString("fixme"), true);
+    	$$ = Expressions.makeIdentifier(null, "fixme", true);
     }
     | OFFSETOF LPAREN typename COMMA fieldlist RPAREN
     {
     	// FIXME
-    	$$ = Expressions.makeIdentifier(null, new CString("fixme"), true);
+    	$$ = Expressions.makeIdentifier(null, "fixme", true);
     }
     | primary LBRACK nonnull_exprlist RBRACK
     {
@@ -1349,12 +1305,12 @@ primary:
     }
     | primary DOT identifier
     {
-        $$ = Expressions.makeFieldRef(null, $1, $3.id);
+        $$ = Expressions.makeFieldRef(null, $1, $3.getValue());
     }
     | primary ARROW identifier
     {
         Expression dereference = Expressions.makeDereference(null, $1);
-        $$ = Expressions.makeFieldRef(null, dereference, $3.id);
+        $$ = Expressions.makeFieldRef(null, dereference, $3.getValue());
     }
     | primary PLUSPLUS
     {
@@ -1368,9 +1324,9 @@ primary:
 
 fieldlist:
       identifier
-    { $$ = Lists.<String>newList($1.id.getData()); }
+    { $$ = Lists.<Symbol>newList($1); }
     | fieldlist DOT identifier
-    { $$ = Lists.chain($1, $3.id.getData()); }
+    { $$ = Lists.chain($1, $3); }
     ;
 
 //TODO : set first argument (location).
@@ -1383,7 +1339,7 @@ string:
       string_chain
     { $$ = $1; }
     | MAGIC_STRING
-    { $$ = Expressions.makeIdentifier(null, $1.id, false); }
+    { $$ = Expressions.makeIdentifier(null, $1.getValue(), false); }
   ;
 
 /*
@@ -1950,7 +1906,10 @@ type_spec_nonreserved_nonattr:
       TYPEDEF_NAME
     {
         // FIXME 1. 2.
-        $$ = new Typename(null, null);
+        final Typename typename = new Typename($1.getLocation(), null);
+        typename.setEndLocation($1.getEndLocation());
+        $$ = typename;
+
     }
     | COMPONENTREF DOT identifier
     {
@@ -2132,15 +2091,15 @@ target_attribute:
 restricted_expr:
       INTEGER_LITERAL
     {
-        $$ = $1;
+        $$ = new LexicalCst($1.getLocation(), $1.getValue());
     }
     | FLOATING_POINT_LITERAL
     {
-        $$ = $1;
+        $$ = new LexicalCst($1.getLocation(), $1.getValue());
     }
     | CHARACTER_LITERAL
     {
-        $$ = $1;
+        $$ = new LexicalCst($1.getLocation(), $1.getValue());
     }
     | string
     { $$ = $1; }
@@ -2155,7 +2114,13 @@ attribute_list:
         $$ = Lists.<Attribute>newListEmptyOnNull($1);
     }
     | attribute_list COMMA attrib
-    { $$ = Lists.chainNotNull($1, $3); }
+    {
+        if ($3 == null) {
+            $$ = $1;
+        } else {
+            $$ = Lists.chain($1, $3);
+        }
+    }
     ;
 
 attrib:
@@ -2166,12 +2131,12 @@ attrib:
     | any_word LPAREN IDENTIFIER RPAREN
     {
         $$ = new GccAttribute(null, $1,
-                Semantics.makeAttrArgs(null, $3.id, null));
+                Semantics.makeAttrArgs(null, $3.getValue(), null));
     }
     | any_word LPAREN IDENTIFIER COMMA nonnull_exprlist RPAREN
     {
         $$ = new GccAttribute(null, $1,
-                Semantics.makeAttrArgs(null, $3.id, $5));
+                Semantics.makeAttrArgs(null, $3.getValue(), $5));
     }
     | any_word LPAREN exprlist RPAREN
     {
@@ -2182,11 +2147,11 @@ attrib:
 nattrib:
       AT nastart LPAREN initlist_maybe_comma RPAREN
     {
-        $$ = NescAttributes.finishAttributeUse($2, $4);
+        $$ = NescAttributes.finishAttributeUse($1.getLocation(), $5.getEndLocation(), $2, $4);
     }
     | AT nastart error RPAREN
     {
-        $$ = NescAttributes.finishAttributeUse($2,
+        $$ = NescAttributes.finishAttributeUse($1.getLocation(), $4.getEndLocation(), $2,
                 Lists.<Expression>newList(Expressions.makeErrorExpr()));
     }
     ;
@@ -2204,19 +2169,19 @@ any_word:
     { $$ = $1; }
     | scspec
     {
-        $$ = new Word(null, new CString($1.getId().getName()));
+        $$ = new Word(null, $1.getId().getName());
     }
     | type_spec
     {
-        $$ = new Word(null, new CString($1.getId().getName()));
+        $$ = new Word(null, $1.getId().getName());
     }
     | type_qual
     {
-        $$ = new Word(null, new CString($1.getId().getName()));
+        $$ = new Word(null, $1.getId().getName());
     }
     | SIGNAL
     {
-        $$ = new Word(null, new CString("signal"));
+        $$ = new Word(null, "signal");
     }
     ;
 
@@ -2268,7 +2233,7 @@ initelt:
     }
     | identifier COLON
     {
-        $<Designator>$ = Init.setInitLabel(null, $1.id);
+        $<Designator>$ = Init.setInitLabel(null, $1.getValue());
     }
       initval
     {
@@ -2305,7 +2270,7 @@ designator_list:
 designator:
       DOT identifier
     {
-        $$ = Init.setInitLabel(null, $2.id);
+        $$ = Init.setInitLabel(null, $2.getValue());
     }
     /* These are for labeled elements.  The syntax for an array element
        initializer conflicts with the syntax for an Objective-C message,
@@ -2349,7 +2314,7 @@ nested_function:
       compstmt
     {
         $$ = Semantics.finishFunction($7);
-        //popLevel();
+        //popLevel();   // FIXME: to pop or not to pop? test it.
     }
     ;
 
@@ -2382,7 +2347,7 @@ notype_nested_function:
       compstmt
     {
         $$ = Semantics.finishFunction($7);
-        //popLevel();
+        //popLevel();   // FIXME: to pop or not to pop? test it.
     }
     ;
 
@@ -2416,9 +2381,9 @@ after_type_declarator:
                 Lists.<Attribute, TypeElement>convert($2));
     }
     | TYPEDEF_NAME
-    { $$ = new IdentifierDeclarator(null, $1.id); }
+    { $$ = new IdentifierDeclarator(null, $1.getValue()); }
     | TYPEDEF_NAME DOT identifier
-    { $$ = NescModule.makeInterfaceRefDeclarator(null, $1.id, $3.id); }
+    { $$ = NescModule.makeInterfaceRefDeclarator(null, $1.getValue(), $3.getValue()); }
     ;
 
 /* Kinds of declarator that can appear in a parameter list
@@ -2437,7 +2402,7 @@ parm_declarator:
     | STAR maybe_type_quals_attrs parm_declarator
     { $$ = Semantics.makePointerDeclarator(null, $3, $2); }
     | TYPEDEF_NAME
-    { $$ = new IdentifierDeclarator(null, $1.id); }
+    { $$ = new IdentifierDeclarator(null, $1.getValue()); }
     ;
 
 
@@ -2461,14 +2426,14 @@ notype_declarator:
                 Lists.<Attribute, TypeElement>convert($2));
         }
     | IDENTIFIER
-    { $$ = new IdentifierDeclarator(null, $1.id); }
+    { $$ = new IdentifierDeclarator(null, $1.getValue()); }
     | IDENTIFIER DOT identifier
-    { $$ = NescModule.makeInterfaceRefDeclarator(null, $1.id, $3.id); }
+    { $$ = NescModule.makeInterfaceRefDeclarator(null, $1.getValue(), $3.getValue()); }
     ;
 
 tag:
       identifier
-    { $$ = new Word(null, $1.id); }
+    { $$ = new Word(null, $1.getValue()); }
     ;
 
 structuse:
@@ -2655,11 +2620,12 @@ enumlist:
 
 enumerator:
       identifier
-    { $$ = Semantics.makeEnumerator(null, $1.id, null); }
+    { $$ = Semantics.makeEnumerator(null, $1.getValue(), null); }
     | identifier EQ expr_no_commas
-    { $$ = Semantics.makeEnumerator(null, $1.id, $3); }
+    { $$ = Semantics.makeEnumerator(null, $1.getValue(), $3); }
     ;
 
+// FIXME
 typename:
       declspecs_nosc
     { } // TODO
@@ -2814,7 +2780,6 @@ pushlevel:
       /* empty */
     {
         pushLevel(false);    // for parsing purposes
-        Semantics.pushlevel(false);
     }
     ;
 
@@ -2863,28 +2828,21 @@ compstmt:
       compstmt_start pushlevel RBRACE
     {
         popLevel();        // for parsing purposes
-        Semantics.poplevel();
-        // FIXME last param is poplevel()
         $$ = new CompoundStmt(null, null, null, null, null);
     }
     | compstmt_start pushlevel maybe_label_decls decls xstmts RBRACE
     {
         popLevel();        // for parsing purposes
-        Semantics.poplevel();
-        // FIXME last param is poplevel()
         $$ = new CompoundStmt(null, $3, $4, $5, null);
     }
     | compstmt_start pushlevel maybe_label_decls error RBRACE
     {
         popLevel();        // for parsing purposes
-        Semantics.poplevel();
         $$ = Statements.makeErrorStmt();
     }
     | compstmt_start pushlevel maybe_label_decls stmts RBRACE
     {
         popLevel();        // for parsing purposes
-        Semantics.poplevel();
-        // FIXME last param is poplevel()
         $$ = new CompoundStmt(null, $3, null, $4, null);
     }
     ;
@@ -3239,7 +3197,6 @@ parmlist:
        * If this action were removed, erroneous parser would be produced.
        */
         pushLevel(true);    // for parsing purposes
-        Semantics.pushlevel(true);
     }
       parmlist_1
     {
@@ -3321,7 +3278,6 @@ xreferror:
 parmlist_or_identifiers:
     {
         pushLevel(true);    // for parsing purposes
-        Semantics.pushlevel(true);
     }
       parmlist_or_identifiers_1
     { $$ = $2; }
@@ -3344,7 +3300,7 @@ identifiers:
 
 old_parameter:
       IDENTIFIER
-    { $$ = Semantics.declareOldParameter(null, $1.id); }
+    { $$ = Semantics.declareOldParameter(null, $1.getValue()); }
     ;
 
 /* A nonempty list of identifiers, including typenames.  */
@@ -3453,14 +3409,21 @@ type_spec:
 string_chain:
       STRING_LITERAL
     {
-        final StringCst str = new StringCst(null, new CString($1));
-        $$ = new StringAst(null, Lists.<StringCst>newList(str), null);
+        final StringCst stringCst = new StringCst($1.getLocation(), $1.getValue());
+        stringCst.setEndLocation($1.getEndLocation());
+        final StringAst stringAst = new StringAst($1.getLocation(), Lists.<StringCst>newList(stringCst));
+        stringAst.setEndLocation($1.getEndLocation());
+        $$ = stringAst;
     }
     | string_chain STRING_LITERAL
     {
-        final StringCst str = new StringCst(null, new CString($2));
-        final LinkedList<StringCst> list = $<StringAst>1.getStrings();
-        $$ = new StringAst(null, Lists.<StringCst>chain(list, str), null);
+        final StringCst stringCst = new StringCst($2.getLocation(), $2.getValue());
+        stringCst.setEndLocation($2.getEndLocation());
+
+        /* Add string literal at the end of list, update end location. */
+        $1.getStrings().addLast(stringCst);
+        $1.setEndLocation($2.getEndLocation());
+        $$ = $1;
     }
     ;
 
@@ -3525,14 +3488,11 @@ string_chain:
 
     /**
      * Creates parser.
-     * @param filePath
-     *            currently being parsed file path
-     * @param lex
-     *            lexer
-     * @param symbolTable
-     *            symbol table
-     * @param fileType
-     *            fileType file type
+     *
+     * @param filePath    currently being parsed file path
+     * @param lex         lexer
+     * @param symbolTable symbol table
+     * @param fileType    fileType file type
      */
     public Parser(String filePath,
                   pl.edu.mimuw.nesc.lexer.Lexer lex,
@@ -3557,10 +3517,10 @@ string_chain:
         switch (fileType) {
             case HEADER:
             case C:
-                this.lexer.pushtoken(new Symbol(Lexer.DISPATCH_C, 0, 0, null, null));
+                this.lexer.pushtoken(Symbol.builder().symbolCode(Lexer.DISPATCH_C).build());
                 break;
             case NESC:
-                this.lexer.pushtoken(new Symbol(Lexer.DISPATCH_NESC, 0, 0, null, null));
+                this.lexer.pushtoken(Symbol.builder().symbolCode(Lexer.DISPATCH_NESC).build());
                 break;
             default:
                 throw new RuntimeException("not handled file type " + fileType);
@@ -3603,7 +3563,7 @@ string_chain:
      */
     public List<Declaration> getExtdefs() {
         if (this.extdefs == null) {
-            return new LinkedList<Declaration>();
+            return new LinkedList<>();
         }
         return this.extdefs;
     }
@@ -3620,8 +3580,7 @@ string_chain:
     /**
      * Sets whether parser should work in debug mode.
      *
-     * @param debug
-     *            debug
+     * @param debug debug
      */
     public void setDebug(boolean debug) {
         this.debug = debug;
@@ -3653,8 +3612,7 @@ string_chain:
     /**
      * Adds identifier as a type's name to current scope.
      *
-     * @param identifier
-     *            identifier
+     * @param identifier identifier
      */
     private void addTypename(String identifier) {
         this.symbolTable.add(identifier, Lexer.TYPEDEF_NAME);
@@ -3663,8 +3621,7 @@ string_chain:
     /**
      * Adds identifier as a component's name to current scope.
      *
-     * @param identifier
-     *            identifier
+     * @param identifier identifier
      */
     private void addComponentRef(String identifier) {
         this.symbolTable.add(identifier, Lexer.COMPONENTREF);
@@ -3674,8 +3631,7 @@ string_chain:
      * Adds identifier as a plain identifier (e.g. variable or function name) to
      * current scope.
      *
-     * @param identifier
-     *            identifier
+     * @param identifier identifier
      */
     private void addIdentifier(String identifier) {
         this.symbolTable.add(identifier, Lexer.IDENTIFIER);
@@ -3705,17 +3661,14 @@ string_chain:
      * Declares identifier as a type name or variable/function/array/etc
      * name depending on there was a TYPEDEF keyword in current declaration.
      *
-     * @param identifier
-     *            identifier
-     * @param elements
-     *            type elements
+     * @param declarator declarator
+     * @param elements   type elements
      */
     private void declareName(Declarator declarator, LinkedList<TypeElement> elements) {
         final boolean isTypedef = TypeElementUtils.isTypedef(elements);
         final String name = DeclaratorUtils.getDeclaratorName(declarator);
         if (this.debug) {
-            final String msg = format("Add %s %s;",
-                    (isTypedef ? "type" : "variable"), name);
+            final String msg = format("Add %s %s;", (isTypedef ? "type" : "variable"), name);
             System.out.println(msg);
         }
         if (isTypedef) {
@@ -3733,13 +3686,12 @@ string_chain:
      * Merges specified list of attributes with attributes kept in parser state.
      * The specified attributes will be placed after those from parser state.
      *
-     * @param postAttrs
-     *            the list of attributes
+     * @param postAttrs the list of attributes
      * @return a merged list of specified attributes and attributes kept in
-     *         parser state
+     * parser state
      */
     private LinkedList<Attribute> prefixAttr(LinkedList<Attribute> postAttrs) {
-        return Lists.<Attribute> chain(pstate.attributes, postAttrs);
+        return Lists.chain(pstate.attributes, postAttrs);
     }
 
     private void requireInterface(String interfaceName) {
@@ -3781,15 +3733,7 @@ string_chain:
         /**
          *
          */
-        private String file;
-        /**
-         * Line.
-         */
-        private int line;
-        /**
-         * Column.
-         */
-        private int column;
+        private Symbol symbol;
         /**
          * For testing purposes.
          */
@@ -3797,33 +3741,34 @@ string_chain:
         /**
          * Current symbol value.
          */
-        private Object object;
-        
-        private int prevLine;
+        private String value;
 
         public LexerWrapper(pl.edu.mimuw.nesc.lexer.Lexer lexer, SymbolTable symbolTable) {
             this.symbolTable = symbolTable;
             this.lexer = lexer;
-            this.tokenQueue = new LinkedList<Symbol>();
+            this.tokenQueue = new LinkedList<>();
             this.tokenPrinter = new TokenPrinter();
         }
 
         @Override
         public Object getLVal() {
-            return object;
+            /*
+             * NOTICE: Not to decrease performance, the same symbol that is
+             * returned by preprocessor is used in parser.
+             */
+            return this.symbol;
         }
 
         @Override
         public int yylex() throws java.io.IOException {
-            Symbol symbol = poptoken();
+            this.symbol = poptoken();
 
             /*
              * Here is done the distinction between TYPEDEF_NAME, COMPONENTREF and
              * plain IDENTIFIER.
              */
             if (symbol.getSymbolCode() == IDENTIFIER) {
-                final Value.IdToken idToken = (Value.IdToken) symbol.getValue();
-                final String name = idToken.id.getData();
+                final String name = symbol.getValue();
                 final int type = symbolTable.get(name);
                 symbol.setSymbolCode(type);
             }
@@ -3855,8 +3800,8 @@ string_chain:
                     final int thirdSymbolCode = thirdSymbol.getSymbolCode();
 
                     if (thirdSymbolCode == IDENTIFIER ||
-                        thirdSymbolCode == TYPEDEF_NAME ||
-                        thirdSymbolCode == MAGIC_STRING) {
+                            thirdSymbolCode == TYPEDEF_NAME ||
+                            thirdSymbolCode == MAGIC_STRING) {
 
                         /*
                          *
@@ -3871,14 +3816,6 @@ string_chain:
                 }
             }
 
-            /*
-             * Assign new values to variables.
-             */
-            this.file = symbol.getFile();
-            this.line = symbol.getLine();
-            this.column = symbol.getColumn();
-            this.object = symbol.getValue();
-
             if (Parser.this.debug) {
                 this.tokenPrinter.print(symbol.getSymbolCode(), symbol.getValue());
             }
@@ -3888,8 +3825,9 @@ string_chain:
         @Override
         public void yyerror(String msg) {
             Parser.this.errors = true;
-            final String message = format("%s in %s at line: %d, column: %d.",
-                    msg, file, line, column);
+            final Location startLocation = symbol.getLocation();
+            final String message = format("%s in %s at line: %d, column: %d.", msg, startLocation.getFilePath(),
+                    startLocation.getLine(), startLocation.getColumn());
             System.out.println(message);
         }
 
@@ -3910,8 +3848,7 @@ string_chain:
         /**
          * Inserts the token at the beginning queue when the lookahead was done.
          *
-         * @param symbol
-         *            token
+         * @param symbol token
          */
         public void pushtoken(Symbol symbol) {
             this.tokenQueue.addFirst(symbol);
@@ -3919,7 +3856,6 @@ string_chain:
 
     }
 
-
-    }
+}
 ;
 %%

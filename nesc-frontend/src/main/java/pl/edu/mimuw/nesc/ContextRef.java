@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc;
 
+import com.google.common.base.Objects;
+
 /**
  * <p>Context reference.</p>
  *
@@ -24,26 +26,26 @@ public class ContextRef {
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        ContextRef that = (ContextRef) o;
-
-        if (id != that.id) return false;
-
-        return true;
+    public int hashCode() {
+        return Objects.hashCode(id);
     }
 
     @Override
-    public int hashCode() {
-        return id;
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final ContextRef other = (ContextRef) obj;
+        return Objects.equal(this.id, other.id);
     }
 
     @Override
     public String toString() {
-        return "ContextRef{" +
-                "id=" + id +
-                '}';
+        return Objects.toStringHelper(this)
+                .add("id", id)
+                .toString();
     }
 }

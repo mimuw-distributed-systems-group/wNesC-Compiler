@@ -11,15 +11,6 @@ import pl.edu.mimuw.nesc.ast.gen.Word;
  */
 public class NescConfiguration {
 	
-	public static void processConfiguration(Configuration configuration) {
-		// TODO
-	}
-	
-	public static ComponentRef requireComponent(ComponentRef comp, Word as) {
-		// TODO
-		return comp;
-	}
-	
 	private NescConfiguration() {
 	}
 }
