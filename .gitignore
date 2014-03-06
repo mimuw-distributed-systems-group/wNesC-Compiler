@@ -1,0 +1,18 @@
+# general
+*~
+/bin
+
+# mvn
+/target
+
+# eclipse
+# TODO
+
+# idea
+.idea
+*.iml
+*.ipr
+*.iws
+
+# test
+/test

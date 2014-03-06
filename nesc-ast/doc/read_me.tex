@@ -1,0 +1,68 @@
+\documentclass{article}
+\usepackage[polish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{tikz}
+\usepackage{verbatim}
+\begin{document}
+
+\section {Generator abstrakcyjnego drzewa syntaksy}
+Witaj w krótkim wprowadzeniu do generator abstrakcyjnego drzewa syntaksy w Pythonie. Aktualna wersja generatora jest
+kompatybilna z Pythonem 3.x. 
+
+\section{Pisanie własnej klasy AST}
+
+Każda klasa, dla której ma być wygenerowany kod, musi dziedziczyć z klasy BasicASTNode, jeśli jest węzłem w drzewie, lub
+BasicASTEnum jeśl ma reprezentować wyliczeniowy typ danych. 
+
+\subsection{Krótki przykład}
+Oto fragment pliku generującego kod:
+
+\begin{verbatim}
+from ast_core import *
+...
+
+class Stmt(BasicASTNode):
+    line = IntField()
+    column = IntField()
+
+class Empty(BasicASTNode):
+    superclass = Stmt
+
+class BStmt(BasicASTNode):
+    superclass = Stmt
+    block = ReferenceField("Block")
+
+...
+
+if __name__ == "__main__":
+    generate_code(DST_LANGUAGE.JAVA, "ast")
+\end{verbatim}
+
+\paragraph
+Zaczynamy od zaimportowania wszystkiego z biblioteki. Później następują kolejne definicje
+klas węzłów drzewa. Plik ''Latte\_bnf.py'' z którego pochodzi ten przykład jest zakończony warunkiem, który sprawia, że
+kod klas opisanych wewnątrz zostanie automatycznie wygenerowany jeśli wywołana zostanie komenda linii poleceń
+''python3 Latte\_bnf.py''.
+
+\subsection{Specjalne pola}
+Aktualnie jedynym specjalnym polem jest pole o nazwie superclass. Pole to pozwala na określenie hierarhii
+dziedziczenia. Aktualnie wspierane jest tylko dziedziczenie z jednej klasy. Ustawienie listy jako wartości pola
+superclass jest błędem.
+
+\subsection{Generowanie klas drzewa z wnętrza interpretera}
+By wygenerować pliki po opisaniu wszystkich klas, które mają występować w naszym drzewie (abstrakcyjnych i nieabstrakcyjnych),
+możemy za pomocą wywołania procedury ''generate\_code(lang, dir)'' wygenerować kod. Obowiązkowy parametr \emph{lang}
+musi być jednym elementów DST\_LANGUAGES (enuma opisującego języki dla których możliwość generowania kodu jest zaimplementowana w naszej
+ bibliotece). Drugi parametr jest opcjonalny i reprezentuje katalog w którym maja zostać zapisane wygenerowane pliki. Domyślną wartością jest aktualny
+ katalog roboczy.
+
+\section{Udostępniane metody i klasy}
+--TODO--
+
+
+\end{document}
+

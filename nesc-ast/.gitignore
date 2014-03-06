@@ -1,0 +1,9 @@
+#
+.pydevproject
+.project
+.classpath
+
+/bin
+/target
+/src/main/python/__pycache__
+*~
