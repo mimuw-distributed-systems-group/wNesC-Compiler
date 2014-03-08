@@ -58,25 +58,4 @@ public abstract class DataDeclaration {
 		this.container = container;
 	}
 
-	public interface Visitor<R, A> {
-		R visit(ComponentRefDataDeclaration declaration, A arg);
-
-		R visit(ConstDataDeclaration declaration, A arg);
-
-		R visit(FuncDataDeclaration declaration, A arg);
-
-		R visit(InterfaceRefDataDeclaration declaration, A arg);
-
-		R visit(MagicStringDataDeclaration declaration, A arg);
-
-		R visit(NetworkDataDeclaration declaration, A arg);
-
-		R visit(TypevarDataDeclaration declaration, A arg);
-
-		R visit(VarDataDeclaration declaration, A arg);
-
-	}
-
-	public abstract <R, A> R accept(Visitor<R, A> visitor, A arg);
-
 }

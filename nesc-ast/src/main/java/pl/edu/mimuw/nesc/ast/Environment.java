@@ -91,38 +91,4 @@ public final class Environment {
 		return tagEnv;
 	}
 
-	/**
-	 * Returns the entry with specified name or <code>null</code> if not exists.
-	 * 
-	 * @param name
-	 *            entry's name
-	 * @param thisLevelOnly
-	 *            <code>true</code> if ancestors scopes should be checked
-	 * @return an entry with specified name or <code>null</code> if not exist
-	 */
-	public DataDeclaration lookupId(String name, boolean thisLevelOnly) {
-		DataDeclaration result = idEnv.lookup(name);
-		/*
-		 * If entry was not found and we do not search only in global scope and
-		 * parent exists, then search for entry in parent scope.
-		 */
-		if (result == null && !thisLevelOnly && parent != null)
-			result = parent.lookupId(name, thisLevelOnly);
-
-		return result;
-	}
-
-	/**
-	 * 
-	 * @param from
-	 * @param ignoreShadow
-	 * @return
-	 */
-	public DataDeclaration declare(DataDeclaration from, boolean ignoreShadow) {
-		// TODO
-		idEnv.add(from.getName(), from);
-		// TODO
-		return from;
-	}
-
 }

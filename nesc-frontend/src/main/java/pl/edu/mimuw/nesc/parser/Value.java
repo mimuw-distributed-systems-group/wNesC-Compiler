@@ -3,48 +3,11 @@ package pl.edu.mimuw.nesc.parser;
 import java.util.LinkedList;
 
 import pl.edu.mimuw.nesc.ast.CString;
-import pl.edu.mimuw.nesc.ast.Environment;
-import pl.edu.mimuw.nesc.ast.LeftUnaryOperation;
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.StructKind;
-import pl.edu.mimuw.nesc.ast.TagDeclaration;
 import pl.edu.mimuw.nesc.ast.datadeclaration.DataDeclaration;
-import pl.edu.mimuw.nesc.ast.gen.AsmOperand;
-import pl.edu.mimuw.nesc.ast.gen.AsmStmt;
-import pl.edu.mimuw.nesc.ast.gen.AstType;
-import pl.edu.mimuw.nesc.ast.gen.Attribute;
-import pl.edu.mimuw.nesc.ast.gen.Component;
-import pl.edu.mimuw.nesc.ast.gen.ComponentRef;
-import pl.edu.mimuw.nesc.ast.gen.ConditionalStmt;
-import pl.edu.mimuw.nesc.ast.gen.Connection;
-import pl.edu.mimuw.nesc.ast.gen.Declaration;
-import pl.edu.mimuw.nesc.ast.gen.Declarator;
-import pl.edu.mimuw.nesc.ast.gen.Designator;
-import pl.edu.mimuw.nesc.ast.gen.EndPoint;
-import pl.edu.mimuw.nesc.ast.gen.EnumRef;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.gen.ForStmt;
-import pl.edu.mimuw.nesc.ast.gen.FunctionCall;
-import pl.edu.mimuw.nesc.ast.gen.GccAttribute;
-import pl.edu.mimuw.nesc.ast.gen.IdLabel;
-import pl.edu.mimuw.nesc.ast.gen.Implementation;
-import pl.edu.mimuw.nesc.ast.gen.Interface;
-import pl.edu.mimuw.nesc.ast.gen.InterfaceRef;
-import pl.edu.mimuw.nesc.ast.gen.Label;
-import pl.edu.mimuw.nesc.ast.gen.LexicalCst;
-import pl.edu.mimuw.nesc.ast.gen.NescAttribute;
-import pl.edu.mimuw.nesc.ast.gen.NestedDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.Node;
-import pl.edu.mimuw.nesc.ast.gen.ParameterisedIdentifier;
-import pl.edu.mimuw.nesc.ast.gen.Qualifier;
-import pl.edu.mimuw.nesc.ast.gen.Rid;
 import pl.edu.mimuw.nesc.ast.gen.Statement;
-import pl.edu.mimuw.nesc.ast.gen.StringAst;
-import pl.edu.mimuw.nesc.ast.gen.TagRef;
-import pl.edu.mimuw.nesc.ast.gen.TypeElement;
-import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
-import pl.edu.mimuw.nesc.ast.gen.Word;
 
 /**
  * <p>
@@ -122,74 +85,5 @@ public class Value {
 		}
 
 	}
-
-	/*
-	 * Plain values.
-	 */
-	String string;
-	LinkedList<String> strings;
-	int integer;
-	boolean bool;
-
-	AsmOperand asmOperand;
-	LinkedList<AsmOperand> asmOperands;
-	AsmStmt asmStmt;
-	Attribute attribute;
-	LinkedList<Attribute> attributes;
-	GccAttribute gccAttribute;
-	NescAttribute nescAttribute;
-	LexicalCst constant;
-	Declaration decl;
-	LinkedList<Declaration> decls;
-	VariableDecl variableDecl;
-	Declarator declarator;
-	LinkedList<Declarator> declarators;
-	NestedDeclarator nested;
-	Expression expr;
-	LinkedList<Expression> exprs;
-	FunctionCall functionCall;
-	IdLabel idLabel;
-	LinkedList<IdLabel> idLabels;
-	Label label;
-	LinkedList<Label> labels;
-	Node node;
-	Statement stmt;
-	LinkedList<Statement> stmts;
-	ConditionalStmt cstmt;
-	ForStmt forStmt;
-	StringAst stringAst;
-	LinkedList<StringAst> stringsAst;
-	TypeElement telement;
-	LinkedList<TypeElement> telements;
-	TagRef tagRef;
-	EnumRef enumRef;
-	Rid rid;
-	Qualifier qualifier;
-	AstType type;
-	Word word;
-	Designator designator;
-	LinkedList<Designator> designators;
-	InterfaceRef iref;
-	ComponentRef cref;
-	LinkedList<ComponentRef> crefs;
-	Connection conn;
-	EndPoint endPoint;
-	ParameterisedIdentifier pid;
-	Implementation impl;
-	Environment env;
-	TagDeclaration tdecl;
-	Interface intf;
-	Component component;
-
-	NescCallKind callKind;
-	LeftUnaryOperation leftUnaryOperation;
-
-	StructKindToken structKindToken = new StructKindToken();
-	IToken itoken = new IToken();
-	IExpr iexpr = new IExpr();
-	IStmt istmt = new IStmt();
-	IStmts istmts = new IStmts();
-
-	IdToken idtoken = new IdToken();
 
 }

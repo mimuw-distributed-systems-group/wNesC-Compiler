@@ -66,18 +66,6 @@ public final class Semantics {
 		return globalEnvironment;
 	}
 
-	/**
-	 * Returns the global entry with specified name or <code>null</code> if not
-	 * exists.
-	 * 
-	 * @param name
-	 *            entry's name
-	 * @return an entry with specified name or <code>null</code> if not exist
-	 */
-	public static DataDeclaration lookupGlobalId(String name) {
-		return globalEnvironment.lookupId(name, true);
-	}
-
 	public static Declarator finishArrayOrFnDeclarator(Declarator nested,
 			NestedDeclarator declarator) {
 		checkNotNull(nested);

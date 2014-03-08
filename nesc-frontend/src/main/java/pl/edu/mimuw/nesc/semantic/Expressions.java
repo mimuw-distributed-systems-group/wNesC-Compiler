@@ -1,6 +1,5 @@
 package pl.edu.mimuw.nesc.semantic;
 
-import java.security.InvalidParameterException;
 import java.util.LinkedList;
 
 import pl.edu.mimuw.nesc.ast.CString;
