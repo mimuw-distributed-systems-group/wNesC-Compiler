@@ -20,6 +20,7 @@ public abstract class PreprocessorDirective {
     protected final LineRange lineRange;
     protected final Map<Integer, Integer> linesLengths;
     protected final TokenLocation hashLocation;
+    protected final TokenLocation keywordLocation;
     // TODO: list of errors in directive
 
     /**
@@ -28,11 +29,12 @@ public abstract class PreprocessorDirective {
      * @param builder builder.
      */
     protected PreprocessorDirective(Builder<? extends PreprocessorDirective> builder) {
+        this.sourceFile = builder.sourceFile;
         this.activeBlock = builder.activeBlock;
         this.lineRange = builder.lineRange;
         this.linesLengths = builder.linesLengths;
         this.hashLocation = builder.hashLocation;
-        this.sourceFile = builder.sourceFile;
+        this.keywordLocation = builder.keywordLocation;
     }
 
     public String getSourceFile() {
@@ -53,6 +55,10 @@ public abstract class PreprocessorDirective {
 
     public TokenLocation getHashLocation() {
         return hashLocation;
+    }
+
+    public TokenLocation getKeywordLocation() {
+        return keywordLocation;
     }
 
     /**
