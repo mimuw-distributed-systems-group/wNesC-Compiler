@@ -3,12 +3,12 @@
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.Multimap;
 import com.google.common.io.Files;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.common.FileType;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
+import pl.edu.mimuw.nesc.issue.*;
 import pl.edu.mimuw.nesc.lexer.TokenPrinter;
 import pl.edu.mimuw.nesc.parser.value.ValueBoolean;
 import pl.edu.mimuw.nesc.semantic.*;
@@ -656,7 +656,7 @@ interface_ref:
 interface_type:
       INTERFACE idword
     {
-        requireInterface($2.getName());
+        requireInterface($2);
         final InterfaceRef ifaceRef = new InterfaceRef($1.getLocation(), $2, Lists.<Expression>newList(), null,
                 Lists.<Declaration>newList(), Lists.<Attribute>newList());
         ifaceRef.setEndLocation($2.getEndLocation());   // maybe updated in higher productions
@@ -664,7 +664,7 @@ interface_type:
     }
     | INTERFACE idword
     {
-        requireInterface($2.getName());
+        requireInterface($2);
     }
       LT typelist GT
     {
@@ -711,14 +711,14 @@ component_list:
 component_ref:
       component_ref2
     {
-        requireComponent($1.getName().getName());
+        requireComponent($1.getName());
         /* Put component's name into parser's symbol table. */
         final String componentAlias = $1.getName().getName();
         addComponentRef(componentAlias);
     }
     | component_ref2 AS idword
     {
-        requireComponent($1.getName().getName());
+        requireComponent($1.getName());
         /* Put component's alias into parser's symbol table. */
         final String componentAlias = $3.getName();
         addComponentRef(componentAlias);
@@ -3457,6 +3457,7 @@ string_chain:
      */
     private SymbolTable symbolTable;
     private ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder;
+    private ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder;
     /**
      * Indicates whether parsing was successful.
      */
@@ -3503,20 +3504,24 @@ string_chain:
                   pl.edu.mimuw.nesc.lexer.Lexer lex,
                   SymbolTable symbolTable,
                   FileType fileType,
-                  ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder) {
+                  ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
+                  ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder) {
         Preconditions.checkNotNull(filePath, "file path cannot be null");
         Preconditions.checkNotNull(lex, "lexer cannot be null");
         Preconditions.checkNotNull(symbolTable, "symbol table cannot be null");
         Preconditions.checkNotNull(fileType, "file type cannot be null");
         Preconditions.checkNotNull(tokensMultimapBuilder, "tokens multimap builder cannot be null");
+        Preconditions.checkNotNull(issuesMultimapBuilder, "issues multimap builder cannot be null");
 
         this.filePath = filePath;
         this.fileType = fileType;
         this.currentEntityName = Files.getNameWithoutExtension(filePath);
         this.symbolTable = symbolTable;
         this.tokensMultimapBuilder = tokensMultimapBuilder;
+        this.issuesMultimapBuilder = issuesMultimapBuilder;
         this.lex = lex;
-        this.lexer = new LexerWrapper(this.lex, this.symbolTable, this.tokensMultimapBuilder);
+        this.lexer = new LexerWrapper(this.lex, this.symbolTable, this.tokensMultimapBuilder,
+                this.issuesMultimapBuilder);
         this.yylexer = lexer;
 
         this.errors = false;
@@ -3702,15 +3707,22 @@ string_chain:
         return Lists.chain(pstate.attributes, postAttrs);
     }
 
-    private void requireInterface(String interfaceName) {
-        if (this.parserListener != null) {
-            this.parserListener.interfaceDependency(filePath, interfaceName);
+    private void requireInterface(Word ifaceName) {
+        if (this.parserListener != null
+                && !this.parserListener.interfaceDependency(filePath, ifaceName.getName())) {
+            final String message = format("cannot find interface %s definition file", ifaceName.getName());
+            final NescWarning warning = new NescWarning(ifaceName.getLocation(), ifaceName.getEndLocation(), message);
+            this.issuesMultimapBuilder.put(ifaceName.getLocation().getLine(), warning);
         }
     }
 
-    private void requireComponent(String componentName) {
-        if (this.parserListener != null) {
-            this.parserListener.componentDependency(filePath, componentName);
+    private void requireComponent(Word componentName) {
+        if (this.parserListener != null
+                && !this.parserListener.componentDependency(filePath, componentName.getName())) {
+            final String message = format("cannot find component %s definition file", componentName.getName());
+            final NescWarning warning = new NescWarning(componentName.getLocation(), componentName.getEndLocation(),
+            message);
+            this.issuesMultimapBuilder.put(componentName.getLocation().getLine(), warning);
         }
     }
 
@@ -3739,6 +3751,7 @@ string_chain:
          */
         private SymbolTable symbolTable;
         private ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder;
+        private ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder;
         /**
          *
          */
@@ -3754,10 +3767,12 @@ string_chain:
 
         public LexerWrapper(pl.edu.mimuw.nesc.lexer.Lexer lexer,
                             SymbolTable symbolTable,
-                            ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder) {
+                            ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
+                            ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder) {
             this.symbolTable = symbolTable;
             this.lexer = lexer;
             this.tokensMultimapBuilder = tokensMultimapBuilder;
+            this.issuesMultimapBuilder = issuesMultimapBuilder;
             this.tokenQueue = new LinkedList<>();
             this.tokenPrinter = new TokenPrinter();
         }
@@ -3843,6 +3858,8 @@ string_chain:
             final String message = format("%s in %s at line: %d, column: %d.", msg, startLocation.getFilePath(),
                     startLocation.getLine(), startLocation.getColumn());
             System.out.println(message);
+            final NescError error = new NescError(symbol.getLocation(), symbol.getEndLocation(), msg);
+            this.issuesMultimapBuilder.put(symbol.getLocation().getLine(), error);
         }
 
         /**

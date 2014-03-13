@@ -44,7 +44,6 @@ public class FileResultTest {
         final String resourcePath = "integration/interface/Simple.nc";
         final FileData fileData = getFileData(resourcePath, "Simple", resourcePath);
         assertThat(fileData).isNotNull();
-        System.out.println(fileData);
 
         /* check tokens */
         final Multimap<Integer, Token> tokens = fileData.getTokens();

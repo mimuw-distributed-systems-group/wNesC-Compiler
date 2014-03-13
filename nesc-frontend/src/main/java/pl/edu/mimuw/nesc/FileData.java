@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
+import pl.edu.mimuw.nesc.issue.NescIssue;
 import pl.edu.mimuw.nesc.lexer.Comment;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
 import pl.edu.mimuw.nesc.token.Token;
@@ -42,6 +43,7 @@ public final class FileData {
                 .comments(fileCache.getComments())
                 .preprocessorDirectives(fileCache.getPreprocessorDirectives())
                 .tokens(fileCache.getTokens())
+                .issues(fileCache.getIssues())
                 .build();
     }
 
@@ -51,6 +53,7 @@ public final class FileData {
     private final List<Comment> comments;
     private final List<PreprocessorDirective> preprocessorDirectives;
     private final Multimap<Integer, Token> tokens;
+    private final Multimap<Integer, NescIssue> issues;
 
     // TODO: extends attributes list (e.g. macros...).
 
@@ -61,6 +64,7 @@ public final class FileData {
         this.comments = builder.commentsBuilder.build();
         this.preprocessorDirectives = builder.directivesBuilder.build();
         this.tokens = builder.tokens;
+        this.issues = builder.issues;
     }
 
     public String getFilePath() {
@@ -87,6 +91,10 @@ public final class FileData {
         return tokens;
     }
 
+    public Multimap<Integer, NescIssue> getIssues() {
+        return issues;
+    }
+
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
@@ -96,6 +104,7 @@ public final class FileData {
                 .add("comments", comments)
                 .add("preprocessorDirectives", preprocessorDirectives)
                 .add("tokens", tokens)
+                .add("issues", issues)
                 .toString();
     }
 
@@ -112,6 +121,7 @@ public final class FileData {
         private final ImmutableList.Builder<Comment> commentsBuilder;
         private final ImmutableList.Builder<PreprocessorDirective> directivesBuilder;
         private Multimap<Integer, Token> tokens;
+        private Multimap<Integer, NescIssue> issues;
 
         public Builder() {
             this.extdefsBuilder = new ImmutableList.Builder<>();
@@ -183,6 +193,11 @@ public final class FileData {
             return this;
         }
 
+        public Builder issues(Multimap<Integer, NescIssue> issues) {
+            this.issues = issues;
+            return this;
+        }
+
         public FileData build() {
             if (entityRoot == null) {
                 entityRoot = Optional.absent();
@@ -194,6 +209,7 @@ public final class FileData {
         private void validate() {
             checkState(filePath != null, "file path cannot be null");
             checkState(tokens != null, "tokens multimap cannot be null");
+            checkState(issues != null, "issues multimap cannot be null");
         }
     }
 

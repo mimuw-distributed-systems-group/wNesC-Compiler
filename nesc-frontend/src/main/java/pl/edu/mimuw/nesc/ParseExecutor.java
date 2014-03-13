@@ -2,7 +2,6 @@ package pl.edu.mimuw.nesc;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.Multimap;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
@@ -11,6 +10,7 @@ import pl.edu.mimuw.nesc.exception.LexerException;
 import pl.edu.mimuw.nesc.filesgraph.GraphFile;
 import pl.edu.mimuw.nesc.filesgraph.walker.FilesGraphWalker;
 import pl.edu.mimuw.nesc.filesgraph.walker.NodeAction;
+import pl.edu.mimuw.nesc.issue.NescIssue;
 import pl.edu.mimuw.nesc.lexer.Comment;
 import pl.edu.mimuw.nesc.lexer.LexerListener;
 import pl.edu.mimuw.nesc.lexer.NescLexer;
@@ -126,6 +126,7 @@ public final class ParseExecutor {
         private final FileCache.Builder fileCacheBuilder;
         private final boolean includeDefaultFiles;
         private final ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder;
+        private final ImmutableListMultimap.Builder<Integer, NescIssue> issuesListBuilder;
 
         private NescLexer lexer;
         private Parser parser;
@@ -148,9 +149,10 @@ public final class ParseExecutor {
         public ParseFileExecutor(FrontendContext context, boolean includeDefaultFiles) {
             this.context = context;
             this.visitedFiles = new HashSet<>();
+            this.includeDefaultFiles = includeDefaultFiles;
             this.fileCacheBuilder = FileCache.builder();
             this.tokensMultimapBuilder = ImmutableListMultimap.builder();
-            this.includeDefaultFiles = includeDefaultFiles;
+            this.issuesListBuilder = ImmutableListMultimap.builder();
         }
 
         /**
@@ -219,7 +221,8 @@ public final class ParseExecutor {
             lexer.start();
 
             /* Setup parser */
-            this.parser = new Parser(currentFilePath, lexer, symbolTable, fileType, tokensMultimapBuilder);
+            this.parser = new Parser(currentFilePath, lexer, symbolTable, fileType, tokensMultimapBuilder,
+                    issuesListBuilder);
             parser.setListener(this);
 
 		    /* Parsing */
@@ -260,12 +263,14 @@ public final class ParseExecutor {
             fileCacheBuilder.filePath(currentFilePath)
                     .fileType(fileType)
                     .entityRoot(entity)
-                    .tokens(tokensMultimapBuilder.build());
+                    .tokens(tokensMultimapBuilder.build())
+                    .issues(issuesListBuilder.build());
 
             for (Declaration extdef : extdefs) {
                 fileCacheBuilder.extdef(extdef);
             }
 
+            // FIXME: in the future file cache should be built after semantic analysis
             final FileCache cache = fileCacheBuilder.build();
             context.getCache().put(currentFilePath, cache);
             LOG.info("Put file cache into context; file: " + currentFilePath);
@@ -313,25 +318,25 @@ public final class ParseExecutor {
         }
 
         @Override
-        public void interfaceDependency(String currentEntityPath, String interfaceName) {
-            nescDependency(currentEntityPath, interfaceName);
+        public boolean interfaceDependency(String currentEntityPath, String interfaceName) {
+            return nescDependency(currentEntityPath, interfaceName);
             // TODO update components graph
         }
 
         @Override
-        public void componentDependency(String currentEntityPath, String componentName) {
-            nescDependency(currentEntityPath, componentName);
+        public boolean componentDependency(String currentEntityPath, String componentName) {
+            return nescDependency(currentEntityPath, componentName);
             // TODO update components graph
         }
 
-        private void nescDependency(String currentEntityPath, String dependencyName) {
+        private boolean nescDependency(String currentEntityPath, String dependencyName) {
             final Optional<String> filePathOptional = context.getPathsResolver().getEntityFile(dependencyName);
             if (!filePathOptional.isPresent()) {
-                // TODO entity cannot be found
-                return;
+                return false;
             }
 
             fileDependency(currentEntityPath, filePathOptional.get());
+            return true;
         }
 
         private void includeDependency(String currentFilePath, String includedFilePath) {

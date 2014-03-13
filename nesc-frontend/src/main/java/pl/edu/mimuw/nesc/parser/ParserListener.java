@@ -27,8 +27,10 @@ public interface ParserListener {
      *
      * @param currentEntityPath path of current entity
      * @param interfaceName     interface name
+     * @return <code>true</code> if interface declaration was found,
+     * <code>false</code> otherwise
      */
-    void interfaceDependency(String currentEntityPath, String interfaceName);
+    boolean interfaceDependency(String currentEntityPath, String interfaceName);
 
     /**
      * Called when currently being parsed component finds a dependency on
@@ -36,7 +38,9 @@ public interface ParserListener {
      *
      * @param currentEntityPath path of current entity
      * @param componentName     name of component
+     * @return <code>true</code> if component declaration was found,
+     * <code>false</code> otherwise
      */
-    void componentDependency(String currentEntityPath, String componentName);
+    boolean componentDependency(String currentEntityPath, String componentName);
 
 }

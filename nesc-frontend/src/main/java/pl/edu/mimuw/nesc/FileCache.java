@@ -8,6 +8,7 @@ import com.google.common.collect.Multimap;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.common.FileType;
+import pl.edu.mimuw.nesc.issue.NescIssue;
 import pl.edu.mimuw.nesc.lexer.Comment;
 import pl.edu.mimuw.nesc.parser.Parser;
 import pl.edu.mimuw.nesc.parser.SymbolTable;
@@ -20,6 +21,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -39,6 +41,7 @@ public class FileCache {
     private final List<PreprocessorDirective> preprocessorDirectives;
     private final Map<String, PreprocessorMacro> macros;
     private final Multimap<Integer, Token> tokens;
+    private final Multimap<Integer, NescIssue> issues;
 
     private FileCache(Builder builder) {
         this.filePath = builder.filePath;
@@ -50,6 +53,7 @@ public class FileCache {
         this.preprocessorDirectives = builder.preprocessorDirectives.build();
         this.macros = builder.macros.build();
         this.tokens = builder.tokens;
+        this.issues = builder.issues;
     }
 
     public String getFilePath() {
@@ -88,6 +92,10 @@ public class FileCache {
         return tokens;
     }
 
+    public Multimap<Integer, NescIssue> getIssues() {
+        return issues;
+    }
+
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
@@ -100,6 +108,7 @@ public class FileCache {
                 .add("preprocessorDirectives", preprocessorDirectives)
                 .add("macros", macros)
                 .add("tokens", tokens)
+                .add("issues", issues)
                 .toString();
     }
 
@@ -124,6 +133,7 @@ public class FileCache {
         private ImmutableList.Builder<PreprocessorDirective> preprocessorDirectives;
         private ImmutableMap.Builder<String, PreprocessorMacro> macros;
         private Multimap<Integer, Token> tokens;
+        private Multimap<Integer, NescIssue> issues;
 
         public Builder() {
             this.globalScope = SymbolTable.Scope.ofGlobalScope();
@@ -194,14 +204,21 @@ public class FileCache {
             return this;
         }
 
+        public Builder issues(Multimap<Integer, NescIssue> issues) {
+            this.issues = issues;
+            return this;
+        }
+
         public FileCache build() {
             verify();
             return new FileCache(this);
         }
 
         private void verify() {
-            checkNotNull(filePath, "file path cannot be null");
-            checkNotNull(fileType, "file type cannot be null");
+            checkState(filePath != null, "file path cannot be null");
+            checkState(fileType!= null, "file type cannot be null");
+            checkState(tokens != null, "tokens multimap cannot be null");
+            checkState(issues != null, "issues multimap cannot be null");
         }
 
     }
