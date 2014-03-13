@@ -37,7 +37,6 @@ public final class AstUtils {
         if (nodesList.isEmpty()) {
             return Optional.absent();
         }
-        System.out.println("LAST: " + nodesList.getLast());
         return Optional.of(nodesList.getLast().getEndLocation());
     }
 

@@ -2,6 +2,8 @@
 %code imports {
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.Multimap;
 import com.google.common.io.Files;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
@@ -11,6 +13,7 @@ import pl.edu.mimuw.nesc.lexer.TokenPrinter;
 import pl.edu.mimuw.nesc.parser.value.ValueBoolean;
 import pl.edu.mimuw.nesc.semantic.*;
 import pl.edu.mimuw.nesc.semantic.nesc.*;
+import pl.edu.mimuw.nesc.token.*;
 
 import java.io.IOException;
 import java.util.LinkedList;
@@ -36,6 +39,9 @@ import static java.lang.String.format;
  * variable in attribute named "field".
  */
 
+/* The dispatching (fake) tokens. */
+%token <Symbol>   DISPATCH_C DISPATCH_NESC DISPATCH_PARM DISPATCH_TYPE
+
 /*
  * All identifiers that are not reserved words and are not declared typedefs
  * in the current block.
@@ -57,23 +63,6 @@ import static java.lang.String.format;
 %token <Symbol> COMPONENTREF
 
 /*
- * Reserved words that specify storage class.
- */
-%token TYPEDEF EXTERN STATIC AUTO REGISTER COMMAND EVENT ASYNC TASK NORACE
-
-/*
- * Reserved words that specify type.
- */
-%token VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED COMPLEX
-
-/*
- * Reserved words that qualify types/functions: "const" or "volatile",
- * "deletes".
- * FIXME: FN_QUAL, present in grammar but never pushed from lexer.
- */
-%token CONST RESTRICT VOLATILE INLINE FN_QUAL
-
-/*
  * Character or numeric constants. yylval is the node for the constant.
  * TODO: string or int/float/char ?
  */
@@ -89,26 +78,27 @@ import static java.lang.String.format;
 %token <Symbol> MAGIC_STRING
 
 /*
- * All kind of parentheses, operators, etc.
+ * Reserved words that specify type.
  */
-%token <Symbol>   LBRACK RBRACK
-%token <Symbol>   LPAREN RPAREN
-%token <Symbol>   LBRACE RBRACE
-%token <Symbol>   COLON SEMICOLON DOT COMMA
-%token <Symbol>   ARROW LEFT_ARROW AT QUESTION ELLIPSIS
-%token <Symbol>   STAR DIV MOD PLUS MINUS AND XOR OR TILDE NOT LSHIFT RSHIFT ANDAND OROR
-%token <Symbol>   LT GT LTEQ GTEQ EQEQ NOTEQ
-%token <Symbol>   EQ MULEQ DIVEQ MODEQ PLUSEQ MINUSEQ LSHIFTEQ RSHIFTEQ ANDEQ XOREQ OREQ
+%token VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED COMPLEX
+
+/*
+ * Reserved words that specify storage class.
+ */
+%token TYPEDEF EXTERN STATIC AUTO REGISTER COMMAND EVENT ASYNC TASK NORACE
+
+/*
+ * Reserved words that qualify types/functions: "const" or "volatile",
+ * "deletes".
+ * FIXME: FN_QUAL, present in grammar but never pushed from lexer.
+ */
+%token CONST RESTRICT VOLATILE INLINE FN_QUAL
 
 /* the reserved words */
-/* SCO include files test "ASM", so use something else. */
 %token <Symbol>   SIZEOF ENUM IF ELSE WHILE DO FOR SWITCH CASE DEFAULT
 %token <Symbol>   BREAK CONTINUE RETURN GOTO ASM_KEYWORD TYPEOF ALIGNOF
 %token <Symbol>   ATTRIBUTE EXTENSION LABEL
 %token <Symbol>   REALPART IMAGPART VA_ARG OFFSETOF
-
-/* the dispatching (fake) tokens */
-%token <Symbol>   DISPATCH_C DISPATCH_NESC DISPATCH_PARM DISPATCH_TYPE
 
 /* nesC reserved words */
 %token <Symbol>   ATOMIC USES INTERFACE COMPONENTS PROVIDES MODULE
@@ -118,6 +108,19 @@ import static java.lang.String.format;
 /* words reserved for nesC's future. Some may never be used... */
 %token <Symbol>   ABSTRACT COMPONENT EXTENDS
 %token <Symbol>   TARGET_ATTRIBUTE0 TARGET_ATTRIBUTE1 TARGET_DEF
+
+/*
+ * All kind of parentheses, operators, etc.
+ */
+%token <Symbol>   LBRACK RBRACK
+%token <Symbol>   LPAREN RPAREN
+%token <Symbol>   LBRACE RBRACE
+%token <Symbol>   COLON SEMICOLON DOT COMMA
+%token <Symbol>   ARROW LEFT_ARROW AT QUESTION ELLIPSIS
+%token <Symbol>   STAR DIV MOD PLUS MINUS AND XOR OR TILDE NOT LSHIFT RSHIFT ANDAND OROR
+%token <Symbol>   PLUSPLUS MINUSMINUS
+%token <Symbol>   LT GT LTEQ GTEQ EQEQ NOTEQ
+%token <Symbol>   EQ MULEQ DIVEQ MODEQ PLUSEQ MINUSEQ LSHIFTEQ RSHIFTEQ ANDEQ XOREQ OREQ
 
 /*
  * ========== Precedences and associativity ==========
@@ -3449,6 +3452,12 @@ string_chain:
      */
     private LexerWrapper lexer;
     /**
+     * Symbol table. Enables to distinguish between IDENTIFIER and TYPENAME
+     * token. Shared with LexerWrapper.
+     */
+    private SymbolTable symbolTable;
+    private ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder;
+    /**
      * Indicates whether parsing was successful.
      */
     private boolean errors;
@@ -3456,11 +3465,6 @@ string_chain:
      * Keeps data essential during parsing phase.
      */
     private ParserState pstate;
-    /**
-     * Symbol table. Enables to distinguish between IDENTIFIER and TYPENAME
-     * token. Shared with LexerWrapper.
-     */
-    private SymbolTable symbolTable;
     /**
      * Indicates if there was a TYPEDEF keyword in current declaration.
      * This field was introduced only for proper parsing of
@@ -3489,26 +3493,30 @@ string_chain:
     /**
      * Creates parser.
      *
-     * @param filePath    currently being parsed file path
-     * @param lex         lexer
-     * @param symbolTable symbol table
-     * @param fileType    fileType file type
+     * @param filePath              currently being parsed file path
+     * @param lex                   lexer
+     * @param symbolTable           symbol table
+     * @param fileType              fileType file type
+     * @param tokensMultimapBuilder tokens multimap builder
      */
     public Parser(String filePath,
                   pl.edu.mimuw.nesc.lexer.Lexer lex,
                   SymbolTable symbolTable,
-                  FileType fileType) {
+                  FileType fileType,
+                  ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder) {
         Preconditions.checkNotNull(filePath, "file path cannot be null");
         Preconditions.checkNotNull(lex, "lexer cannot be null");
         Preconditions.checkNotNull(symbolTable, "symbol table cannot be null");
         Preconditions.checkNotNull(fileType, "file type cannot be null");
+        Preconditions.checkNotNull(tokensMultimapBuilder, "tokens multimap builder cannot be null");
 
         this.filePath = filePath;
         this.fileType = fileType;
         this.currentEntityName = Files.getNameWithoutExtension(filePath);
         this.symbolTable = symbolTable;
+        this.tokensMultimapBuilder = tokensMultimapBuilder;
         this.lex = lex;
-        this.lexer = new LexerWrapper(lex, this.symbolTable);
+        this.lexer = new LexerWrapper(this.lex, this.symbolTable, this.tokensMultimapBuilder);
         this.yylexer = lexer;
 
         this.errors = false;
@@ -3730,6 +3738,7 @@ string_chain:
          * token. Shared with LexerWrapper.
          */
         private SymbolTable symbolTable;
+        private ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder;
         /**
          *
          */
@@ -3743,9 +3752,12 @@ string_chain:
          */
         private String value;
 
-        public LexerWrapper(pl.edu.mimuw.nesc.lexer.Lexer lexer, SymbolTable symbolTable) {
+        public LexerWrapper(pl.edu.mimuw.nesc.lexer.Lexer lexer,
+                            SymbolTable symbolTable,
+                            ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder) {
             this.symbolTable = symbolTable;
             this.lexer = lexer;
+            this.tokensMultimapBuilder = tokensMultimapBuilder;
             this.tokenQueue = new LinkedList<>();
             this.tokenPrinter = new TokenPrinter();
         }
@@ -3816,6 +3828,8 @@ string_chain:
                 }
             }
 
+            addSymbol(symbol);
+
             if (Parser.this.debug) {
                 this.tokenPrinter.print(symbol.getSymbolCode(), symbol.getValue());
             }
@@ -3848,10 +3862,25 @@ string_chain:
         /**
          * Inserts the token at the beginning queue when the lookahead was done.
          *
-         * @param symbol token
+         * @param symbol symbol
          */
         public void pushtoken(Symbol symbol) {
             this.tokenQueue.addFirst(symbol);
+        }
+
+        /**
+         * Convert symbol into token. Only tokens carrying no semantic data
+         * (ast nodes, symbol table references) are added into map in this
+         * step.
+         *
+         * @param symbol symbol
+         */
+        private void addSymbol(Symbol symbol) {
+            final Optional<? extends Token> tokenOptional = TokenFactory.of(symbol);
+            if (tokenOptional.isPresent()) {
+                final int line = symbol.getLocation().getLine();
+                this.tokensMultimapBuilder.put(line, tokenOptional.get());
+            }
         }
 
     }

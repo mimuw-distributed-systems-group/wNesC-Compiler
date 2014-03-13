@@ -8,6 +8,7 @@ import pl.edu.mimuw.nesc.option.OptionsHolder;
 import pl.edu.mimuw.nesc.option.OptionsParser;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +39,7 @@ public final class NescFrontend implements Frontend {
     @Override
     public ContextRef createContext(String[] args) throws InvalidOptionsException {
         checkNotNull(args, "arguments cannot be null");
-        LOG.info("Create context; " + args);
+        LOG.info("Create context; " + Arrays.toString(args));
 
         final ContextRef contextRef = new ContextRef();
         final FrontendContext context = createContextWorker(args);
@@ -81,12 +82,16 @@ public final class NescFrontend implements Frontend {
     public FileData update(ContextRef contextRef, String filePath) {
         checkNotNull(contextRef, "context reference cannot be null");
         checkNotNull(filePath, "file path cannot be null");
-        LOG.info("Udpate; contextRef=" + contextRef + "; filePath=" + filePath);
+        LOG.info("Update; contextRef=" + contextRef + "; filePath=" + filePath);
 
         final FrontendContext context = getContext(contextRef);
 
         try {
             new ParseExecutor(context).parse(filePath, true);
+            /*
+             * File data is created only when necessary (to avoid creating
+             * costly objects that might not be used).
+             */
             return FileData.convertFrom(context.getCache().get(filePath));
         } catch (IOException e) {
             // TODO

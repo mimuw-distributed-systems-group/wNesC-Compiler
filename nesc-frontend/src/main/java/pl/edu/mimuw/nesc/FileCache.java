@@ -1,8 +1,10 @@
 package pl.edu.mimuw.nesc;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.common.FileType;
@@ -11,6 +13,7 @@ import pl.edu.mimuw.nesc.parser.Parser;
 import pl.edu.mimuw.nesc.parser.SymbolTable;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
+import pl.edu.mimuw.nesc.token.Token;
 
 import java.util.List;
 import java.util.Map;
@@ -35,6 +38,7 @@ public class FileCache {
     private final List<Comment> comments;
     private final List<PreprocessorDirective> preprocessorDirectives;
     private final Map<String, PreprocessorMacro> macros;
+    private final Multimap<Integer, Token> tokens;
 
     private FileCache(Builder builder) {
         this.filePath = builder.filePath;
@@ -45,6 +49,7 @@ public class FileCache {
         this.comments = builder.comments.build();
         this.preprocessorDirectives = builder.preprocessorDirectives.build();
         this.macros = builder.macros.build();
+        this.tokens = builder.tokens;
     }
 
     public String getFilePath() {
@@ -79,18 +84,23 @@ public class FileCache {
         return macros;
     }
 
+    public Multimap<Integer, Token> getTokens() {
+        return tokens;
+    }
+
     @Override
     public String toString() {
-        return "FileCache{" +
-                "filePath='" + filePath + '\'' +
-                ", fileType=" + fileType +
-                ", globalScope=" + globalScope +
-                ", entityRoot=" + entityRoot +
-                ", extdefs=" + extdefs +
-                ", comments=" + comments +
-                ", preprocessorDirectives=" + preprocessorDirectives +
-                ", macros=" + macros +
-                '}';
+        return Objects.toStringHelper(this)
+                .add("filePath", filePath)
+                .add("fileType", fileType)
+                .add("globalScope", globalScope)
+                .add("entityRoot", entityRoot)
+                .add("extdefs", extdefs)
+                .add("comments", comments)
+                .add("preprocessorDirectives", preprocessorDirectives)
+                .add("macros", macros)
+                .add("tokens", tokens)
+                .toString();
     }
 
     /**
@@ -113,6 +123,7 @@ public class FileCache {
         private ImmutableList.Builder<Comment> comments;
         private ImmutableList.Builder<PreprocessorDirective> preprocessorDirectives;
         private ImmutableMap.Builder<String, PreprocessorMacro> macros;
+        private Multimap<Integer, Token> tokens;
 
         public Builder() {
             this.globalScope = SymbolTable.Scope.ofGlobalScope();
@@ -166,6 +177,20 @@ public class FileCache {
             checkNotNull(name, "name cannot be null");
             checkNotNull(macro, "macro cannot be null");
             this.macros.put(name, macro);
+            return this;
+        }
+
+        /**
+         * <p>Sets tokens multimap.</p>
+         * <p>NOTICE: to improve performance the reference to multimap is set,
+         * defensive copy is not created.</p>
+         * TODO: test performance impact
+         *
+         * @param tokens tokens multimap
+         * @return builder
+         */
+        public Builder tokens(Multimap<Integer, Token> tokens) {
+            this.tokens = tokens;
             return this;
         }
 

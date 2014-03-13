@@ -1,6 +1,8 @@
 package pl.edu.mimuw.nesc;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.Multimap;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
@@ -17,6 +19,7 @@ import pl.edu.mimuw.nesc.parser.ParserListener;
 import pl.edu.mimuw.nesc.parser.SymbolTable;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
+import pl.edu.mimuw.nesc.token.Token;
 
 import java.io.IOException;
 import java.util.*;
@@ -122,6 +125,7 @@ public final class ParseExecutor {
          */
         private final FileCache.Builder fileCacheBuilder;
         private final boolean includeDefaultFiles;
+        private final ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder;
 
         private NescLexer lexer;
         private Parser parser;
@@ -145,6 +149,7 @@ public final class ParseExecutor {
             this.context = context;
             this.visitedFiles = new HashSet<>();
             this.fileCacheBuilder = FileCache.builder();
+            this.tokensMultimapBuilder = ImmutableListMultimap.builder();
             this.includeDefaultFiles = includeDefaultFiles;
         }
 
@@ -214,7 +219,7 @@ public final class ParseExecutor {
             lexer.start();
 
             /* Setup parser */
-            this.parser = new Parser(currentFilePath, lexer, symbolTable, fileType);
+            this.parser = new Parser(currentFilePath, lexer, symbolTable, fileType, tokensMultimapBuilder);
             parser.setListener(this);
 
 		    /* Parsing */
@@ -254,7 +259,8 @@ public final class ParseExecutor {
 
             fileCacheBuilder.filePath(currentFilePath)
                     .fileType(fileType)
-                    .entityRoot(entity);
+                    .entityRoot(entity)
+                    .tokens(tokensMultimapBuilder.build());
 
             for (Declaration extdef : extdefs) {
                 fileCacheBuilder.extdef(extdef);

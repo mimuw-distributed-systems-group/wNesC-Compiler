@@ -107,7 +107,6 @@ public final class NescLexer extends AbstractLexer {
     public Symbol nextToken() throws pl.edu.mimuw.nesc.exception.LexerException {
         try {
             Symbol s = popSymbol();
-            System.out.println(s);
             return s;
             //return popSymbol();
         } catch (LexerException | IOException e) {

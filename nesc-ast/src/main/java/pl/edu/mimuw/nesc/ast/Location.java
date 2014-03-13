@@ -51,7 +51,6 @@ public final class Location {
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
-                .add("filePath", filePath)
                 .add("line", line)
                 .add("column", column)
                 .toString();
@@ -59,7 +58,7 @@ public final class Location {
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(filePath, line, column);
+        return Objects.hashCode(line, column);
     }
 
     @Override
@@ -71,8 +70,6 @@ public final class Location {
             return false;
         }
         final Location other = (Location) obj;
-        return Objects.equal(this.filePath, other.filePath)
-                && Objects.equal(this.line, other.line)
-                && Objects.equal(this.column, other.column);
+        return Objects.equal(this.line, other.line) && Objects.equal(this.column, other.column);
     }
 }
