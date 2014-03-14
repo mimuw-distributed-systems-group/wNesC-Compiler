@@ -318,7 +318,7 @@ public final class Semantics {
                                                       String id, LinkedList<Expression> args) {
 		// args may be null
 		// FIXME bad_decl
-		Identifier identifier = new Identifier(location, id, null);
+		Identifier identifier = new Identifier(location, id);
 		// bad_decl result->type = error_type;
 		if (args != null) {
 			args.addFirst(identifier);

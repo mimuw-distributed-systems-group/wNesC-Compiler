@@ -10,7 +10,7 @@ import pl.edu.mimuw.nesc.common.FileType;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.issue.*;
 import pl.edu.mimuw.nesc.lexer.TokenPrinter;
-import pl.edu.mimuw.nesc.parser.value.ValueBoolean;
+import pl.edu.mimuw.nesc.parser.value.*;
 import pl.edu.mimuw.nesc.semantic.*;
 import pl.edu.mimuw.nesc.semantic.nesc.*;
 import pl.edu.mimuw.nesc.token.*;
@@ -209,7 +209,7 @@ import static java.lang.String.format;
 %type <Value.IExpr> if_prefix
 %type <Value.IStmts> stmt_or_labels
 %type <Value.IStmt> simple_if stmt_or_label
-%type <LeftUnaryOperation> unop
+%type <ValueLeftUnaryOp> unop
 %type <Symbol> extension compstmt_start
 %type <Symbol> sizeof alignof
 %type <Label> label
@@ -256,7 +256,7 @@ import static java.lang.String.format;
 %type <LinkedList<Symbol>> fieldlist
 %type <Value.StructKindToken> structkind
 
-%type <NescCallKind> callkind
+%type <ValueCallKind> callkind
 %type <LinkedList<Declaration>> datadef_list
 %type <LinkedList<Declaration>> parameters parameters1
 %type <Declaration> requires provides
@@ -770,7 +770,6 @@ generic_type:
     { $$ = NescSemantics.makeTypeArgument($1); }
     ;
 
-// FIXME
 configuration_decls:
       configuration_decls configuration_decl
     { $$ = Lists.<Declaration>chain($1, $2); }
@@ -978,23 +977,23 @@ idword:
 
 unop:
       AND
-    { $$ = LeftUnaryOperation.ADDRESS_OF; }
+    { $$ = new ValueLeftUnaryOp($1.getLocation(), $1.getEndLocation(), LeftUnaryOperation.ADDRESS_OF); }
     | MINUS
-    { $$ = LeftUnaryOperation.UNARY_MINUS; }
+    { $$ = new ValueLeftUnaryOp($1.getLocation(), $1.getEndLocation(), LeftUnaryOperation.UNARY_MINUS); }
     | PLUS
-    { $$ = LeftUnaryOperation.UNARY_PLUS; }
+    { $$ = new ValueLeftUnaryOp($1.getLocation(), $1.getEndLocation(), LeftUnaryOperation.UNARY_PLUS); }
     | PLUSPLUS
-    { $$ = LeftUnaryOperation.PREINCREMENT; }
+    { $$ = new ValueLeftUnaryOp($1.getLocation(), $1.getEndLocation(), LeftUnaryOperation.PREINCREMENT); }
     | MINUSMINUS
-    { $$ = LeftUnaryOperation.PREDECREMENT; }
+    { $$ = new ValueLeftUnaryOp($1.getLocation(), $1.getEndLocation(), LeftUnaryOperation.PREDECREMENT); }
     | TILDE
-    { $$ = LeftUnaryOperation.BITNOT; }
+    { $$ = new ValueLeftUnaryOp($1.getLocation(), $1.getEndLocation(), LeftUnaryOperation.BITNOT); }
     | NOT
-    { $$ = LeftUnaryOperation.NOT; }
+    { $$ = new ValueLeftUnaryOp($1.getLocation(), $1.getEndLocation(), LeftUnaryOperation.NOT); }
     | REALPART
-    { $$ = LeftUnaryOperation.REALPART; }
+    { $$ = new ValueLeftUnaryOp($1.getLocation(), $1.getEndLocation(), LeftUnaryOperation.REALPART); }
     | IMAGPART
-    { $$ = LeftUnaryOperation.IMAGPART; }
+    { $$ = new ValueLeftUnaryOp($1.getLocation(), $1.getEndLocation(), LeftUnaryOperation.IMAGPART); }
     ;
 
 expr:
@@ -1004,10 +1003,15 @@ expr:
          * When there is only one element in the expression list, then we
          * return only this one.
          */
-        if ($1.size() == 1)
+        if ($1.size() == 1) {
             $$ = $1.get(0);
-        else
-            $$ = Expressions.makeComma(null, $1);
+        } else {
+            final Location startLocation = AstUtils.getStartLocation($1).get();
+            final Location endLocation = AstUtils.getEndLocation($1).get();
+            final Comma comma = Expressions.makeComma(startLocation, $1);
+            comma.setEndLocation(endLocation);
+            $$ = comma;
+        }
     }
     ;
 
@@ -1025,249 +1029,241 @@ nonnull_exprlist:
 
 nonnull_exprlist_:
       expr_no_commas
-    // FIXME
-    //{ $$ = Lists.newList($1); }
-    { $$ = Lists.<Expression>newList(); }
+    { $$ = Lists.newList($1); }
     | nonnull_exprlist_ COMMA expr_no_commas
-    // FIXME
-    //{ $$ = Lists.chain($1, $3); }
-    { $$ = Lists.<Expression>newList(); }
+    { $$ = Lists.chain($1, $3); }
     ;
 
 callkind:
       CALL
-    { $$ = NescCallKind.COMMAND_CALL; }
+    { $$ = new ValueCallKind($1.getLocation(), $1.getEndLocation(), NescCallKind.COMMAND_CALL); }
     | SIGNAL
-    { $$ = NescCallKind.EVENT_SIGNAL; }
+    { $$ = new ValueCallKind($1.getLocation(), $1.getEndLocation(), NescCallKind.EVENT_SIGNAL); }
     | POST
-    { $$ = NescCallKind.POST_TASK; }
+    { $$ = new ValueCallKind($1.getLocation(), $1.getEndLocation(), NescCallKind.POST_TASK); }
     ;
 
-//TODO : set first argument (location).
 unary_expr:
       primary
     { $$ = $1; }
     | callkind function_call
     {
-        FunctionCall fc = $2;
+        final FunctionCall call = $2;
+        call.setLocation($1.getLocation());
+        call.setCallKind($1.getCallKind());
         $$ = $2;
-        fc.setCallKind($1);
-        /*
-         * TODO: check whether apropriate modifier is specified, i.e.
-         * commands must be called, events must be signaled, etc.
-         */
     }
     | STAR cast_expr
     {
-        $$ = Expressions.makeDereference(null, $2);
+        $$ = Expressions.makeDereference($1.getLocation(), $2);
     }
     /* __extension__ turns off -pedantic for following primary.  */
     | extension cast_expr
     {
-        $$ = Expressions.makeExtensionExpr(null, $2);
+        $$ = Expressions.makeExtensionExpr($1.getLocation(), $2);
     }
     | unop cast_expr
     {
-        $$ = Expressions.makeUnary(null, $1, $2);
+        $$ = Expressions.makeUnary($1.getLocation(), $1.getOperation(), $2);
     }
     /* Refer to the address of a label as a pointer.  */
     | ANDAND id_label
     {
-        $$ = Expressions.makeLabelAddress(null, $2);
-        Statements.useLabel($2);
+        $$ = Expressions.makeLabelAddress($1.getLocation(), $2);
     }
     | sizeof unary_expr
     {
-        $$ = Expressions.makeSizeofExpr(null, $2);
+        $$ = Expressions.makeSizeofExpr($1.getLocation(), $2);
     }
     | sizeof LPAREN typename RPAREN
     {
-        $$ = Expressions.makeSizeofType(null, $3);
+        $$ = Expressions.makeSizeofType($1.getLocation(), $4.getEndLocation(), $3);
     }
     | alignof unary_expr
     {
-        $$ = Expressions.makeAlignofExpr(null, $2);
+        $$ = Expressions.makeAlignofExpr($1.getLocation(), $2);
     }
     | alignof LPAREN typename RPAREN
     {
-        $$ = Expressions.makeAlignofType(null, $3);
+        $$ = Expressions.makeAlignofType($1.getLocation(), $4.getEndLocation(), $3);
     }
     ;
 
 sizeof:
       SIZEOF
-    {
-        // TODO
-    }
+    { $$ = $1; }
     ;
 
 alignof:
       ALIGNOF
-    {
-        // TODO
-    }
+    { $$ = $1; }
     ;
 
-//TODO : set first argument (location).
 cast_expr:
       unary_expr
+    { $$ = $1; }
     | LPAREN typename RPAREN cast_expr
     {
-        Expressions.makeCast(null, $2, $4);
+        $$ = Expressions.makeCast($1.getLocation(), $2, $4);
     }
     | LPAREN typename RPAREN LBRACE initlist_maybe_comma RBRACE
     {
-        // TODO : I have no idea what is happening here!
+        final InitList initList = Init.makeInitList($4.getLocation(), $6.getEndLocation(), $5);
+        $$ = Expressions.makeCastList($1.getLocation(), $6.getEndLocation(), $2, initList);
     }
     ;
 
-//TODO : set first argument (location).
 expr_no_commas:
       cast_expr
+    { $$ = $1; }
     | expr_no_commas PLUS expr_no_commas
     {
-        $$ = Expressions.makePlus(null, $1, $3);
+        $$ = Expressions.makePlus($1, $3);
     }
     | expr_no_commas MINUS expr_no_commas
     {
-        $$ = Expressions.makeMinus(null, $1, $3);
+        $$ = Expressions.makeMinus($1, $3);
     }
     | expr_no_commas STAR expr_no_commas
     {
-        $$ = Expressions.makeTimes(null, $1, $3);
+        $$ = Expressions.makeTimes($1, $3);
     }
     | expr_no_commas DIV expr_no_commas
     {
-        $$ = Expressions.makeDivide(null, $1, $3);
+        $$ = Expressions.makeDivide($1, $3);
     }
     | expr_no_commas MOD expr_no_commas
     {
-        $$ = Expressions.makeModulo(null, $1, $3);
+        $$ = Expressions.makeModulo($1, $3);
     }
     | expr_no_commas LSHIFT expr_no_commas
     {
-        $$ = Expressions.makeLshift(null, $1, $3);
+        $$ = Expressions.makeLshift($1, $3);
     }
     | expr_no_commas RSHIFT expr_no_commas
     {
-        $$ = Expressions.makeRshift(null, $1, $3);
+        $$ = Expressions.makeRshift($1, $3);
     }
     | expr_no_commas LTEQ expr_no_commas
     {
-        $$ = Expressions.makeLeq(null, $1, $3);
+        $$ = Expressions.makeLeq($1, $3);
     }
     | expr_no_commas GTEQ expr_no_commas
     {
-        $$ = Expressions.makeGeq(null, $1, $3);
+        $$ = Expressions.makeGeq($1, $3);
     }
     | expr_no_commas LT expr_no_commas
     {
-        $$ = Expressions.makeLt(null, $1, $3);
+        $$ = Expressions.makeLt($1, $3);
     }
     | expr_no_commas GT expr_no_commas
     {
-        $$ = Expressions.makeGt(null, $1, $3);
+        $$ = Expressions.makeGt($1, $3);
     }
     | expr_no_commas EQEQ expr_no_commas
     {
-        $$ = Expressions.makeEq(null, $1, $3);
+        $$ = Expressions.makeEq($1, $3);
     }
     | expr_no_commas NOTEQ expr_no_commas
     {
-        $$ = Expressions.makeNe(null, $1, $3);
+        $$ = Expressions.makeNe($1, $3);
     }
     | expr_no_commas AND expr_no_commas
     {
-        $$ = Expressions.makeBitand(null, $1, $3);
+        $$ = Expressions.makeBitand($1, $3);
     }
     | expr_no_commas OR expr_no_commas
     {
-        $$ = Expressions.makeBitor(null, $1, $3);
+        $$ = Expressions.makeBitor($1, $3);
     }
     | expr_no_commas XOR expr_no_commas
     {
-        $$ = Expressions.makeBitxor(null, $1, $3);
+        $$ = Expressions.makeBitxor($1, $3);
     }
     | expr_no_commas ANDAND expr_no_commas
     {
-        $$ = Expressions.makeAndand(null, $1, $3);
+        $$ = Expressions.makeAndand($1, $3);
     }
     | expr_no_commas OROR expr_no_commas
     {
-        $$ = Expressions.makeOror(null, $1, $3);
+        $$ = Expressions.makeOror($1, $3);
     }
     | expr_no_commas QUESTION expr COLON expr_no_commas
     {
-        $$ = Expressions.makeConditional(null, $1, $3, $5);
+        $$ = Expressions.makeConditional($1, $3, $5);
     }
     | expr_no_commas QUESTION COLON expr_no_commas
     {
-        $$ = Expressions.makeConditional(null, $1, null, $4);
+        $$ = Expressions.makeConditional($1, null, $4);
     }
     | expr_no_commas EQ expr_no_commas
     {
-        $$ = Expressions.makeAssign(null, $1, $3);
+        $$ = Expressions.makeAssign($1, $3);
     }
     | expr_no_commas MULEQ expr_no_commas
     {
-        $$ = Expressions.makeTimesAssign(null, $1, $3);
+        $$ = Expressions.makeTimesAssign($1, $3);
     }
     | expr_no_commas DIVEQ expr_no_commas
     {
-        $$ = Expressions.makeDivideAssign(null, $1, $3);
+        $$ = Expressions.makeDivideAssign($1, $3);
     }
     | expr_no_commas MODEQ expr_no_commas
     {
-        $$ = Expressions.makeModuloAssign(null, $1, $3);
+        $$ = Expressions.makeModuloAssign($1, $3);
     }
     | expr_no_commas PLUSEQ expr_no_commas
     {
-        $$ = Expressions.makePlusAssign(null, $1, $3);
+        $$ = Expressions.makePlusAssign($1, $3);
     }
     | expr_no_commas MINUSEQ expr_no_commas
     {
-        $$ = Expressions.makeMinusAssign(null, $1, $3);
+        $$ = Expressions.makeMinusAssign($1, $3);
     }
     | expr_no_commas LSHIFTEQ expr_no_commas
     {
-        $$ = Expressions.makeLshiftAssign(null, $1, $3);
+        $$ = Expressions.makeLshiftAssign($1, $3);
     }
     | expr_no_commas RSHIFTEQ expr_no_commas
     {
-        $$ = Expressions.makeRshiftAssign(null, $1, $3);
+        $$ = Expressions.makeRshiftAssign($1, $3);
     }
     | expr_no_commas ANDEQ expr_no_commas
     {
-        $$ = Expressions.makeBitandAssign(null, $1, $3);
+        $$ = Expressions.makeBitandAssign($1, $3);
     }
     | expr_no_commas XOREQ expr_no_commas
     {
-        $$ = Expressions.makeBitxorAssign(null, $1, $3);
+        $$ = Expressions.makeBitxorAssign($1, $3);
     }
     | expr_no_commas OREQ expr_no_commas
     {
-        $$ = Expressions.makeBitorAssign(null, $1, $3);
+        $$ = Expressions.makeBitorAssign($1, $3);
     }
     ;
 
-//TODO : set first argument (location).
 primary:
       IDENTIFIER
     {
-        // FIXME first and third argument.
-        $$ = Expressions.makeIdentifier(null, $1.getValue(), true);
+        $$ = Expressions.makeIdentifier($1.getLocation(), $1.getEndLocation(), $1.getValue(), true);
     }
     | INTEGER_LITERAL
     {
-        $$ = new LexicalCst($1.getLocation(), $1.getValue());
+        final LexicalCst cst = new LexicalCst($1.getLocation(), $1.getValue());
+        cst.setEndLocation($1.getEndLocation());
+        $$ = cst;
     }
     | FLOATING_POINT_LITERAL
     {
-        $$ = new LexicalCst($1.getLocation(), $1.getValue());
+        final LexicalCst cst = new LexicalCst($1.getLocation(), $1.getValue());
+        cst.setEndLocation($1.getEndLocation());
+        $$ = cst;
     }
     | CHARACTER_LITERAL
     {
-        $$ = new LexicalCst($1.getLocation(), $1.getValue());
+        final LexicalCst cst = new LexicalCst($1.getLocation(), $1.getValue());
+        cst.setEndLocation($1.getEndLocation());
+        $$ = cst;
     }
     | string
     {
@@ -1280,48 +1276,46 @@ primary:
     }
     | LPAREN error RPAREN
     {
-        // TODO
+        $$ = Expressions.makeErrorExpr();
     }
     | LPAREN compstmt RPAREN
     {
-        // TODO
+        $$ = Expressions.makeCompoundExpr($1.getLocation(), $3.getEndLocation(), $2);
     }
     | function_call
     {
-    	// FIXME
-    	$$ = Expressions.makeIdentifier(null, "fixme", true);
+    	$$ = $1;
     }
     | VA_ARG LPAREN expr_no_commas COMMA typename RPAREN
     {
-    	// FIXME
-    	$$ = Expressions.makeIdentifier(null, "fixme", true);
+    	$$ = Expressions.makeVaArg($1.getLocation(), $6.getEndLocation(), Lists.newList($3), $5);
     }
     | OFFSETOF LPAREN typename COMMA fieldlist RPAREN
     {
-    	// FIXME
-    	$$ = Expressions.makeIdentifier(null, "fixme", true);
+    	// FIXME: fieldlist
+    	$$ = Expressions.makeOffsetof($1.getLocation(), $6.getEndLocation(), $3, Lists.<String>newList());
     }
     | primary LBRACK nonnull_exprlist RBRACK
     {
-        // XXX: index is an expression list!
-        $$ = Expressions.makeArrayRef(null, $1, $3);
+        // NOTICE: ambiguity: array reference or generic call?
+        $$ = Expressions.makeArrayRef($1.getLocation(), $4.getEndLocation(), $1, $3);
     }
     | primary DOT identifier
     {
-        $$ = Expressions.makeFieldRef(null, $1, $3.getValue());
+        $$ = Expressions.makeFieldRef($1.getLocation(), $3.getEndLocation(), $1, $3.getValue());
     }
     | primary ARROW identifier
     {
-        Expression dereference = Expressions.makeDereference(null, $1);
-        $$ = Expressions.makeFieldRef(null, dereference, $3.getValue());
+        Expression dereference = Expressions.makeDereference($1.getLocation(), $1);
+        $$ = Expressions.makeFieldRef($1.getLocation(), $3.getEndLocation(), dereference, $3.getValue());
     }
     | primary PLUSPLUS
     {
-        $$ = Expressions.makePostincrement(null, $1);
+        $$ = Expressions.makePostincrement($1.getLocation(), $2.getEndLocation(), $1);
     }
     | primary MINUSMINUS
     {
-        $$ = Expressions.makePostdecrement(null, $1);
+        $$ = Expressions.makePostdecrement($1.getLocation(), $2.getEndLocation(), $1);
     }
     ;
 
@@ -1335,14 +1329,14 @@ fieldlist:
 //TODO : set first argument (location).
 function_call:
       primary LPAREN exprlist RPAREN
-    { $$ = Expressions.makeFunctionCall(null, $1, $3); }
+    { $$ = Expressions.makeFunctionCall($1.getLocation(), $4.getEndLocation(), $1, $3); }
     ;
 
 string:
       string_chain
     { $$ = $1; }
     | MAGIC_STRING
-    { $$ = Expressions.makeIdentifier(null, $1.getValue(), false); }
+    { $$ = Expressions.makeIdentifier($1.getLocation(), $1.getEndLocation(), $1.getValue(), false); }
   ;
 
 /*
@@ -1978,13 +1972,10 @@ initdcl:
         declareName($1, pstate.declspecs);
         final VariableDecl decl = Declarations.startDecl($1, $2, pstate.declspecs,
                 true, prefixAttr($3));
-        // FIXME startInit
-        Init.startInit(decl, null);
         $<VariableDecl>$ = decl;
     }
       init
     {
-          Init.finishInit();
           /*
            * $<declaration>5 : The result of anonymous rule is the fifth
            * element in the right-hand side of production.
@@ -2008,13 +1999,10 @@ notype_initdcl:
         declareName($1, pstate.declspecs);
         final VariableDecl decl = Declarations.startDecl($1, $2, pstate.declspecs,
                 true, prefixAttr($3));
-        // FIXME startInit
-        Init.startInit(decl, null);
         $<VariableDecl>$ = decl;
     }
       init
     {
-          Init.finishInit();
           final VariableDecl decl = (VariableDecl) $<VariableDecl>5;
           $$ = Declarations.finishDecl(decl, $6);
     }
@@ -2193,19 +2181,16 @@ any_word:
 init:
       expr_no_commas
     {
-        Init.simpleInit($1);
         $$ = $1;
     }
-    | LBRACE
+    | LBRACE initlist_maybe_comma RBRACE
     {
-        Init.reallyStartIncrementalInit(null);
-    }
-      initlist_maybe_comma RBRACE
-    {
-        $$ = Init.makeInitList(null, $3);
+        $$ = Init.makeInitList($1.getLocation(), $3.getEndLocation(), $2);
     }
     | error
-    { $$ = Expressions.makeErrorExpr(); }
+    {
+        $$ = Expressions.makeErrorExpr();
+    }
     ;
 
 /* `initlist_maybe_comma' is the guts of an initializer in braces.  */
@@ -2223,44 +2208,39 @@ initlist1:
     { $$ = Lists.<Expression>chain($1, $3); }
     ;
 
-/* `initelt' is a single element of an initializer.
- It may use braces.  */
+/* `initelt' is a single element of an initializer. It may use braces.  */
 initelt:
       designator_list EQ initval
     {
-        $$ = Init.makeInitSpecific($1, $3);
+        final Location startLocation = AstUtils.getStartLocation($1).get();
+        $$ = Init.makeInitSpecific(startLocation, $3.getEndLocation(), $1, $3);
     }
     | designator initval
     {
-        $$ = Init.makeInitSpecific($1, $2);
+        $$ = Init.makeInitSpecific($1.getLocation(), $2.getEndLocation(), $1, $2);
     }
-    | identifier COLON
+    | identifier COLON initval
     {
-        $<Designator>$ = Init.setInitLabel(null, $1.getValue());
-    }
-      initval
-    {
-        $$ = Init.makeInitSpecific($<Designator>3, $4);
+        final Designator designator = Init.setInitLabel($1.getLocation(), $1.getEndLocation(), $1.getValue());
+        $$ = Init.makeInitSpecific($1.getLocation(), $3.getEndLocation(), designator, $3);
     }
     | initval
     { $$ = $1; }
     ;
 
 initval:
-      LBRACE
+      LBRACE initlist_maybe_comma RBRACE
     {
-
-    }
-      initlist_maybe_comma RBRACE
-    {
-          $$ = Init.makeInitList(null, $3);
+        $$ = Init.makeInitList($1.getLocation(), $3.getEndLocation(), $2);
     }
     | expr_no_commas
     {
         $$ = $1;
     }
     | error
-    { $$ = Expressions.makeErrorExpr(); }
+    {
+        $$ = Expressions.makeErrorExpr();
+    }
     ;
 
 designator_list:
@@ -2273,18 +2253,18 @@ designator_list:
 designator:
       DOT identifier
     {
-        $$ = Init.setInitLabel(null, $2.getValue());
+        $$ = Init.setInitLabel($2.getLocation(), $2.getEndLocation(), $2.getValue());
     }
     /* These are for labeled elements.  The syntax for an array element
        initializer conflicts with the syntax for an Objective-C message,
        so don't include these productions in the Objective-C grammar.  */
     | LBRACK expr_no_commas ELLIPSIS expr_no_commas RBRACK
     {
-        $$ = Init.setInitIndex(null, $2, $4);
+        $$ = Init.setInitIndex($1.getLocation(), $5.getEndLocation(), $2, $4);
     }
     | LBRACK expr_no_commas RBRACK
     {
-        $$ = Init.setInitIndex(null, $2, null);
+        $$ = Init.setInitIndex($1.getLocation(), $3.getEndLocation(), $2, null);
     }
     ;
 

@@ -508,20 +508,19 @@ class ErrorExpr(BasicASTNode):
 
 class Unary(BasicASTNode):
     superclass = Expression
-    arg1 = ReferenceField("Expression")
+    argument = ReferenceField("Expression")
 
 
 class Binary(BasicASTNode):
     superclass = Expression
-    arg1 = ReferenceField("Expression")
-    arg2 = ReferenceField("Expression")
+    leftArgument = ReferenceField("Expression")
+    rightArgument = ReferenceField("Expression")
 
 
 # A comma separated list of expressions.
 class Comma(BasicASTNode):
     superclass = Expression
-    # A list of expressions.
-    arg1 = ReferenceListField("Expression")
+    expressions = ReferenceListField("Expression")
 
 
 class SizeofType(BasicASTNode):
@@ -553,19 +552,19 @@ class CastList(BasicASTNode):
 class Conditional(BasicASTNode):
     superclass = Expression
     condition = ReferenceField("Expression")
-    arg1 = ReferenceField("Expression")
-    arg2 = ReferenceField("Expression")
+    onTrueExp = ReferenceField("Expression")
+    onFalseExp = ReferenceField("Expression")
 
 
 class Identifier(BasicASTNode):
     superclass = Expression
     name = StringField()
-    ddecl = ReferenceField("DataDeclaration")
+    ddecl = ReferenceField("DataDeclaration", constructor_variable=0)
 
 
 class CompoundExpr(BasicASTNode):
     superclass = Expression
-    stmt = ReferenceField("Statement")
+    statement = ReferenceField("Statement")
 
 
 # ARG1(ARGS). ARGS is a list of expressions
@@ -575,8 +574,8 @@ class CompoundExpr(BasicASTNode):
 # CALL_KIND is one of normal_call, post_task, command_call or event_signal.
 class FunctionCall(BasicASTNode):
     superclass = Expression
-    arg1 = ReferenceField("Expression")
-    args = ReferenceListField("Expression")
+    function = ReferenceField("Expression")
+    arguments = ReferenceListField("Expression")
     vaArgCall = ReferenceField("AstType")
     callKind = ReferenceField("NescCallKind")
 
@@ -584,8 +583,8 @@ class FunctionCall(BasicASTNode):
 # XXX: originally ArrayRef is BinaryExp
 class ArrayRef(BasicASTNode):
     superclass = Expression
-    arg1 = ReferenceField("Expression")
-    arg2 = ReferenceListField("Expression")
+    array = ReferenceField("Expression")
+    index = ReferenceListField("Expression")
 
 
 class FieldRef(BasicASTNode):
@@ -791,7 +790,7 @@ class BitxorAssign(BasicASTNode):
 
 class InitList(BasicASTNode):
     superclass = Expression
-    args = ReferenceListField("Expression")
+    arguments = ReferenceListField("Expression")
 
 
 class InitSpecific(BasicASTNode):

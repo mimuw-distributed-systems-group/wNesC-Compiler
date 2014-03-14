@@ -1,71 +1,50 @@
 package pl.edu.mimuw.nesc.semantic;
 
+import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.common.util.list.Lists;
+
 import java.util.LinkedList;
 
-import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.Type;
-import pl.edu.mimuw.nesc.ast.gen.AstType;
-import pl.edu.mimuw.nesc.ast.gen.DesignateField;
-import pl.edu.mimuw.nesc.ast.gen.DesignateIndex;
-import pl.edu.mimuw.nesc.ast.gen.Designator;
-import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.gen.InitList;
-import pl.edu.mimuw.nesc.ast.gen.InitSpecific;
-import pl.edu.mimuw.nesc.ast.gen.NescAttribute;
-import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
-
+/**
+ * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ */
 public class Init {
 
-	/*
-	 * TODO: ivalue_array, ivalue_field classes (in nesc-ast)
-	 */
+    public static Designator setInitIndex(Location startLocation, Location endLocation, Expression first,
+                                          Expression last) {
+        final Designator designator = new DesignateIndex(startLocation, first, last);
+        designator.setEndLocation(endLocation);
+        return designator;
+    }
 
-	public static void startInit(VariableDecl declaration, NescAttribute attribute) {
-		// TODO
-	}
+    public static Designator setInitLabel(Location startLocation, Location endLocation, String fieldName) {
+        final DesignateField designator = new DesignateField(startLocation, fieldName);
+        designator.setEndLocation(endLocation);
+        return designator;
+    }
 
-	public static void finishInit() {
-		// TODO
-	}
+    public static Expression makeInitSpecific(Location startLocation, Location endLocation,
+                                              LinkedList<Designator> designators, Expression initialValue) {
+        final InitSpecific result = new InitSpecific(startLocation, designators, initialValue);
+        result.setEndLocation(endLocation);
+        return result;
+    }
 
-	public static void simpleInit(Expression exp) {
-		// TODO
-	}
+    public static InitSpecific makeInitSpecific(Location startLocation, Location endLocation, Designator designator,
+                                                Expression initialValue) {
+        final InitSpecific result = new InitSpecific(startLocation, Lists.newList(designator), initialValue);
+        result.setEndLocation(endLocation);
+        return result;
+    }
 
-	public static void reallyStartIncrementalInit(Type type) {
-		// TODO
-	}
+    public static InitList makeInitList(Location startLocation, Location endLocation,
+                                        LinkedList<Expression> expressions) {
+        final InitList initList = new InitList(startLocation, expressions);
+        initList.setEndLocation(endLocation);
+        return initList;
+    }
 
-	public static Designator setInitIndex(Location location, Expression first, Expression last) {
-		Designator designator = new DesignateIndex(location, first, last);
-		// TODO
-		return designator;
-	}
-
-	public static Designator setInitLabel(Location location, String fieldname) {
-		Designator designator = new DesignateField(location, fieldname);
-		// TODO
-		return designator;
-	}
-
-	public static Expression makeInitSpecific(LinkedList<Designator> dlist, Expression initval) {
-		Location location = dlist.get(0).getLocation();
-		return new InitSpecific(location, dlist, initval);
-	}
-
-	public static Expression makeInitSpecific(Designator designator, Expression initval) {
-		LinkedList<Designator> dlist = new LinkedList<Designator>();
-		dlist.add(designator);
-		return new InitSpecific(designator.getLocation(), dlist, initval);
-	}
-
-	public static Expression makeInitList(Location location, LinkedList<Expression> exps) {
-		// TODO
-		InitList initList = new InitList(location, exps);
-		// TODO
-		return initList;
-	}
-
-	private Init() {
-	}
+    private Init() {
+    }
 }
