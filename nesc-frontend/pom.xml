@@ -93,26 +93,7 @@
             <version>1.4.0-SNAPSHOT</version>
         </dependency>
 
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.11</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.easytesting</groupId>
-            <artifactId>fest-assert</artifactId>
-            <version>1.4</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <version>15.0</version>
-        </dependency>
-
+        <!-- Third-party -->
         <dependency>
             <groupId>commons-cli</groupId>
             <artifactId>commons-cli</artifactId>
@@ -124,12 +105,13 @@
             <artifactId>java-getopt</artifactId>
             <version>1.0.13</version>
         </dependency>
-
-        <dependency>
-            <groupId>log4j</groupId>
-            <artifactId>log4j</artifactId>
-            <version>1.2.17</version>
-        </dependency>
     </dependencies>
+
+    <repositories>
+        <repository>
+            <id>Apache Maven snapshot repository</id>
+            <url>https://repository.apache.org/content/groups/snapshots/</url>
+        </repository>
+    </repositories>
 
 </project>
