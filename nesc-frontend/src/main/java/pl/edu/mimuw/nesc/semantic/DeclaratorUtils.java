@@ -94,7 +94,7 @@ public final class DeclaratorUtils {
 
 		@Override
 		public String visitInterfaceRefDeclarator(InterfaceRefDeclarator elem, Void arg) {
-			return elem.getWord1().getName();
+			return elem.getName().getName();
 		}
 
 	}

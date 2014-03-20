@@ -4,6 +4,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.io.Files;
+import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.common.FileType;
@@ -20,6 +21,8 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static java.lang.String.format;
+
+@SuppressWarnings({"all"})
 }
 
 %define package {pl.edu.mimuw.nesc.parser}
@@ -80,19 +83,19 @@ import static java.lang.String.format;
 /*
  * Reserved words that specify type.
  */
-%token VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED COMPLEX
+%token <Symbol> VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED COMPLEX
 
 /*
  * Reserved words that specify storage class.
  */
-%token TYPEDEF EXTERN STATIC AUTO REGISTER COMMAND EVENT ASYNC TASK NORACE
+%token <Symbol> TYPEDEF EXTERN STATIC AUTO REGISTER COMMAND EVENT ASYNC TASK NORACE
 
 /*
  * Reserved words that qualify types/functions: "const" or "volatile",
  * "deletes".
  * FIXME: FN_QUAL, present in grammar but never pushed from lexer.
  */
-%token CONST RESTRICT VOLATILE INLINE FN_QUAL
+%token <Symbol> CONST RESTRICT VOLATILE INLINE FN_QUAL
 
 /* the reserved words */
 %token <Symbol>   SIZEOF ENUM IF ELSE WHILE DO FOR SWITCH CASE DEFAULT
@@ -104,7 +107,7 @@ import static java.lang.String.format;
 %token <Symbol>   ATOMIC USES INTERFACE COMPONENTS PROVIDES MODULE
 %token <Symbol>   INCLUDES CONFIGURATION AS IMPLEMENTATION CALL
 %token <Symbol>   SIGNAL POST GENERIC NEW
-%token <Value.StructKindToken> NX_STRUCT NX_UNION STRUCT UNION
+%token <Symbol>   NX_STRUCT NX_UNION STRUCT UNION
 /* words reserved for nesC's future. Some may never be used... */
 %token <Symbol>   ABSTRACT COMPONENT EXTENDS
 %token <Symbol>   TARGET_ATTRIBUTE0 TARGET_ATTRIBUTE1 TARGET_DEF
@@ -157,9 +160,8 @@ import static java.lang.String.format;
 /*
  * ========== Non-terminals ==========
  *
- * Define the type of value returned by each production (more precisely,
- * which attribute of yylval should store the returned value).
- * %type <field> name_or_names
+ * Define the type of value returned by each production.
+ * %type <field> name_list
  */
 %type <AsmOperand> asm_operand
 %type <LinkedList<AsmOperand>> asm_operands nonnull_asm_operands
@@ -169,7 +171,8 @@ import static java.lang.String.format;
 %type <LinkedList<Attribute>> attributes attribute_list nesc_attributes
 %type <GccAttribute> attrib target_attribute
 %type <NescAttribute> nastart
-%type <Declaration> datadecl datadef decl extdef fndef fndef2
+%type <Declaration> datadecl datadef decl extdef fndef
+%type <FunctionDecl> fndef2
 %type <LinkedList<Declaration>> datadecls decls extdefs
 %type <LinkedList<Declaration>> initdecls initdecls_ notype_initdecls notype_initdecls_
 %type <Declaration> nested_function notype_nested_function
@@ -254,7 +257,7 @@ import static java.lang.String.format;
 %type <AstType> typename
 %type <Word> idword any_word tag
 %type <LinkedList<Symbol>> fieldlist
-%type <Value.StructKindToken> structkind
+%type <ValueStructKind> structkind
 
 %type <ValueCallKind> callkind
 %type <LinkedList<Declaration>> datadef_list
@@ -685,8 +688,7 @@ typelist:
 iconfiguration:
       IMPLEMENTATION LBRACE configuration_decls RBRACE
     {
-        // FIXME $3
-        final ConfigurationImpl impl = new ConfigurationImpl($1.getLocation(), Lists.<Declaration>newList());
+        final ConfigurationImpl impl = new ConfigurationImpl($1.getLocation(), $3);
         impl.setEndLocation($4.getEndLocation());
         $$ = impl;
     }
@@ -807,16 +809,24 @@ endpoint:
 
 parameterised_identifier:
       idword
-    { $$ = new ParameterisedIdentifier(null, $1, null); }
+    {
+        final ParameterisedIdentifier id = new ParameterisedIdentifier($1.getLocation(), $1,
+                Lists.<Expression>newList());
+        id.setEndLocation($1.getEndLocation());
+        $$ = id;
+    }
     | idword LBRACK nonnull_exprlist RBRACK
-    { $$ = new ParameterisedIdentifier(null, $1, $3); }
+    {
+        final ParameterisedIdentifier id = new ParameterisedIdentifier($1.getLocation(), $1, $3);
+        id.setEndLocation($4.getEndLocation());
+        $$ = id;
+    }
     ;
 
 imodule:
       IMPLEMENTATION LBRACE extdefs RBRACE
     {
-        // FIXME $3
-        final ModuleImpl impl = new ModuleImpl($1.getLocation(), Lists.<Declaration>newList());
+        final ModuleImpl impl = new ModuleImpl($1.getLocation(), $3);
         impl.setEndLocation($4.getEndLocation());
         $$ = impl;
     }
@@ -825,7 +835,7 @@ imodule:
 /* the reason for the strange actions in this rule
 is so that notype_initdecls when reached via datadef
 can find a valid list of type and sc specs in $0. */
-//FIXME: not sure if extdefs will work properly.
+// NOTICE: not sure what is happening here
 extdefs:
     {
         $<TypeElement>$ = null;
@@ -834,9 +844,12 @@ extdefs:
     }
     extdef
     {
-        // TODO check if null
-        $$ = Lists.<Declaration>newListEmptyOnNull($2);
-     }
+        if ($2 == null) {
+            $$ = Lists.<Declaration>newList();
+        } else {
+            $$ = Lists.<Declaration>newList($2);
+        }
+    }
     | extdefs
     {
         $<TypeElement>$ = null;
@@ -856,6 +869,7 @@ extdef:
     { $$ = $1; }
     | ASM_KEYWORD LPAREN expr RPAREN SEMICOLON
     {
+        // FIXME
         AsmStmt asmStmt = new AsmStmt(null, $3, Lists.<AsmOperand>newList(),
                 Lists.<AsmOperand>newList(), Lists.<StringAst>newList(),
                 Lists.<TypeElement>newList());
@@ -864,15 +878,16 @@ extdef:
     }
     | extension extdef
     {
-        // FIXME extension
-        $$ = Declarations.makeExtensionDecl(0, null, $2);
+        $$ = Declarations.makeExtensionDecl($1.getLocation(), $2.getEndLocation(), $2);
+        // pedantic = 0
     }
     ;
 
 datadef:
       setspecs notype_initdecls SEMICOLON
     {
-        $$ = Declarations.makeDataDecl(Lists.<TypeElement>newList(), $2);
+        final Location startLocation = AstUtils.getStartLocation($2).get();
+        $$ = Declarations.makeDataDecl(startLocation, $3.getEndLocation(), Lists.<TypeElement>newList(), $2);
         popDeclspecStack();
     }
     | just_datadef
@@ -882,30 +897,37 @@ datadef:
 just_datadef:
       declspecs_nots setspecs notype_initdecls SEMICOLON
     {
-        $$ = Declarations.makeDataDecl($1, $3);
+        final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
+        $$ = Declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs_ts setspecs initdecls SEMICOLON
     {
-        $$ = Declarations.makeDataDecl($1, $3);
+        final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
+        $$ = Declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs setspecs SEMICOLON
     {
-        // TODO
-        $$ = Declarations.makeDataDecl($1, null);
+        final Location startLocation = AstUtils.getStartLocation($3.getLocation(), $1);
+        $$ = Declarations.makeDataDecl(startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | error SEMICOLON
-    { $$ = Declarations.makeErrorDecl(); }
+    {
+        $$ = Declarations.makeErrorDecl();
+    }
     | error RBRACE
-    { $$ = Declarations.makeErrorDecl(); }
+    {
+        $$ = Declarations.makeErrorDecl();
+    }
     | SEMICOLON
     {
-        // FIXME: should not return null
+        // FIXME: null!
         $$ = null;
     }
     | target_def
+    { $$ = $1; }
     ;
 
 //TODO
@@ -916,6 +938,7 @@ target_def:
     }
     ;
 
+// XXX: fndef and fndef2 - my favourite productions :)
 fndef:
       declspecs_ts setspecs declarator fndef2
     { $$ = $4; }
@@ -928,25 +951,38 @@ fndef:
 fndef2:
       maybeasm maybe_attribute
     {
-        /* NOTE: maybe asm can be null! */
-        /* maybeasm is only here to avoid a s/r conflict */
-        // TODO refuse_asm($1);
+        /* NOTICE: maybe asm can be null! */
+        /* NOTICE: maybeasm is only here to avoid a s/r conflict */
+        // TODO refuse_asm
 
-        /* $0 refers to the declarator that precedes fndef2
-         in fndef (we can't just save it in an action, as that
-         causes s/r and r/r conflicts) */
-        // TODO
+        /*
+         * NOTICE: $0 refers to the declarator that precedes fndef2 in fndef
+         * (we can't  just save it in an action, as that causes s/r and
+         * r/r conflicts)
+         */
+        final Declarator declarator = $<Declarator>0;
+
+        final Location startLocation;
+        if ($1 != null) {
+            startLocation = $1.getLocation();
+        } else if (!$2.isEmpty()) {
+            startLocation = AstUtils.getStartLocation($2).get();
+        } else {
+            startLocation = declarator.getLocation();
+        }
+        final FunctionDecl decl = Semantics.startFunction(startLocation, pstate.declspecs, declarator, $2, true);
+        // TODO: detect syntax error (check !type_funcional())
+        $<FunctionDecl>$ = decl;
     }
     old_style_parm_decls
     {
-        Semantics.storeParmDecls($4);
+        $<FunctionDecl>$ = Semantics.setOldParams($<FunctionDecl>3, $4);
     }
     compstmt_or_error
     {
-          // TODO
-          $$ = Semantics.finishFunction($6);
-          //popLevel();     // FIXME: to pop or not to pop? test it.
-          popDeclspecStack();
+        $$ = Semantics.finishFunction($<FunctionDecl>5, $6);
+        //popLevel();     // FIXME: to pop or not to pop? test it.
+        popDeclspecStack();
     }
     ;
 
@@ -1326,7 +1362,6 @@ fieldlist:
     { $$ = Lists.chain($1, $3); }
     ;
 
-//TODO : set first argument (location).
 function_call:
       primary LPAREN exprlist RPAREN
     { $$ = Expressions.makeFunctionCall($1.getLocation(), $4.getEndLocation(), $1, $3); }
@@ -1362,14 +1397,16 @@ old_style_parm_decls:
     { $$ = $1; }
     | datadecls ELLIPSIS
     {
-        // TODO : set first argument (location).
-        $$ = Lists.<Declaration>chain($1, new EllipsisDecl(null));
+        final EllipsisDecl ellipsis = new EllipsisDecl($2.getLocation());
+        ellipsis.setEndLocation($2.getEndLocation());
+        $$ = Lists.<Declaration>chain($1, ellipsis);
     }
     ;
 
-/* The following are analogous to decls and decl
- except that they do not allow nested functions.
- They are used for old-style parm decls.  */
+/*
+ * The following are analogous to decls and decl except that they do not
+ * allow nested functions. They are used for old-style parm decls.
+ */
 datadecls:
       datadecl
     { $$ = Lists.<Declaration>newList($1); }
@@ -1377,37 +1414,44 @@ datadecls:
     { $$ = Lists.<Declaration>chain($1, $2); }
     ;
 
-/* We don't allow prefix attributes here because they cause reduce/reduce
- conflicts: we can't know whether we're parsing a function decl with
- attribute suffix, or function defn with attribute prefix on first old
- style parm.  */
+/*
+ * NOTICE: We don't allow prefix attributes here because they cause
+ * reduce/reduce conflicts: we can't know whether we're parsing a function
+ * decl with attribute suffix, or function defn with attribute prefix on first
+ * old style parm.
+ */
 datadecl:
       declspecs_ts_nosa setspecs initdecls SEMICOLON
     {
-        $$ = Declarations.makeDataDecl($1, $3);
+        final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
+        $$ = Declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs_nots_nosa setspecs notype_initdecls SEMICOLON
     {
-        $$ = Declarations.makeDataDecl($1, $3);
+        final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
+        $$ = Declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs_ts_nosa setspecs SEMICOLON
     {
-        $$ = Declarations.makeDataDecl($1, null);
+        final Location startLocation = AstUtils.getStartLocation($3.getLocation(), $1);
+        $$ = Declarations.makeDataDecl(startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | declspecs_nots_nosa SEMICOLON
     {
-        $$ = Declarations.makeDataDecl($1, null);
+        final Location startLocation = AstUtils.getStartLocation($2.getLocation(), $1);
+        $$ = Declarations.makeDataDecl(startLocation, $2.getEndLocation(), $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     ;
 
-/* This combination which saves a lineno before a decl
- is the normal thing to use, rather than decl itself.
- This is to avoid shift/reduce conflicts in contexts
- where statement labels are allowed.  */
+/*
+ * This combination which saves a lineno before a decl is the normal thing to
+ * use, rather than decl itself. This is to avoid shift/reduce conflicts in
+ * contexts where statement labels are allowed.
+ */
 decls:
       decl
     { $$ = Lists.<Declaration>newList($1); }
@@ -1419,10 +1463,12 @@ decls:
     { $$ = Lists.<Declaration>newList(Declarations.makeErrorDecl()); }
     ;
 
-/* records the type and storage class specs to use for processing
- the declarators that follow.
- Maintains a stack of outer-level values of pstate.declspecs,
- for the sake of parm declarations nested in function declarators.  */
+/*
+ * Records the type and storage class specs to use for processing the
+ * declarators that follow.
+ * Maintains a stack of outer-level values of pstate.declspecs, for the sake
+ * of parm declarations nested in function declarators.
+ */
 setspecs:
     /* empty */
     {
@@ -1450,28 +1496,28 @@ setspecs:
     }
     ;
 
-/* Possibly attributes after a comma, which should be saved in
- pstate.attributes */
+/*
+ * Possibly attributes after a comma, which should be saved in
+ * pstate.attributes.
+ */
 maybe_resetattrs:
       maybe_attribute
     {
-        if ($1 == null) {
-            pstate.attributes = Lists.<Attribute>newList();
-        } else {
-            pstate.attributes = $1;
-        }
+        pstate.attributes = $1;
     }
     ;
 
 decl:
       declspecs_ts setspecs initdecls SEMICOLON
     {
-        $$ = Declarations.makeDataDecl($1, $3);
+        final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
+        $$ = Declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs_nots setspecs notype_initdecls SEMICOLON
     {
-        $$ = Declarations.makeDataDecl($1, $3);
+        final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
+        $$ = Declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs_ts setspecs nested_function
@@ -1486,13 +1532,14 @@ decl:
     }
     | declspecs setspecs SEMICOLON
     {
-        $$ = Declarations.makeDataDecl($1, null);
+        final Location startLocation = AstUtils.getStartLocation($3.getLocation(), $1);
+        $$ = Declarations.makeDataDecl(startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | extension decl
     {
-        //$$ = Declarations.makeExtensionDecl($1.i, null, $2);
-        $$ = Declarations.makeExtensionDecl(0, null, $2);
+        $$ = Declarations.makeExtensionDecl($1.getLocation(), $2.getEndLocation(), $2);
+        // pedantic = $1.i
     }
     ;
 
@@ -1902,24 +1949,29 @@ type_spec_reserved_attr:
 type_spec_nonreserved_nonattr:
       TYPEDEF_NAME
     {
-        // FIXME 1. 2.
-        final Typename typename = new Typename($1.getLocation(), null);
+        final Typename typename = new Typename($1.getLocation(), $1.getValue());
         typename.setEndLocation($1.getEndLocation());
         $$ = typename;
 
     }
     | COMPONENTREF DOT identifier
     {
-        // FIXME 1. 2. 3.
-        $$ = new ComponentTyperef(null, null, null);
+        final ComponentTyperef ref = new ComponentTyperef($1.getLocation(), $1.getValue(), $3.getValue());
+        ref.setEndLocation($3.getEndLocation());
+        $$ = ref;
+
     }
     | TYPEOF LPAREN expr RPAREN
     {
-        $$ = new TypeofExpr(null, $3);
+        final TypeofExpr typeof = new TypeofExpr($1.getLocation(), $3);
+        typeof.setEndLocation($4.getEndLocation());
+        $$ = typeof;
     }
     | TYPEOF LPAREN typename RPAREN
     {
-        $$ = new TypeofType(null, $3);
+        final TypeofType typeof = new TypeofType(null, $3);
+        typeof.setEndLocation($4.getEndLocation());
+        $$ = typeof;
     }
     ;
 /* type_spec_nonreserved_attr does not exist.  */
@@ -1955,7 +2007,7 @@ maybeasm:
     }
     | ASM_KEYWORD LPAREN string_chain RPAREN
     {
-        // FIXME 1. 2.
+        // FIXME AsmStms
         $$ = new AsmStmt(null, null, null, null, null, null);
     }
     ;
@@ -1970,8 +2022,8 @@ initdcl:
          * probably cannot be used in anonymous production.
          */
         declareName($1, pstate.declspecs);
-        final VariableDecl decl = Declarations.startDecl($1, $2, pstate.declspecs,
-                true, prefixAttr($3));
+        final VariableDecl decl = Declarations.startDecl($1, Optional.fromNullable($2), pstate.declspecs,
+                prefixAttr($3), true);
         $<VariableDecl>$ = decl;
     }
       init
@@ -1980,16 +2032,16 @@ initdcl:
            * $<declaration>5 : The result of anonymous rule is the fifth
            * element in the right-hand side of production.
            */
-          final VariableDecl decl = (VariableDecl) $<VariableDecl>5;
-          $$ = Declarations.finishDecl(decl, $6);
+          final VariableDecl decl = $<VariableDecl>5;
+          $$ = Declarations.finishDecl(decl, Optional.of($6));
     }
 /* Note how the declaration of the variable is in effect while its init is parsed! */
     | declarator maybeasm maybe_attribute
     {
         declareName($1, pstate.declspecs);
-        VariableDecl decl = Declarations.startDecl($1, $2,  pstate.declspecs,
-                false, prefixAttr($3));
-        $$ = Declarations.finishDecl(decl, null);
+        final VariableDecl decl = Declarations.startDecl($1, Optional.fromNullable($2),  pstate.declspecs,
+                prefixAttr($3), false);
+        $$ = Declarations.finishDecl(decl, Optional.<Expression>absent());
     }
     ;
 
@@ -1997,22 +2049,22 @@ notype_initdcl:
       notype_declarator maybeasm maybe_attribute EQ
     {
         declareName($1, pstate.declspecs);
-        final VariableDecl decl = Declarations.startDecl($1, $2, pstate.declspecs,
-                true, prefixAttr($3));
+        final VariableDecl decl = Declarations.startDecl($1, Optional.fromNullable($2), pstate.declspecs,
+                prefixAttr($3), true);
         $<VariableDecl>$ = decl;
     }
       init
     {
-          final VariableDecl decl = (VariableDecl) $<VariableDecl>5;
-          $$ = Declarations.finishDecl(decl, $6);
+          final VariableDecl decl = $<VariableDecl>5;
+          $$ = Declarations.finishDecl(decl, Optional.of($6));
     }
 /* Note how the declaration of the variable is in effect while its init is parsed! */
     | notype_declarator maybeasm maybe_attribute
     {
         declareName($1, pstate.declspecs);
-        VariableDecl decl = Declarations.startDecl($1, $2,  pstate.declspecs,
-                false, prefixAttr($3));
-        $$ = Declarations.finishDecl(decl, null);
+        VariableDecl decl = Declarations.startDecl($1, Optional.fromNullable($2),  pstate.declspecs, prefixAttr($3),
+                false);
+        $$ = Declarations.finishDecl(decl, Optional.<Expression>absent());
     }
     ;
 
@@ -2038,7 +2090,7 @@ nesc_attributes:
 attributes:
       attribute
     {
-        // Note: Attribute returns a list of attributes.
+        // NOTICE: Attribute returns a list of attributes.
         $$ = $1;
     }
     | attributes attribute
@@ -2047,35 +2099,40 @@ attributes:
 
 attribute:
       ATTRIBUTE LPAREN LPAREN attribute_list RPAREN RPAREN
-    { $$ = $4; }
+    {
+        // TODO: wrapper for such attributes
+        $$ = $4;
+    }
     | target_attribute
-    //{ $$ = Lists.<Attribute>newList($1); }
-    // FIXME
-    { $$ = Lists.<Attribute>newList(); }
+    { $$ = Lists.<Attribute>newList($1); }
     | nattrib
-    //{ $$ = Lists.<Attribute>newList($1); }
-    // FIXME
-    { $$ = Lists.<Attribute>newList(); }
+    { $$ = Lists.<Attribute>newList($1); }
     ;
 
 target_attribute:
       TARGET_ATTRIBUTE0
     {
-        // FIXME 1. 2.
-        Word w = new Word(null, null);
-        $$ = new TargetAttribute(null, w, null);
+        final Word w = new Word($1.getLocation(), $1.getValue());
+        w.setEndLocation($1.getEndLocation());
+        final TargetAttribute attribute = new TargetAttribute($1.getLocation(), w, Lists.<Expression>newList());
+        attribute.setEndLocation($1.getEndLocation());
+        $$ = attribute;
     }
     | TARGET_ATTRIBUTE1 restricted_expr
     {
-        // FIXME 1. 2.
-        Word w = new Word(null, null);
-        $$ = new TargetAttribute(null, w, Lists.<Expression>newList($2));
+        final Word w = new Word($1.getLocation(), $1.getValue());
+        w.setEndLocation($1.getEndLocation());
+        final TargetAttribute attribute = new TargetAttribute($1.getLocation(), w, Lists.newList($2));
+        attribute.setEndLocation($2.getEndLocation());
+        $$ = attribute;
     }
     | AT restricted_expr
     {
-        // FIXME word w = new_word(pr, $2->location, str2cstring(pr, "iar_at"));
-        Word w = new Word(null, null);
-        $$ = new TargetAttribute(null, w, Lists.<Expression>newList($2));
+        final Word w = new Word(Location.getDummyLocation(), "iar_at");
+        w.setEndLocation(Location.getDummyLocation());
+        final TargetAttribute attribute = new TargetAttribute($1.getLocation(), w, Lists.newList($2));
+        attribute.setEndLocation($2.getEndLocation());
+        $$ = attribute;
     }
     ;
 
@@ -2102,7 +2159,11 @@ attribute_list:
       attrib
     {
         /* NOTE: attrib can be null! */
-        $$ = Lists.<Attribute>newListEmptyOnNull($1);
+        if ($1 == null) {
+            $$ = Lists.<Attribute>newList();
+        } else {
+            $$ = Lists.<Attribute>newList($1);
+        }
     }
     | attribute_list COMMA attrib
     {
@@ -2118,20 +2179,32 @@ attrib:
       /* empty */
     { $$ = null; }
     | any_word
-    { $$ = new GccAttribute(null, $1, null); }
+    {
+        final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, null);
+        attribute.setEndLocation($1.getEndLocation());
+        $$ = attribute;
+    }
     | any_word LPAREN IDENTIFIER RPAREN
     {
-        $$ = new GccAttribute(null, $1,
-                Semantics.makeAttrArgs(null, $3.getValue(), null));
+        final Identifier id = new Identifier($3.getLocation(), $3.getValue());
+        id.setEndLocation($3.getEndLocation());
+        final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Lists.<Expression>newList(id));
+        attribute.setEndLocation($4.getEndLocation());
+        $$ = attribute;
     }
     | any_word LPAREN IDENTIFIER COMMA nonnull_exprlist RPAREN
     {
-        $$ = new GccAttribute(null, $1,
-                Semantics.makeAttrArgs(null, $3.getValue(), $5));
+        final Identifier id = new Identifier($3.getLocation(), $3.getValue());
+        id.setEndLocation($3.getEndLocation());
+        final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Lists.<Expression>chain($5, id));
+        attribute.setEndLocation($6.getEndLocation());
+        $$ = attribute;
     }
     | any_word LPAREN exprlist RPAREN
     {
-        $$ = new GccAttribute(null, $1, $3);
+        final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, $3);
+        attribute.setEndLocation($4.getEndLocation());
+        $$ = attribute;
     }
     ;
 
@@ -2160,19 +2233,28 @@ any_word:
     { $$ = $1; }
     | scspec
     {
-        $$ = new Word(null, $1.getId().getName());
+        final Word w = new Word($1.getLocation(), $1.getId().getName());
+        w.setEndLocation($1.getEndLocation());
+        $$ = w;
     }
     | type_spec
     {
-        $$ = new Word(null, $1.getId().getName());
+        final Word w = new Word($1.getLocation(), $1.getId().getName());
+        w.setEndLocation($1.getEndLocation());
+        $$ = w;
     }
     | type_qual
     {
-        $$ = new Word(null, $1.getId().getName());
+        final Word w = new Word($1.getLocation(), $1.getId().getName());
+        w.setEndLocation($1.getEndLocation());
+        $$ = w;
     }
     | SIGNAL
     {
-        $$ = new Word(null, "signal");
+        // FIXME: strange production
+        final Word w = new Word($1.getLocation(), "signal");
+        w.setEndLocation($1.getEndLocation());
+        $$ = w;
     }
     ;
 
@@ -2271,32 +2353,27 @@ designator:
 nested_function:
       declarator maybeasm maybe_attribute
     {
-        /* maybeasm is only here to avoid a s/r conflict */
+        /* NOTICE: maybe asm can be null! */
+        /* NOTICE: maybeasm is only here to avoid a s/r conflict */
         // TODO refuse_asm
 
-        if (!Semantics.startFunction(pstate.declspecs, $1, $3, true)) {
-            // TODO error
-        }
-
+        final FunctionDecl decl = Semantics.startFunction($1.getLocation(), pstate.declspecs, $1, $3, true);
+        // TODO: detect syntax error (check !type_funcional())
+        $<FunctionDecl>$ = decl;
     }
       old_style_parm_decls
     {
-        /*
-         * FIXME: according to original parser (c-parse.y) we have:
-         * store_parm_decls(declaration_reverse($3));
-         * Should be $5?
-         */
-        Semantics.storeParmDecls($5);
+        $<FunctionDecl>$ = Semantics.setOldParams($<FunctionDecl>4, $5);
     }
-/* This used to use compstmt_or_error.
- That caused a bug with input `f(g) int g {}',
- where the use of YYERROR1 above caused an error
- which then was handled by compstmt_or_error.
- There followed a repeated execution of that same rule,
- which called YYERROR1 again, and so on.  */
+    /*
+     * This used to use compstmt_or_error. That caused a bug with input
+     * `f(g) int g {}', where the use of YYERROR1 above caused an error which
+     * then was handled by compstmt_or_error. There followed a repeated
+     * execution of that same rule, which called YYERROR1 again, and so on.
+     */
       compstmt
     {
-        $$ = Semantics.finishFunction($7);
+        $$ = Semantics.finishFunction($<FunctionDecl>6, $7);
         //popLevel();   // FIXME: to pop or not to pop? test it.
     }
     ;
@@ -2304,38 +2381,35 @@ nested_function:
 notype_nested_function:
       notype_declarator maybeasm maybe_attribute
     {
-        /* maybeasm is only here to avoid a s/r conflict */
+        /* NOTICE: maybe asm can be null! */
+        /* NOTICE: maybeasm is only here to avoid a s/r conflict */
         // TODO refuse_asm
 
-        if (!Semantics.startFunction(pstate.declspecs, $1, $3, true)) {
-            // TODO error
-        }
-
+        final FunctionDecl decl = Semantics.startFunction($1.getLocation(), pstate.declspecs, $1, $3, true);
+        // TODO: detect syntax error (check !type_funcional())
+        $<FunctionDecl>$ = decl;
     }
       old_style_parm_decls
     {
-        /*
-         * FIXME: according to original parser (c-parse.y) we have:
-         * store_parm_decls(declaration_reverse($3));
-         * Should be $5?
-         */
-        Semantics.storeParmDecls($5);
+        $<FunctionDecl>$ = Semantics.setOldParams($<FunctionDecl>4, $5);
     }
-/* This used to use compstmt_or_error.
- That caused a bug with input `f(g) int g {}',
- where the use of YYERROR1 above caused an error
- which then was handled by compstmt_or_error.
- There followed a repeated execution of that same rule,
- which called YYERROR1 again, and so on.  */
+    /*
+     * This used to use compstmt_or_error. That caused a bug with input
+     * `f(g) int g {}', where the use of YYERROR1 above caused an error which
+     * then was handled by compstmt_or_error. There followed a repeated
+     * execution of that same rule, which called YYERROR1 again, and so on.
+     */
       compstmt
     {
-        $$ = Semantics.finishFunction($7);
+        $$ = Semantics.finishFunction($<FunctionDecl>6, $7);
         //popLevel();   // FIXME: to pop or not to pop? test it.
     }
     ;
 
-/* Any kind of declarator (thus, all declarators allowed
- after an explicit type_spec).  */
+/*
+ * Any kind of declarator (thus, all declarators allowed after an explicit
+ * type_spec).
+ */
 
 declarator:
       after_type_declarator
@@ -2357,22 +2431,35 @@ after_type_declarator:
         $$ = declarator;
     }
     | STAR maybe_type_quals_attrs after_type_declarator
-    { $$ = Semantics.makePointerDeclarator(null, $3, $2); }
+    {
+        $$ = Semantics.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
+    }
     | LPAREN maybe_attribute after_type_declarator RPAREN
     {
-        $$ = new QualifiedDeclarator(null, $3,
+        final QualifiedDeclarator decl = new QualifiedDeclarator($1.getLocation(), $3,
                 Lists.<Attribute, TypeElement>convert($2));
+        decl.setEndLocation($4.getEndLocation());
+        $$ = decl;
     }
     | TYPEDEF_NAME
-    { $$ = new IdentifierDeclarator(null, $1.getValue()); }
+    {
+        final IdentifierDeclarator decl = new IdentifierDeclarator($1.getLocation(), $1.getValue());
+        decl.setEndLocation($1.getEndLocation());
+        $$ = decl;
+    }
     | TYPEDEF_NAME DOT identifier
-    { $$ = NescModule.makeInterfaceRefDeclarator(null, $1.getValue(), $3.getValue()); }
+    {
+        $$ = NescModule.makeInterfaceRefDeclarator($1.getLocation(), $1.getValue(),
+                $3.getLocation(), $3.getEndLocation(), $3.getValue());
+    }
     ;
 
-/* Kinds of declarator that can appear in a parameter list
- in addition to notype_declarator.  This is like after_type_declarator
- but does not allow a typedef name in parentheses as an identifier
- (because it would conflict with a function with that typedef as arg).  */
+/*
+ * Kinds of declarator that can appear in a parameter list in addition
+ * to notype_declarator.  This is like after_type_declarator but does not
+ * allow a typedef name in parentheses as an identifier (because it would
+ * conflict with a function with that typedef as arg).
+ */
 parm_declarator:
       parm_declarator array_or_fn_declarator
     {
@@ -2383,14 +2470,22 @@ parm_declarator:
         $$ = declarator;
     }
     | STAR maybe_type_quals_attrs parm_declarator
-    { $$ = Semantics.makePointerDeclarator(null, $3, $2); }
+    {
+        $$ = Semantics.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
+    }
     | TYPEDEF_NAME
-    { $$ = new IdentifierDeclarator(null, $1.getValue()); }
+    {
+        final IdentifierDeclarator decl = new IdentifierDeclarator($1.getLocation(), $1.getValue());
+        decl.setEndLocation($1.getEndLocation());
+        $$ = decl;
+    }
     ;
 
 
-/* A declarator allowed whether or not there has been
- an explicit type_spec.  These cannot redeclare a typedef-name.  */
+/*
+ * A declarator allowed whether or not there has been an explicit type_spec.
+ * These cannot redeclare a typedef-name.
+ */
 
 notype_declarator:
       notype_declarator array_or_fn_declarator
@@ -2402,67 +2497,84 @@ notype_declarator:
         $$ = declarator;
     }
     | STAR maybe_type_quals_attrs notype_declarator
-    { $$ = Semantics.makePointerDeclarator(null, $3, $2); }
+    {
+        $$ = Semantics.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
+    }
     | LPAREN maybe_attribute notype_declarator RPAREN
     {
-        $$ = new QualifiedDeclarator(null, $3,
+        final QualifiedDeclarator decl = new QualifiedDeclarator($1.getLocation(), $3,
                 Lists.<Attribute, TypeElement>convert($2));
-        }
+        decl.setEndLocation($4.getEndLocation());
+        $$ = decl;
+    }
     | IDENTIFIER
-    { $$ = new IdentifierDeclarator(null, $1.getValue()); }
+    {
+        final IdentifierDeclarator decl = new IdentifierDeclarator($1.getLocation(), $1.getValue());
+        decl.setEndLocation($1.getEndLocation());
+        $$ = decl;
+    }
     | IDENTIFIER DOT identifier
-    { $$ = NescModule.makeInterfaceRefDeclarator(null, $1.getValue(), $3.getValue()); }
+    {
+        $$ = NescModule.makeInterfaceRefDeclarator($1.getLocation(), $1.getValue(),
+               $3.getLocation(), $3.getEndLocation(), $3.getValue());
+    }
     ;
 
 tag:
       identifier
-    { $$ = new Word(null, $1.getValue()); }
+    {
+        final Word word = new Word($1.getLocation(), $1.getValue());
+        word.setEndLocation($1.getEndLocation());
+        $$ = word;
+    }
     ;
 
+// NOTICE: nesc_attributes are ignored!
 structuse:
       structkind tag nesc_attributes
-    { $$ = Semantics.makeXrefTag(null, $1.kind, $2); }
+    {
+        // TODO: make warning "attributes ignored"
+        $$ = Semantics.makeXrefTag($1.getLocation(), $2.getEndLocation(), $1.getKind(), $2);
+    }
     | ENUM tag nesc_attributes
-    { $$ = Semantics.makeXrefTag(null, StructKind.ENUM, $2); }
+    {
+        // TODO: make warning "attributes ignored"
+        $$ = Semantics.makeXrefTag($1.getLocation(), $2.getEndLocation(), StructKind.ENUM, $2);
+    }
     ;
 
+/*
+ * TODO: not sure what happens with nesc_attributes when struct creation
+ * is not split into two phases (startStruct(), finishStruct()).
+ */
+
 structdef:
-      structkind tag nesc_attributes LBRACE
+      structkind tag nesc_attributes LBRACE component_decl_list RBRACE maybe_attribute
     {
-        $<TagRef>$ = Semantics.startStruct(null, $1.kind, $2);
+        final Location endLocation = AstUtils.getEndLocation($6.getEndLocation(), $7);
+        $$ = Semantics.makeStruct($1.getLocation(), endLocation, $1.getKind(), Optional.of($2), $5,
+                Lists.<Attribute>chain($3, $7));
     }
-      component_decl_list RBRACE maybe_attribute
+    | STRUCT AT tag nesc_attributes LBRACE component_decl_list RBRACE maybe_attribute
     {
-        $$ = Semantics.finishStruct($<TagRef>5, $6, Lists.<Attribute>chain($3, $8));
-    }
-    | STRUCT AT tag nesc_attributes LBRACE
-    {
-        $<TagRef>$ = Semantics.startStruct(null, StructKind.ATTRIBUTE, $3);
-    }
-      component_decl_list RBRACE maybe_attribute
-    {
-        $$ = Semantics.finishStruct($<TagRef>6, $7, Lists.<Attribute>chain($4, $9));
+        final Location endLocation = AstUtils.getEndLocation($7.getEndLocation(), $8);
+        $$ = Semantics.makeStruct($1.getLocation(), endLocation, StructKind.ATTRIBUTE, Optional.of($3), $6,
+                Lists.<Attribute>chain($4, $8));
     }
     | structkind LBRACE component_decl_list RBRACE maybe_attribute
     {
-        TagRef tagRef = Semantics.startStruct(null, $1.kind, null);
-        $$ = Semantics.finishStruct(tagRef, $3, $5);
+        final Location endLocation = AstUtils.getEndLocation($4.getEndLocation(), $5);
+        $$ = Semantics.makeStruct($1.getLocation(), endLocation, $1.getKind(), Optional.<Word>absent(), $3, $5);
     }
-    | ENUM tag nesc_attributes LBRACE
+    | ENUM tag nesc_attributes LBRACE enumlist maybecomma_warn RBRACE maybe_attribute
     {
-        $<EnumRef>$ = Semantics.startEnum(null, $2);
+        final Location endLocation = AstUtils.getEndLocation($7.getEndLocation(), $8);
+        $$ = Semantics.makeEnum($1.getLocation(), endLocation, Optional.of($2), $5, Lists.<Attribute>chain($3, $8));
     }
-      enumlist maybecomma_warn RBRACE maybe_attribute
+    | ENUM LBRACE enumlist maybecomma_warn RBRACE maybe_attribute
     {
-          $$ = Semantics.finishEnum($<EnumRef>5, $6, Lists.<Attribute>chain($3, $9));
-    }
-    | ENUM LBRACE
-    {
-        $<EnumRef>$ = Semantics.startEnum(null, null);
-    }
-      enumlist maybecomma_warn RBRACE maybe_attribute
-    {
-        $$ = Semantics.finishEnum($<EnumRef>3, $4, $7);
+        final Location endLocation = AstUtils.getEndLocation($5.getEndLocation(), $6);
+        $$ = Semantics.makeEnum($1.getLocation(), endLocation, Optional.<Word>absent(), $3, $6);
     }
     ;
 
@@ -2470,27 +2582,19 @@ structdef:
 structkind:
       STRUCT
     {
-        final Value.StructKindToken token = new Value.StructKindToken();
-        token.kind = StructKind.STRUCT;
-        $$ = token;
+        $$ = new ValueStructKind($1.getLocation(), $1.getEndLocation(), StructKind.STRUCT);
     }
     | UNION
     {
-        final Value.StructKindToken token = new Value.StructKindToken();
-        token.kind = StructKind.UNION;
-        $$ = token;
+        $$ = new ValueStructKind($1.getLocation(), $1.getEndLocation(), StructKind.UNION);
     }
     | NX_STRUCT
     {
-        final Value.StructKindToken token = new Value.StructKindToken();
-        token.kind = StructKind.NX_STRUCT;
-        $$ = token;
+        $$ = new ValueStructKind($1.getLocation(), $1.getEndLocation(), StructKind.NX_STRUCT);
     }
     | NX_UNION
     {
-        final Value.StructKindToken token = new Value.StructKindToken();
-        token.kind = StructKind.NX_UNION;
-        $$ = token;
+        $$ = new ValueStructKind($1.getLocation(), $1.getEndLocation(), StructKind.NX_UNION);
     }
     ;
 
@@ -2499,6 +2603,7 @@ maybecomma:
     | COMMA
     ;
 
+// TODO: pedantic warn "comma at end of enumerator list"
 maybecomma_warn:
       /* empty */
     | COMMA
@@ -2508,7 +2613,10 @@ component_decl_list:
       component_decl_list2
     { $$ = $1; }
     | component_decl_list2 component_decl
-    { $$ = Lists.<Declaration>chain($1, $2); }
+    {
+        $$ = Lists.<Declaration>chain($1, $2);
+        // TODO: pedantic warn "no semicolon at end of struct or union"
+    }
     ;
 
 component_decl_list2:
@@ -2517,44 +2625,59 @@ component_decl_list2:
     | component_decl_list2 component_decl SEMICOLON
     { $$ = Lists.<Declaration>chain($1, $2); }
     | component_decl_list2 SEMICOLON
-    { $$ = $1; }
+    {
+        $$ = $1;
+        // TODO pedantic "extra semicolon in struct or union specified"
+    }
     ;
 
-/* There is a shift-reduce conflict here, because `components' may
- start with a `typename'.  It happens that shifting (the default resolution)
- does the right thing, because it treats the `typename' as part of
- a `typed_type_specs'.
+/* There is a shift-reduce conflict here, because `components' may start
+ * with a `typename'.  It happens that shifting (the default resolution)
+ * does the right thing, because it treats the `typename' as part of
+ * a `typed_type_specs'.
 
- It is possible that this same technique would allow the distinction
- between `notype_initdecls' and `initdecls' to be eliminated.
- But I am being cautious and not trying it.  */
+ * It is possible that this same technique would allow the distinction
+ * between `notype_initdecls' and `initdecls' to be eliminated.
+ * But I am being cautious and not trying it.
+ */
 
 component_decl:
       declspecs_nosc_ts setspecs components
     {
-        $$ = Declarations.makeDataDecl($1, $3);
+        final Location startLocation = AstUtils.getStartLocation($1, $3).get();
+        final Location endLocation = AstUtils.getEndLocation($3).get();
+        $$ = Declarations.makeDataDecl(startLocation, endLocation, $1, $3);
         popDeclspecStack();
     }
     | declspecs_nosc_ts setspecs
     {
-        $$ = Declarations.makeDataDecl($1, null);
+        final Location startLocation = AstUtils.getStartLocation($1).get();
+        final Location endLocation = AstUtils.getEndLocation($1).get();
+        $$ = Declarations.makeDataDecl(startLocation, endLocation, $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | declspecs_nosc_nots setspecs components_notype
     {
-        $$ = Declarations.makeDataDecl($1, $3);
+        final Location startLocation = AstUtils.getStartLocation($1, $3).get();
+        final Location endLocation = AstUtils.getEndLocation($3).get();
+        $$ = Declarations.makeDataDecl(startLocation, endLocation, $1, $3);
         popDeclspecStack();
     }
     | declspecs_nosc_nots setspecs
     {
-        $$ = Declarations.makeDataDecl($1, null);
+        final Location startLocation = AstUtils.getStartLocation($1).get();
+        final Location endLocation = AstUtils.getEndLocation($1).get();
+        $$ = Declarations.makeDataDecl(startLocation, endLocation, $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | error
-    { $$ = Declarations.makeErrorDecl(); }
+    {
+        $$ = Declarations.makeErrorDecl();
+    }
     | extension component_decl
-    //{ $$ = Declarations.makeExtensionDecl($1.i, null, $2); }
-    { $$ = Declarations.makeExtensionDecl(0, null, $2); }
+    {
+        $$ = Declarations.makeExtensionDecl($1.getLocation(), $2.getEndLocation(), $2);
+    }
     ;
 
 components:
@@ -2564,8 +2687,10 @@ components:
     { $$ = Lists.<Declaration>chain($1, $4); }
     ;
 
-/* It should be possible to use components after the COMMA, but gcc 3
- isn't doing this */
+/*
+ * It should be possible to use components after the COMMA, but gcc 3
+ * isn't doing this.
+ */
 components_notype:
       component_notype_declarator
     { $$ = Lists.<Declaration>newList($1); }
@@ -2575,20 +2700,44 @@ components_notype:
 
 component_declarator:
       declarator maybe_attribute
-    { $$ = Semantics.makeField($1, null, pstate.declspecs, prefixAttr($2)); }
+    {
+        final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
+        $$ = Semantics.makeField($1.getLocation(), endLocation,
+                Optional.of($1), Optional.<Expression>absent(), pstate.declspecs, prefixAttr($2));
+    }
     | declarator COLON expr_no_commas maybe_attribute
-    { $$ = Semantics.makeField($1, $3, pstate.declspecs, prefixAttr($4)); }
+    {
+        final Location endLocation = AstUtils.getEndLocation($3.getEndLocation(), $4);
+        $$ = Semantics.makeField($1.getLocation(), endLocation,
+                Optional.of($1), Optional.of($3), pstate.declspecs, prefixAttr($4));
+    }
     | COLON expr_no_commas maybe_attribute
-    { $$ = Semantics.makeField(null, $2, pstate.declspecs, prefixAttr($3)); }
+    {
+        final Location endLocation = AstUtils.getEndLocation($2.getEndLocation(), $3);
+        $$ = Semantics.makeField($1.getLocation(), endLocation,
+                Optional.<Declarator>absent(), Optional.of($2), pstate.declspecs, prefixAttr($3));
+    }
     ;
 
 component_notype_declarator:
       notype_declarator maybe_attribute
-    { $$ = Semantics.makeField($1, null, pstate.declspecs, prefixAttr($2)); }
+    {
+        final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
+        $$ = Semantics.makeField($1.getLocation(), endLocation,
+                Optional.of($1), Optional.<Expression>absent(), pstate.declspecs, prefixAttr($2));
+    }
     | notype_declarator COLON expr_no_commas maybe_attribute
-    { $$ = Semantics.makeField($1, $3, pstate.declspecs, prefixAttr($4)); }
+    {
+        final Location endLocation = AstUtils.getEndLocation($3.getEndLocation(), $4);
+        $$ = Semantics.makeField($1.getLocation(), endLocation,
+                Optional.of($1), Optional.of($3), pstate.declspecs, prefixAttr($4));
+    }
     | COLON expr_no_commas maybe_attribute
-    { $$ = Semantics.makeField(null, $2, pstate.declspecs, prefixAttr($3)); }
+    {
+        final Location endLocation = AstUtils.getEndLocation($2.getEndLocation(), $3);
+        $$ = Semantics.makeField($1.getLocation(), endLocation,
+                Optional.<Declarator>absent(), Optional.of($2), pstate.declspecs, prefixAttr($3));
+    }
     ;
 
 enumlist:
@@ -2603,19 +2752,22 @@ enumlist:
 
 enumerator:
       identifier
-    { $$ = Semantics.makeEnumerator(null, $1.getValue(), null); }
+    {
+        $$ = Semantics.makeEnumerator($1.getLocation(), $1.getEndLocation(), $1.getValue(),
+                Optional.<Expression>absent());
+    }
     | identifier EQ expr_no_commas
-    { $$ = Semantics.makeEnumerator(null, $1.getValue(), $3); }
+    {
+        $$ = Semantics.makeEnumerator($1.getLocation(), $3.getEndLocation(), $1.getValue(), Optional.of($3));
+    }
     ;
 
 // FIXME
 typename:
-      declspecs_nosc
-    { } // TODO
-      absdcl
+      declspecs_nosc absdcl
     {
-        /* NOTE: absdcl may be null! */
-        $$ = Semantics.makeType($1, $3);
+        /* NOTICE: absdcl may be null! */
+        $$ = Semantics.makeType($1, Optional.<Declarator>fromNullable($2));
     }
     ;
 
@@ -2637,21 +2789,30 @@ absdcl1_noea:
       direct_absdcl1
     { $$ = $1; }
     | STAR maybe_type_quals_attrs absdcl1_noea
-    { $$ = Semantics.makePointerDeclarator(null, $3, $2); }
+    {
+        $$ = Semantics.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
+    }
     ;
 
 absdcl1_ea:
       STAR maybe_type_quals_attrs
-    { $$ = Semantics.makePointerDeclarator(null, null, $2); }
+    {
+        final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
+        $$ = Semantics.makePointerDeclarator($1.getLocation(), endLocation, Optional.<Declarator>absent(), $2);
+    }
     | STAR maybe_type_quals_attrs absdcl1_ea
-    { $$ = Semantics.makePointerDeclarator(null, $3, $2); }
+    {
+        $$ = Semantics.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
+    }
     ;
 
 direct_absdcl1:
       LPAREN maybe_attribute absdcl1 RPAREN
     {
-        $$ = new QualifiedDeclarator(null, $3,
+        final QualifiedDeclarator decl = new QualifiedDeclarator($1.getLocation(), $3,
                 Lists.<Attribute, TypeElement>convert($2));
+        decl.setEndLocation($4.getEndLocation());
+        $$ = decl;
     }
     | direct_absdcl1 array_or_absfn_declarator
     {
@@ -2685,29 +2846,49 @@ array_or_absfn_declarator:
     { $$ = $1; }
     ;
 
+// NOTICE: fn_quals do not even appear.
 fn_declarator:
       parameters LPAREN parmlist_or_identifiers_1 fn_quals
-    { $$ = new FunctionDeclarator(null, null, $3, $1, $4, null); }
+    {
+        final Location endLocation = AstUtils.getEndLocation($2.getEndLocation(), $3);
+        final FunctionDeclarator decl = new FunctionDeclarator($2.getLocation(), null, $3, $1, $4);
+        decl.setEndLocation(endLocation);
+        $$ = decl;
+    }
     | LPAREN parmlist_or_identifiers fn_quals
     {
-        $$ = new FunctionDeclarator(null, null, $2,
-                Lists.<Declaration>newList(), $3, null);
+        final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
+        final FunctionDeclarator decl = new FunctionDeclarator($1.getLocation(), null, $2,
+                Lists.<Declaration>newList(), $3);
+        decl.setEndLocation(endLocation);
+        $$ = decl;
     }
     ;
 
 absfn_declarator:
       LPAREN parmlist fn_quals
     {
-        $$ = new FunctionDeclarator(null, null, $2,
-                Lists.<Declaration>newList(), $3, null);
+        final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
+        final FunctionDeclarator decl = new FunctionDeclarator($1.getLocation(), null, $2,
+                Lists.<Declaration>newList(), $3);
+        decl.setEndLocation(endLocation);
+        $$ = decl;
     }
     ;
 
 array_declarator:
       LBRACK expr RBRACK
-    { $$ = new ArrayDeclarator(null, null, $2); }
+    {
+        final ArrayDeclarator decl = new ArrayDeclarator($1.getLocation(), null, $2);
+        decl.setEndLocation($3.getEndLocation());
+        $$ = decl;
+    }
     | LBRACK RBRACK
-    { $$ = new ArrayDeclarator(null, null, null); }
+    {
+        final ArrayDeclarator decl = new ArrayDeclarator($1.getLocation(), null, null);
+        decl.setEndLocation($2.getEndLocation());
+        $$ = decl;
+    }
     ;
 
 /* at least one statement, the first of which parses without error.  */
@@ -2798,12 +2979,9 @@ compstmt_or_error:
     { $$ = $2; }
     ;
 
-/*
-* TODO: should return location of '{'.
-* TODO: compstmt_count?
-*/
 compstmt_start:
       LBRACE
+      { $$ = $1; }
     ;
 
 //FIXME
@@ -3169,17 +3347,17 @@ asm_clobbers:
     { $$ = Lists.<StringAst>chain($1, $3); }
     ;
 
-/* This is what appears inside the parens in a function declarator.
- Its value is a list of ..._TYPE nodes.  */
+/*
+ * This is what appears inside the parens in a function declarator.
+ * Its value is a list of ..._TYPE nodes.
+ */
 parmlist:
     {
-      /*
-       * NOTE: A strange thing, an action, even empty, MUST be in here.
-       * Actions inside production, but not at the end of it, is converted
-       * implicitly to a new production.
-       * If this action were removed, erroneous parser would be produced.
-       */
-        pushLevel(true);    // for parsing purposes
+        /*
+         * NOTICE: A strange thing, an action, even empty, MUST be in here.
+         * If this action were removed, erroneous parser would be produced.
+         */
+        pushLevel(true);
     }
       parmlist_1
     {
@@ -3191,29 +3369,38 @@ parmlist:
 parmlist_1:
       parmlist_2 RPAREN
     { $$ = $1; }
-    | parms SEMICOLON
-    {
-        // TODO
-    }
-      parmlist_1
-    { $$ = Lists.<Declaration>chain($1, $4); }
+    | parms SEMICOLON parmlist_1
+    { $$ = Lists.<Declaration>chain($1, $3); }
     | error RPAREN
     { $$ = Lists.<Declaration>newList(Declarations.makeErrorDecl()); }
     ;
 
-/* This is what appears inside the parens in a function declarator.
- Is value is represented in the format that grokdeclarator expects.  */
+/*
+ * This is what appears inside the parens in a function declarator.
+ * Is value is represented in the format that grokdeclarator expects.
+ */
 parmlist_2:
       /* empty */
     { $$ = Lists.<Declaration>newList(); }
     | ELLIPSIS
     {
         $$ = Lists.<Declaration>newList(Declarations.makeErrorDecl());
+		  /* Gcc used to allow this as an extension.  However, it does
+		   * not work for all targets, and thus has been disabled.
+		   * Also, since func (...) and func () are indistinguishable,
+		   * it caused problems with the code in expand_builtin which
+		   * tries to verify that BUILT_IN_NEXT_ARG is being used
+		   * correctly.
+		   */
     }
     | parms
     { $$ = $1; }
     | parms COMMA ELLIPSIS
-    { $$ = Lists.<Declaration>chain($1, new EllipsisDecl(null)); }
+    {
+        final EllipsisDecl decl = new EllipsisDecl($3.getLocation());
+        decl.setEndLocation($3.getEndLocation());
+        $$ = Lists.<Declaration>chain($1, decl);
+    }
     ;
 
 parms:
@@ -3223,29 +3410,41 @@ parms:
     { $$ = Lists.<Declaration>chain($1, $3); }
     ;
 
-/* A single parameter declaration or parameter type name,
- as found in a parmlist.  */
+/*
+ * A single parameter declaration or parameter type name,
+ * as found in a parmlist.
+ */
 parm:
       declspecs_ts xreferror parm_declarator maybe_attribute
-    { $$ = Semantics.declareParameter($3, $1, $4); }
+    {
+        $$ = Semantics.declareParameter(Optional.of($3), $1, $4);
+    }
     | declspecs_ts xreferror notype_declarator maybe_attribute
-    { $$ = Semantics.declareParameter($3, $1, $4); }
+    {
+        $$ = Semantics.declareParameter(Optional.of($3), $1, $4);
+    }
     | declspecs_ts xreferror absdcl
     {
         /* NOTE: absdcl may be null */
-        $$ = Semantics.declareParameter($3, $1, null);
+        $$ = Semantics.declareParameter(Optional.fromNullable($3), $1, Lists.<Attribute>newList());
     }
     | declspecs_ts xreferror absdcl1_noea attributes
-    { $$ = Semantics.declareParameter($3, $1, $4); }
+    {
+        $$ = Semantics.declareParameter(Optional.of($3), $1, $4);
+    }
     | declspecs_nots xreferror notype_declarator maybe_attribute
-    { $$ = Semantics.declareParameter($3, $1, $4); }
+    {
+        $$ = Semantics.declareParameter(Optional.of($3), $1, $4);
+    }
     | declspecs_nots xreferror absdcl
     {
-        /* NOTE: absdcl may be null */
-        $$ = Semantics.declareParameter($3, $1, null);
+        /* NOTICE: absdcl may be null. */
+        $$ = Semantics.declareParameter(Optional.fromNullable($3), $1, Lists.<Attribute>newList());
     }
     | declspecs_nots xreferror absdcl1_noea attributes
-    { $$ = Semantics.declareParameter($3, $1, $4); }
+    {
+        $$ = Semantics.declareParameter(Optional.of($3), $1, $4);
+    }
     ;
 
 xreferror:
@@ -3255,12 +3454,14 @@ xreferror:
     }
     ;
 
-/* This is used in a function definition
- where either a parmlist or an identifier list is ok.
- Its value is a list of ..._TYPE nodes or a list of identifiers.  */
+/*
+ * This is used in a function definition where either a parmlist or an
+ * identifier list is ok.
+ * Its value is a list of ..._TYPE nodes or a list of identifiers.
+ */
 parmlist_or_identifiers:
     {
-        pushLevel(true);    // for parsing purposes
+        pushLevel(true);
     }
       parmlist_or_identifiers_1
     { $$ = $2; }
@@ -3283,24 +3484,24 @@ identifiers:
 
 old_parameter:
       IDENTIFIER
-    { $$ = Semantics.declareOldParameter(null, $1.getValue()); }
+    {
+        $$ = Semantics.declareOldParameter($1.getLocation(), $1.getEndLocation(), $1.getValue());
+    }
     ;
 
-/* A nonempty list of identifiers, including typenames.  */
+/*
+ * A nonempty list of identifiers, including typenames.
+ */
 identifiers_or_typenames:
       id_label
-    {
-        $$ = Lists.<IdLabel>newList($1);
-        // TODO
-    }
+    { $$ = Lists.<IdLabel>newList($1); }
     | identifiers_or_typenames COMMA id_label
-    {
-        $$ = Lists.<IdLabel>chain($1, $3);
-        // TODO
-    }
+    { $$ = Lists.<IdLabel>chain($1, $3); }
     ;
 
-/* A possibly empty list of function qualifiers (only one exists so far) */
+/*
+ * A possibly empty list of function qualifiers (only one exists so far).
+ */
 fn_quals:
       /* empty */
     { $$ = Lists.<TypeElement>newList(); }
@@ -3311,7 +3512,7 @@ fn_quals:
 extension:
       EXTENSION
     {
-        $$ = null;
+        $$ = $1;
     }
     ;
 
@@ -3321,43 +3522,69 @@ extension:
 scspec:
       TYPEDEF
     {
-        $$ = new Rid(null, RID.TYPEDEF);
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.TYPEDEF);
         wasTypedef = true;
-        if (this.debug) {
-            System.out.println(" Setting wasTypedef (true) ");
-        }
+        LOG.debug("Setting wasTypedef to true.");
     }
     | EXTERN
-    { $$ = new Rid(null, RID.EXTERN); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.EXTERN);
+    }
     | STATIC
-    { $$ = new Rid(null, RID.STATIC); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.STATIC);
+    }
     | AUTO
-    { $$ = new Rid(null, RID.AUTO); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.AUTO);
+    }
     | REGISTER
-    { $$ = new Rid(null, RID.REGISTER); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.REGISTER);
+    }
     | COMMAND
-    { $$ = new Rid(null, RID.COMMAND); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.COMMAND);
+    }
     | EVENT
-    { $$ = new Rid(null, RID.EVENT); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.EVENT);
+    }
     | ASYNC
-    { $$ = new Rid(null, RID.ASYNC); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.ASYNC);
+    }
     | TASK
-    { $$ = new Rid(null, RID.TASK); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.TASK);
+    }
     | NORACE
-    { $$ = new Rid(null, RID.NORACE); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.NORACE);
+    }
     | DEFAULT
-    { $$ = new Rid(null, RID.DEFAULT); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.DEFAULT);
+    }
     | INLINE
-    { $$ = new Rid(null, RID.INLINE); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.INLINE);
+    }
     ;
 
 type_qual:
       CONST
-    { $$ = new Qualifier(null, RID.CONST); }
+    {
+        $$ = Semantics.makeQualifier($1.getLocation(), $1.getEndLocation(), RID.CONST);
+    }
     | RESTRICT
-    { $$ = new Qualifier(null, RID.RESTRICT); }
+    {
+        $$ = Semantics.makeQualifier($1.getLocation(), $1.getEndLocation(), RID.RESTRICT);
+    }
     | VOLATILE
-    { $$ = new Qualifier(null, RID.VOLATILE); }
+    {
+        $$ = Semantics.makeQualifier($1.getLocation(), $1.getEndLocation(), RID.VOLATILE);
+    }
     ;
 
 /*
@@ -3370,23 +3597,41 @@ fn_qual:
 
 type_spec:
       VOID
-    { $$ = new Rid(null, RID.VOID); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.VOID);
+    }
     | CHAR
-    { $$ = new Rid(null, RID.CHAR); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.CHAR);
+    }
     | SHORT
-    { $$ = new Rid(null, RID.SHORT); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.SHORT);
+    }
     | INT
-    { $$ = new Rid(null, RID.INT); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.INT);
+    }
     | LONG
-    { $$ = new Rid(null, RID.LONG); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.LONG);
+    }
     | FLOAT
-    { $$ = new Rid(null, RID.FLOAT); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.FLOAT);
+    }
     | DOUBLE
-    { $$ = new Rid(null, RID.DOUBLE); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.DOUBLE);
+    }
     | SIGNED
-    { $$ = new Rid(null, RID.SIGNED); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.SIGNED);
+    }
     | UNSIGNED
-    { $$ = new Rid(null, RID.UNSIGNED); }
+    {
+        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.UNSIGNED);
+    }
     ;
 
 string_chain:
@@ -3411,6 +3656,8 @@ string_chain:
     ;
 
 %code {
+
+    private static final Logger LOG = Logger.getLogger(Parser.class);
     /**
      * Name of currently being parsed entity.
      */

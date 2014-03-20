@@ -1,361 +1,269 @@
 package pl.edu.mimuw.nesc.semantic;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.RID;
+import pl.edu.mimuw.nesc.ast.StructKind;
+import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.common.util.list.Lists;
 
 import java.util.LinkedList;
 
-import pl.edu.mimuw.nesc.ast.Environment;
-import pl.edu.mimuw.nesc.ast.KnownCst;
-import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.StorageFlag;
-import pl.edu.mimuw.nesc.ast.StructKind;
-import pl.edu.mimuw.nesc.ast.TagDeclaration;
-import pl.edu.mimuw.nesc.ast.Type;
-import pl.edu.mimuw.nesc.ast.datadeclaration.DataDeclaration;
-import pl.edu.mimuw.nesc.ast.gen.AsmStmt;
-import pl.edu.mimuw.nesc.ast.gen.AstType;
-import pl.edu.mimuw.nesc.ast.gen.Attribute;
-import pl.edu.mimuw.nesc.ast.gen.AttributeRef;
-import pl.edu.mimuw.nesc.ast.gen.DataDecl;
-import pl.edu.mimuw.nesc.ast.gen.Declaration;
-import pl.edu.mimuw.nesc.ast.gen.Declarator;
-import pl.edu.mimuw.nesc.ast.gen.EnumRef;
-import pl.edu.mimuw.nesc.ast.gen.Enumerator;
-import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.gen.FieldDecl;
-import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
-import pl.edu.mimuw.nesc.ast.gen.FunctionDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.Identifier;
-import pl.edu.mimuw.nesc.ast.gen.NestedDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.NxStructRef;
-import pl.edu.mimuw.nesc.ast.gen.NxUnionRef;
-import pl.edu.mimuw.nesc.ast.gen.OldIdentifierDecl;
-import pl.edu.mimuw.nesc.ast.gen.PointerDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.QualifiedDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.Statement;
-import pl.edu.mimuw.nesc.ast.gen.StructRef;
-import pl.edu.mimuw.nesc.ast.gen.TagRef;
-import pl.edu.mimuw.nesc.ast.gen.TypeElement;
-import pl.edu.mimuw.nesc.ast.gen.UnionRef;
-import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
-import pl.edu.mimuw.nesc.ast.gen.Word;
-import pl.edu.mimuw.nesc.common.util.list.Lists;
+import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
+import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
 
 /**
- * 
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
- * 
  */
 public final class Semantics {
 
-	public static Declarator finishArrayOrFnDeclarator(Declarator nested,
-			NestedDeclarator declarator) {
-		checkNotNull(nested);
-		checkNotNull(declarator);
+    /**
+     * <p>Finishes array of function declarator.</p>
+     * <h3>Example</h3>
+     * <p><code>Foo.bar(int baz)</code>
+     * where <code>Foo.bar</code> is <code>nested</code>, <code>(int baz)</code>
+     * is <code>declarator</code></p>
+     *
+     * @param nested     declarator that precedes array or function parentheses
+     *                   (e.g. plain identifier or interface reference)
+     * @param declarator declarator containing array indices declaration or
+     *                   function parameters
+     * @return declarator combining these two declarators
+     */
+    public static Declarator finishArrayOrFnDeclarator(Declarator nested, NestedDeclarator declarator) {
+        declarator.setLocation(nested.getLocation());
+        declarator.setDeclarator(nested);
+        return declarator;
+    }
 
-		declarator.setDeclarator(nested);
-		return declarator;
-	}
+    public static FunctionDecl startFunction(Location startLocation, LinkedList<TypeElement> modifiers,
+                                             Declarator declarator, LinkedList<Attribute> attributes,
+                                             boolean isNested) {
+        return new FunctionDecl(startLocation, declarator, modifiers, attributes, null, isNested);
+    }
 
-	/**
-	 * Start definition of function 'elements d' with attributes attribs. nested
-	 * is true for nested function definitions. Returns false in case of error.
-	 * Sets current.function_decl to the declaration for this function.
-	 * 
-	 * @param elements
-	 * @param declarator
-	 * @param attribs
-	 * @param nested
-	 * @return
-	 */
-	public static boolean startFunction(LinkedList<TypeElement> elements,
-			Declarator declarator, LinkedList<Attribute> attribs, boolean nested) {
-		// TODO
-		return true;
-	}
+    public static FunctionDecl setOldParams(FunctionDecl functionDecl, LinkedList<Declaration> oldParams) {
+        functionDecl.setOldParms(oldParams);
+        return functionDecl;
+    }
 
-	/**
-	 * Add old-style parameter declarations old_parms to the current function.
-	 * 
-	 * @param oldParms
-	 */
-	public static void storeParmDecls(LinkedList<Declaration> oldParms) {
-		// TODO
-	}
+    public static FunctionDecl finishFunction(FunctionDecl functionDecl, Statement body) {
+        functionDecl.setBody(body);
+        functionDecl.setEndLocation(body.getEndLocation());
+        return functionDecl;
+    }
 
-	/**
-	 * End definition of current function, furnishing it it's body.
-	 * 
-	 * @param body
-	 * @return
-	 */
-	public static FunctionDecl finishFunction(Statement body) {
-		FunctionDecl fn = null;
-		// TODO
-		return fn;
-	}
+    /**
+     * <p>Create definition of function parameter
+     * <code>elements declarator</code> with attributes.</p>
+     * <p>There must be at least a <code>declarator</code> or some form of type
+     * specification.</p>
+     *
+     * @param declarator parameter declarator
+     * @param elements   type elements
+     * @param attributes attributes list (maybe empty)
+     * @return the declaration for the parameter
+     */
+    public static DataDecl declareParameter(Optional<Declarator> declarator, LinkedList<TypeElement> elements,
+                                            LinkedList<Attribute> attributes) {
+        /*
+         * The order of entities:
+         * elements [declarator] [attributes]
+         */
+        /* Create variable declarator. */
+        final Location varStartLocation;
+        final Location varEndLocation;
+        if (declarator.isPresent()) {
+            varStartLocation = declarator.get().getLocation();
+            varEndLocation = getEndLocation(declarator.get().getEndLocation(), attributes);
+        } else {
+            varStartLocation = getStartLocation(elements).get();
+            varEndLocation = getEndLocation(elements, attributes).get();
+        }
+        final VariableDecl variableDecl = new VariableDecl(varStartLocation, declarator.orNull(), attributes,
+                null, null);
+        variableDecl.setEndLocation(varEndLocation);
 
-	/*
-	 * Categories of variable declarations moved to VariableDelaration in ast.
-	 */
+        /* Create parameter declarator. */
+        final Location startLocation = getStartLocation(elements).get();
+        final Location endLocation = declarator.isPresent()
+                ? getEndLocation(declarator.get().getEndLocation(), attributes)
+                : getEndLocation(elements, attributes).get();
 
-	/**
-	 * Starts definition of variable 'elements d' with attributes
-	 * extra_attributes and attributes, asm specification astmt. If initialised
-	 * is true, the variable has an initialiser. Returns the declaration for the
-	 * variable.
-	 * 
-	 * @param d
-	 * @param astmt
-	 * @param elements
-	 * @param initialised
-	 * @param attributes
-	 * @return
-	 */
-	public static Declaration startDecl(Declarator d, AsmStmt astmt,
-			LinkedList<TypeElement> elements, boolean initialised,
-			LinkedList<Attribute> attributes) {
-		// TODO
-		return null;
-	}
+        final DataDecl dataDecl = new DataDecl(startLocation, elements, Lists.<Declaration>newList(variableDecl));
+        dataDecl.setEndLocation(endLocation);
+        return dataDecl;
+    }
 
-	/**
-	 * Finish definition of decl, furnishing the optional initialiser init.
-	 * Returns decl.
-	 * 
-	 * @param decl
-	 * @param init
-	 */
-	public static void finishDecl(Declaration decl, Expression init) {
-		// TODO
-	}
+    public static OldIdentifierDecl declareOldParameter(Location startLocation, Location endLocation, String id) {
+        final OldIdentifierDecl decl = new OldIdentifierDecl(startLocation, id);
+        decl.setEndLocation(endLocation);
+        return decl;
+    }
 
-	/**
-	 * Create definition of function parameter 'elements d' with attributes
-	 * extra_attributes and attributes. Returns the declaration for the
-	 * parameter.
-	 * 
-	 * @param declarator
-	 * @param elements
-	 * @param attributes
-	 * @return
-	 */
-	public static DataDecl declareParameter(Declarator declarator,
-			LinkedList<TypeElement> elements, LinkedList<Attribute> attributes) {
-		Location location = (declarator != null) ? declarator.getLocation()
-				: elements.get(0).getLocation();
-		VariableDecl variableDecl = new VariableDecl(location, declarator,
-				attributes, null, null);
-		DataDecl dataDecl = new DataDecl(location, elements,
-				Lists.<Declaration> newList(variableDecl));
-		// TODO
-		return dataDecl;
-	}
+    public static TagRef makeStruct(Location startLocation, Location endLocation, StructKind kind, Optional<Word> tag,
+                                    LinkedList<Declaration> fields, LinkedList<Attribute> attributes) {
+        return makeTagRef(startLocation, endLocation, kind, tag, fields, attributes);
+    }
 
-	public static OldIdentifierDecl declareOldParameter(Location location,
-			String id) {
-		OldIdentifierDecl decl = new OldIdentifierDecl(location, id, null);
-		// TODO
-		return decl;
-	}
+    public static TagRef makeEnum(Location startLocation, Location endLocation, Optional<Word> tag,
+                                  LinkedList<Declaration> fields, LinkedList<Attribute> attributes) {
+        return makeTagRef(startLocation, endLocation, StructKind.ENUM, tag, fields, attributes);
+    }
 
-	/**
-	 * Start definition of struct/union (indicated by skind) type tag.
-	 * 
-	 * @param location
-	 * @param structKind
-	 * @param tag
-	 * @return
-	 */
-	public static TagRef startStruct(Location location, StructKind structKind,
-			Word tag) {
-		TagRef tagRef = makeTagRef(location, structKind, tag);
-		// TODO
-		return tagRef;
-	}
+    /**
+     * Returns a reference to struct, union or enum.
+     *
+     * @param startLocation start location
+     * @param endLocation   end location
+     * @param structKind    kind
+     * @param tag           name
+     * @return struct/union/enum reference
+     */
+    public static TagRef makeXrefTag(Location startLocation, Location endLocation, StructKind structKind, Word tag) {
+        return makeTagRef(startLocation, endLocation, structKind, Optional.of(tag));
+    }
 
-	/**
-	 * Finish definition of struct/union furnishing the fields and attribs.
-	 * Returns t.
-	 * 
-	 * @param tagRef
-	 * @param fields
-	 * @param attributes
-	 * @return
-	 */
-	public static TagRef finishStruct(TagRef tagRef,
-			LinkedList<Declaration> fields, LinkedList<Attribute> attributes) {
-		// TODO
-		return tagRef;
-	}
+    /**
+     * Creates declaration of field
+     * <code>elements declarator : bitfield</code> with attributes.
+     * <code>declarator</code> and <code>bitfield</code> cannot be both
+     * absent.
+     *
+     * @param startLocation start location
+     * @param endLocation   end location
+     * @param declarator    declarator
+     * @param bitfield      bitfield
+     * @param elements      elements
+     * @param attributes    attributes
+     * @return declaration of field
+     */
+    public static FieldDecl makeField(Location startLocation, Location endLocation,
+                                      Optional<Declarator> declarator, Optional<Expression> bitfield,
+                                      LinkedList<TypeElement> elements, LinkedList<Attribute> attributes) {
+        // FIXME: elements?
+        endLocation = getEndLocation(endLocation, attributes);
+        final FieldDecl decl = new FieldDecl(startLocation, declarator.orNull(), attributes, bitfield.orNull());
+        decl.setEndLocation(endLocation);
+        return decl;
+    }
 
-	/**
-	 * Return a reference to struct/union/enum (indicated by skind) type tag.
-	 * 
-	 * @param location
-	 * @param structKind
-	 * @param tag
-	 * @return
-	 */
-	public static TagRef makeXrefTag(Location location, StructKind structKind,
-			Word tag) {
-		TagRef tagRef = makeTagRef(location, structKind, tag);
-		// TODO
-		return tagRef;
-	}
+    public static Enumerator makeEnumerator(Location startLocation, Location endLocation, String id,
+                                            Optional<Expression> value) {
 
-	/**
-	 * Start definition of struct/union (indicated by skind) type tag.
-	 * 
-	 * @param location
-	 * @param tag
-	 * @return
-	 */
-	public static EnumRef startEnum(Location location, Word tag) {
-		EnumRef enumRef = new EnumRef(location, Lists.<Attribute> newList(),
-				true, Lists.<Declaration> newList(), tag);
-		// TODO
-		return enumRef;
-	}
+        final Enumerator enumerator = new Enumerator(startLocation, id, value.orNull());
+        enumerator.setEndLocation(endLocation);
+        return enumerator;
+    }
 
-	/**
-	 * Finish definition of enum furnishing the names and attribs. Returns t.
-	 * 
-	 * @param enumRef
-	 * @param names
-	 * @param attribs
-	 * @return
-	 */
-	public static EnumRef finishEnum(EnumRef enumRef,
-			LinkedList<Declaration> names, LinkedList<Attribute> attribs) {
-		// TODO
-		return enumRef;
-	}
+    public static AstType makeType(LinkedList<TypeElement> elements, Optional<Declarator> declarator) {
+        final Location startLocation;
+        final Location endLocation;
+        if (declarator.isPresent()) {
+            startLocation = getStartLocation(declarator.get().getLocation(), elements);
+            endLocation = declarator.get().getEndLocation();
+        } else {
+            startLocation = getStartLocation(elements).get();
+            endLocation = getEndLocation(elements).get();
+        }
+        final AstType type = new AstType(startLocation, declarator.orNull(), elements);
+        type.setEndLocation(endLocation);
+        return type;
+    }
 
-	/**
-	 * Create declaration of field 'elements d : bitfield' with attributes
-	 * extra_attributes and attributes. d can be NULL, bitfield can be NULL, but
-	 * not both at the same time. Returns the declaration for the field.
-	 * 
-	 * @param declarator
-	 * @param bitfield
-	 * @param elements
-	 * @param atributes
-	 * @return
-	 */
-	public static FieldDecl makeField(Declarator declarator,
-			Expression bitfield, LinkedList<TypeElement> elements,
-			LinkedList<Attribute> atributes) {
-		// FIXME: elements?
-		Location location = (declarator != null) ? declarator.getLocation()
-				: bitfield.getLocation();
-		return new FieldDecl(location, declarator, atributes, bitfield);
-	}
+    /**
+     * If statement list l1 ends with an unfinished label, attach l2 to that
+     * label. Otherwise attach l2 to the end of l1.
+     *
+     * @param l1
+     * @param l2
+     * @return
+     */
+    public static LinkedList<Statement> chainWithLabels(
+            LinkedList<Statement> l1, LinkedList<Statement> l2) {
+        assert l1 != null;
+        assert l2 != null;
 
-	public static Enumerator makeEnumerator(Location location, String id,
-			Expression value) {
-		Enumerator ast = null;
-		// TODO
-		ast = new Enumerator(location, id, value, null);
-		return ast;
-	}
+        if (l1.isEmpty())
+            return l2;
+        if (l2.isEmpty())
+            return l1;
 
-	/**
-	 * Create and return type 'elements d' where d is an abstract declarator.
-	 * 
-	 * @param elements
-	 * @param declarator
-	 * @return
-	 */
-	public static AstType makeType(LinkedList<TypeElement> elements,
-			Declarator declarator) {
-		Location location = (elements != null && !elements.isEmpty()) ? elements.get(
-				0)
-				.getLocation()
-				: declarator.getLocation();
+        // TODO
 
-		AstType type = new AstType(location, declarator, elements);
-        // FIXME
-        type.setEndLocation(Location.getDummyLocation());
-		// TODO
-		return type;
-	}
+        l1.addAll(l2);
+        return l1;
+    }
 
-	/**
-	 * If statement list l1 ends with an unfinished label, attach l2 to that
-	 * label. Otherwise attach l2 to the end of l1.
-	 * 
-	 * @param l1
-	 * @param l2
-	 * @return
-	 */
-	public static LinkedList<Statement> chainWithLabels(
-			LinkedList<Statement> l1, LinkedList<Statement> l2) {
-		assert l1 != null;
-		assert l2 != null;
+    public static Declarator makePointerDeclarator(Location startLocation, Location endLocation,
+                                                   Optional<Declarator> declarator,
+                                                   LinkedList<TypeElement> qualifiers) {
+        final Location qualifiedDeclStartLocation = getStartLocation(
+                declarator.isPresent()
+                        ? declarator.get().getLocation()
+                        : startLocation,
+                qualifiers);
+        final QualifiedDeclarator qualifiedDeclarator = new QualifiedDeclarator(qualifiedDeclStartLocation,
+                declarator.orNull(), qualifiers);
+        qualifiedDeclarator.setEndLocation(declarator.isPresent()
+                ? declarator.get().getEndLocation()
+                : endLocation);
 
-		if (l1.isEmpty())
-			return l2;
-		if (l2.isEmpty())
-			return l1;
+        final PointerDeclarator pointerDeclarator = new PointerDeclarator(startLocation, qualifiedDeclarator);
+        pointerDeclarator.setEndLocation(endLocation);
+        return pointerDeclarator;
+    }
 
-		// TODO
+    public static Rid makeRid(Location startLocation, Location endLocation, RID rid) {
+        final Rid result = new Rid(startLocation, rid);
+        result.setEndLocation(endLocation);
+        return result;
+    }
 
-		l1.addAll(l2);
-		return l1;
-	}
+    public static Qualifier makeQualifier(Location startLocation, Location endLocation, RID rid) {
+        final Qualifier result = new Qualifier(startLocation, rid);
+        result.setEndLocation(endLocation);
+        return result;
+    }
 
-	public static Declarator makePointerDeclarator(Location location,
-			Declarator declarator, LinkedList<TypeElement> quals) {
-		declarator = new QualifiedDeclarator(location, declarator, quals);
-		return new PointerDeclarator(location, declarator);
-	}
+    private static TagRef makeTagRef(Location startLocation, Location endLocation, StructKind structKind,
+                                     Optional<Word> tag) {
+        final LinkedList<Attribute> attributes = Lists.newList();
+        final LinkedList<Declaration> declarations = Lists.newList();
+        return makeTagRef(startLocation, endLocation, structKind, tag, declarations, attributes);
+    }
 
-	/*
-	 * Make "word" argument of attributes into an expression
-	 */
-	public static LinkedList<Expression> makeAttrArgs(Location location,
-                                                      String id, LinkedList<Expression> args) {
-		// args may be null
-		// FIXME bad_decl
-		Identifier identifier = new Identifier(location, id);
-		// bad_decl result->type = error_type;
-		if (args != null) {
-			args.addFirst(identifier);
-		} else {
-			args = Lists.<Expression>newList(identifier);
-		}
-		return args;
-	}
+    private static TagRef makeTagRef(Location startLocation, Location endLocation, StructKind structKind,
+                                     Optional<Word> tag, LinkedList<Declaration> declarations,
+                                     LinkedList<Attribute> attributes) {
+        final TagRef tagRef;
+        switch (structKind) {
+            case STRUCT:
+                tagRef = new StructRef(startLocation, attributes, declarations, true, tag.orNull());
+                break;
+            case UNION:
+                tagRef = new UnionRef(startLocation, attributes, declarations, true, tag.orNull());
+                break;
+            case NX_STRUCT:
+                tagRef = new NxStructRef(startLocation, attributes, declarations, true, tag.orNull());
+                break;
+            case NX_UNION:
+                tagRef = new NxUnionRef(startLocation, attributes, declarations, true, tag.orNull());
+                break;
+            case ENUM:
+                tagRef = new EnumRef(startLocation, attributes, declarations, true, tag.orNull());
+                break;
+            case ATTRIBUTE:
+                tagRef = new AttributeRef(startLocation, attributes, declarations, true, tag.orNull());
+                break;
+            default:
+                throw new IllegalArgumentException("Unexpected argument " + structKind);
+        }
+        tagRef.setEndLocation(endLocation);
+        return tagRef;
+    }
 
-	private static TagRef makeTagRef(Location location, StructKind structKind,
-			Word tag) {
-		switch (structKind) {
-		case STRUCT:
-			return new StructRef(location, Lists.<Attribute> newList(), true,
-					Lists.<Declaration> newList(), tag);
-		case UNION:
-			return new UnionRef(location, Lists.<Attribute> newList(), true,
-					Lists.<Declaration> newList(), tag);
-		case NX_STRUCT:
-			return new NxStructRef(location, Lists.<Attribute> newList(), true,
-					Lists.<Declaration> newList(), tag);
-		case NX_UNION:
-			return new NxUnionRef(location, Lists.<Attribute> newList(), true,
-					Lists.<Declaration> newList(), tag);
-		case ENUM:
-			return new EnumRef(location, Lists.<Attribute> newList(), true,
-					Lists.<Declaration> newList(), tag);
-		case ATTRIBUTE:
-			return new AttributeRef(location, Lists.<Attribute> newList(),
-					true, Lists.<Declaration> newList(), tag);
-		default:
-			throw new IllegalArgumentException("Unexpected argument "
-					+ structKind);
-		}
-	}
-	
-	private Semantics() {
-	}
+    private Semantics() {
+    }
 
 }

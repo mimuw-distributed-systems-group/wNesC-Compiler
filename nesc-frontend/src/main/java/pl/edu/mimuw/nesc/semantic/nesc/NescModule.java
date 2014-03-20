@@ -1,52 +1,32 @@
 package pl.edu.mimuw.nesc.semantic.nesc;
 
-import java.util.LinkedList;
-
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.gen.GenericCall;
 import pl.edu.mimuw.nesc.ast.gen.IdentifierDeclarator;
 import pl.edu.mimuw.nesc.ast.gen.InterfaceRefDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.Module;
 import pl.edu.mimuw.nesc.ast.gen.Word;
 
 /**
- * 
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
- * 
  */
 public class NescModule {
 
-	public static GenericCall makeGenericCall(Location location,
-			Expression iref, LinkedList<Expression> args) {
-		GenericCall result = new GenericCall(location, iref, args);
-		// TODO
-		return result;
-	}
+    public static InterfaceRefDeclarator makeInterfaceRefDeclarator(Location ifaceStartLocation, String ifaceName,
+                                                                    Location funcNameStartLocation,
+                                                                    Location funcNameEndLocation, String functionName) {
+        final IdentifierDeclarator id = new IdentifierDeclarator(funcNameStartLocation, functionName);
+        id.setEndLocation(funcNameEndLocation);
+        final InterfaceRefDeclarator declarator = new InterfaceRefDeclarator(ifaceStartLocation, id,
+                makeWord(ifaceStartLocation, funcNameEndLocation, ifaceName));
+        return declarator;
+    }
 
-	public static InterfaceRefDeclarator makeInterfaceRefDeclarator(
-			Location location, String w1, String w2) {
-		IdentifierDeclarator id = new IdentifierDeclarator(location, w2);
-		InterfaceRefDeclarator declarator = new InterfaceRefDeclarator(
-				location, id, makeWord(location, w1));
-		return declarator;
-	}
+    public static Word makeWord(Location startLocation, Location endLocation, String name) {
+        final Word word = new Word(startLocation, name);
+        word.setEndLocation(endLocation);
+        return word;
+    }
 
-	public static Expression makeInterfaceDeref(Location location,
-			Expression object, String field) {
-		// TODO
-		return null;
-	}
-
-	public static void processModule(Module module) {
-		// TODO
-	}
-
-	public static Word makeWord(Location location, String s) {
-		return new Word(location, s);
-	}
-
-	private NescModule() {
-	}
+    private NescModule() {
+    }
 
 }
