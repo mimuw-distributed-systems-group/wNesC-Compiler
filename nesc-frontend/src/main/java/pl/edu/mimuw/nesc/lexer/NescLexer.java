@@ -2,6 +2,8 @@ package pl.edu.mimuw.nesc.lexer;
 
 import com.google.common.base.Optional;
 import org.anarres.cpp.*;
+import org.apache.log4j.Logger;
+import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.parser.Symbol;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 
@@ -19,6 +21,8 @@ import static pl.edu.mimuw.nesc.parser.Parser.Lexer.*;
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
 public final class NescLexer extends AbstractLexer {
+
+    private static final Logger LOG = Logger.getLogger(NescLexer.class);
 
     private final Preprocessor preprocessor;
     /**
@@ -106,9 +110,7 @@ public final class NescLexer extends AbstractLexer {
     @Override
     public Symbol nextToken() throws pl.edu.mimuw.nesc.exception.LexerException {
         try {
-            Symbol s = popSymbol();
-            return s;
-            //return popSymbol();
+            return popSymbol();
         } catch (LexerException | IOException e) {
             e.printStackTrace();
             final String message = "cannot read next token";
@@ -144,7 +146,7 @@ public final class NescLexer extends AbstractLexer {
         for (Map.Entry<String, Macro> macro : preprocessorMacros.entrySet()) {
             final String macroName = macro.getKey();
             final Macro object = macro.getValue();
-            final Optional<String> path = Optional.fromNullable(getSourcePath(object.getSource()));
+            final Optional<String> path = getSourcePath(object.getSource());
             final PreprocessorMacro pm = new PreprocessorMacro(macroName, path, object);
             result.put(macroName, pm);
         }
@@ -196,7 +198,7 @@ public final class NescLexer extends AbstractLexer {
     private Symbol lex() throws IOException, LexerException {
         final Symbol.Builder builder = Symbol.builder();
 
-        final Token token = popToken();
+        Token token = popToken();
 
         /*
          * Handle token which should not produce parser token.
@@ -204,7 +206,7 @@ public final class NescLexer extends AbstractLexer {
         if (ignoreToken(token)) {
             return lex();
         } else if (isComment(token)) {
-            handleComment(token);
+            handleComment(token, false);
             return lex();
         } else if (isHash(token)) {
             // TODO handle hash
@@ -232,16 +234,16 @@ public final class NescLexer extends AbstractLexer {
                 lexIdentifier(token, builder);
                 break;
             case Token.NUMBER:
-                lexNumber(token, builder);
+                lexNumber(token, builder, false);
                 break;
             case Token.STRING:
-                lexString(token, builder);
+                lexString(token, builder, false);
                 break;
             case Token.CHARACTER:
-                lexCharacter(token, builder);
+                lexCharacter(token, builder, false);
                 break;
             case Token.INVALID:
-                // TODO
+                lexInvalid(token, builder);
                 break;
             case Token.EOF:
                 builder.symbolCode(EOF);
@@ -251,7 +253,21 @@ public final class NescLexer extends AbstractLexer {
                 break;
         }
 
-        return builder.build();
+        final Symbol symbol = builder.build();
+
+        /*
+         * Report error for invalid symbols.
+         * This is the best place because end location is known.
+         */
+        if (symbol.isInvalid() && listener != null) {
+            final String errorMsg = (String) token.getValue();
+            final Location location = symbol.getLocation();
+            final Location endLocation = symbol.getEndLocation();
+            listener.error(location.getFilePath(), location.getLine(), location.getColumn(),
+                    Optional.of(endLocation.getLine()), Optional.of(endLocation.getColumn()),
+                    errorMsg);
+        }
+        return symbol;
     }
 
     private boolean ignoreToken(Token token) {
@@ -300,47 +316,103 @@ public final class NescLexer extends AbstractLexer {
         }
     }
 
-    private void lexNumber(Token token, Symbol.Builder builder) {
-        final NumericValue numeric = (NumericValue) token.getValue();
-
-        // FIXME distinguish between int and double or unify those two literals
-        builder.symbolCode(INTEGER_LITERAL)
-                .value(numeric.toString())
+    private void lexNumber(Token token, Symbol.Builder builder, boolean invalid) {
+        final String numeric = token.getValue().toString();
+        /*
+         * FIXME: how to distinguish betweend int and float?
+         * Simple heuristic is to check if value contains non-numerical
+         * characters.
+         */
+        builder.symbolCode(numeric.matches("[0-9]+") ? INTEGER_LITERAL : FLOATING_POINT_LITERAL)
+                .value(numeric)
                 .endLine(token.getLine())
-                .endColumn(token.getColumn() + token.getText().length());
+                .endColumn(token.getColumn() + token.getText().length())
+                .invalid(invalid);
     }
 
-    private void lexString(Token token, Symbol.Builder builder) throws IOException, LexerException {
-        final String string = (String) token.getValue();
-
+    private void lexString(Token token, Symbol.Builder builder, boolean invalid) throws IOException, LexerException {
+        /*
+         * Remove quotes from string. getValue() may contain error message
+         * in case of invalid string token.
+         */
+        final String string = token.getText().replaceAll("^\"|\"$", "");
         builder.symbolCode(STRING_LITERAL)
                 .value(string)
                 .endLine(token.getLine())
-                .endColumn(token.getColumn() + token.getText().length());
+                .endColumn(token.getColumn() + token.getText().length())
+                .invalid(invalid);
         // FIXME: end location, string literal may be broken by backslash!
         // TODO: get next token location and subtract one from column (line the same)
         // currently preprocessor does not handle backslashes properly
     }
 
-    private void lexCharacter(Token token, Symbol.Builder builder) {
-        final String character = (String) token.getValue();
+    private void lexCharacter(Token token, Symbol.Builder builder, boolean invalid) {
+        /*
+         * Remove quotes from string. getValue() may contain error message
+         * in case of invalid string token.
+         */
+        final String character = token.getText().replaceAll("^'|'$", "");
         builder.symbolCode(CHARACTER_LITERAL)
                 .value(character)
                 .endLine(token.getLine())
-                .endColumn(token.getColumn() + token.getText().length());
+                .endColumn(token.getColumn() + token.getText().length())
+                .invalid(invalid);
     }
 
-    private void handleComment(Token token) {
+    private void lexInvalid(Token token, Symbol.Builder builder) throws IOException, LexerException {
+        final int expectedType = token.getExpectedType();
+        /* Change token type (we need to create a new object). */
+        token = new Token(expectedType, token.getLine(), token.getColumn(), token.getText(), token.getValue());
+
+        switch (expectedType) {
+            case Token.STRING:
+                lexString(token, builder, true);
+                break;
+            case Token.CHARACTER:
+                lexCharacter(token, builder, true);
+                break;
+            case Token.NUMBER:
+                /*
+                 * FIXME: When invalid number token is detected, preprocessor
+                 * "consumes the rest of the current line into an invalid".
+                 */
+                lexNumber(token, builder, true);
+                break;
+            case Token.CCOMMENT:
+                handleComment(token, true);
+                break;
+            case Token.HEADER:
+                // TODO
+                break;
+            default:
+                throw new IllegalArgumentException("unexpected token type " + expectedType);
+        }
+    }
+
+    private void handleComment(Token token, boolean invalid) {
+        final String fileName = getCurrentFile();
+        final int line = token.getLine();
+        final int column = token.getColumn() + 1;
+
         final Comment comment = Comment.builder()
-                .file(getCurrentFile())
-                .line(token.getLine())
-                .column(token.getColumn())
+                .file(fileName)
+                .line(line)
+                .column(column)
                 .body(token.getText())
-                .isC(token.getType() == Token.CCOMMENT)
+                /* Only C comments could be invalid I suppose. */
+                .isC(token.getType() == Token.CCOMMENT || token.getType() == Token.INVALID)
+                .invalid(invalid)
                 .build();
 
+        /*
+         * Report invalid comment.
+         */
         if (listener != null) {
             listener.comment(comment);
+            if (invalid) {
+                final String msg = (String) token.getValue();
+                listener.error(fileName, line, column, Optional.<Integer>absent(), Optional.<Integer>absent(), msg);
+            }
         }
     }
 
@@ -470,29 +542,37 @@ public final class NescLexer extends AbstractLexer {
 
         @Override
         public void handleWarning(Source source, int line, int column, String msg) throws LexerException {
-            // FIXME: handle warning in upper level
-            System.out.println("Preprocessor warning in " + source + " at " + line + ", " + column + "; " + msg);
+            LOG.info("Preprocessor warning in " + source + " at " + line + ", " + column + "; " + msg);
+            if (listener != null) {
+                final Optional<String> fileName = getSourcePath(source);
+                listener.warning(fileName.isPresent() ? fileName.get() : getCurrentFile(), line, column + 1,
+                        Optional.<Integer>absent(), Optional.<Integer>absent(), msg);
+            }
         }
 
         @Override
         public void handleError(Source source, int line, int column, String msg) throws LexerException {
-            // FIXME: handle error in upper level
-            System.out.println("Preprocessor error in " + source + " at " + line + ", " + column + "; " + msg);
+            LOG.info("Preprocessor error in " + source + " at " + line + ", " + column + "; " + msg);
+            if (listener != null) {
+                final Optional<String> fileName = getSourcePath(source);
+                listener.error(fileName.isPresent() ? fileName.get() : getCurrentFile(), line, column + 1,
+                        Optional.<Integer>absent(), Optional.<Integer>absent(), msg);
+            }
         }
 
         @Override
         public void handleSourceChange(Source source, String event) {
             // FIXME: check exactly lexer flow
-            final String path = getSourcePath(source);
-            if (path == null) {
+            final Optional<String> path = getSourcePath(source);
+            if (!path.isPresent()) {
                 return;
             }
 
             if (PUSH.equals(event)) {
                 final String previous = sourceStack.peek();
-                sourceStack.push(path);
-                if (!previous.equals(path)) {
-                    notifyFileChange(previous, path, true);
+                sourceStack.push(path.get());
+                if (!previous.equals(path.get())) {
+                    notifyFileChange(previous, path.get(), true);
                 }
             } else if (POP.equals(event)) {
                 final String previousFile = sourceStack.pop();
@@ -526,7 +606,7 @@ public final class NescLexer extends AbstractLexer {
 
         @Override
         public void handleMacroExpansion(Source source, int line, int column, String macro) {
-            System.out.println("MACRO expansion " + line + ", " + column + "; " + macro);
+            LOG.trace("MACRO expansion " + line + ", " + column + "; " + macro);
         }
 
         private void notifyFileChange(String from, String to, boolean push) {
@@ -536,13 +616,13 @@ public final class NescLexer extends AbstractLexer {
         }
     }
 
-    private static String getSourcePath(Source source) {
+    private static Optional<String> getSourcePath(Source source) {
         final String path = (source == null) ? null : source.getPath();
         /* Skip paths like <internal-data>. */
         if (path == null || path.charAt(0) == '<') {
-            return null;
+            return Optional.absent();
         }
-        return path;
+        return Optional.of(path);
     }
 
 }

@@ -7,7 +7,7 @@ import pl.edu.mimuw.nesc.ast.Location;
  */
 public class CharacterToken extends ConstantToken {
 
-    protected CharacterToken(Location startLocation, Location endLocation, String value) {
+    public CharacterToken(Location startLocation, Location endLocation, String value) {
         super(startLocation, endLocation, value);
     }
 

@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
 import org.apache.log4j.Logger;
+import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.common.FileType;
@@ -10,7 +11,9 @@ import pl.edu.mimuw.nesc.exception.LexerException;
 import pl.edu.mimuw.nesc.filesgraph.GraphFile;
 import pl.edu.mimuw.nesc.filesgraph.walker.FilesGraphWalker;
 import pl.edu.mimuw.nesc.filesgraph.walker.NodeAction;
+import pl.edu.mimuw.nesc.issue.NescError;
 import pl.edu.mimuw.nesc.issue.NescIssue;
+import pl.edu.mimuw.nesc.issue.NescWarning;
 import pl.edu.mimuw.nesc.lexer.Comment;
 import pl.edu.mimuw.nesc.lexer.LexerListener;
 import pl.edu.mimuw.nesc.lexer.NescLexer;
@@ -300,6 +303,34 @@ public final class ParseExecutor {
         @Override
         public void comment(Comment comment) {
             fileCacheBuilder.comment(comment);
+        }
+
+        @Override
+        public void error(String fileName, int startLine, int startColumn,
+                          Optional<Integer> endLine, Optional<Integer> endColumn, String message) {
+            final Location startLocation = new Location(fileName, startLine, startColumn);
+            final Optional<Location> endLocation;
+            if (endLine.isPresent()) {
+                endLocation = Optional.of(new Location(fileName, endLine.get(), endColumn.get()));
+            } else {
+                endLocation = Optional.absent();
+            }
+            final NescError error = new NescError(startLocation, endLocation, message);
+            issuesListBuilder.put(startLine, error);
+        }
+
+        @Override
+        public void warning(String fileName, int startLine, int startColumn,
+                            Optional<Integer> endLine, Optional<Integer> endColumn, String message) {
+            final Location startLocation = new Location(fileName, startLine, startColumn);
+            final Optional<Location> endLocation;
+            if (endLine.isPresent()) {
+                endLocation = Optional.of(new Location(fileName, endLine.get(), endColumn.get()));
+            } else {
+                endLocation = Optional.absent();
+            }
+            final NescWarning warning = new NescWarning(startLocation, endLocation, message);
+            issuesListBuilder.put(startLine, warning);
         }
 
         @Override

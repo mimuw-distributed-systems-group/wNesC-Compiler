@@ -24,12 +24,14 @@ public class Symbol {
     private final Location startLocation;
     private final Location endLocation;
     private final String value;
+    private final boolean invalid;
 
     private Symbol(Builder builder) {
         this.symbolCode = builder.symbolCode;
         this.value = builder.value;
         this.startLocation = new Location(builder.file, builder.line, builder.column);
         this.endLocation = new Location(builder.file, builder.endLine, builder.endColumn);
+        this.invalid = builder.invalid;
     }
 
     public int getSymbolCode() {
@@ -52,6 +54,10 @@ public class Symbol {
         return value;
     }
 
+    public boolean isInvalid() {
+        return invalid;
+    }
+
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
@@ -59,6 +65,7 @@ public class Symbol {
                 .add("startLocation", startLocation)
                 .add("endLocation", endLocation)
                 .add("value", value)
+                .add("invalid", invalid)
                 .toString();
     }
 
@@ -94,6 +101,7 @@ public class Symbol {
         private int endColumn;
         private String file;
         private String value;
+        private boolean invalid;
 
         public Builder symbolCode(int symbolCode) {
             this.symbolCode = symbolCode;
@@ -127,6 +135,11 @@ public class Symbol {
 
         public Builder value(String value) {
             this.value = value;
+            return this;
+        }
+
+        public Builder invalid(boolean invalid) {
+            this.invalid = invalid;
             return this;
         }
 

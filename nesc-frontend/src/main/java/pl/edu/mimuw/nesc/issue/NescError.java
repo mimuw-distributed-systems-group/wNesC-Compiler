@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.issue;
 
+import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
 
 /**
@@ -7,7 +8,7 @@ import pl.edu.mimuw.nesc.ast.Location;
  */
 public class NescError extends NescIssue {
 
-    public NescError(Location startLocation, Location endLocation, String message) {
+    public NescError(Location startLocation, Optional<Location> endLocation, String message) {
         super(startLocation, endLocation, message);
     }
 

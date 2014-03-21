@@ -3711,8 +3711,9 @@ string_chain:
         if (this.parserListener != null
                 && !this.parserListener.interfaceDependency(filePath, ifaceName.getName())) {
             final String message = format("cannot find interface %s definition file", ifaceName.getName());
-            final NescWarning warning = new NescWarning(ifaceName.getLocation(), ifaceName.getEndLocation(), message);
-            this.issuesMultimapBuilder.put(ifaceName.getLocation().getLine(), warning);
+            final NescError error = new NescError(ifaceName.getLocation(),
+                    Optional.of(ifaceName.getEndLocation()), message);
+            this.issuesMultimapBuilder.put(ifaceName.getLocation().getLine(), error);
         }
     }
 
@@ -3720,9 +3721,9 @@ string_chain:
         if (this.parserListener != null
                 && !this.parserListener.componentDependency(filePath, componentName.getName())) {
             final String message = format("cannot find component %s definition file", componentName.getName());
-            final NescWarning warning = new NescWarning(componentName.getLocation(), componentName.getEndLocation(),
-            message);
-            this.issuesMultimapBuilder.put(componentName.getLocation().getLine(), warning);
+            final NescError error = new NescError(componentName.getLocation(),
+                    Optional.of(componentName.getEndLocation()), message);
+            this.issuesMultimapBuilder.put(componentName.getLocation().getLine(), error);
         }
     }
 
@@ -3858,7 +3859,7 @@ string_chain:
             final String message = format("%s in %s at line: %d, column: %d.", msg, startLocation.getFilePath(),
                     startLocation.getLine(), startLocation.getColumn());
             System.out.println(message);
-            final NescError error = new NescError(symbol.getLocation(), symbol.getEndLocation(), msg);
+            final NescError error = new NescError(symbol.getLocation(), Optional.of(symbol.getEndLocation()), msg);
             this.issuesMultimapBuilder.put(symbol.getLocation().getLine(), error);
         }
 

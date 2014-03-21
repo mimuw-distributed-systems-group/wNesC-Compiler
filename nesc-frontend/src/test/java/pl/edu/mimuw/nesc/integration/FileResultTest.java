@@ -3,46 +3,31 @@ package pl.edu.mimuw.nesc.integration;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import org.junit.Before;
 import org.junit.Test;
-import pl.edu.mimuw.nesc.ContextRef;
 import pl.edu.mimuw.nesc.FileData;
-import pl.edu.mimuw.nesc.Frontend;
-import pl.edu.mimuw.nesc.NescFrontend;
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 import pl.edu.mimuw.nesc.token.KeywordToken;
 import pl.edu.mimuw.nesc.token.PunctuationToken;
 import pl.edu.mimuw.nesc.token.Token;
 
-import java.io.File;
 import java.util.Collection;
 import java.util.List;
 
-import static org.fest.assertions.Assertions.*;
+import static org.fest.assertions.Assertions.assertThat;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public class FileResultTest {
+public class FileResultTest extends IntegrationTestBase {
 
     /*
      * FIXME: fix tests when identifiers are collected
      */
 
-    private Frontend frontend;
-
-    @Before
-    public void setUp() throws Exception {
-        frontend = NescFrontend.builder()
-                .standalone(false)
-                .build();
-    }
-
     @Test
     public void testSimpleInterface() throws Exception {
         final String resourcePath = "integration/interface/Simple.nc";
-        final FileData fileData = getFileData(resourcePath, "Simple", resourcePath);
+        final FileData fileData = getFileData(frontend, resourcePath, "Simple", resourcePath);
         assertThat(fileData).isNotNull();
 
         /* check tokens */
@@ -98,25 +83,6 @@ public class FileResultTest {
         for (T object : expected) {
             assertThat(Iterables.contains(actual, object)).isTrue();
         }
-    }
-
-    private FileData getFileData(String resourcePath, String mainEntity, String testEntityPath)
-            throws InvalidOptionsException {
-        final String filePath = getResourceDirectory(resourcePath);
-        final String dirPath = getParent(filePath);
-        final String[] args = new String[]{"-p", dirPath, "-m", mainEntity};
-        final ContextRef contextRef = frontend.createContext(args);
-        return frontend.update(contextRef, getResourceDirectory(testEntityPath));
-    }
-
-    private String getResourceDirectory(String resourcePath) {
-        return Thread.currentThread().getContextClassLoader()
-                .getResource(resourcePath)
-                .getPath();
-    }
-
-    private String getParent(String filePath) {
-        return new File(filePath).getParent();
     }
 
 }

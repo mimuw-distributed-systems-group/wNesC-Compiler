@@ -45,4 +45,30 @@ public interface LexerListener {
      */
     void comment(Comment comment);
 
+    /**
+     * Called when error was detected.
+     *
+     * @param fileName    current file name
+     * @param startLine   start location of erroneous token(s)
+     * @param startColumn end location of erroneous token(s)
+     * @param endLine     optional end line of erroneous token(s)
+     * @param endColumn   optional end column of erroneous token(s)
+     * @param message     error message
+     */
+    void error(String fileName, int startLine, int startColumn,
+               Optional<Integer> endLine, Optional<Integer> endColumn, String message);
+
+    /**
+     * Called when warning was detected.
+     *
+     * @param fileName    current file name
+     * @param startLine   start location of incorrect token(s)
+     * @param startColumn end location of incorrect token(s)
+     * @param endLine     optional end line of incorrect token(s)
+     * @param endColumn   optional end column of incorrect token(s)
+     * @param message     warning message
+     */
+    void warning(String fileName, int startLine, int startColumn,
+                 Optional<Integer> endLine, Optional<Integer> endColumn, String message);
+
 }
