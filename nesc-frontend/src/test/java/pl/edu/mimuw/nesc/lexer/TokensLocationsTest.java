@@ -16,7 +16,7 @@ import static pl.edu.mimuw.nesc.parser.Parser.Lexer.*;
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public class TokensLocationsTest {
+public class TokensLocationsTest extends LexerTestBase {
 
     @Test
     @Ignore // FIXME
@@ -31,6 +31,8 @@ public class TokensLocationsTest {
         lexer.start();
 
         final List<Symbol> actual = readSymbols(lexer);
+
+        lexer.close();
 
         final List<Symbol> expected = ImmutableList.<Symbol>builder()
                 // line 1
@@ -148,18 +150,6 @@ public class TokensLocationsTest {
                 .build();
 
         assertThat(actual).isEqualTo(expected);
-    }
-
-    private List<Symbol> readSymbols(final Lexer lexer) {
-        final List<Symbol> result = new ArrayList<>();
-
-        Symbol symbol = lexer.nextToken();
-        while (symbol.getSymbolCode() != Parser.Lexer.EOF) {
-            result.add(symbol);
-            symbol = lexer.nextToken();
-        }
-
-        return ImmutableList.<Symbol>builder().addAll(result).build();
     }
 
 }

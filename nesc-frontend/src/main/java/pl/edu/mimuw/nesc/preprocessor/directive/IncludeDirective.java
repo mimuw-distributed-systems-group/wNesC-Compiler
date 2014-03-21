@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.preprocessor.directive;
 
+import com.google.common.base.Optional;
+
 import static com.google.common.base.Preconditions.checkState;
 
 /**
@@ -9,9 +11,13 @@ import static com.google.common.base.Preconditions.checkState;
  */
 public class IncludeDirective extends PreprocessorDirective {
 
+    public static Builder builder() {
+        return new Builder();
+    }
+
     protected final String fileName;
     protected final boolean isSystem;
-    protected final String filePath;
+    protected final Optional<String> filePath;
     protected final TokenLocation argumentLocation;
 
     /**
@@ -27,20 +33,16 @@ public class IncludeDirective extends PreprocessorDirective {
         this.argumentLocation = builder.argumentLocation;
     }
 
-    public static Builder builder() {
-        return new Builder();
-    }
-
     public String getFileName() {
         return fileName;
     }
 
-    public boolean isSystem() {
-        return isSystem;
+    public Optional<String> getFilePath() {
+        return filePath;
     }
 
-    public String getFilePath() {
-        return filePath;
+    public boolean isSystem() {
+        return isSystem;
     }
 
     public TokenLocation getArgumentLocation() {
@@ -59,11 +61,16 @@ public class IncludeDirective extends PreprocessorDirective {
 
         protected String fileName;
         protected boolean isSystem;
-        protected String filePath;
+        protected Optional<String> filePath;
         protected TokenLocation argumentLocation;
 
         public Builder fileName(String fileName) {
             this.fileName = fileName;
+            return this;
+        }
+
+        public Builder filePath(String filePath) {
+            this.filePath = Optional.fromNullable(filePath);
             return this;
         }
 
@@ -80,8 +87,8 @@ public class IncludeDirective extends PreprocessorDirective {
         @Override
         protected void verify() {
             super.verify();
-            checkState(fileName != null, "filePath must be set");
-            // checkState(filePath != null, "filePath must be set"); // FIXME
+            checkState(fileName != null, "file name must be set");
+            checkState(filePath != null, "file path must be set");
             checkState(argumentLocation != null, "argument location must be set");
         }
 

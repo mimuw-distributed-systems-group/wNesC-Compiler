@@ -34,6 +34,19 @@ final class PreprocessorDirectiveHelper {
      */
     public PreprocessorDirective buildPreprocessorDirective(final org.anarres.cpp.PreprocessorDirective directive,
                                                             String sourceFile) {
+        return getPreprocessorDirectiveBuilder(directive, sourceFile).build();
+    }
+
+    /**
+     * Converts preprocessor object into frontend object representing
+     * preprocessor instruction.
+     *
+     * @param directive  preprocessor directive (from parser)
+     * @param sourceFile source file
+     * @return preprocessor directive builder (frontend)
+     */
+    public PreprocessorDirective.Builder getPreprocessorDirectiveBuilder(
+            final org.anarres.cpp.PreprocessorDirective directive, String sourceFile) {
         checkNotNull(directive, "directive cannot be null");
 
         final PreprocessorCommand command = directive.getCommand();
@@ -109,15 +122,14 @@ final class PreprocessorDirectiveHelper {
 
         buildLinesMap(tokens, builder);
 
-        final PreprocessorDirective newDirective = builder.sourceFile(sourceFile)
+        builder.sourceFile(sourceFile)
                 .activeBlock(isActiveBlock)
                 .hashLocation(hashToken.getLine(), hashToken.getColumn() + 1)
                 .keywordLocation(keywordToken.getLine(),
                         keywordToken.getColumn() + 1,
-                        keywordToken.getText().length())
-                .build();
+                        keywordToken.getText().length());
 
-        return newDirective;
+        return builder;
     }
 
     private void buildLinesMap(List<Token> tokens,
@@ -152,13 +164,12 @@ final class PreprocessorDirectiveHelper {
 
         switch (argToken.getType()) {
             case Token.STRING:
-                final String fileNameId = (String) argToken.getValue();
-                /* Value in STRING token has already removed quotes. */
+                final String fileNameId = argToken.getText().replaceAll("^\"|\"$", "");
                 builder.isSystem(false)
                         .fileName(fileNameId);
                 break;
             case Token.HEADER:
-                final String fileNameH = (String) argToken.getValue();
+                final String fileNameH = argToken.getText().replaceAll("^<|>$", "");
                 builder.isSystem(true)
                         .fileName(fileNameH);
                 break;

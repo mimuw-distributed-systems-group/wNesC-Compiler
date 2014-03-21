@@ -6,6 +6,7 @@ import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.parser.Symbol;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
+import pl.edu.mimuw.nesc.preprocessor.directive.IncludeDirective;
 
 import java.io.File;
 import java.io.IOException;
@@ -38,10 +39,6 @@ public final class NescLexer extends AbstractLexer {
      */
     private final Stack<String> sourceStack;
     /**
-     * Helper for building directives.
-     */
-    private final PreprocessorDirectiveHelper preprocessorDirectiveHelper;
-    /**
      * First file to parse, could be a nesC file or header/C file included
      * by default.
      */
@@ -61,8 +58,6 @@ public final class NescLexer extends AbstractLexer {
         this.tokenQueue = new LinkedList<>();
         this.symbolQueue = new LinkedList<>();
         this.sourceStack = new Stack<>();
-
-        this.preprocessorDirectiveHelper = new PreprocessorDirectiveHelper();
 
         /*
          * Init preprocessor. When we want to include some additional header
@@ -540,6 +535,16 @@ public final class NescLexer extends AbstractLexer {
         private static final String PUSH = "push";
         private static final String POP = "pop";
 
+        /**
+         * Helper for building directives.
+         */
+        private final PreprocessorDirectiveHelper preprocessorDirectiveHelper;
+        private LastIncludeDirective lastIncludeDirective;
+
+        private NescPreprocessorListener() {
+            this.preprocessorDirectiveHelper = new PreprocessorDirectiveHelper();
+        }
+
         @Override
         public void handleWarning(Source source, int line, int column, String msg) throws LexerException {
             LOG.info("Preprocessor warning in " + source + " at " + line + ", " + column + "; " + msg);
@@ -553,6 +558,15 @@ public final class NescLexer extends AbstractLexer {
         @Override
         public void handleError(Source source, int line, int column, String msg) throws LexerException {
             LOG.info("Preprocessor error in " + source + " at " + line + ", " + column + "; " + msg);
+
+            /*
+             * Catch "file not found error" when file from include directive
+             * cannot be found.
+             */
+            if (msg.startsWith("File not found: ")) {
+                buildIncludeDirective(Optional.<String>absent());
+            }
+
             if (listener != null) {
                 final Optional<String> fileName = getSourcePath(source);
                 listener.error(fileName.isPresent() ? fileName.get() : getCurrentFile(), line, column + 1,
@@ -586,6 +600,7 @@ public final class NescLexer extends AbstractLexer {
         @Override
         public boolean beforeInclude(String filePath) {
             if (listener != null) {
+                buildIncludeDirective(Optional.of(filePath));
                 return listener.beforeInclude(filePath);
             }
             return false;
@@ -596,22 +611,71 @@ public final class NescLexer extends AbstractLexer {
             final String sourceFile = source.getPath();
             assert (sourceFile != null);
 
-            final pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective frontendDirective =
-                    NescLexer.this.preprocessorDirectiveHelper.buildPreprocessorDirective(directive, sourceFile);
+            /*
+             * Postpone reporting that include directive was recognized.
+             *
+             * First we must get the absolute path to the included file.
+             * There are two possibilities:
+             *  (1) file was found and then beforeInclude() will be called,
+             *  (2) file was not found and handleError() will be called.
+             * Both callbacks are called after this one.
+             */
+            if (directive.getCommand() == PreprocessorCommand.PP_INCLUDE) {
+                this.lastIncludeDirective = new LastIncludeDirective(directive, source);
+            } else {
+                final pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective frontendDirective =
+                        this.preprocessorDirectiveHelper.buildPreprocessorDirective(directive, sourceFile);
 
-            if (listener != null) {
-                listener.preprocessorDirective(frontendDirective);
+                if (listener != null) {
+                    listener.preprocessorDirective(frontendDirective);
+                }
             }
         }
 
         @Override
         public void handleMacroExpansion(Source source, int line, int column, String macro) {
             LOG.trace("MACRO expansion " + line + ", " + column + "; " + macro);
+            // TODO
         }
 
         private void notifyFileChange(String from, String to, boolean push) {
             if (listener != null) {
                 listener.fileChanged(Optional.fromNullable(from), to, push);
+            }
+        }
+
+        private void buildIncludeDirective(Optional<String> filePath) {
+            final IncludeDirective.Builder frontendDirective =
+                    (IncludeDirective.Builder) preprocessorDirectiveHelper.getPreprocessorDirectiveBuilder(
+                            lastIncludeDirective.getPreprocessorDirective(),
+                            lastIncludeDirective.getSource().getPath());
+
+            lastIncludeDirective = null;
+
+            /* Setting included file path. */
+            frontendDirective.filePath(filePath.orNull());
+
+            if (listener != null) {
+                listener.preprocessorDirective(frontendDirective.build());
+            }
+        }
+
+        private final class LastIncludeDirective {
+
+            private final org.anarres.cpp.PreprocessorDirective preprocessorDirective;
+            private final Source source;
+
+            private LastIncludeDirective(PreprocessorDirective preprocessorDirective, Source source) {
+                this.preprocessorDirective = preprocessorDirective;
+                this.source = source;
+            }
+
+            public PreprocessorDirective getPreprocessorDirective() {
+                return preprocessorDirective;
+            }
+
+            public Source getSource() {
+                return source;
             }
         }
     }
