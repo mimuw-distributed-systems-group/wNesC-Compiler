@@ -201,7 +201,11 @@ public final class NescLexer extends AbstractLexer {
         if (ignoreToken(token)) {
             return lex();
         } else if (isComment(token)) {
-            handleComment(token, false);
+            /*
+             * NOTICE: INVALID token which was intended to be a comment should
+             * be handled in this section.
+             */
+            handleComment(token, isInvalidComment(token));
             return lex();
         } else if (isHash(token)) {
             // TODO handle hash
@@ -241,7 +245,8 @@ public final class NescLexer extends AbstractLexer {
                 lexInvalid(token, builder);
                 break;
             case Token.EOF:
-                builder.symbolCode(EOF);
+                builder.symbolCode(EOF)
+                        .value("EOF");
                 break;
             default:
                 lexOtherToken(token, builder);
@@ -273,7 +278,12 @@ public final class NescLexer extends AbstractLexer {
 
     private boolean isComment(Token token) {
         final int type = token.getType();
-        return (type == Token.CCOMMENT || type == Token.CPPCOMMENT);
+        return (type == Token.CCOMMENT || type == Token.CPPCOMMENT || isInvalidComment(token));
+    }
+
+    private boolean isInvalidComment(Token token) {
+        final int type = token.getType();
+        return (type == Token.INVALID && token.getExpectedType() == Token.CCOMMENT);
     }
 
     private boolean isHash(Token token) {
@@ -295,6 +305,7 @@ public final class NescLexer extends AbstractLexer {
                     .endColumn(token.getColumn() + text.length());
         } else {
             builder.symbolCode(AT)
+                    .value("@")
                     .endLine(token.getLine())
                     .endColumn(token.getColumn() + 1);
 
@@ -373,12 +384,11 @@ public final class NescLexer extends AbstractLexer {
                  */
                 lexNumber(token, builder, true);
                 break;
-            case Token.CCOMMENT:
-                handleComment(token, true);
-                break;
             case Token.HEADER:
                 // TODO
                 break;
+            case Token.CCOMMENT:
+                throw new IllegalStateException("invalid C comment should be handled earlier");
             default:
                 throw new IllegalArgumentException("unexpected token type " + expectedType);
         }
@@ -425,16 +435,19 @@ public final class NescLexer extends AbstractLexer {
 
             if (nextCode == MINUS) {
                 builder.symbolCode(LEFT_ARROW)
+                        .value("<-")
                         .endLine(token.getLine())
                         .endColumn(token.getColumn() + 2);
             } else {
                 builder.symbolCode(LT)
+                        .value("<")
                         .endLine(token.getLine())
                         .endColumn(token.getColumn() + 1);
                 pushToken(next);
             }
         } else {
             builder.symbolCode(code)
+                    .value(token.getText())
                     .endLine(token.getLine())
                     .endColumn(token.getColumn() + token.getText().length());
         }

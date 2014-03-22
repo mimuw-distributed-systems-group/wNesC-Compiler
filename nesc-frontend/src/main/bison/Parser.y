@@ -3530,10 +3530,10 @@ string_chain:
         switch (fileType) {
             case HEADER:
             case C:
-                this.lexer.pushtoken(Symbol.builder().symbolCode(Lexer.DISPATCH_C).build());
+                this.lexer.pushtoken(Symbol.builder().symbolCode(Lexer.DISPATCH_C).value("DISPATCH_C").build());
                 break;
             case NESC:
-                this.lexer.pushtoken(Symbol.builder().symbolCode(Lexer.DISPATCH_NESC).build());
+                this.lexer.pushtoken(Symbol.builder().symbolCode(Lexer.DISPATCH_NESC).value("DISPATCH_NESC").build());
                 break;
             default:
                 throw new RuntimeException("not handled file type " + fileType);

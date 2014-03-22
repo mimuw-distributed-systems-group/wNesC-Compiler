@@ -3,6 +3,8 @@ package pl.edu.mimuw.nesc.parser;
 import com.google.common.base.Objects;
 import pl.edu.mimuw.nesc.ast.Location;
 
+import static com.google.common.base.Preconditions.checkState;
+
 /**
  * <p>
  * Symbol is passed from lexer to parser.
@@ -60,6 +62,10 @@ public class Symbol {
 
     @Override
     public String toString() {
+        return value;
+    }
+
+    public String print() {
         return Objects.toStringHelper(this)
                 .add("symbolCode", symbolCode)
                 .add("startLocation", startLocation)
@@ -144,7 +150,8 @@ public class Symbol {
         }
 
         public Symbol build() {
-            // TODO: verify?
+            // TODO: verify
+            checkState(value != null, "value cannot be null");
             return new Symbol(this);
         }
 
