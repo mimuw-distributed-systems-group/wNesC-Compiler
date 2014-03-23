@@ -1472,9 +1472,7 @@ decls:
 setspecs:
     /* empty */
     {
-        if (this.debug) {
-            System.out.print("setspecs");
-        }
+        LOG.trace("setspecs");
         pushDeclspecStack();
          // the preceding element in production containing setspecs
         final LinkedList<TypeElement> list = (LinkedList<TypeElement>) $<Object>0;
@@ -1490,9 +1488,7 @@ setspecs:
         pstate.attributes = Lists.<Attribute>newList();
         // TODO: check why we are not making $<telements$ an empty list
         wasTypedef = false;
-        if (this.debug) {
-            System.out.print(" Setting wasTypedef (false) ");
-        }
+        LOG.trace("Setting wasTypedef to false.");
     }
     ;
 
@@ -3539,7 +3535,7 @@ scspec:
     {
         $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.TYPEDEF);
         wasTypedef = true;
-        LOG.debug("Setting wasTypedef to true.");
+        LOG.trace("Setting wasTypedef to true.");
     }
     | EXTERN
     {
@@ -3728,10 +3724,6 @@ string_chain:
      * The list of definitions located prior to the nesc entity definition.
      */
     private List<Declaration> extdefs;
-    /**
-     *
-     */
-    private boolean debug;
 
     /**
      * Creates parser.
@@ -3833,23 +3825,12 @@ string_chain:
     }
 
     /**
-     * Sets whether parser should work in debug mode.
-     *
-     * @param debug debug
-     */
-    public void setDebug(boolean debug) {
-        this.debug = debug;
-    }
-
-    /**
      * Adds new scope on the top of scopes stack.
      *
      * @param isParmLevel is parameter level
      */
     private void pushLevel(boolean isParmLevel) {
-        if (this.debug) {
-            System.out.print(" pushlevel ");
-        }
+        LOG.trace("pushlevel");
         this.symbolTable.pushLevel(isParmLevel);
     }
 
@@ -3858,9 +3839,7 @@ string_chain:
      */
     private void popLevel() {
         // XXX: see detect_bogus_env in semantics.c
-        if (this.debug) {
-            System.out.print(" poplevel ");
-        }
+        LOG.trace("poplevel");
         this.symbolTable.popLevel();
     }
 
@@ -3896,9 +3875,7 @@ string_chain:
      *
      */
     private void popDeclspecStack() {
-        if (this.debug) {
-            System.out.print(" popDeclspecStack ");
-        }
+        LOG.trace("popDeclspecStack");
         pstate.popDeclspecStack();
     }
 
@@ -3906,9 +3883,7 @@ string_chain:
      *
      */
     private void pushDeclspecStack() {
-        if (this.debug) {
-            System.out.print(" pushDeclspecStack ");
-        }
+        LOG.trace("pushDeclspecStack");
         pstate.pushDeclspecStack();
     }
 
@@ -3922,10 +3897,7 @@ string_chain:
     private void declareName(Declarator declarator, LinkedList<TypeElement> elements) {
         final boolean isTypedef = TypeElementUtils.isTypedef(elements);
         final String name = DeclaratorUtils.getDeclaratorName(declarator);
-        if (this.debug) {
-            final String msg = format("Add %s %s;", (isTypedef ? "type" : "variable"), name);
-            System.out.println(msg);
-        }
+        LOG.trace(format("Add %s %s;", (isTypedef ? "type" : "variable"), name));
         if (isTypedef) {
             addTypename(name);
         } else {
@@ -3966,9 +3938,7 @@ string_chain:
     }
 
     private void extdefsFinish() {
-        if (this.debug) {
-            System.out.println("extdefs finish;");
-        }
+        LOG.debug("extdefs finish");
         if (this.parserListener != null) {
             this.parserListener.extdefsFinished();
         }
@@ -3977,11 +3947,13 @@ string_chain:
     private void warning(Location startLocation, Optional<Location> endLocation, String message) {
         final NescWarning warning = new NescWarning(startLocation, endLocation, message);
         this.issuesMultimapBuilder.put(startLocation.getLine(), warning);
+        LOG.info("Warning at (" + startLocation.getLine() + ", " + startLocation.getColumn() + "): " + message);
     }
 
     private void error(Location startLocation, Optional<Location> endLocation, String message) {
         final NescError error = new NescError(startLocation, endLocation, message);
         this.issuesMultimapBuilder.put(startLocation.getLine(), error);
+        LOG.info("Error at (" + startLocation.getLine() + ", " + startLocation.getColumn() + "): " + message);
     }
 
     /**
@@ -4094,9 +4066,6 @@ string_chain:
 
             addSymbol(symbol);
 
-            if (Parser.this.debug) {
-                this.tokenPrinter.print(symbol.getSymbolCode(), symbol.getValue());
-            }
             return symbol.getSymbolCode();
         }
 
@@ -4106,7 +4075,7 @@ string_chain:
             final Location startLocation = symbol.getLocation();
             final String message = format("%s in %s at line: %d, column: %d.", msg, startLocation.getFilePath(),
                     startLocation.getLine(), startLocation.getColumn());
-            System.out.println(message);
+            LOG.info(message);
             final NescError error = new NescError(symbol.getLocation(), Optional.of(symbol.getEndLocation()), msg);
             this.issuesMultimapBuilder.put(symbol.getLocation().getLine(), error);
         }
