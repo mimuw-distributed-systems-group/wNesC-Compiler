@@ -58,14 +58,12 @@ public final class ParseExecutor {
     /**
      * Parses file. Cached data is used when possible.
      *
-     * @param filePath            file path
-     * @param includeDefaultFiles indicates if default files should be
-     *                            included (default files should be
-     *                            independent from each other)
+     * @param filePath      file path
+     * @param isDefaultFile indicates if default files is included by default
      * @throws IOException
      */
-    public void parse(String filePath, boolean includeDefaultFiles) throws IOException {
-        new ParseFileExecutor(context, includeDefaultFiles).parseFile(filePath);
+    public void parse(String filePath, boolean isDefaultFile) throws IOException {
+        new ParseFileExecutor(context, isDefaultFile).parseFile(filePath);
     }
 
     /**
@@ -127,7 +125,7 @@ public final class ParseExecutor {
          * Cache builder of currently parsed file.
          */
         private final FileCache.Builder fileCacheBuilder;
-        private final boolean includeDefaultFiles;
+        private final boolean isDefaultFile;
         private final ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder;
         private final ImmutableListMultimap.Builder<Integer, NescIssue> issuesListBuilder;
 
@@ -144,15 +142,13 @@ public final class ParseExecutor {
         /**
          * Creates parse file executor.
          *
-         * @param context             context
-         * @param includeDefaultFiles indicates if default files should be
-         *                            included (default files should be
-         *                            independent from each other)
+         * @param context       context
+         * @param isDefaultFile indicates if default files is included by default
          */
-        public ParseFileExecutor(FrontendContext context, boolean includeDefaultFiles) {
+        public ParseFileExecutor(FrontendContext context, boolean isDefaultFile) {
             this.context = context;
             this.visitedFiles = new HashSet<>();
-            this.includeDefaultFiles = includeDefaultFiles;
+            this.isDefaultFile = isDefaultFile;
             this.fileCacheBuilder = FileCache.builder();
             this.tokensMultimapBuilder = ImmutableListMultimap.builder();
             this.issuesListBuilder = ImmutableListMultimap.builder();
@@ -192,15 +188,14 @@ public final class ParseExecutor {
             /*
              * Collect macros and global definitions from files included by
              * default.
-             * Files included by default depends only on predefined macros,
-             * do not depends on each other.
+             * Files included by default depend not only on predefined macros,
+             * but also on each other. We assume that they are given by client
+             * in topological order.
              */
             final Map<String, PreprocessorMacro> macros = new HashMap<>();
             final Map<String, Integer> idTypes = new HashMap<>();
 
-            if (includeDefaultFiles) {
-                collectDefaultData(macros, idTypes);
-            }
+            collectDefaultData(macros, idTypes, currentFilePath, isDefaultFile);
 
             /*
              * Build symbol table with given global scope.
@@ -393,7 +388,8 @@ public final class ParseExecutor {
             if (!context.getCache().containsKey(otherFilePath)) {
                 final ParseExecutor executor = new ParseExecutor(context);
                 try {
-                    executor.parse(otherFilePath, includeDefaultFiles);
+                    /* isDefaultFile is inherited from current file. */
+                    executor.parse(otherFilePath, isDefaultFile);
                 } catch (IOException e) {
                     // TODO
                     e.printStackTrace();
@@ -416,23 +412,64 @@ public final class ParseExecutor {
         }
 
         /**
-         * Collects cached data from files included by default and all
-         * its dependencies.
-         * The data is put into structures passed as parameters.
-         * It skips files that have already been visited.
+         * <p>Collects cached data from files included by default and all
+         * its dependencies.</p>
+         * <p>The data is put into structures passed as parameters.</p>
+         * <p>It skips files that have already been visited.</p>
          *
-         * @param macros  preprocessor macros
-         * @param idTypes map that associates id names to id types (i.e.
-         *                typename, identifier, componentref)
+         * @param macros        preprocessor macros
+         * @param idTypes       map that associates id names to id types (i.e.
+         *                      typename, identifier, componentref)
+         * @param fileName      currently parsed file name
+         * @param isDefaultFile indicates if default files is included by
+         *                      default
          */
         private void collectDefaultData(Map<String, PreprocessorMacro> macros,
-                                        Map<String, Integer> idTypes) {
+                                        Map<String, Integer> idTypes,
+                                        String fileName,
+                                        boolean isDefaultFile) {
             final CollectAction action = new CollectAction(context, visitedFiles, macros, idTypes);
             final FilesGraphWalker walker = ofDfsPostOrderWalker(context.getFilesGraph(), action);
 
-            for (String filePath : context.getOptions().getDefaultIncludeFiles()) {
+            for (String filePath : getDefaultIncludeFiles(fileName, isDefaultFile)) {
                 walker.walk(filePath);
             }
+        }
+
+        /**
+         * <p>Files included by default may depend on each other. We assume
+         * they are listed in topological order.</p>
+         *
+         * @param filePath files to be parsed
+         * @return list of files included by default which data should be
+         * added into current file
+         */
+        private List<String> getDefaultIncludeFiles(String filePath, boolean isDefaultFile) {
+            final List<String> defaultFiles = context.getOptions().getDefaultIncludeFiles();
+            if (!isDefaultFile) {
+                return defaultFiles;
+            }
+            /*
+             * Files that are included by default files should not include
+             * by default other default files.
+             */
+            if (!defaultFiles.contains(filePath)) {
+                return new LinkedList<>();
+            }
+            /*
+             * Only "root" default files should include by default preceding
+             * default files.
+             */
+            final List<String> result = new ArrayList<>();
+
+            for (String otherFile : defaultFiles) {
+                if (otherFile.equals(filePath)) {
+                    break;
+                }
+                result.add(otherFile);
+            }
+
+            return result;
         }
 
         /**

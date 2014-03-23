@@ -87,7 +87,8 @@ public final class NescFrontend implements Frontend {
         final FrontendContext context = getContext(contextRef);
 
         try {
-            new ParseExecutor(context).parse(filePath, true);
+            // FIXME: what if we would like to edit file included by default?
+            new ParseExecutor(context).parse(filePath, false);
             /*
              * File data is created only when necessary (to avoid creating
              * costly objects that might not be used).
@@ -155,7 +156,7 @@ public final class NescFrontend implements Frontend {
         final List<String> defaultIncludes = context.getDefaultIncludeFiles();
 
         for (String filePath : defaultIncludes) {
-            new ParseExecutor(context).parse(filePath, false);
+            new ParseExecutor(context).parse(filePath, true);
         }
     }
 
