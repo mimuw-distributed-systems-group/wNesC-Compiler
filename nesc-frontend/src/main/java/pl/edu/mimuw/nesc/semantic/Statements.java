@@ -1,40 +1,65 @@
 package pl.edu.mimuw.nesc.semantic;
 
-import pl.edu.mimuw.nesc.ast.LabelDeclaration;
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.gen.ErrorStmt;
-import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.gen.IdLabel;
-import pl.edu.mimuw.nesc.ast.gen.Label;
-import pl.edu.mimuw.nesc.ast.gen.ReturnStmt;
-import pl.edu.mimuw.nesc.ast.gen.Statement;
+import pl.edu.mimuw.nesc.ast.gen.*;
+
+import java.util.LinkedList;
 
 /**
- * 
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
- * 
  */
-public class Statements {
+public final class Statements {
 
-	public static ReturnStmt makeReturn(Location location, Expression expression) {
-		ReturnStmt returnStmt = new ReturnStmt(location, expression);
-		return returnStmt;
-	}
+    private static final ErrorStmt ERROR_STMT;
 
-	public static ReturnStmt makeVoidReturn(Location location) {
-		ReturnStmt returnStmt = new ReturnStmt(location, null);
-		return returnStmt;
-	}
+    static {
+        ERROR_STMT = new ErrorStmt(Location.getDummyLocation());
+        ERROR_STMT.setEndLocation(Location.getDummyLocation());
+    }
 
-	public static void useLabel(IdLabel label) {
-		/*
-		 * TODO set label as used. Check whether label refers to allowed place.
-		 * stmt.c 190
-		 */
-	}
+    public static ErrorStmt makeErrorStmt() {
+        return ERROR_STMT;
+    }
 
-	public static ErrorStmt makeErrorStmt() {
-		return new ErrorStmt(null); // FIXME use dummy location.
-	}
+    public static ReturnStmt makeReturn(Location startLocation, Location endLocation, Expression expression) {
+        final ReturnStmt returnStmt = new ReturnStmt(startLocation, expression);
+        returnStmt.setEndLocation(endLocation);
+        return returnStmt;
+    }
 
+    public static ReturnStmt makeVoidReturn(Location startLocation, Location endLocation) {
+        final ReturnStmt returnStmt = new ReturnStmt(startLocation, null);
+        returnStmt.setEndLocation(endLocation);
+        return returnStmt;
+    }
+
+    /**
+     * If statement list <code>l1</code> ends with an unfinished label,
+     * attach <code>l2</code> to that label. Otherwise attach <code>l2</code>
+     * to the end of <code>l1</code>.
+     *
+     * @param l1 left-hand side list
+     * @param l2 right-hand side list
+     * @return merged lists with fixed unfinished labels in <code>l1</code>
+     */
+    public static LinkedList<Statement> chainWithLabels(LinkedList<Statement> l1, LinkedList<Statement> l2) {
+        assert l1 != null;
+        assert l2 != null;
+
+        if (l1.isEmpty())
+            return l2;
+        if (l2.isEmpty())
+            return l1;
+        /* There may be an unfinished sub-label due to 'a: b:' */
+
+        /*
+         * The result will always be merged l1 and l2 lists.
+         */
+        l1.addAll(l2);
+        // TODO
+        return l1;
+    }
+
+    private Statements() {
+    }
 }

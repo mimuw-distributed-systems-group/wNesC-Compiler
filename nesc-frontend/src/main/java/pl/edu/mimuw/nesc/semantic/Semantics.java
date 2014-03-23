@@ -171,30 +171,6 @@ public final class Semantics {
         return type;
     }
 
-    /**
-     * If statement list l1 ends with an unfinished label, attach l2 to that
-     * label. Otherwise attach l2 to the end of l1.
-     *
-     * @param l1
-     * @param l2
-     * @return
-     */
-    public static LinkedList<Statement> chainWithLabels(
-            LinkedList<Statement> l1, LinkedList<Statement> l2) {
-        assert l1 != null;
-        assert l2 != null;
-
-        if (l1.isEmpty())
-            return l2;
-        if (l2.isEmpty())
-            return l1;
-
-        // TODO
-
-        l1.addAll(l2);
-        return l1;
-    }
-
     public static Declarator makePointerDeclarator(Location startLocation, Location endLocation,
                                                    Optional<Declarator> declarator,
                                                    LinkedList<TypeElement> qualifiers) {

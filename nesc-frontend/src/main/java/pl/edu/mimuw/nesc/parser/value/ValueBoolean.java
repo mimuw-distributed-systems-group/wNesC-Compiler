@@ -7,7 +7,7 @@ import pl.edu.mimuw.nesc.ast.Location;
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public class ValueBoolean extends Value {
+public class ValueBoolean extends ValueWithLocation {
 
     private final boolean value;
 

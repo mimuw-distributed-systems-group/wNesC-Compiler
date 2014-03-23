@@ -11,7 +11,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public final class ValueLeftUnaryOp extends Value {
+public final class ValueLeftUnaryOp extends ValueWithLocation {
 
     private final LeftUnaryOperation operation;
 

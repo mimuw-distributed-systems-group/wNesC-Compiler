@@ -209,9 +209,9 @@ import static java.lang.String.format;
 %type <LinkedList<IdLabel>> maybe_label_decls label_decls label_decl
 %type <LinkedList<IdLabel>> identifiers_or_typenames
 %type <Symbol> identifier type_parm
-%type <Value.IExpr> if_prefix
-%type <Value.IStmts> stmt_or_labels
-%type <Value.IStmt> simple_if stmt_or_label
+%type <ValueExpression> if_prefix
+%type <ValueStatements> stmt_or_labels
+%type <ValueStatement> simple_if stmt_or_label
 %type <ValueLeftUnaryOp> unop
 %type <Symbol> extension compstmt_start
 %type <Symbol> sizeof alignof
@@ -2383,7 +2383,7 @@ notype_nested_function:
     {
         /* NOTICE: maybe asm can be null! */
         /* NOTICE: maybeasm is only here to avoid a s/r conflict */
-        // TODO refuse_asm
+        // TODO: refuse_asm
 
         final FunctionDecl decl = Semantics.startFunction($1.getLocation(), pstate.declspecs, $1, $3, true);
         // TODO: detect syntax error (check !type_funcional())
@@ -2891,41 +2891,39 @@ array_declarator:
     }
     ;
 
-/* at least one statement, the first of which parses without error.  */
-/* stmts is used only after decls, so an invalid first statement
- is actually regarded as an invalid decl and part of the decls.  */
-
+/*
+ * At least one statement, the first of which parses without error.
+ *
+ * stmts is used only after decls, so an invalid first statement
+ * is actually regarded as an invalid decl and part of the decls.
+ */
 stmts:
       stmt_or_labels
     {
-        if ($1.i > 0) {
-            // TODO last_statement, chain_with_labels
+        if ($1.getCounter() > 0) {
+            final Statement lastLabel = $1.getStatements().getLast();
+            final EmptyStmt empty = new EmptyStmt(lastLabel.getLocation());
+            empty.setEndLocation(lastLabel.getEndLocation());
+            Statements.chainWithLabels($1.getStatements(), Lists.<Statement>newList(lastLabel));
         }
-        $$ = $1.stmts;
+        $$ = $1.getStatements();
     }
     ;
 
 stmt_or_labels:
       stmt_or_label
     {
-        final Value.IStmts stmts = new Value.IStmts();
-        stmts.i = $1.i;
-        stmts.stmts = Lists.<Statement>newList($1.stmt);
-        $$ = stmts;
+        $$ = new ValueStatements(Lists.<Statement>newList($1.getStatement()), $1.getCounter());
     }
     | stmt_or_labels stmt_or_label
     {
-        final Value.IStmts stmts = new Value.IStmts();
-        stmts.i = $2.i;
-        stmts.stmts = Semantics.chainWithLabels($1.stmts, Lists.<Statement>newList($2.stmt));
-        $$ = stmts;
+        $$ = new ValueStatements(
+                Statements.chainWithLabels($1.getStatements(), Lists.<Statement>newList($2.getStatement())),
+                $2.getCounter());
     }
     | stmt_or_labels errstmt
     {
-        final Value.IStmts stmts = new Value.IStmts();
-        stmts.i = 0;
-        stmts.stmts = Lists.<Statement>newList(Statements.makeErrorStmt());
-        $$ = stmts;
+        $$ = new ValueStatements(Lists.<Statement>newList(Statements.makeErrorStmt()), 0);
     }
     ;
 
@@ -2943,12 +2941,14 @@ errstmt:
 pushlevel:
       /* empty */
     {
-        pushLevel(false);    // for parsing purposes
+        pushLevel(false);
     }
     ;
 
-/* Read zero or more forward-declarations for labels
- that nested functions can jump to.  */
+/*
+ * Read zero or more forward-declarations for labels that nested functions can
+ * jump to.
+ */
 maybe_label_decls:
       /* empty */
     { $$ = Lists.<IdLabel>newList(); }
@@ -2959,7 +2959,7 @@ maybe_label_decls:
 label_decls:
       label_decl
     {
-        // NOTE: label_decl is a list.
+        // NOTICE: label_decl is a list.
         $$ = $1;
     }
     | label_decls label_decl
@@ -2971,84 +2971,89 @@ label_decl:
     { $$ = $2; }
     ;
 
-/* This is the body of a function definition.
- It causes syntax errors to ignore to the next openbrace.  */
+/*
+ * This is the body of a function definition. It causes syntax errors
+ * to ignore to the next openbrace.
+ */
 compstmt_or_error:
       compstmt
+    { $$ = $1; }
     | error compstmt
     { $$ = $2; }
     ;
 
 compstmt_start:
       LBRACE
-      { $$ = $1; }
+    { $$ = $1; }
     ;
 
-//FIXME
 compstmt:
       compstmt_start pushlevel RBRACE
     {
-        popLevel();        // for parsing purposes
-        $$ = new CompoundStmt(null, null, null, null, null);
+        popLevel();
+        final CompoundStmt stmt = new CompoundStmt($1.getLocation(), Lists.<IdLabel>newList(),
+                Lists.<Declaration>newList(), Lists.<Statement>newList());
+        stmt.setEndLocation($3.getEndLocation());
+        $$ = stmt;
     }
     | compstmt_start pushlevel maybe_label_decls decls xstmts RBRACE
     {
-        popLevel();        // for parsing purposes
-        $$ = new CompoundStmt(null, $3, $4, $5, null);
+        popLevel();
+        final CompoundStmt stmt = new CompoundStmt($1.getLocation(), $3, $4, $5);
+        stmt.setEndLocation($6.getEndLocation());
+        $$ = stmt;
     }
     | compstmt_start pushlevel maybe_label_decls error RBRACE
     {
-        popLevel();        // for parsing purposes
+        popLevel();
         $$ = Statements.makeErrorStmt();
     }
     | compstmt_start pushlevel maybe_label_decls stmts RBRACE
     {
-        popLevel();        // for parsing purposes
-        $$ = new CompoundStmt(null, $3, null, $4, null);
+        popLevel();
+        final CompoundStmt stmt = new CompoundStmt($1.getLocation(), $3, Lists.<Declaration>newList(), $4);
+        stmt.setEndLocation($5.getEndLocation());
+        $$ = stmt;
     }
     ;
 
-/* Value is number of statements counted as of the closeparen.  */
+/*
+ * Value is number of statements counted as of the closeparen.
+ */
 simple_if:
       if_prefix labeled_stmt
     {
-        final Value.IStmt stmt = new Value.IStmt();
-        stmt.i = $1.i;
-        stmt.stmt = new IfStmt(null, $1.expr, $2, null);
-        $$ = stmt;
+        final IfStmt stmt = new IfStmt($1.getLocation(), $1.getExpression(), $2, null);
+        stmt.setEndLocation($2.getEndLocation());
+        $$ = new ValueStatement(stmt, $1.getCounter());
     }
     | if_prefix error
     {
-        final Value.IStmt stmt = new Value.IStmt();
-        stmt.i = $1.i;
-        stmt.stmt = Statements.makeErrorStmt();
-        $$ = stmt;
+        $$ = new ValueStatement(Statements.makeErrorStmt(), $1.getCounter());
     }
     ;
 
 if_prefix:
       IF LPAREN expr RPAREN
     {
-        final Value.IExpr expr = new Value.IExpr();
-        expr.i = pstate.stmtCount;
-        expr.expr = $3;
-        $$ = expr;
+        $$ = new ValueExpression($1.getLocation(), $4.getEndLocation(), $3, pstate.stmtCount);
     }
     ;
 
-/* This is a subroutine of stmt.
- It is used twice, once for valid DO statements
- and once for catching errors in parsing the end test.  */
+/*
+ * This is a subroutine of stmt. It is used twice, once for valid DO statements
+ * and once for catching errors in parsing the end test.
+ */
 do_stmt_start:
       DO
     {
         pstate.stmtCount++;
-        $<ConditionalStmt>$ = new DoWhileStmt(null, null, null);
     }
       labeled_stmt WHILE
     {
-        $<ConditionalStmt>2.setStmt($3);
-        $$ = $<ConditionalStmt>2;
+        final DoWhileStmt stmt = new DoWhileStmt($1.getLocation(), null, $3);
+        stmt.setEndLocation($4.getEndLocation());
+        $$ = stmt;
     }
     ;
 
@@ -3056,30 +3061,31 @@ labeled_stmt:
       stmt
     { $$ = $1; }
     | label labeled_stmt
-    { $$ = new LabeledStmt(null, $1, $2); }
+    {
+        final LabeledStmt stmt = new LabeledStmt($1.getLocation(), $1, $2);
+        stmt.setEndLocation($2.getEndLocation());
+        $$ = stmt;
+    }
     ;
 
 stmt_or_label:
       stmt
     {
-        final Value.IStmt stmt = new Value.IStmt();
-        stmt.i = 0;
-        stmt.stmt = $1;
-        $$ = stmt;
+        $$ = new ValueStatement($1, 0);
     }
     | label
     {
-        final Value.IStmt stmt = new Value.IStmt();
-        stmt.i = 1;
-        stmt.stmt = new LabeledStmt(null, $1, null);
-        $$ = stmt;
+        final LabeledStmt stmt = new LabeledStmt($1.getLocation(), $1, null);
+        stmt.setEndLocation($1.getEndLocation());
+        $$ = new ValueStatement(stmt, 1);
     }
     ;
 
 atomic_stmt:
       ATOMIC stmt_or_error
     {
-        final AtomicStmt atomicStmt = new AtomicStmt(null, $2);
+        final AtomicStmt atomicStmt = new AtomicStmt($1.getLocation(), $2);
+        atomicStmt.setEndLocation($1.getEndLocation());
         $$ = atomicStmt;
     }
     ;
@@ -3091,7 +3097,9 @@ stmt_or_error:
     { $$ = Statements.makeErrorStmt(); }
     ;
 
-/* Parse a single real statement, not including any labels.  */
+/*
+ * Parse a single real statement, not including any labels.
+ */
 stmt:
       compstmt
     {
@@ -3101,121 +3109,116 @@ stmt:
     | expr SEMICOLON
     {
         pstate.stmtCount++;
-        $$ = new ExpressionStmt(null, $1);
+        final ExpressionStmt stmt = new ExpressionStmt($1.getLocation(), $1);
+        stmt.setEndLocation($2.getEndLocation());
+        $$ = stmt;
     }
     | simple_if ELSE
     {
-        $1.i = pstate.stmtCount;
+        $1.setCounter(pstate.stmtCount);
     }
       labeled_stmt
     {
-        if (pstate.stmtCount == $1.i) {
-            // TODO warning("empty body in an else-statement");
+        if (pstate.stmtCount == $1.getCounter()) {
+            warning($2.getLocation(), Optional.of($2.getEndLocation()), "empty body in an else-statement");
         }
-        $$ = $1.stmt;
-        // TODO
+        final Statement stmt = $1.getStatement();
+        /*
+         * NOTICE: Setting false statement.
+         * Be careful, could be an error statement!
+         */
+        if ($$ instanceof IfStmt) {
+            final IfStmt ifStmt = (IfStmt) stmt;
+            ifStmt.setFalseStatement($4);
+        }
+        $$ = stmt;
     }
     | simple_if %prec IF
     {
-        /* This warning is here instead of in simple_if, because we
-         do not want a warning if an empty if is followed by an
-         else statement.  Increment stmt_count so we don't
-         give a second error if this is a nested `if'.  */
-        if (pstate.stmtCount++ == $1.i) {
-            // TODO warning_with_location ($1.stmt->location,
-           // "empty body in an if-statement");
+        /*
+         * This warning is here instead of in simple_if, because we
+         * do not want a warning if an empty if is followed by an
+         * else statement. Increment stmtCount so we don't
+         * give a second error if this is a nested `if'.
+         */
+        if (pstate.stmtCount++ == $1.getCounter()) {
+            warning($1.getStatement().getLocation(), Optional.of($1.getStatement().getEndLocation()),
+                    "empty body in an if-statement");
         }
-        $$ = $1.stmt;
+        $$ = $1.getStatement();
     }
     | simple_if ELSE error
     {
         $$ = Statements.makeErrorStmt();
     }
     | WHILE
-    { pstate.stmtCount++; }
-      LPAREN expr RPAREN
     {
-        // TODO
-        $<ConditionalStmt>$ = new WhileStmt(null, $4, null);
-        // TODO
+        pstate.stmtCount++;
     }
-      labeled_stmt
+      LPAREN expr RPAREN labeled_stmt
     {
-        $<ConditionalStmt>6.setStmt($7);
-        $$ = $<ConditionalStmt>6;
-        // TODO
+        final WhileStmt stmt = new WhileStmt($1.getLocation(), $4, $6);
+        stmt.setEndLocation($6.getEndLocation());
+        $$ = stmt;
     }
     | do_stmt_start LPAREN expr RPAREN SEMICOLON
     {
-        $$ = $1;
         $1.setCondition($3);
-        // TODO
+        $$ = $1;
     }
     | do_stmt_start error
     {
         $$ = Statements.makeErrorStmt();
-        // TODO
     }
     | FOR LPAREN xexpr SEMICOLON
     {
-        /* NOTE: xexpr may be null */
         pstate.stmtCount++;
     }
-      xexpr SEMICOLON
+      xexpr SEMICOLON xexpr RPAREN labeled_stmt
     {
-        /* NOTE: xexpr may be null */
-        // TODO
-    }
-      xexpr RPAREN
-    {
-        /* NOTE: xexpr may be null */
-        $<ForStmt>$ = new ForStmt(null, $3, $6, $9, null);
-        // TODO
-    }
-      labeled_stmt
-    {
-        $<ForStmt>11.setStmt($12);
-        $$ = $<ForStmt>11;
-        // TODO
+        /* NOTICE: xexpr may be null. */
+        final ForStmt stmt = new ForStmt($1.getLocation(), $3, $6, $8, $10);
+        stmt.setEndLocation($10.getEndLocation());
+        $$ = stmt;
     }
     | SWITCH LPAREN expr RPAREN
     {
         pstate.stmtCount++;
-        // TODO
-        $<ConditionalStmt>$ = new SwitchStmt(null, $3, null);
-        // TODO
     }
       labeled_stmt
     {
-        $<ConditionalStmt>5.setStmt($6);
-        $$ = $<ConditionalStmt>5;
-        // TODO
+        final SwitchStmt stmt = new SwitchStmt($1.getLocation(), $3, $6);
+        stmt.setEndLocation($6.getEndLocation());
+        $$ = stmt;
     }
     | BREAK SEMICOLON
     {
         pstate.stmtCount++;
-        $$ = new BreakStmt(null);
-        // TODO
+        final BreakStmt stmt = new BreakStmt($1.getLocation());
+        stmt.setEndLocation($2.getEndLocation());
+        $$ = stmt;
     }
     | CONTINUE SEMICOLON
     {
         pstate.stmtCount++;
-        $$ = new ContinueStmt(null);
-        // TODO
+        final ContinueStmt stmt = new ContinueStmt($1.getLocation());
+        stmt.setEndLocation($2.getEndLocation());
+        $$ = stmt;
     }
     | RETURN SEMICOLON
     {
         pstate.stmtCount++;
-        $$ = Statements.makeVoidReturn(null);
+        $$ = Statements.makeVoidReturn($1.getLocation(), $2.getEndLocation());
     }
     | RETURN expr SEMICOLON
     {
         pstate.stmtCount++;
-        $$ = Statements.makeReturn(null, $2);
+        $$ = Statements.makeReturn($1.getLocation(), $3.getEndLocation(), $2);
     }
     | ASM_KEYWORD maybe_type_qual LPAREN expr RPAREN SEMICOLON
     {
-        /* NOTE: maybe_type_qual may be null */
+        // TODO
+        /* NOTICE: maybe_type_qual may be null */
         pstate.stmtCount++;
         $$ = new AsmStmt(null, $4, Lists.<AsmOperand>newList(),
                 Lists.<AsmOperand>newList(), Lists.<StringAst>newList(),
@@ -3224,6 +3227,7 @@ stmt:
     /* This is the case with just output operands.  */
     | ASM_KEYWORD maybe_type_qual LPAREN expr COLON asm_operands RPAREN SEMICOLON
     {
+        // TODO
         /* NOTE: maybe_type_qual may be null */
         pstate.stmtCount++;
         $$ = new AsmStmt(null, $4, $6, Lists.<AsmOperand>newList(),
@@ -3233,6 +3237,7 @@ stmt:
     /* This is the case with input operands as well.  */
     | ASM_KEYWORD maybe_type_qual LPAREN expr COLON asm_operands COLON asm_operands RPAREN SEMICOLON
     {
+        // TODO
         /* NOTE: maybe_type_qual may be null */
         pstate.stmtCount++;
         $$ = new AsmStmt(null, $4, $6, $8, Lists.<StringAst>newList(),
@@ -3241,6 +3246,7 @@ stmt:
     /* This is the case with clobbered registers as well.  */
     | ASM_KEYWORD maybe_type_qual LPAREN expr COLON asm_operands COLON asm_operands COLON asm_clobbers RPAREN SEMICOLON
     {
+        // TODO
         /* NOTE: maybe_type_qual may be null */
         pstate.stmtCount++;
         $$ = new AsmStmt(null, $4, $6, $8, $10,
@@ -3249,51 +3255,57 @@ stmt:
     | GOTO id_label SEMICOLON
     {
         pstate.stmtCount++;
-        $$ = new GotoStmt(null, $2);
-        // TODO
+        final GotoStmt stmt = new GotoStmt($1.getLocation(), $2);
+        stmt.setEndLocation($3.getEndLocation());
+        $$ = stmt;
     }
     | GOTO STAR expr SEMICOLON
     {
-        // TODO
         pstate.stmtCount++;
-        $$ = new ComputedGotoStmt(null, $3);
-        // TODO
+        final ComputedGotoStmt stmt = new ComputedGotoStmt($1.getLocation(), $3);
+        stmt.setEndLocation($4.getEndLocation());
+        $$ = stmt;
     }
     | atomic_stmt
     {
-        pstate.stmtCount++;
         $$ = $1;
     }
     | SEMICOLON
     {
-        $$ = new EmptyStmt(null);
+        final EmptyStmt stmt = new EmptyStmt($1.getLocation());
+        stmt.setEndLocation($1.getEndLocation());
+        $$ = stmt;
     }
     ;
 
-/* Any kind of label, including jump labels and case labels.
- ANSI C accepts labels only before statements, but we allow them
- also at the end of a compound statement.  */
+/*
+ * Any kind of label, including jump labels and case labels.
+ * ANSI C accepts labels only before statements, but we allow them
+ * also at the end of a compound statement.
+ */
 
 label:
       CASE expr_no_commas COLON
     {
-        $$ = new CaseLabel(null, $2, null);
-        // TODO
+        final CaseLabel label = new CaseLabel($1.getLocation(), $2, null);
+        label.setEndLocation($3.getEndLocation());
+        $$ = label;
     }
     | CASE expr_no_commas ELLIPSIS expr_no_commas COLON
     {
-        $$ = new CaseLabel(null, $2, $4);
-        // TODO
+        final CaseLabel label = new CaseLabel($1.getLocation(), $2, $4);
+        label.setEndLocation($5.getEndLocation());
+        $$ = label;
     }
     | DEFAULT COLON
     {
-        $$ = new DefaultLabel(null);
-        // TODO
+        final DefaultLabel label = new DefaultLabel($1.getLocation());
+        label.setEndLocation($2.getEndLocation());
+        $$ = label;
     }
     | id_label COLON
     {
         $$ = $1;
-        // TODO
     }
     ;
 
@@ -3315,6 +3327,7 @@ xexpr:
 
 /* These are the operands other than the first string and colon
  in  asm ("addextend %2,%1": "=dm" (x), "0" (y), "g" (*x))  */
+// TODO
 asm_operands:
       /* empty */
     { $$ = Lists.<AsmOperand>newList(); }
@@ -3322,6 +3335,7 @@ asm_operands:
     { $$ = $1; }
     ;
 
+// TODO
 nonnull_asm_operands:
       asm_operand
     { $$ = Lists.newList($1); }
@@ -3329,6 +3343,7 @@ nonnull_asm_operands:
     { $$ = Lists.chain($1, $3); }
     ;
 
+// TODO
 asm_operand:
       string_chain LPAREN expr RPAREN
     {
@@ -3938,9 +3953,7 @@ string_chain:
         if (this.parserListener != null
                 && !this.parserListener.interfaceDependency(filePath, ifaceName.getName())) {
             final String message = format("cannot find interface %s definition file", ifaceName.getName());
-            final NescError error = new NescError(ifaceName.getLocation(),
-                    Optional.of(ifaceName.getEndLocation()), message);
-            this.issuesMultimapBuilder.put(ifaceName.getLocation().getLine(), error);
+            error(ifaceName.getLocation(), Optional.of(ifaceName.getEndLocation()), message);
         }
     }
 
@@ -3948,9 +3961,7 @@ string_chain:
         if (this.parserListener != null
                 && !this.parserListener.componentDependency(filePath, componentName.getName())) {
             final String message = format("cannot find component %s definition file", componentName.getName());
-            final NescError error = new NescError(componentName.getLocation(),
-                    Optional.of(componentName.getEndLocation()), message);
-            this.issuesMultimapBuilder.put(componentName.getLocation().getLine(), error);
+            error(componentName.getLocation(), Optional.of(componentName.getEndLocation()), message);
         }
     }
 
@@ -3961,6 +3972,16 @@ string_chain:
         if (this.parserListener != null) {
             this.parserListener.extdefsFinished();
         }
+    }
+
+    private void warning(Location startLocation, Optional<Location> endLocation, String message) {
+        final NescWarning warning = new NescWarning(startLocation, endLocation, message);
+        this.issuesMultimapBuilder.put(startLocation.getLine(), warning);
+    }
+
+    private void error(Location startLocation, Optional<Location> endLocation, String message) {
+        final NescError error = new NescError(startLocation, endLocation, message);
+        this.issuesMultimapBuilder.put(startLocation.getLine(), error);
     }
 
     /**

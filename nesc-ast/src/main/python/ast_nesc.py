@@ -50,6 +50,7 @@ class Declaration(BasicASTNode):
 
 
 # The common type of all statements.
+# TODO: statements probably should have pointer to the next statement
 class Statement(BasicASTNode):
     superclass = Node
     # PARENT_LOOP
@@ -415,37 +416,37 @@ class AsmStmt(BasicASTNode):
 class CompoundStmt(BasicASTNode):
     superclass = Statement
     idLabels = ReferenceListField("IdLabel")
-    decls = ReferenceListField("Declaration")
-    stmts = ReferenceListField("Statement")
-    env = ReferenceField("Environment")
+    declarations = ReferenceListField("Declaration")
+    statements = ReferenceListField("Statement")
+    env = ReferenceField("Environment", constructor_variable=0)
 
 
 # IF (CONDITION) STMT1 ELSE STMT2. STMT2 is optional
 class IfStmt(BasicASTNode):
     superclass = Statement
     condition = ReferenceField("Expression")
-    stmt1 = ReferenceField("Statement")
-    stmt2 = ReferenceField("Statement")
+    trueStatement = ReferenceField("Statement")
+    falseStatement = ReferenceField("Statement")
 
 
 # LABEL: STMT
 class LabeledStmt(BasicASTNode):
     superclass = Statement
     label = ReferenceField("Label")
-    stmt = ReferenceField("Statement")
+    statement = ReferenceField("Statement")
 
 
 # EXPR;
 class ExpressionStmt(BasicASTNode):
     superclass = Statement
-    arg1 = ReferenceField("Expression")
+    expression = ReferenceField("Expression")
 
 
 # Basic type for all conditional statements
 class ConditionalStmt(BasicASTNode):
     superclass = Statement
     condition = ReferenceField("Expression")
-    stmt = ReferenceField("Statement")
+    statement = ReferenceField("Statement")
 
 
 class WhileStmt(BasicASTNode):
@@ -466,10 +467,10 @@ class SwitchStmt(BasicASTNode):
 # FOR (ARG1; ARG2; ARG3) STMT. ARG1, ARG2, ARG3 are optional
 class ForStmt(BasicASTNode):
     superclass = Statement
-    arg1 = ReferenceField("Expression")
-    arg2 = ReferenceField("Expression")
-    arg3 = ReferenceField("Expression")
-    stmt = ReferenceField("Statement")
+    initExpression = ReferenceField("Expression")
+    conditionExpression = ReferenceField("Expression")
+    incrementExpression = ReferenceField("Expression")
+    statement = ReferenceField("Statement")
 
 
 class BreakStmt(BasicASTNode):
@@ -483,7 +484,7 @@ class ContinueStmt(BasicASTNode):
 # RETURN ARG1. ARG1 is optional
 class ReturnStmt(BasicASTNode):
     superclass = Statement
-    arg1 = ReferenceField("Expression")
+    value = ReferenceField("Expression")
 
 
 class GotoStmt(BasicASTNode):
@@ -494,7 +495,7 @@ class GotoStmt(BasicASTNode):
 # GOTO *ARG1 (GCC)
 class ComputedGotoStmt(BasicASTNode):
     superclass = Statement
-    arg1 = ReferenceField("Expression")
+    address = ReferenceField("Expression")
 
 
 class EmptyStmt(BasicASTNode):
@@ -854,10 +855,15 @@ class IdLabel(BasicASTNode):
     ldecl = ReferenceField("LabelDeclaration", constructor_variable=0)
 
 
+# We are used to constructs such as: case 0: case 1:, but C extensions allows
+# to use case ranges: case low ... high:
+# NOTICE: Be careful: Write spaces around the ..., for otherwise it may be
+# parsed wrong when you use it with integer values.
+
 class CaseLabel(BasicASTNode):
     superclass = Label
-    arg1 = ReferenceField("Expression")
-    arg2 = ReferenceField("Expression")
+    low = ReferenceField("Expression")
+    high = ReferenceField("Expression")
 
 
 class DefaultLabel(BasicASTNode):

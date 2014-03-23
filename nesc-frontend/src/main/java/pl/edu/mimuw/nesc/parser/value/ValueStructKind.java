@@ -6,7 +6,7 @@ import pl.edu.mimuw.nesc.ast.StructKind;
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public final class ValueStructKind extends Value {
+public final class ValueStructKind extends ValueWithLocation {
 
     private final StructKind kind;
 
