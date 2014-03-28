@@ -21,13 +21,26 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static java.lang.String.format;
-
-@SuppressWarnings({"all"})
 }
 
 %define package {pl.edu.mimuw.nesc.parser}
 %define public
 %define parser_class_name {Parser}
+
+%require "3.0"
+
+/*
+ * Enables verbose syntax error messages.
+ * http://www.gnu.org/software/bison/manual/html_node/Error-Reporting.html
+ */
+%define parse.error verbose
+
+%define annotations {@SuppressWarnings({"all"})}
+
+/*
+ * Expected S/R conflicts.
+ */
+%expect 12
 
 /*
  * Start non-terminal of the grammar.
@@ -37,42 +50,40 @@ import static java.lang.String.format;
 /*
  * ========== Token definitions ==========
  *
- * %token <field> name_or_names
- * The value associated with token(s) of given name(s) is stored in yylval
- * variable in attribute named "field".
+ * %token <semantic_value_type> name_or_names "alias"
  */
 
 /* The dispatching (fake) tokens. */
-%token <Symbol>   DISPATCH_C DISPATCH_NESC DISPATCH_PARM DISPATCH_TYPE
+%token <Symbol> DISPATCH_C DISPATCH_NESC DISPATCH_PARM DISPATCH_TYPE
 
 /*
  * All identifiers that are not reserved words and are not declared typedefs
  * in the current block.
  */
-%token <Symbol> IDENTIFIER
+%token <Symbol> IDENTIFIER "identifier"
 
 /*
  * All identifiers that are declared typedefs in the current block. In some
  * contexts, they are treated just like IDENTIFIER, but they can also serve
  * as typespecs in declarations.
  */
-%token <Symbol> TYPEDEF_NAME
+%token <Symbol> TYPEDEF_NAME "typename"
 
 /*
  * An identifier that is declared as a component reference in the current
  * block, and which is going to be used to refer to a typedef from the
  * component via the component-ref DOT identifier syntax.
  */
-%token <Symbol> COMPONENTREF
+%token <Symbol> COMPONENTREF "component reference"
 
 /*
  * Character or numeric constants. yylval is the node for the constant.
  * TODO: string or int/float/char ?
  */
-%token <Symbol> INTEGER_LITERAL
-%token <Symbol> FLOATING_POINT_LITERAL
-%token <Symbol> CHARACTER_LITERAL
-%token <Symbol> STRING_LITERAL
+%token <Symbol> INTEGER_LITERAL "integer literal"
+%token <Symbol> FLOATING_POINT_LITERAL "float literal"
+%token <Symbol> CHARACTER_LITERAL "character literal"
+%token <Symbol> STRING_LITERAL "string literal"
 
 /*
  * String constants in raw form.
@@ -83,47 +94,164 @@ import static java.lang.String.format;
 /*
  * Reserved words that specify type.
  */
-%token <Symbol> VOID CHAR SHORT INT LONG FLOAT DOUBLE SIGNED UNSIGNED COMPLEX
-
+%token <Symbol> VOID "void"
+%token <Symbol> CHAR "char"
+%token <Symbol> SHORT "short"
+%token <Symbol> INT "int"
+%token <Symbol> LONG "long"
+%token <Symbol> FLOAT "float"
+%token <Symbol> DOUBLE "double"
+%token <Symbol> SIGNED "signed"
+%token <Symbol> UNSIGNED "unsigned"
+%token <Symbol> COMPLEX "complex"
 /*
  * Reserved words that specify storage class.
  */
-%token <Symbol> TYPEDEF EXTERN STATIC AUTO REGISTER COMMAND EVENT ASYNC TASK NORACE
+%token <Symbol> TYPEDEF "typedef"
+%token <Symbol> EXTERN "extern"
+%token <Symbol> STATIC "static"
+%token <Symbol> AUTO "auto"
+%token <Symbol> REGISTER "register"
+%token <Symbol> COMMAND "command"
+%token <Symbol> EVENT "event"
+%token <Symbol> ASYNC "async"
+%token <Symbol> TASK "task"
+%token <Symbol> NORACE "norace"
 
 /*
  * Reserved words that qualify types/functions: "const" or "volatile",
  * "deletes".
  * FIXME: FN_QUAL, present in grammar but never pushed from lexer.
  */
-%token <Symbol> CONST RESTRICT VOLATILE INLINE FN_QUAL
+%token <Symbol> CONST "const"
+%token <Symbol> RESTRICT "restrict"
+%token <Symbol> VOLATILE "volatile"
+%token <Symbol> INLINE "inline"
+%token <Symbol> FN_QUAL
 
 /* the reserved words */
-%token <Symbol>   SIZEOF ENUM IF ELSE WHILE DO FOR SWITCH CASE DEFAULT
-%token <Symbol>   BREAK CONTINUE RETURN GOTO ASM_KEYWORD TYPEOF ALIGNOF
-%token <Symbol>   ATTRIBUTE EXTENSION LABEL
-%token <Symbol>   REALPART IMAGPART VA_ARG OFFSETOF
+%token <Symbol> SIZEOF "sizeof"
+%token <Symbol> ENUM "enum"
+%token <Symbol> IF "if"
+%token <Symbol> ELSE "else"
+%token <Symbol> WHILE "while"
+%token <Symbol> DO "do"
+%token <Symbol> FOR "for"
+%token <Symbol> SWITCH "switch"
+%token <Symbol> CASE "case"
+%token <Symbol> DEFAULT "default"
+
+%token <Symbol> BREAK "break"
+%token <Symbol> CONTINUE "continue"
+%token <Symbol> RETURN "return"
+%token <Symbol> GOTO "goto"
+%token <Symbol> ASM_KEYWORD "asm"
+%token <Symbol> TYPEOF "typeof"
+%token <Symbol> ALIGNOF "alignof"
+
+
+%token <Symbol> ATTRIBUTE "attribute"
+%token <Symbol> EXTENSION "extension"
+%token <Symbol> LABEL "label"
+
+%token <Symbol> REALPART "realpart"
+%token <Symbol> IMAGPART "imagpart"
+%token <Symbol> VA_ARG "va_arg"
+%token <Symbol> OFFSETOF "offsetof"
 
 /* nesC reserved words */
-%token <Symbol>   ATOMIC USES INTERFACE COMPONENTS PROVIDES MODULE
-%token <Symbol>   INCLUDES CONFIGURATION AS IMPLEMENTATION CALL
-%token <Symbol>   SIGNAL POST GENERIC NEW
-%token <Symbol>   NX_STRUCT NX_UNION STRUCT UNION
+%token <Symbol> ATOMIC "atomic"
+%token <Symbol> USES "uses"
+%token <Symbol> INTERFACE "interface"
+%token <Symbol> COMPONENTS "components"
+%token <Symbol> PROVIDES "provides"
+%token <Symbol> MODULE "module"
+
+%token <Symbol> INCLUDES "includes"
+%token <Symbol> CONFIGURATION "configuration"
+%token <Symbol> AS "as"
+%token <Symbol> IMPLEMENTATION "implementation"
+%token <Symbol> CALL "call"
+
+%token <Symbol> SIGNAL "signal"
+%token <Symbol> POST "post"
+%token <Symbol> GENERIC "generic"
+%token <Symbol> NEW "new"
+
+%token <Symbol> NX_STRUCT "nx_struct"
+%token <Symbol> NX_UNION "nx_union"
+%token <Symbol> STRUCT "struct"
+%token <Symbol> UNION "union"
+
 /* words reserved for nesC's future. Some may never be used... */
-%token <Symbol>   ABSTRACT COMPONENT EXTENDS
-%token <Symbol>   TARGET_ATTRIBUTE0 TARGET_ATTRIBUTE1 TARGET_DEF
+%token <Symbol> ABSTRACT "abstract"
+%token <Symbol> COMPONENT "component"
+%token <Symbol> EXTENDS "extends"
+
+%token <Symbol> TARGET_ATTRIBUTE0
+%token <Symbol> TARGET_ATTRIBUTE1
+%token <Symbol> TARGET_DEF
 
 /*
  * All kind of parentheses, operators, etc.
  */
-%token <Symbol>   LBRACK RBRACK
-%token <Symbol>   LPAREN RPAREN
-%token <Symbol>   LBRACE RBRACE
-%token <Symbol>   COLON SEMICOLON DOT COMMA
-%token <Symbol>   ARROW LEFT_ARROW AT QUESTION ELLIPSIS
-%token <Symbol>   STAR DIV MOD PLUS MINUS AND XOR OR TILDE NOT LSHIFT RSHIFT ANDAND OROR
-%token <Symbol>   PLUSPLUS MINUSMINUS
-%token <Symbol>   LT GT LTEQ GTEQ EQEQ NOTEQ
-%token <Symbol>   EQ MULEQ DIVEQ MODEQ PLUSEQ MINUSEQ LSHIFTEQ RSHIFTEQ ANDEQ XOREQ OREQ
+%token <Symbol> LBRACK "["
+%token <Symbol> RBRACK "]"
+
+%token <Symbol> LPAREN "("
+%token <Symbol> RPAREN ")"
+
+%token <Symbol> LBRACE "{"
+%token <Symbol> RBRACE "}"
+
+%token <Symbol> COLON ":"
+%token <Symbol> SEMICOLON ";"
+%token <Symbol> DOT "."
+%token <Symbol> COMMA ","
+
+%token <Symbol> ARROW "->"
+%token <Symbol> LEFT_ARROW "<-"
+%token <Symbol> AT "@"
+%token <Symbol> QUESTION "?"
+%token <Symbol> ELLIPSIS "..."
+
+%token <Symbol> STAR "*"
+%token <Symbol> DIV "/"
+%token <Symbol> MOD "%"
+%token <Symbol> PLUS "+"
+%token <Symbol> MINUS "-"
+%token <Symbol> AND "&"
+%token <Symbol> XOR "^"
+%token <Symbol> OR "|"
+%token <Symbol> TILDE "~"
+%token <Symbol> NOT "!"
+%token <Symbol> LSHIFT "<<"
+%token <Symbol> RSHIFT ">>"
+%token <Symbol> ANDAND "&&"
+%token <Symbol> OROR "||"
+
+%token <Symbol> PLUSPLUS "++"
+%token <Symbol> MINUSMINUS "--"
+
+%token <Symbol> LT "<"
+%token <Symbol> GT ">"
+%token <Symbol> LTEQ "<="
+%token <Symbol> GTEQ ">="
+%token <Symbol> EQEQ "=="
+%token <Symbol> NOTEQ "!="
+
+%token <Symbol> EQ "="
+%token <Symbol> MULEQ "*="
+%token <Symbol> DIVEQ "/="
+%token <Symbol> MODEQ "%="
+%token <Symbol> PLUSEQ "+="
+%token <Symbol> MINUSEQ "-="
+%token <Symbol> LSHIFTEQ "<<="
+%token <Symbol> RSHIFTEQ ">>="
+%token <Symbol> ANDEQ "&="
+%token <Symbol> XOREQ "^="
+%token <Symbol> OREQ "|="
+
 
 /*
  * ========== Precedences and associativity ==========
