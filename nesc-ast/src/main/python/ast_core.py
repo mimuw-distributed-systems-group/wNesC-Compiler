@@ -41,10 +41,10 @@ class DST_LANGUAGE:
 #to make the generation process easier
 class ASTElemMetaclass(type):
     @classmethod
-    def __prepare__(metacls, name, bases, **kwds):
+    def __prepare__(metacls, name, bases, *args, **kwargs):
         return OrderedDict()
 
-    def __new__(cls, name, bases, namespace, **kwds):
+    def __new__(cls, name, bases, namespace, *args, **kwargs):
         #newclass = super(cls, ASTElemMetaclass)
         #newclass = newclass.__new__(cls, clsname, bases, attrs)
         newclass = type.__new__(cls, name, bases, dict(namespace))
@@ -159,14 +159,14 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         name = self.__class__.__name__
         if lang == DST_LANGUAGE.JAVA:
             header = tab + "@Override\n"
-            header += tab + "public <R, A> visit" + name + "(" + name + " elem, A arg) {\n"
+            header += tab + "public Void visit" + name + "(" + name + " elem, Object arg) {\n"
 
         if lang == DST_LANGUAGE.CPP:
             header = tab + "virtual void visit" + name + "(" + name + "* elem) {\n"
 
         header += self.gen_field_printer_code(lang)
 
-        return header + tab + "}\n"
+        return header + tab*2 + "return null;\n" + tab + "}\n"
 
     def generate_code(self, lang):
         cls = self.__class__
@@ -276,12 +276,12 @@ class BasicASTNodeField:
 
     #expected result for c++ and java is a pair of strings
     #that represent the member declaration and getter/setter functions
-    def generate_code(self, name, lang):
+    def generate_code(self, lang):
         raise NotImplementedError
 
     #expected result for c++ and java is a string
     #representing valid code for printing the field
-    def gen_printer(self, name, lang):
+    def gen_printer(self, lang):
         raise NotImplementedError
 
     #expected result for c++ and java is a string
@@ -337,6 +337,8 @@ class BoolField(BasicASTNodeField):
         self.const = const
 
     def get_type(self, lang, full=False):
+        res = None
+
         if lang == DST_LANGUAGE.CPP:
             res = "bool"
 
@@ -352,13 +354,15 @@ class BoolField(BasicASTNodeField):
         return res
 
     def gen_printer(self, lang):
+        res = ""
+
         if lang == DST_LANGUAGE.CPP:
             res = 'printf("%s: %s\\n", "{0}", elem->get{0}() ? "true":"false");'
 
         if lang == DST_LANGUAGE.JAVA:
             res = 'System.out.printf("%s: %b", "{0}", elem.get{0}());'
 
-        return res.format(self.name)
+        return res.format(first_to_cap(self.name))
 
     def generate_code(self, lang):
         res = self.get_type(lang, True)
@@ -431,7 +435,7 @@ class IntField(BasicASTNodeField):
         if lang == DST_LANGUAGE.JAVA:
             res = 'System.out.printf("%s: %d\\n", "{0}", elem.get{0}());'
 
-        return res.format(self.name)
+        return res.format(first_to_cap(self.name))
 
     def generate_code(self, lang):
         res = self.get_type(lang, True)
@@ -478,7 +482,7 @@ class FloatField(BasicASTNodeField):
         if lang == DST_LANGUAGE.JAVA:
             res = 'System.out.printf("%s: %f\\n", "{0}", elem.get{0}());'
 
-        return res.format(self.name)
+        return res.format(first_to_cap(self.name))
 
     def generate_code(self, lang):
         res = self.get_type(lang, True)
@@ -522,7 +526,7 @@ class StringField(BasicASTNodeField):
         if lang == DST_LANGUAGE.JAVA:
             res = 'System.out.printf(\"%s: \\"%s\\"\", \"{0}\", elem.get{0}());'
 
-        return res.format(self.name)
+        return res.format(first_to_cap(self.name))
 
     def generate_code(self, lang):
         code = self.gen_getter_code(lang, self.get_type(lang, True))
@@ -572,10 +576,13 @@ class ReferenceField(BasicASTNodeField):
 
         if lang == DST_LANGUAGE.JAVA:
             res = 'System.out.printf("%s: {{\\n", "{0}");\n'
-            res += tab * 2 + 'elem.get{0}().accept(this);\n'
+            if self.ref_type in ast_nodes.keys():
+                res += tab * 2 + 'elem.get{0}().accept(this, arg);\n'
+            else:
+                res += tab * 2 + 'System.out.printf(elem.get{0}().toString());\n'
             res += tab * 2 + 'System.out.printf("}}\\n");'
 
-        return res.format(self.name)
+        return res.format(first_to_cap(self.name))
 
     def generate_code(self, lang):
         code = self.gen_getter_code(lang, self.get_type(lang))
@@ -623,7 +630,7 @@ class EnumField(BasicASTNodeField):
         if lang == DST_LANGUAGE.JAVA:
             res = 'System.out.printf(elem.get{0}());\n'
 
-        return res.format(self.name)
+        return res.format(first_to_cap(self.name))
 
     def generate_code(self, lang):
         code = self.gen_getter_code(lang, self.get_type(lang))
@@ -668,7 +675,7 @@ class BoolListField(BasicASTNodeField):
             res += tab * 2 + '}};\n'
             res += tab * 2 + 'System.out.printf("]\\n");'
 
-        return res.format(self.name)
+        return res.format(first_to_cap(self.name))
 
     def generate_code(self, lang):
         res = self.get_type(lang, True)
@@ -723,8 +730,8 @@ class IntListField(BasicASTNodeField):
         type = "d"
 
         if lang == DST_LANGUAGE.CPP:
-            res = 'printf("%s: [", "{0}");'.format(name)
-            res += tab * 2 + 'for(int i=0; i<elem->get{0}.size(); ++i) {{\n'.format(name)
+            res = 'printf("%s: [", "{0}");'.format(self.name)
+            res += tab * 2 + 'for(int i=0; i<elem->get{0}.size(); ++i) {{\n'.format(self.name)
             if self.width == INT_TYPE.BYTE:
                 type = "hhd"
             if self.width == INT_TYPE.SHORT:
@@ -733,13 +740,13 @@ class IntListField(BasicASTNodeField):
                 type = "ld"
             if self.width == INT_TYPE.LONG:
                 type = "lld"
-            res += tab * 3 + 'printf("%{1} ", elem->get{0}()[i] ? "true":"false");\n'.format(name, type)
+            res += tab * 3 + 'printf("%{1} ", elem->get{0}()[i] ? "true":"false");\n'.format(first_to_cap(self.name), type)
             res += tab * 2 + '}}\n'
             res += tab * 2 + 'printf("]\\n");'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf("%s: [", "{0}");\n'.format(name)
-            res += tab * 2 + 'for({1} ival : elem.get{0}()) {{\n'.format(name,
+            res = 'System.out.printf("%s: [", "{0}");\n'.format(self.name)
+            res += tab * 2 + 'for({1} ival : elem.get{0}()) {{\n'.format(first_to_cap(self.name),
                                                                          "Long" if self.width == INT_TYPE.LONG
                                                                          else "Integer")
             res += tab * 3 + 'System.out.printf("%d ", ival.longValue());\n'
@@ -762,7 +769,7 @@ class IntListField(BasicASTNodeField):
 
 
 class FloatListField(BasicASTNodeField):
-    def __init__(self, name=None, width=FLOAT_TYPE.SINGLE, const=False):
+    def __init__(self, name=None, width=FLOAT_TYPE.SINGLE, const=False, *args, **kwargs):
         super(FloatListField, self).__init__(*args, **kwargs)
         self.name = name
         self.width = width
@@ -792,14 +799,13 @@ class FloatListField(BasicASTNodeField):
             res += tab * 2 + 'printf("]\\n");'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf("%s: [", "{0}");\n'.format(name)
-            res += tab * 2 + 'for({1} fval : elem.get{0}()) {{\n'.format(name,
-                                                                         "Float" if self.width == FLOAT_TYPE.SINGLE else "Double")
+            res = 'System.out.printf("%s: [", "{0}");\n'.format(self.name)
+            res += tab * 2 + 'for({0} fval : elem.get{{0}}()) {{\n'.format("Float" if self.width == FLOAT_TYPE.SINGLE else "Double")
             res += tab * 3 + 'System.out.printf("%s ", fval);\n'
             res += tab * 2 + '}};\n'
             res += tab * 2 + 'System.out.printf("]\\n");'
 
-        return res.format(self.name)
+        return res.format(first_to_cap(self.name))
 
     def generate_code(self, lang):
         res = self.get_type(lang, True)
@@ -844,7 +850,7 @@ class StringListField(BasicASTNodeField):
             res += tab * 2 + '}};\n'
             res += tab * 2 + 'System.out.printf("]\\n");'
 
-        return res.format(self.name)
+        return res.format(first_to_cap(self.name))
 
     def generate_code(self, lang):
         if lang == DST_LANGUAGE.CPP:
@@ -894,12 +900,12 @@ class ReferenceListField(BasicASTNodeField):
             res = 'System.out.printf("%s: [\\n", "{0}");\n'
             res += tab * 2 + 'for({0} bval : elem.get{{0}}()) {{{{\n'.format(self.ref_type)
             res += tab * 3 + 'System.out.printf("{{\\n");\n'
-            res += tab * 3 + 'bval.accept(this);\n'
+            res += tab * 3 + 'bval.accept(this, arg);\n'
             res += tab * 3 + 'System.out.printf("}}\\n");\n'
             res += tab * 2 + '}};\n'
             res += tab * 2 + 'System.out.printf("]\\n");'
 
-        return res.format(self.name)
+        return res.format(first_to_cap(self.name))
 
     def generate_code(self, lang):
         if lang == DST_LANGUAGE.CPP:
@@ -954,7 +960,7 @@ class EnumListField(BasicASTNodeField):
             res += tab * 2 + '}};\n'
             res += tab * 2 + 'System.out.printf("]\\n");'
 
-        return res.format(self.name)
+        return res.format(first_to_cap(self.name))
 
     def generate_code(self, lang):
         if lang == DST_LANGUAGE.CPP:
@@ -1097,7 +1103,7 @@ def gen_java_printer(dir):
     printer += "import pl.edu.mimuw.nesc.ast.gen.Visitor;\n"
     printer += "import pl.edu.mimuw.nesc.ast.gen.*;\n\n"
     printer += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
-    printer += "class Printer implements Visitor {\n"
+    printer += "class Printer implements Visitor<Void, Object> {\n"
 
     #visitor begin
     for cl in ast_nodes.keys():
@@ -1165,12 +1171,9 @@ def gen_java_visitor(dir):
     visitor = "package pl.edu.mimuw.nesc.ast.gen;\n"
     visitor += "import pl.edu.mimuw.nesc.ast.gen.*;\n\n"
     visitor += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
-    visitor += "public abstract class Visitor <R, A> {\n"
+    visitor += "public interface Visitor <R, A> {\n"
     for cl in ast_nodes.keys():
-        visitor += tab + "public R visit" + cl + "(" + cl + " elem, A arg) {\n"
-        visitor += tab * 2 + "throw new UnsupportedOperationException(\"The visitor for class"
-        visitor += cl + " is not implemented\");\n"
-        visitor += "}\n"
+        visitor += tab + "public R visit" + cl + "(" + cl + " elem, A arg);\n"
     visitor += "}\n"
 
     f = open(path.join(dir, "Visitor.java"), "w")
@@ -1236,4 +1239,4 @@ def generate_java_code(dir):
 
     gen_visitor(DST_LANGUAGE.JAVA, dir)
 
-#gen_printer(DST_LANGUAGE.JAVA, dir)
+    gen_printer(DST_LANGUAGE.JAVA, dir)

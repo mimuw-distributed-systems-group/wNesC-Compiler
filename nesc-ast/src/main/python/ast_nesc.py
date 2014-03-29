@@ -39,8 +39,8 @@ from ast_core import *
 class Node(BasicASTNode):
     location = ReferenceField("Location")
     endLocation = ReferenceField("Location", constructor_variable=0)
-    next = ReferenceField("Node", constructor_variable=0)
-    parent = ReferenceField("Node", constructor_variable=0)
+    next = ReferenceField("Node", constructor_variable=0, visitable=False)
+    parent = ReferenceField("Node", constructor_variable=0, visitable=False)
     instantiation = ReferenceField("Node", constructor_variable=0)
 
 
