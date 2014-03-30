@@ -114,6 +114,7 @@ public class Expressions {
     }
 
     public static FieldRef makeFieldRef(Location startLocation, Location endLocation, Expression object, String field) {
+        // FIXME: ambiguity: field reference, interface dereference, component dereference?
         final FieldRef result = new FieldRef(startLocation, object, field);
         result.setEndLocation(endLocation);
         return result;

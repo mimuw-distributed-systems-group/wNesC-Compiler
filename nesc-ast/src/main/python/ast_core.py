@@ -248,13 +248,16 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             # There is no need to explicitly import classes from the same
             # package. The same with java.lang.String.
             res = "package pl.edu.mimuw.nesc.ast.gen;\n\n"
-            #res += "import java.lang.String;\n"
             res += "import java.util.LinkedList;\n"
-            #res += "import pl.edu.mimuw.nesc.ast.gen.Visitable;\n"
             res += "import pl.edu.mimuw.nesc.ast.*;\n"
             res += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
-            #for cls_ref in reference_types:
-            #	res += "import pl.edu.mimuw.nesc.ast.gen." + cls_ref + ";\n"
+
+            # Include docstring if present.
+            if cls.__doc__ is not None:
+                res += "\n/**\n"
+                res += cls.__doc__
+                res += "\n*/"
+
             res += "\npublic class " + class_name + superclass + " {\n"
             if len(cls.__fields):
                 res += "\n".join(cls.__fields) + "\n\n"

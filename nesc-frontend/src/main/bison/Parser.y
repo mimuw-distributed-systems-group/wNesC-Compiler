@@ -1461,15 +1461,17 @@ primary:
     }
     | primary LBRACK nonnull_exprlist RBRACK
     {
-        // NOTICE: ambiguity: array reference or generic call?
+        // FIXME: ambiguity: array reference or generic call?
         $$ = Expressions.makeArrayRef($1.getLocation(), $4.getEndLocation(), $1, $3);
     }
     | primary DOT identifier
     {
+        // FIXME: ambiguity: field reference, interface dereference, component dereference?
         $$ = Expressions.makeFieldRef($1.getLocation(), $3.getEndLocation(), $1, $3.getValue());
     }
     | primary ARROW identifier
     {
+        // FIXME: ambiguity: field reference, interface dereference, component dereference?
         Expression dereference = Expressions.makeDereference($1.getLocation(), $1);
         $$ = Expressions.makeFieldRef($1.getLocation(), $3.getEndLocation(), dereference, $3.getValue());
     }
