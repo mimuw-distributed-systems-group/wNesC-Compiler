@@ -1180,6 +1180,21 @@ def gen_java_visitor(dir):
     f.write(visitor)
     f.close()
 
+    exceptionVisitor = "package pl.edu.mimuw.nesc.ast.gen;\n"
+    exceptionVisitor += "import pl.edu.mimuw.nesc.ast.gen.*;\n\n"
+    exceptionVisitor += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
+    exceptionVisitor += "public abstract class ExceptionVisitor <R, A> implements Visitor <R, A> {\n"
+    for cl in ast_nodes.keys():
+        exceptionVisitor += tab + "public R visit" + cl + "(" + cl + " elem, A arg) {\n"
+        exceptionVisitor += tab * 2 + "throw new UnsupportedOperationException(\"The visitor for class"
+        exceptionVisitor += cl + " is not implemented\");\n"
+        exceptionVisitor += tab + "}\n"
+    exceptionVisitor += "}\n"
+
+    f = open(path.join(dir, "ExceptionVisitor.java"), "w")
+    f.write(exceptionVisitor)
+    f.close()
+
 
 def generate_code(lang, dir=""):
     #if dir is None, then the files will be generated in the
