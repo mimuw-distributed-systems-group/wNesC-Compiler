@@ -24,7 +24,7 @@ public class InvalidTokensTest extends IntegrationTestBase {
         assertThat(fileData).isNotNull();
 
         final NumberToken expectedToken = new NumberToken(new Location("", 3, 21), new Location("", 3, 28),
-                "Invalid suffix \"K\" on numeric constant");
+                "1234.5K;");
         assertThat(fileData.getTokens().get(3)).contains(expectedToken);
 
         final NescError expectedError = new NescError(new Location("", 3, 21), Optional.of(new Location("", 3, 28)),

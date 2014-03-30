@@ -37,8 +37,8 @@ from ast_core import *
 
 class Node(BasicASTNode):
     """ A common superclass of all AST nodes. """
-    location = ReferenceField("Location")
-    endLocation = ReferenceField("Location", constructor_variable=0)
+    location = ReferenceField("Location", visitable=False)
+    endLocation = ReferenceField("Location", constructor_variable=0, visitable=False)
     next = ReferenceField("Node", constructor_variable=0, visitable=False)
     parent = ReferenceField("Node", constructor_variable=0, visitable=False)
     instantiation = ReferenceField("Node", constructor_variable=0, visitable=False)

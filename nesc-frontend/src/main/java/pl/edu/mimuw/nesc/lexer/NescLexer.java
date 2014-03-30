@@ -332,9 +332,9 @@ public final class NescLexer extends AbstractLexer {
     }
 
     private void lexNumber(Token token, Symbol.Builder builder, boolean invalid) {
-        final String numeric = token.getValue().toString();
+        final String numeric = token.getText();
         /*
-         * FIXME: how to distinguish betweend int and float?
+         * FIXME: how to distinguish between int and float?
          * Simple heuristic is to check if value contains non-numerical
          * characters.
          */

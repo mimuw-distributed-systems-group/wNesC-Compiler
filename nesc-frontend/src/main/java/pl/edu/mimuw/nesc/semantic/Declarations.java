@@ -33,7 +33,7 @@ public class Declarations {
                                          boolean initialised) {
         final VariableDecl variableDecl = new VariableDecl(declarator.getLocation(), declarator, attributes, null,
                 asmStmt.orNull());
-        if (initialised) {
+        if (!initialised) {
             final Location endLocation = AstUtils.getEndLocation(
                     asmStmt.isPresent() ? asmStmt.get().getEndLocation() : declarator.getEndLocation(),
                     elements,
@@ -48,6 +48,7 @@ public class Declarations {
             final Location endLocation = initializer.get().getEndLocation();
             declaration.setEndLocation(endLocation);
         }
+        declaration.setInitializer(initializer.orNull());
         return declaration;
     }
 

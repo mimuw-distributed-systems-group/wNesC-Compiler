@@ -509,6 +509,7 @@ interface:
       interface_parms nesc_attributes LBRACE datadef_list RBRACE
     {
         final Interface iface = new Interface($2.getLocation(), $6, $3, $5, $8);
+        iface.setEndLocation($9.getEndLocation());
         popLevel();
         $$ = iface;
     }
@@ -3926,10 +3927,12 @@ string_chain:
     /**
      * Returns the root of nesc entity abstract syntax tree.
      *
-     * @return root of nesc entity abstract syntax tree
+     * @return root of nesc entity abstract syntax tree or
+     * <code>Optional.absent()</code> if AST cannot be created or parsed
+     * file is not a nesc file
      */
-    public Node getEntityRoot() {
-        return this.entityRoot;
+    public Optional<Node> getEntityRoot() {
+        return Optional.fromNullable(this.entityRoot);
     }
 
     /**

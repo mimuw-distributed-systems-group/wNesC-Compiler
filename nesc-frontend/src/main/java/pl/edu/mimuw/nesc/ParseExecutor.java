@@ -6,6 +6,7 @@ import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
+import pl.edu.mimuw.nesc.ast.gen.Printer;
 import pl.edu.mimuw.nesc.common.FileType;
 import pl.edu.mimuw.nesc.exception.LexerException;
 import pl.edu.mimuw.nesc.filesgraph.GraphFile;
@@ -256,12 +257,18 @@ public final class ParseExecutor {
                 handlePublicMacros(lexer.getMacros());
             }
 
-            final Node entity = parser.getEntityRoot();
+            final Optional<Node> entity = parser.getEntityRoot();
+            if (entity.isPresent()) {
+                LOG.debug("AST was built successfully.");
+                // entity.get().accept(new Printer(), null);
+            } else {
+                LOG.debug("AST was not built.");
+            }
             final List<Declaration> extdefs = parser.getExtdefs();
 
             fileCacheBuilder.filePath(currentFilePath)
                     .fileType(fileType)
-                    .entityRoot(entity)
+                    .entityRoot(entity.orNull())
                     .tokens(tokensMultimapBuilder.build())
                     .issues(issuesListBuilder.build());
 

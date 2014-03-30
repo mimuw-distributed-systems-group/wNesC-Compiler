@@ -160,11 +160,13 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         if lang == DST_LANGUAGE.JAVA:
             header = tab + "@Override\n"
             header += tab + "public Void visit" + name + "(" + name + " elem, Object arg) {\n"
+            header += tab * 2 + "System.out.printf(\"({0}: \");\n".format(name)
 
         if lang == DST_LANGUAGE.CPP:
             header = tab + "virtual void visit" + name + "(" + name + "* elem) {\n"
 
         header += self.gen_field_printer_code(lang)
+        header += tab * 2 + "System.out.printf(\"); \");\n"
 
         return header + tab*2 + "return null;\n" + tab + "}\n"
 
@@ -363,7 +365,7 @@ class BoolField(BasicASTNodeField):
             res = 'printf("%s: %s\\n", "{0}", elem->get{0}() ? "true":"false");'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf("%s: %b", "{0}", elem.get{0}());'
+            res = 'System.out.printf("%s: %b; ", "{0}", elem.get{0}());'
 
         return res.format(first_to_cap(self.name))
 
@@ -436,7 +438,7 @@ class IntField(BasicASTNodeField):
             res += '\\n", "{0}", elem->get{0}());'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf("%s: %d\\n", "{0}", elem.get{0}());'
+            res = 'System.out.printf("%s: %d; ", "{0}", elem.get{0}());'
 
         return res.format(first_to_cap(self.name))
 
@@ -483,7 +485,7 @@ class FloatField(BasicASTNodeField):
             res = 'printf("%s: %f\\n", "{0}", elem->get{0}());'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf("%s: %f\\n", "{0}", elem.get{0}());'
+            res = 'System.out.printf("%s: %f; ", "{0}", elem.get{0}());'
 
         return res.format(first_to_cap(self.name))
 
@@ -527,7 +529,7 @@ class StringField(BasicASTNodeField):
             res = 'printf("%s: \\"%s\\"\\n", "{0}", elem->get{0}().c_str());'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf(\"%s: \\"%s\\"\", \"{0}\", elem.get{0}());'
+            res = 'System.out.printf(\"%s: \\"%s\\"; \", \"{0}\", elem.get{0}());'
 
         return res.format(first_to_cap(self.name))
 
@@ -578,12 +580,14 @@ class ReferenceField(BasicASTNodeField):
             res += tab * 2 + 'printf("}}\\n");'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf("%s: {{\\n", "{0}");\n'
+            res = 'if (elem.get{0}() != null) {{\n'
+            res += tab * 3 + 'System.out.printf("%s: {{", "{0}");\n'
             if self.ref_type in ast_nodes.keys():
-                res += tab * 2 + 'elem.get{0}().accept(this, arg);\n'
+                res += tab * 3 + 'elem.get{0}().accept(this, arg);\n'
             else:
-                res += tab * 2 + 'System.out.printf(elem.get{0}().toString());\n'
-            res += tab * 2 + 'System.out.printf("}}\\n");'
+                res += tab * 3 + 'System.out.printf(elem.get{0}().toString());\n'
+            res += tab * 3 + 'System.out.printf("}}; ");'
+            res += '}}\n'
 
         return res.format(first_to_cap(self.name))
 
@@ -676,7 +680,7 @@ class BoolListField(BasicASTNodeField):
             res += tab * 2 + 'for(boolean bval : elem.get{0}()) {{\n'
             res += tab * 3 + 'System.out.printf("%b ", bval);\n'
             res += tab * 2 + '}};\n'
-            res += tab * 2 + 'System.out.printf("]\\n");'
+            res += tab * 2 + 'System.out.printf("]; ");'
 
         return res.format(first_to_cap(self.name))
 
@@ -754,7 +758,7 @@ class IntListField(BasicASTNodeField):
                                                                          else "Integer")
             res += tab * 3 + 'System.out.printf("%d ", ival.longValue());\n'
             res += tab * 2 + '}};\n'
-            res += tab * 2 + 'System.out.printf("]\\n");'
+            res += tab * 2 + 'System.out.printf("]; ");'
 
         return res
 
@@ -806,7 +810,7 @@ class FloatListField(BasicASTNodeField):
             res += tab * 2 + 'for({0} fval : elem.get{{0}}()) {{\n'.format("Float" if self.width == FLOAT_TYPE.SINGLE else "Double")
             res += tab * 3 + 'System.out.printf("%s ", fval);\n'
             res += tab * 2 + '}};\n'
-            res += tab * 2 + 'System.out.printf("]\\n");'
+            res += tab * 2 + 'System.out.printf("]; ");'
 
         return res.format(first_to_cap(self.name))
 
@@ -851,7 +855,7 @@ class StringListField(BasicASTNodeField):
             res += tab * 2 + 'for(String bval : elem.get{0}()) {{\n'
             res += tab * 3 + 'System.out.printf("%s ", bval);\n'
             res += tab * 2 + '}};\n'
-            res += tab * 2 + 'System.out.printf("]\\n");'
+            res += tab * 2 + 'System.out.printf("]; ");'
 
         return res.format(first_to_cap(self.name))
 
@@ -900,13 +904,13 @@ class ReferenceListField(BasicASTNodeField):
             res += tab * 2 + 'printf("]\\n");'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf("%s: [\\n", "{0}");\n'
+            res = 'System.out.printf("%s: [", "{0}");\n'
             res += tab * 2 + 'for({0} bval : elem.get{{0}}()) {{{{\n'.format(self.ref_type)
-            res += tab * 3 + 'System.out.printf("{{\\n");\n'
+            res += tab * 3 + 'System.out.printf("{{");\n'
             res += tab * 3 + 'bval.accept(this, arg);\n'
-            res += tab * 3 + 'System.out.printf("}}\\n");\n'
+            res += tab * 3 + 'System.out.printf("}};");\n'
             res += tab * 2 + '}};\n'
-            res += tab * 2 + 'System.out.printf("]\\n");'
+            res += tab * 2 + 'System.out.printf("]; ");'
 
         return res.format(first_to_cap(self.name))
 
@@ -1106,7 +1110,7 @@ def gen_java_printer(dir):
     printer += "import pl.edu.mimuw.nesc.ast.gen.Visitor;\n"
     printer += "import pl.edu.mimuw.nesc.ast.gen.*;\n\n"
     printer += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
-    printer += "class Printer implements Visitor<Void, Object> {\n"
+    printer += "public class Printer implements Visitor<Void, Object> {\n"
 
     #visitor begin
     for cl in ast_nodes.keys():

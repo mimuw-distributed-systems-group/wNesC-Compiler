@@ -40,7 +40,7 @@ public class MacroTokensTest extends LexerTestBase {
                         .symbolCode(INTEGER_LITERAL)
                         .line(8).column(6)
                         .endLine(8).endColumn(9)
-                        .value("00")
+                        .value("0")
                         .build(),
                 symbolBuilder
                         .symbolCode(PLUS)
@@ -65,7 +65,7 @@ public class MacroTokensTest extends LexerTestBase {
                         .symbolCode(INTEGER_LITERAL)
                         .line(9).column(6)
                         .endLine(9).endColumn(9)
-                        .value("00")
+                        .value("0")
                         .build(),
                 symbolBuilder
                         .symbolCode(PLUS)
@@ -114,7 +114,7 @@ public class MacroTokensTest extends LexerTestBase {
                         .symbolCode(INTEGER_LITERAL)
                         .line(10).column(13)
                         .endLine(10).endColumn(16)
-                        .value("00")
+                        .value("0")
                         .build(),
                 symbolBuilder
                         .symbolCode(MINUS)
@@ -150,7 +150,7 @@ public class MacroTokensTest extends LexerTestBase {
                         .symbolCode(INTEGER_LITERAL)
                         .line(11).column(14)
                         .endLine(11).endColumn(17)
-                        .value("00")
+                        .value("0")
                         .build(),
                 symbolBuilder
                         .symbolCode(PLUS)
