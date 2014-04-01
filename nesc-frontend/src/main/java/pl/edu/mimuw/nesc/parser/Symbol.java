@@ -28,12 +28,19 @@ public class Symbol {
     private final String value;
     private final boolean invalid;
 
+    /**
+     * True if and only if this symbol has been inserted into the stream
+     * because of a macro expansion.
+     */
+    private final boolean isExpanded;
+
     private Symbol(Builder builder) {
         this.symbolCode = builder.symbolCode;
         this.value = builder.value;
         this.startLocation = new Location(builder.file, builder.line, builder.column);
         this.endLocation = new Location(builder.file, builder.endLine, builder.endColumn);
         this.invalid = builder.invalid;
+        this.isExpanded = builder.isExpanded;
     }
 
     public int getSymbolCode() {
@@ -60,6 +67,10 @@ public class Symbol {
         return invalid;
     }
 
+    public boolean isExpanded() {
+        return isExpanded;
+    }
+
     @Override
     public String toString() {
         return value;
@@ -72,6 +83,7 @@ public class Symbol {
                 .add("endLocation", endLocation)
                 .add("value", value)
                 .add("invalid", invalid)
+                .add("isExpanded", isExpanded)
                 .toString();
     }
 
@@ -108,6 +120,7 @@ public class Symbol {
         private String file;
         private String value;
         private boolean invalid;
+        private boolean isExpanded;
 
         public Builder symbolCode(int symbolCode) {
             this.symbolCode = symbolCode;
@@ -146,6 +159,18 @@ public class Symbol {
 
         public Builder invalid(boolean invalid) {
             this.invalid = invalid;
+            return this;
+        }
+
+        /**
+         * Sets the value of <i>isExpanded</i> field for the construction of
+         * a Symbol object.
+         *
+         * @param isExpanded Value that is to be set for <i>isExpanded</i> flag.
+         * @return Reference to this object.
+         */
+        public Builder isExpanded(boolean isExpanded) {
+            this.isExpanded = isExpanded;
             return this;
         }
 

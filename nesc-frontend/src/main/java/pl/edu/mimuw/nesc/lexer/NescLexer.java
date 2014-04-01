@@ -218,7 +218,8 @@ public final class NescLexer extends AbstractLexer {
 
         builder.file(getCurrentFile())
                 .line(token.getLine())
-                .column(token.getColumn() + 1);
+                .column(token.getColumn() + 1)
+                .isExpanded(token.isExpanded());
         /*
          * XXX: generally endColumn should looks like:
          *     token.getColumn() +   1 + (token.text().length() - 1)
