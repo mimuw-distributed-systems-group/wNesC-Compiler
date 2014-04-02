@@ -22,6 +22,7 @@ import pl.edu.mimuw.nesc.parser.ParserListener;
 import pl.edu.mimuw.nesc.parser.SymbolTable;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
+import pl.edu.mimuw.nesc.token.MacroToken;
 import pl.edu.mimuw.nesc.token.Token;
 
 import java.io.IOException;
@@ -326,6 +327,11 @@ public final class ParseExecutor {
             }
             final NescWarning warning = new NescWarning(startLocation, endLocation, message);
             issuesListBuilder.put(startLine, warning);
+        }
+
+        @Override
+        public void macroInstantiation(MacroToken macroToken) {
+            // TODO real implementation of this method
         }
 
         @Override

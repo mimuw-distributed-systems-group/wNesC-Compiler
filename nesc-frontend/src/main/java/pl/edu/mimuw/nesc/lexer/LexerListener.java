@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.lexer;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
+import pl.edu.mimuw.nesc.token.MacroToken;
 
 /**
  * Listener for lexer callbacks.
@@ -71,4 +72,10 @@ public interface LexerListener {
     void warning(String fileName, int startLine, int startColumn,
                  Optional<Integer> endLine, Optional<Integer> endColumn, String message);
 
+    /**
+     * Called when a use of a macro was detected.
+     *
+     * @param macroToken object with information about the use of the macro
+     */
+    void macroInstantiation(MacroToken macroToken);
 }

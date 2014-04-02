@@ -7,6 +7,7 @@ import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.parser.Symbol;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 import pl.edu.mimuw.nesc.preprocessor.directive.IncludeDirective;
+import pl.edu.mimuw.nesc.token.MacroToken;
 
 import java.io.File;
 import java.io.IOException;
@@ -647,9 +648,21 @@ public final class NescLexer extends AbstractLexer {
         }
 
         @Override
-        public void handleMacroExpansion(Source source, int line, int column, String macro) {
+        public void handleMacroExpansion(Source source, int line, int column, String macro,
+                    String definitionFileName, int definitionLine, int definitionColumn) {
             LOG.trace("MACRO expansion " + line + ", " + column + "; " + macro);
-            // TODO
+
+            if (listener != null) {
+                final String startLocFileName = source.getPath() != null ? source.getPath() : "";
+                final Location startLoc = new Location(startLocFileName, line, column + 1),
+                               endLoc = new Location(startLocFileName, line, column + macro.length());
+                final Optional<Location> definitionLoc =
+                            definitionFileName != null && definitionLine > 0 && definitionColumn >= 0
+                        ?   Optional.of(new Location(definitionFileName, definitionLine, definitionColumn + 1))
+                        :   Optional.<Location>absent();  // explicit type parameter to suppress a compilation error
+
+                listener.macroInstantiation(new MacroToken(startLoc, endLoc, macro, definitionLoc));
+            }
         }
 
         private void notifyFileChange(String from, String to, boolean push) {

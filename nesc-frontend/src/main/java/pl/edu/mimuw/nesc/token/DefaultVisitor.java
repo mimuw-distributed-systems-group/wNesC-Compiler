@@ -34,4 +34,8 @@ public class DefaultVisitor<R, A> implements Token.Visitor<R, A> {
     public R visit(IdToken id, A arg) {
         return null;
     }
+
+    @Override
+    public R visit(MacroToken macro, A arg) { return null; }
+
 }

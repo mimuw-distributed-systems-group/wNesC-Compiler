@@ -85,5 +85,9 @@ public abstract class Token {
 
         R visit(IdToken id, A arg);
 
+        /* macro tokens */
+
+        R visit(MacroToken macroToken, A arg);
+
     }
 }

@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.lexer;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
+import pl.edu.mimuw.nesc.token.MacroToken;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -37,6 +38,11 @@ public abstract class TestLexerListener implements LexerListener {
     @Override
     public void warning(String fileName, int startLine, int startColumn,
                         Optional<Integer> endLine, Optional<Integer> endColumn, String message) {
+
+    }
+
+    @Override
+    public void macroInstantiation(MacroToken macroToken) {
 
     }
 }
