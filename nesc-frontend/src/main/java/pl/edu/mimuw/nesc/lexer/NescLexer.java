@@ -216,10 +216,11 @@ public final class NescLexer extends AbstractLexer {
         /*
          * Handle token which should produce parser token.
          */
+        final Token originalMacroToken = token.getOriginalMacroToken();
 
         builder.file(getCurrentFile())
-                .line(token.getLine())
-                .column(token.getColumn() + 1)
+                .line(originalMacroToken == null ? token.getLine() : originalMacroToken.getLine())
+                .column(1 + (originalMacroToken == null ? token.getColumn() : originalMacroToken.getColumn()))
                 .isExpanded(token.isExpanded());
         /*
          * XXX: generally endColumn should looks like:
@@ -253,6 +254,12 @@ public final class NescLexer extends AbstractLexer {
             default:
                 lexOtherToken(token, builder);
                 break;
+        }
+
+        /* Correct the end position if the token has come from a macro expansion */
+        if (originalMacroToken != null) {
+            builder.endLine(originalMacroToken.getLine())
+                    .endColumn(originalMacroToken.getColumn() + originalMacroToken.getText().length());
         }
 
         final Symbol symbol = builder.build();
