@@ -22,6 +22,11 @@ public final class TokenFactory {
      * @return token instance
      */
     public static Optional<? extends Token> of(Symbol symbol) {
+        /* Don't create tokens from symbols that come from macros expansions */
+        if (symbol.isExpanded()) {
+            return Optional.absent();
+        }
+
         final int symbolCode = symbol.getSymbolCode();
 
         /*
