@@ -67,7 +67,7 @@ public final class MacroToken extends Token {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        if (!super.equals(this)) {
+        if (!super.equals(o)) {
             return false;
         }
 
