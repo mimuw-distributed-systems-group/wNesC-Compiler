@@ -254,7 +254,11 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             res += "import java.util.LinkedList;\n"
             res += "import com.google.common.base.Optional;\n"
             res += "import pl.edu.mimuw.nesc.ast.*;\n"
-            res += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
+            res += "import pl.edu.mimuw.nesc.declaration.label.*;\n"
+            res += "import pl.edu.mimuw.nesc.declaration.nesc.*;\n"
+            res += "import pl.edu.mimuw.nesc.declaration.object.*;\n"
+            res += "import pl.edu.mimuw.nesc.declaration.tag.*;\n"
+            # TODO: import env
 
             # Include docstring if present.
             if cls.__doc__ is not None:
@@ -1317,10 +1321,6 @@ def gen_printer(lang, dir):
 
 def gen_java_printer(dir):
     printer = "package pl.edu.mimuw.nesc.ast.gen;\n\n"
-    printer += "import pl.edu.mimuw.nesc.ast.gen.Visitor;\n"
-    printer += "import pl.edu.mimuw.nesc.ast.gen.*;\n"
-    printer += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
-    printer += "import com.google.common.base.Optional;\n"
     printer += "public class Printer implements Visitor<Void, Object> {\n"
 
     #visitor begin
@@ -1376,11 +1376,9 @@ def gen_cpp_visitor(dir):
 
 
 def gen_java_visitor(dir):
-    visitable = "package pl.edu.mimuw.nesc.ast.gen;\n"
-    visitable += "import com.google.common.base.Optional;\n"
-    visitable += "import pl.edu.mimuw.nesc.ast.gen.Visitor;\n\n"
+    visitable = "package pl.edu.mimuw.nesc.ast.gen;\n\n"
     visitable += "public interface Visitable {\n"
-    visitable += tab + "public <R, A> R accept(Visitor<R, A> v, A arg);\n"
+    visitable += tab + "<R, A> R accept(Visitor<R, A> v, A arg);\n"
     visitable += "}\n"
 
     f = open(path.join(dir, "Visitable.java"), "w")
@@ -1388,12 +1386,9 @@ def gen_java_visitor(dir):
     f.close()
 
     visitor = "package pl.edu.mimuw.nesc.ast.gen;\n\n"
-    visitor += "import pl.edu.mimuw.nesc.ast.gen.*;\n"
-    visitor += "import com.google.common.base.Optional;\n"
-    visitor += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
     visitor += "public interface Visitor <R, A> {\n"
     for cl in ast_nodes.keys():
-        visitor += tab + "public R visit" + cl + "(" + cl + " elem, A arg);\n"
+        visitor += tab + "R visit" + cl + "(" + cl + " elem, A arg);\n"
     visitor += "}\n"
 
     f = open(path.join(dir, "Visitor.java"), "w")
@@ -1401,13 +1396,10 @@ def gen_java_visitor(dir):
     f.close()
 
     exceptionVisitor = "package pl.edu.mimuw.nesc.ast.gen;\n\n"
-    exceptionVisitor += "import pl.edu.mimuw.nesc.ast.gen.*;\n"
-    exceptionVisitor += "import com.google.common.base.Optional;\n"
-    exceptionVisitor += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
     exceptionVisitor += "public abstract class ExceptionVisitor <R, A> implements Visitor <R, A> {\n"
     for cl in ast_nodes.keys():
         exceptionVisitor += tab + "public R visit" + cl + "(" + cl + " elem, A arg) {\n"
-        exceptionVisitor += tab * 2 + "throw new UnsupportedOperationException(\"The visitor for class"
+        exceptionVisitor += tab * 2 + "throw new UnsupportedOperationException(\"The visitor for class "
         exceptionVisitor += cl + " is not implemented\");\n"
         exceptionVisitor += tab + "}\n"
     exceptionVisitor += "}\n"

@@ -3,12 +3,27 @@ package pl.edu.mimuw.nesc.ast;
 
 import com.google.common.base.Objects;
 
+import java.util.Comparator;
+
 /**
  * Represents exact location of token or language construct in source file.
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public final class Location {
+public final class Location implements Comparable<Location> {
+
+    /**
+     * Location comparator ignoring source file.
+     */
+    public static final class LineColumnComparator implements Comparator<Location> {
+
+        @Override
+        public int compare(Location lhs, Location rhs) {
+            return lhs.compareTo(rhs);
+        }
+    }
+
+    public static final LineColumnComparator LINE_COLUMN_COMPARATOR = new LineColumnComparator();
 
     private static final Location DUMMY_LOCATION = new Location("", -1, -1);
 
@@ -48,6 +63,10 @@ public final class Location {
         return column;
     }
 
+    public boolean isSmallerOrEqual(Location location) {
+        return this.compareTo(location) <= 0;
+    }
+
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
@@ -72,4 +91,17 @@ public final class Location {
         final Location other = (Location) obj;
         return Objects.equal(this.line, other.line) && Objects.equal(this.column, other.column);
     }
+
+    @Override
+    public int compareTo(Location that) {
+        if (that == null) {
+            return -1;
+        }
+        final int lineComp = Integer.compare(this.getLine(), that.getLine());
+        if (lineComp != 0) {
+            return lineComp;
+        }
+        return Integer.compare(this.getColumn(), that.getColumn());
+    }
+
 }
