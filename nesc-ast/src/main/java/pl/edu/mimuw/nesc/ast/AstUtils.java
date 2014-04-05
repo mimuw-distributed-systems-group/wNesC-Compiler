@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.ast;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.gen.Node;
+import pl.edu.mimuw.nesc.ast.gen.Word;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 
 import java.util.LinkedList;
@@ -209,6 +210,20 @@ public final class AstUtils {
             return endLocation1.get();
         }
         return location;
+    }
+
+    /**
+     * Creates {@link pl.edu.mimuw.nesc.ast.gen.Word} instance.
+     *
+     * @param startLocation start location
+     * @param endLocation   end location
+     * @param name          value of word
+     * @return word instance
+     */
+    public static Word makeWord(Location startLocation, Location endLocation, String name) {
+        final Word word = new Word(startLocation, name);
+        word.setEndLocation(endLocation);
+        return word;
     }
 
     private AstUtils() {

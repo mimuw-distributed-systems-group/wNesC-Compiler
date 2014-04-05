@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.semantic;
+package pl.edu.mimuw.nesc.astbuilding;
 
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
@@ -9,7 +9,7 @@ import java.util.LinkedList;
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public class Init {
+public final class Initializers {
 
     public static Designator setInitIndex(Location startLocation, Location endLocation, Expression first,
                                           Expression last) {
@@ -45,6 +45,6 @@ public class Init {
         return initList;
     }
 
-    private Init() {
+    private Initializers() {
     }
 }

@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.semantic.nesc;
+package pl.edu.mimuw.nesc.astbuilding.nesc;
 
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
@@ -11,6 +11,9 @@ import java.util.LinkedList;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
 
+/**
+ * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ */
 public final class NescAttributes {
 
     public static NescAttribute startAttributeUse(Word name) {

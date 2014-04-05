@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.semantic;
+package pl.edu.mimuw.nesc.astbuilding;
 
 import com.google.common.base.Preconditions;
 import pl.edu.mimuw.nesc.ast.gen.*;

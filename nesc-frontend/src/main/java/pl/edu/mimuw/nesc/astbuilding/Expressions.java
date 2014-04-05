@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.semantic;
+package pl.edu.mimuw.nesc.astbuilding;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.*;
@@ -14,7 +14,7 @@ import java.util.LinkedList;
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public class Expressions {
+public final class Expressions {
 
     private static final ErrorExpr ERROR_EXPRESSION;
 

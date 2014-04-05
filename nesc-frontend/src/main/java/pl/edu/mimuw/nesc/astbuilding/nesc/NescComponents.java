@@ -1,14 +1,22 @@
-package pl.edu.mimuw.nesc.semantic.nesc;
+package pl.edu.mimuw.nesc.astbuilding.nesc;
 
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.gen.IdentifierDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.InterfaceRefDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.Word;
+import pl.edu.mimuw.nesc.ast.gen.*;
+
+import java.util.LinkedList;
+
+import static pl.edu.mimuw.nesc.ast.AstUtils.makeWord;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public class NescModule {
+public final class NescComponents {
+
+    public static void declareInterfaceRef(InterfaceRef ifaceRef, LinkedList<Declaration> genericParameters,
+                                           LinkedList<Attribute> attributes) {
+        ifaceRef.setGenericParameters(genericParameters);
+        ifaceRef.setAttributes(attributes);
+    }
 
     public static InterfaceRefDeclarator makeInterfaceRefDeclarator(Location ifaceStartLocation, String ifaceName,
                                                                     Location funcNameStartLocation,
@@ -20,13 +28,6 @@ public class NescModule {
         return declarator;
     }
 
-    public static Word makeWord(Location startLocation, Location endLocation, String name) {
-        final Word word = new Word(startLocation, name);
-        word.setEndLocation(endLocation);
-        return word;
+    private NescComponents() {
     }
-
-    private NescModule() {
-    }
-
 }

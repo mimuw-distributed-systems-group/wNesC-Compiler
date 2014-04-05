@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.semantic;
+package pl.edu.mimuw.nesc.astbuilding;
 
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;

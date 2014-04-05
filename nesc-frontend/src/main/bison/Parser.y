@@ -12,8 +12,8 @@ import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.issue.*;
 import pl.edu.mimuw.nesc.lexer.TokenPrinter;
 import pl.edu.mimuw.nesc.parser.value.*;
-import pl.edu.mimuw.nesc.semantic.*;
-import pl.edu.mimuw.nesc.semantic.nesc.*;
+import pl.edu.mimuw.nesc.astbuilding.*;
+import pl.edu.mimuw.nesc.astbuilding.nesc.*;
 import pl.edu.mimuw.nesc.token.*;
 
 import java.io.IOException;
@@ -672,21 +672,21 @@ template_parm:
       declspecs_ts xreferror after_type_declarator maybe_attribute
     {
         declareName($3, $1);
-        $$ = NescSemantics.declareTemplateParameter(Optional.of($3), $1, $4);
+        $$ = NescDeclarations.declareTemplateParameter(Optional.of($3), $1, $4);
     }
     | declspecs_ts xreferror notype_declarator maybe_attribute
     {
         declareName($3, $1);
-        $$ = NescSemantics.declareTemplateParameter(Optional.of($3), $1, $4);
+        $$ = NescDeclarations.declareTemplateParameter(Optional.of($3), $1, $4);
     }
     | declspecs_nots xreferror notype_declarator maybe_attribute
     {
         declareName($3, $1);
-        $$ = NescSemantics.declareTemplateParameter(Optional.of($3), $1, $4);
+        $$ = NescDeclarations.declareTemplateParameter(Optional.of($3), $1, $4);
     }
     | declspecs_ts xreferror
     {
-        $$ = NescSemantics.declareTemplateParameter(Optional.<Declarator>absent(), $1, Lists.<Attribute>newList());
+        $$ = NescDeclarations.declareTemplateParameter(Optional.<Declarator>absent(), $1, Lists.<Attribute>newList());
     }
     ;
 
@@ -898,7 +898,7 @@ generic_arg:
 
 generic_type:
       typename
-    { $$ = NescSemantics.makeTypeArgument($1); }
+    { $$ = NescExpressions.makeTypeArgument($1); }
     ;
 
 configuration_decls:
@@ -1099,17 +1099,17 @@ fndef2:
         } else {
             startLocation = declarator.getLocation();
         }
-        final FunctionDecl decl = Semantics.startFunction(startLocation, pstate.declspecs, declarator, $2, true);
+        final FunctionDecl decl = Declarations.startFunction(startLocation, pstate.declspecs, declarator, $2, true);
         // TODO: detect syntax error (check !type_funcional())
         $<FunctionDecl>$ = decl;
     }
     old_style_parm_decls
     {
-        $<FunctionDecl>$ = Semantics.setOldParams($<FunctionDecl>3, $4);
+        $<FunctionDecl>$ = Declarations.setOldParams($<FunctionDecl>3, $4);
     }
     compstmt_or_error
     {
-        $$ = Semantics.finishFunction($<FunctionDecl>5, $6);
+        $$ = Declarations.finishFunction($<FunctionDecl>5, $6);
         //popLevel();     // FIXME: to pop or not to pop? test it.
         popDeclspecStack();
     }
@@ -1273,7 +1273,7 @@ cast_expr:
     }
     | LPAREN typename RPAREN LBRACE initlist_maybe_comma RBRACE
     {
-        final InitList initList = Init.makeInitList($4.getLocation(), $6.getEndLocation(), $5);
+        final InitList initList = Initializers.makeInitList($4.getLocation(), $6.getEndLocation(), $5);
         $$ = Expressions.makeCastList($1.getLocation(), $6.getEndLocation(), $2, initList);
     }
     ;
@@ -2394,7 +2394,7 @@ init:
     }
     | LBRACE initlist_maybe_comma RBRACE
     {
-        $$ = Init.makeInitList($1.getLocation(), $3.getEndLocation(), $2);
+        $$ = Initializers.makeInitList($1.getLocation(), $3.getEndLocation(), $2);
     }
     | error
     {
@@ -2422,16 +2422,16 @@ initelt:
       designator_list EQ initval
     {
         final Location startLocation = AstUtils.getStartLocation($1).get();
-        $$ = Init.makeInitSpecific(startLocation, $3.getEndLocation(), $1, $3);
+        $$ = Initializers.makeInitSpecific(startLocation, $3.getEndLocation(), $1, $3);
     }
     | designator initval
     {
-        $$ = Init.makeInitSpecific($1.getLocation(), $2.getEndLocation(), $1, $2);
+        $$ = Initializers.makeInitSpecific($1.getLocation(), $2.getEndLocation(), $1, $2);
     }
     | identifier COLON initval
     {
-        final Designator designator = Init.setInitLabel($1.getLocation(), $1.getEndLocation(), $1.getValue());
-        $$ = Init.makeInitSpecific($1.getLocation(), $3.getEndLocation(), designator, $3);
+        final Designator designator = Initializers.setInitLabel($1.getLocation(), $1.getEndLocation(), $1.getValue());
+        $$ = Initializers.makeInitSpecific($1.getLocation(), $3.getEndLocation(), designator, $3);
     }
     | initval
     { $$ = $1; }
@@ -2440,7 +2440,7 @@ initelt:
 initval:
       LBRACE initlist_maybe_comma RBRACE
     {
-        $$ = Init.makeInitList($1.getLocation(), $3.getEndLocation(), $2);
+        $$ = Initializers.makeInitList($1.getLocation(), $3.getEndLocation(), $2);
     }
     | expr_no_commas
     {
@@ -2462,18 +2462,18 @@ designator_list:
 designator:
       DOT identifier
     {
-        $$ = Init.setInitLabel($2.getLocation(), $2.getEndLocation(), $2.getValue());
+        $$ = Initializers.setInitLabel($2.getLocation(), $2.getEndLocation(), $2.getValue());
     }
     /* These are for labeled elements.  The syntax for an array element
        initializer conflicts with the syntax for an Objective-C message,
        so don't include these productions in the Objective-C grammar.  */
     | LBRACK expr_no_commas ELLIPSIS expr_no_commas RBRACK
     {
-        $$ = Init.setInitIndex($1.getLocation(), $5.getEndLocation(), $2, $4);
+        $$ = Initializers.setInitIndex($1.getLocation(), $5.getEndLocation(), $2, $4);
     }
     | LBRACK expr_no_commas RBRACK
     {
-        $$ = Init.setInitIndex($1.getLocation(), $3.getEndLocation(), $2, null);
+        $$ = Initializers.setInitIndex($1.getLocation(), $3.getEndLocation(), $2, null);
     }
     ;
 
@@ -2484,13 +2484,13 @@ nested_function:
         /* NOTICE: maybeasm is only here to avoid a s/r conflict */
         // TODO refuse_asm
 
-        final FunctionDecl decl = Semantics.startFunction($1.getLocation(), pstate.declspecs, $1, $3, true);
+        final FunctionDecl decl = Declarations.startFunction($1.getLocation(), pstate.declspecs, $1, $3, true);
         // TODO: detect syntax error (check !type_funcional())
         $<FunctionDecl>$ = decl;
     }
       old_style_parm_decls
     {
-        $<FunctionDecl>$ = Semantics.setOldParams($<FunctionDecl>4, $5);
+        $<FunctionDecl>$ = Declarations.setOldParams($<FunctionDecl>4, $5);
     }
     /*
      * This used to use compstmt_or_error. That caused a bug with input
@@ -2500,7 +2500,7 @@ nested_function:
      */
       compstmt
     {
-        $$ = Semantics.finishFunction($<FunctionDecl>6, $7);
+        $$ = Declarations.finishFunction($<FunctionDecl>6, $7);
         //popLevel();   // FIXME: to pop or not to pop? test it.
     }
     ;
@@ -2512,13 +2512,13 @@ notype_nested_function:
         /* NOTICE: maybeasm is only here to avoid a s/r conflict */
         // TODO: refuse_asm
 
-        final FunctionDecl decl = Semantics.startFunction($1.getLocation(), pstate.declspecs, $1, $3, true);
+        final FunctionDecl decl = Declarations.startFunction($1.getLocation(), pstate.declspecs, $1, $3, true);
         // TODO: detect syntax error (check !type_funcional())
         $<FunctionDecl>$ = decl;
     }
       old_style_parm_decls
     {
-        $<FunctionDecl>$ = Semantics.setOldParams($<FunctionDecl>4, $5);
+        $<FunctionDecl>$ = Declarations.setOldParams($<FunctionDecl>4, $5);
     }
     /*
      * This used to use compstmt_or_error. That caused a bug with input
@@ -2528,7 +2528,7 @@ notype_nested_function:
      */
       compstmt
     {
-        $$ = Semantics.finishFunction($<FunctionDecl>6, $7);
+        $$ = Declarations.finishFunction($<FunctionDecl>6, $7);
         //popLevel();   // FIXME: to pop or not to pop? test it.
     }
     ;
@@ -2551,7 +2551,7 @@ after_type_declarator:
       after_type_declarator array_or_fn_declarator
     {
         // TODO make function for this (duplicated in 4 places)
-        final Declarator declarator = Semantics.finishArrayOrFnDeclarator($1, $2);
+        final Declarator declarator = Declarations.finishArrayOrFnDeclarator($1, $2);
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
             popLevel();
         }
@@ -2559,7 +2559,7 @@ after_type_declarator:
     }
     | STAR maybe_type_quals_attrs after_type_declarator
     {
-        $$ = Semantics.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
+        $$ = Declarations.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
     }
     | LPAREN maybe_attribute after_type_declarator RPAREN
     {
@@ -2576,7 +2576,7 @@ after_type_declarator:
     }
     | TYPEDEF_NAME DOT identifier
     {
-        $$ = NescModule.makeInterfaceRefDeclarator($1.getLocation(), $1.getValue(),
+        $$ = NescComponents.makeInterfaceRefDeclarator($1.getLocation(), $1.getValue(),
                 $3.getLocation(), $3.getEndLocation(), $3.getValue());
     }
     ;
@@ -2590,7 +2590,7 @@ after_type_declarator:
 parm_declarator:
       parm_declarator array_or_fn_declarator
     {
-        final Declarator declarator = Semantics.finishArrayOrFnDeclarator($1, $2);
+        final Declarator declarator = Declarations.finishArrayOrFnDeclarator($1, $2);
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
             popLevel();
         }
@@ -2598,7 +2598,7 @@ parm_declarator:
     }
     | STAR maybe_type_quals_attrs parm_declarator
     {
-        $$ = Semantics.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
+        $$ = Declarations.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
     }
     | TYPEDEF_NAME
     {
@@ -2617,7 +2617,7 @@ parm_declarator:
 notype_declarator:
       notype_declarator array_or_fn_declarator
     {
-        final Declarator declarator = Semantics.finishArrayOrFnDeclarator($1, $2);
+        final Declarator declarator = Declarations.finishArrayOrFnDeclarator($1, $2);
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
             popLevel();
         }
@@ -2625,7 +2625,7 @@ notype_declarator:
     }
     | STAR maybe_type_quals_attrs notype_declarator
     {
-        $$ = Semantics.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
+        $$ = Declarations.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
     }
     | LPAREN maybe_attribute notype_declarator RPAREN
     {
@@ -2642,7 +2642,7 @@ notype_declarator:
     }
     | IDENTIFIER DOT identifier
     {
-        $$ = NescModule.makeInterfaceRefDeclarator($1.getLocation(), $1.getValue(),
+        $$ = NescComponents.makeInterfaceRefDeclarator($1.getLocation(), $1.getValue(),
                $3.getLocation(), $3.getEndLocation(), $3.getValue());
     }
     ;
@@ -2661,12 +2661,12 @@ structuse:
       structkind tag nesc_attributes
     {
         // TODO: make warning "attributes ignored"
-        $$ = Semantics.makeXrefTag($1.getLocation(), $2.getEndLocation(), $1.getKind(), $2);
+        $$ = Declarations.makeXrefTag($1.getLocation(), $2.getEndLocation(), $1.getKind(), $2);
     }
     | ENUM tag nesc_attributes
     {
         // TODO: make warning "attributes ignored"
-        $$ = Semantics.makeXrefTag($1.getLocation(), $2.getEndLocation(), StructKind.ENUM, $2);
+        $$ = Declarations.makeXrefTag($1.getLocation(), $2.getEndLocation(), StructKind.ENUM, $2);
     }
     ;
 
@@ -2679,29 +2679,29 @@ structdef:
       structkind tag nesc_attributes LBRACE component_decl_list RBRACE maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($6.getEndLocation(), $7);
-        $$ = Semantics.makeStruct($1.getLocation(), endLocation, $1.getKind(), Optional.of($2), $5,
+        $$ = Declarations.makeStruct($1.getLocation(), endLocation, $1.getKind(), Optional.of($2), $5,
                 Lists.<Attribute>chain($3, $7));
     }
     | STRUCT AT tag nesc_attributes LBRACE component_decl_list RBRACE maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($7.getEndLocation(), $8);
-        $$ = Semantics.makeStruct($1.getLocation(), endLocation, StructKind.ATTRIBUTE, Optional.of($3), $6,
+        $$ = Declarations.makeStruct($1.getLocation(), endLocation, StructKind.ATTRIBUTE, Optional.of($3), $6,
                 Lists.<Attribute>chain($4, $8));
     }
     | structkind LBRACE component_decl_list RBRACE maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($4.getEndLocation(), $5);
-        $$ = Semantics.makeStruct($1.getLocation(), endLocation, $1.getKind(), Optional.<Word>absent(), $3, $5);
+        $$ = Declarations.makeStruct($1.getLocation(), endLocation, $1.getKind(), Optional.<Word>absent(), $3, $5);
     }
     | ENUM tag nesc_attributes LBRACE enumlist maybecomma_warn RBRACE maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($7.getEndLocation(), $8);
-        $$ = Semantics.makeEnum($1.getLocation(), endLocation, Optional.of($2), $5, Lists.<Attribute>chain($3, $8));
+        $$ = Declarations.makeEnum($1.getLocation(), endLocation, Optional.of($2), $5, Lists.<Attribute>chain($3, $8));
     }
     | ENUM LBRACE enumlist maybecomma_warn RBRACE maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($5.getEndLocation(), $6);
-        $$ = Semantics.makeEnum($1.getLocation(), endLocation, Optional.<Word>absent(), $3, $6);
+        $$ = Declarations.makeEnum($1.getLocation(), endLocation, Optional.<Word>absent(), $3, $6);
     }
     ;
 
@@ -2829,19 +2829,19 @@ component_declarator:
       declarator maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
-        $$ = Semantics.makeField($1.getLocation(), endLocation,
+        $$ = Declarations.makeField($1.getLocation(), endLocation,
                 Optional.of($1), Optional.<Expression>absent(), pstate.declspecs, prefixAttr($2));
     }
     | declarator COLON expr_no_commas maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($3.getEndLocation(), $4);
-        $$ = Semantics.makeField($1.getLocation(), endLocation,
+        $$ = Declarations.makeField($1.getLocation(), endLocation,
                 Optional.of($1), Optional.of($3), pstate.declspecs, prefixAttr($4));
     }
     | COLON expr_no_commas maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($2.getEndLocation(), $3);
-        $$ = Semantics.makeField($1.getLocation(), endLocation,
+        $$ = Declarations.makeField($1.getLocation(), endLocation,
                 Optional.<Declarator>absent(), Optional.of($2), pstate.declspecs, prefixAttr($3));
     }
     ;
@@ -2850,19 +2850,19 @@ component_notype_declarator:
       notype_declarator maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
-        $$ = Semantics.makeField($1.getLocation(), endLocation,
+        $$ = Declarations.makeField($1.getLocation(), endLocation,
                 Optional.of($1), Optional.<Expression>absent(), pstate.declspecs, prefixAttr($2));
     }
     | notype_declarator COLON expr_no_commas maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($3.getEndLocation(), $4);
-        $$ = Semantics.makeField($1.getLocation(), endLocation,
+        $$ = Declarations.makeField($1.getLocation(), endLocation,
                 Optional.of($1), Optional.of($3), pstate.declspecs, prefixAttr($4));
     }
     | COLON expr_no_commas maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($2.getEndLocation(), $3);
-        $$ = Semantics.makeField($1.getLocation(), endLocation,
+        $$ = Declarations.makeField($1.getLocation(), endLocation,
                 Optional.<Declarator>absent(), Optional.of($2), pstate.declspecs, prefixAttr($3));
     }
     ;
@@ -2880,12 +2880,12 @@ enumlist:
 enumerator:
       identifier
     {
-        $$ = Semantics.makeEnumerator($1.getLocation(), $1.getEndLocation(), $1.getValue(),
+        $$ = Declarations.makeEnumerator($1.getLocation(), $1.getEndLocation(), $1.getValue(),
                 Optional.<Expression>absent());
     }
     | identifier EQ expr_no_commas
     {
-        $$ = Semantics.makeEnumerator($1.getLocation(), $3.getEndLocation(), $1.getValue(), Optional.of($3));
+        $$ = Declarations.makeEnumerator($1.getLocation(), $3.getEndLocation(), $1.getValue(), Optional.of($3));
     }
     ;
 
@@ -2894,7 +2894,7 @@ typename:
       declspecs_nosc absdcl
     {
         /* NOTICE: absdcl may be null! */
-        $$ = Semantics.makeType($1, Optional.<Declarator>fromNullable($2));
+        $$ = Declarations.makeType($1, Optional.<Declarator>fromNullable($2));
     }
     ;
 
@@ -2917,7 +2917,7 @@ absdcl1_noea:
     { $$ = $1; }
     | STAR maybe_type_quals_attrs absdcl1_noea
     {
-        $$ = Semantics.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
+        $$ = Declarations.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
     }
     ;
 
@@ -2925,11 +2925,11 @@ absdcl1_ea:
       STAR maybe_type_quals_attrs
     {
         final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
-        $$ = Semantics.makePointerDeclarator($1.getLocation(), endLocation, Optional.<Declarator>absent(), $2);
+        $$ = Declarations.makePointerDeclarator($1.getLocation(), endLocation, Optional.<Declarator>absent(), $2);
     }
     | STAR maybe_type_quals_attrs absdcl1_ea
     {
-        $$ = Semantics.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
+        $$ = Declarations.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
     }
     ;
 
@@ -2943,7 +2943,7 @@ direct_absdcl1:
     }
     | direct_absdcl1 array_or_absfn_declarator
     {
-        final Declarator declarator = Semantics.finishArrayOrFnDeclarator($1, $2);
+        final Declarator declarator = Declarations.finishArrayOrFnDeclarator($1, $2);
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
             popLevel();
         }
@@ -2951,7 +2951,7 @@ direct_absdcl1:
     }
     | array_or_absfn_declarator
     {
-        final Declarator declarator = Semantics.finishArrayOrFnDeclarator(null, $1);
+        final Declarator declarator = Declarations.finishArrayOrFnDeclarator(null, $1);
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
             popLevel();
         }
@@ -3559,33 +3559,33 @@ parms:
 parm:
       declspecs_ts xreferror parm_declarator maybe_attribute
     {
-        $$ = Semantics.declareParameter(Optional.of($3), $1, $4);
+        $$ = Declarations.declareParameter(Optional.of($3), $1, $4);
     }
     | declspecs_ts xreferror notype_declarator maybe_attribute
     {
-        $$ = Semantics.declareParameter(Optional.of($3), $1, $4);
+        $$ = Declarations.declareParameter(Optional.of($3), $1, $4);
     }
     | declspecs_ts xreferror absdcl
     {
         /* NOTE: absdcl may be null */
-        $$ = Semantics.declareParameter(Optional.fromNullable($3), $1, Lists.<Attribute>newList());
+        $$ = Declarations.declareParameter(Optional.fromNullable($3), $1, Lists.<Attribute>newList());
     }
     | declspecs_ts xreferror absdcl1_noea attributes
     {
-        $$ = Semantics.declareParameter(Optional.of($3), $1, $4);
+        $$ = Declarations.declareParameter(Optional.of($3), $1, $4);
     }
     | declspecs_nots xreferror notype_declarator maybe_attribute
     {
-        $$ = Semantics.declareParameter(Optional.of($3), $1, $4);
+        $$ = Declarations.declareParameter(Optional.of($3), $1, $4);
     }
     | declspecs_nots xreferror absdcl
     {
         /* NOTICE: absdcl may be null. */
-        $$ = Semantics.declareParameter(Optional.fromNullable($3), $1, Lists.<Attribute>newList());
+        $$ = Declarations.declareParameter(Optional.fromNullable($3), $1, Lists.<Attribute>newList());
     }
     | declspecs_nots xreferror absdcl1_noea attributes
     {
-        $$ = Semantics.declareParameter(Optional.of($3), $1, $4);
+        $$ = Declarations.declareParameter(Optional.of($3), $1, $4);
     }
     ;
 
@@ -3627,7 +3627,7 @@ identifiers:
 old_parameter:
       IDENTIFIER
     {
-        $$ = Semantics.declareOldParameter($1.getLocation(), $1.getEndLocation(), $1.getValue());
+        $$ = Declarations.declareOldParameter($1.getLocation(), $1.getEndLocation(), $1.getValue());
     }
     ;
 
@@ -3664,68 +3664,68 @@ extension:
 scspec:
       TYPEDEF
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.TYPEDEF);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.TYPEDEF);
         wasTypedef = true;
         LOG.trace("Setting wasTypedef to true.");
     }
     | EXTERN
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.EXTERN);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.EXTERN);
     }
     | STATIC
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.STATIC);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.STATIC);
     }
     | AUTO
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.AUTO);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.AUTO);
     }
     | REGISTER
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.REGISTER);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.REGISTER);
     }
     | COMMAND
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.COMMAND);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.COMMAND);
     }
     | EVENT
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.EVENT);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.EVENT);
     }
     | ASYNC
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.ASYNC);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.ASYNC);
     }
     | TASK
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.TASK);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.TASK);
     }
     | NORACE
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.NORACE);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.NORACE);
     }
     | DEFAULT
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.DEFAULT);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.DEFAULT);
     }
     | INLINE
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.INLINE);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.INLINE);
     }
     ;
 
 type_qual:
       CONST
     {
-        $$ = Semantics.makeQualifier($1.getLocation(), $1.getEndLocation(), RID.CONST);
+        $$ = Declarations.makeQualifier($1.getLocation(), $1.getEndLocation(), RID.CONST);
     }
     | RESTRICT
     {
-        $$ = Semantics.makeQualifier($1.getLocation(), $1.getEndLocation(), RID.RESTRICT);
+        $$ = Declarations.makeQualifier($1.getLocation(), $1.getEndLocation(), RID.RESTRICT);
     }
     | VOLATILE
     {
-        $$ = Semantics.makeQualifier($1.getLocation(), $1.getEndLocation(), RID.VOLATILE);
+        $$ = Declarations.makeQualifier($1.getLocation(), $1.getEndLocation(), RID.VOLATILE);
     }
     ;
 
@@ -3740,39 +3740,39 @@ fn_qual:
 type_spec:
       VOID
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.VOID);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.VOID);
     }
     | CHAR
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.CHAR);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.CHAR);
     }
     | SHORT
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.SHORT);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.SHORT);
     }
     | INT
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.INT);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.INT);
     }
     | LONG
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.LONG);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.LONG);
     }
     | FLOAT
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.FLOAT);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.FLOAT);
     }
     | DOUBLE
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.DOUBLE);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.DOUBLE);
     }
     | SIGNED
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.SIGNED);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.SIGNED);
     }
     | UNSIGNED
     {
-        $$ = Semantics.makeRid($1.getLocation(), $1.getEndLocation(), RID.UNSIGNED);
+        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.UNSIGNED);
     }
     ;
 

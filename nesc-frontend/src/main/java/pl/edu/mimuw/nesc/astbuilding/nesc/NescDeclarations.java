@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.semantic.nesc;
+package pl.edu.mimuw.nesc.astbuilding.nesc;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
@@ -13,7 +13,7 @@ import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public final class NescSemantics {
+public final class NescDeclarations {
 
     public static Declaration declareTemplateParameter(Optional<Declarator> declarator,
                                                        LinkedList<TypeElement> elements,
@@ -33,14 +33,7 @@ public final class NescSemantics {
         return dataDecl;
     }
 
-    public static TypeArgument makeTypeArgument(AstType astType) {
-        final TypeArgument typeArgument = new TypeArgument(astType.getLocation(), astType);
-        typeArgument.setEndLocation(astType.getEndLocation());
-        typeArgument.setType(astType.getType());
-        return typeArgument;
-    }
-
-    private NescSemantics() {
+    private NescDeclarations() {
     }
 
 }
