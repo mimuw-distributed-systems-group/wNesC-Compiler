@@ -217,7 +217,9 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             cls.__fields = []  # list of strings containing code describing the fields
             cls.__methods = []  # list of strings describing all methods (getters and setters)
 
-            for n, el in map(lambda x: (x, self.__getattribute__(x)), self.members__):
+            members = filter(lambda x: x in dir(self), self.members__)
+
+            for n, el in map(lambda x: (x, self.__getattribute__(x)), members):
                 if isinstance(el, BasicASTNodeField):
                     cls.__field_names.append(n)
                     cls.__field_types[n] = (el.const, el.get_type(lang), el.constructor_variable)
@@ -251,6 +253,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             # package. The same with java.lang.String.
             res = "package pl.edu.mimuw.nesc.ast.gen;\n\n"
             res += "import java.util.LinkedList;\n"
+            res += "import com.google.common.base.Optional;\n"
             res += "import pl.edu.mimuw.nesc.ast.*;\n"
             res += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
 
@@ -274,10 +277,11 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
 #the basic class from which all field classes must derive.
 #All field classes must have name and const fields
 class BasicASTNodeField:
-    def __init__(self, constructor_variable=True, default_value=None, visitable=True):
+    def __init__(self, constructor_variable=True, default_value=None, visitable=True, optional=False):
         self.constructor_variable = constructor_variable
         self.default_value = default_value
         self.visitable = visitable
+        self.optional = optional
 
     #expected result for c++ and java is a pair of strings
     #that represent the member declaration and getter/setter functions
@@ -353,6 +357,9 @@ class BoolField(BasicASTNodeField):
         if lang == DST_LANGUAGE.JAVA:
             res = "boolean"
 
+            if self.optional:
+                res = "Optional<Boolean>"
+
             if self.const and full:
                 res = "final " + res
 
@@ -419,6 +426,14 @@ class IntField(BasicASTNodeField):
             if self.width == INT_TYPE.LONG:
                 res = "long"
 
+            if self.optional:
+                res = "Optional<"
+                if self.width == INT_TYPE.LONG:
+                    res += "Long"
+                else:
+                    res += "Integer"
+                res += ">"
+
             if self.const and full:
                 res = "final " + res
 
@@ -475,6 +490,13 @@ class FloatField(BasicASTNodeField):
                 res = "const " + res
 
         if lang == DST_LANGUAGE.JAVA:
+            if self.optional:
+                res = "Optional<"
+                if self.width == FLOAT_TYPE.SINGLE:
+                    res += "Float"
+                if self.width == FLOAT_TYPE.DOUBLE:
+                    res += "Double"
+                res += ">"
             if self.const and full:
                 res = "final " + res
 
@@ -518,6 +540,9 @@ class StringField(BasicASTNodeField):
 
         if lang == DST_LANGUAGE.JAVA:
             res = "String"
+
+            if self.optional:
+                res = "Optional<String>"
 
             if self.const and full:
                 res = "final " + res
@@ -567,6 +592,8 @@ class ReferenceField(BasicASTNodeField):
 
         if lang == DST_LANGUAGE.JAVA:
             res = self.ref_type
+            if self.optional:
+                res = "Optional<" + self.ref_type + ">"
 
             if self.const and full:
                 res = "final " + res
@@ -624,6 +651,8 @@ class EnumField(BasicASTNodeField):
 
         if lang == DST_LANGUAGE.JAVA:
             res = self.enum_type
+            if self.optional:
+                res = "Optional<" + self.enum_type + ">"
 
             if self.const and full:
                 res = "final " + res
@@ -664,6 +693,8 @@ class BoolListField(BasicASTNodeField):
 
         if lang == DST_LANGUAGE.JAVA:
             res = "LinkedList<Boolean>"
+            if self.optional:
+                res = "Optional<" + res + ">"
 
         return res
 
@@ -731,6 +762,9 @@ class IntListField(BasicASTNodeField):
 
             res += ">"
 
+            if self.optional:
+                res = "Optional<" + res + ">"
+
         return res
 
     def gen_printer(self, lang):
@@ -794,6 +828,8 @@ class FloatListField(BasicASTNodeField):
                 res = "LinkedList<Float>"
             if self.width == FLOAT_TYPE.DOUBLE:
                 res = "LinkedList<Double>"
+            if self.optional:
+                res = "Optional<" + res + ">"
 
         return res
 
@@ -839,6 +875,8 @@ class StringListField(BasicASTNodeField):
 
         if lang == DST_LANGUAGE.JAVA:
             res = "LinkedList<String>"
+            if self.optional:
+                res = "Optional<" + res + ">"
 
         return res
 
@@ -892,6 +930,8 @@ class ReferenceListField(BasicASTNodeField):
 
         if lang == DST_LANGUAGE.JAVA:
             res = "LinkedList<" + self.ref_type + ">"
+            if self.optional:
+                res = "Optional<" + res + ">"
 
         return res
 
@@ -947,6 +987,8 @@ class EnumListField(BasicASTNodeField):
 
         if lang == DST_LANGUAGE.JAVA:
             res = "LinkedList<" + self.enum_type + ">"
+            if self.optional:
+                res = "Optional<" + res + ">"
 
         return res
 
@@ -1002,6 +1044,8 @@ class EnumSetField(BasicASTNodeField):
 
         if lang == DST_LANGUAGE.JAVA:
             res = "EnumSet<" + self.enum_type + ">"
+            if self.optional:
+                res = "Optional<" + res + ">"
 
         return res
 
@@ -1110,6 +1154,7 @@ def gen_java_printer(dir):
     printer += "import pl.edu.mimuw.nesc.ast.gen.Visitor;\n"
     printer += "import pl.edu.mimuw.nesc.ast.gen.*;\n\n"
     printer += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
+    printer += "import com.google.common.base.Optional;\n"
     printer += "public class Printer implements Visitor<Void, Object> {\n"
 
     #visitor begin
@@ -1166,6 +1211,7 @@ def gen_cpp_visitor(dir):
 
 def gen_java_visitor(dir):
     visitable = "package pl.edu.mimuw.nesc.ast.gen;\n"
+    visitable += "import com.google.common.base.Optional;\n"
     visitable += "import pl.edu.mimuw.nesc.ast.gen.Visitor;\n\n"
     visitable += "public interface Visitable {\n"
     visitable += tab + "public <R, A> R accept(Visitor<R, A> v, A arg);\n"
@@ -1177,6 +1223,7 @@ def gen_java_visitor(dir):
 
     visitor = "package pl.edu.mimuw.nesc.ast.gen;\n"
     visitor += "import pl.edu.mimuw.nesc.ast.gen.*;\n\n"
+    visitor += "import com.google.common.base.Optional;\n"
     visitor += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
     visitor += "public interface Visitor <R, A> {\n"
     for cl in ast_nodes.keys():
@@ -1189,6 +1236,7 @@ def gen_java_visitor(dir):
 
     exceptionVisitor = "package pl.edu.mimuw.nesc.ast.gen;\n"
     exceptionVisitor += "import pl.edu.mimuw.nesc.ast.gen.*;\n\n"
+    exceptionVisitor += "import com.google.common.base.Optional;\n"
     exceptionVisitor += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
     exceptionVisitor += "public abstract class ExceptionVisitor <R, A> implements Visitor <R, A> {\n"
     for cl in ast_nodes.keys():
