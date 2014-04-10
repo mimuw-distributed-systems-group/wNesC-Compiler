@@ -338,7 +338,7 @@ public final class ParseExecutor {
 
         @Override
         public void macroInstantiation(MacroToken macroToken) {
-            // TODO real implementation of this method
+            tokensMultimapBuilder.put(macroToken.getStartLocation().getLine(), macroToken);
         }
 
         @Override
