@@ -345,6 +345,30 @@ public final class NescLexer extends AbstractLexer {
                 .invalid(invalid);
     }
 
+    /**
+     * @param text Text from a token that has been stringized.
+     * @return Length of the given text before being stringized because of the
+     *         macro operator '#'.
+     */
+    private int computeStringizedAlignment(String text) {
+        int result = text.length() - 2;  // subtract 2 because of the quotes addition
+
+        int i = 1;
+        while (i < text.length() - 1) {
+            final char fst = text.charAt(i);
+            final char snd = text.charAt(i + 1);
+
+            if (fst == '\\' && (snd == '\\' || snd == '"' || snd == 'n' || snd == 'r')) {
+                --result;
+                i += 2;
+            } else {
+                ++i;
+            }
+        }
+
+        return result;
+    }
+
     private void lexString(Token token, Symbol.Builder builder, boolean invalid) throws IOException, LexerException {
         /*
          * Remove quotes from string. getValue() may contain error message
@@ -354,7 +378,10 @@ public final class NescLexer extends AbstractLexer {
         builder.symbolCode(STRING_LITERAL)
                 .value(string)
                 .endLine(token.getLine())
-                .endColumn(token.getColumn() + token.getText().length())
+                .endColumn(token.getColumn()
+                        +  (    !token.isStringized()
+                             ?  token.getText().length()
+                             :  computeStringizedAlignment(token.getText())))
                 .invalid(invalid);
         // FIXME: end location, string literal may be broken by backslash!
         // TODO: get next token location and subtract one from column (line the same)
