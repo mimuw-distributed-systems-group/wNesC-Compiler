@@ -1,20 +1,19 @@
 from os import path, makedirs
 from collections import OrderedDict
 
+#TODO:
+#   - protection in printer from printing null
+#   - proper printing of Optional parameters
+#   - check if all fields can be optional
+#   - fix c++ generation
+#   - reformat the code
+#   - divide the code into sensible modules
 #TODO: add standard ast options:
-#   - line and colum as default fields
 #   - specify package option for java
 #   - option to generate a jar file
 #   - ability to say that a class is virtual?
-#   - add generation from bnf? (doubling functionality? what should it generate, a py file?)
-#   - fields excluded from the constructor!
 #   - some objects represent operators and do not have fields
 #     -> add an option of a class header (both a global and a local one)
-#   - optional fields in constructor?
-#     -> Probobly not as we would be forced to generate all the combinantions
-#     -> only reasonable solution is to be able to mark k first fields as a single option
-#     -> problem with that: superclasses
-#   - functions to push_front or push_back to a *ListField
 #   - any thing else?
 
 #A dictionary of all nodes of the abstract syntax tree
@@ -331,7 +330,6 @@ class INT_TYPE:
     NORMAL = 2
     LONG = 3
 
-
 class FLOAT_TYPE:
     SINGLE = 0
     DOUBLE = 1
@@ -355,7 +353,7 @@ class BoolField(BasicASTNodeField):
                 res = "const " + res
 
         if lang == DST_LANGUAGE.JAVA:
-            res = "boolean"
+            res = "Boolean"
 
             if self.optional:
                 res = "Optional<Boolean>"
@@ -372,7 +370,11 @@ class BoolField(BasicASTNodeField):
             res = 'printf("%s: %s\\n", "{0}", elem->get{0}() ? "true":"false");'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf("%s: %b; ", "{0}", elem.get{0}());'
+            res = 'if (elem.get{0}() != null) {{\n'
+            res += tab * 3 + 'System.out.printf("%s: %s; ", "{0}", elem.get{0}());\n'
+            res += tab * 2 + '}} else {{\n'
+            res += tab * 3 + 'System.out.printf("%s : null; ", "{0}");\n'
+            res += tab * 2 + '}}'
 
         return res.format(first_to_cap(self.name))
 
@@ -417,14 +419,10 @@ class IntField(BasicASTNodeField):
                 res = "const " + res
 
         if lang == DST_LANGUAGE.JAVA:
-            if self.width == INT_TYPE.BYTE:
-                res = "byte"
-            if self.width == INT_TYPE.SHORT:
-                res = "short"
-            if self.width == INT_TYPE.NORMAL:
-                res = "int"
             if self.width == INT_TYPE.LONG:
-                res = "long"
+                res = "Long"
+            else:
+                res = "Integer"
 
             if self.optional:
                 res = "Optional<"
@@ -453,7 +451,11 @@ class IntField(BasicASTNodeField):
             res += '\\n", "{0}", elem->get{0}());'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf("%s: %d; ", "{0}", elem.get{0}());'
+            res = 'if (elem.get{0}() != null) {{\n'
+            res += tab * 3 + 'System.out.printf("%s: %s; ", "{0}", elem.get{0}());\n'
+            res += tab * 2 + '}} else {{\n'
+            res += tab * 3 + 'System.out.printf("%s: null; ", "{0}");\n'
+            res += tab * 2 + '}}'
 
         return res.format(first_to_cap(self.name))
 
@@ -490,6 +492,7 @@ class FloatField(BasicASTNodeField):
                 res = "const " + res
 
         if lang == DST_LANGUAGE.JAVA:
+            res = first_to_cap(res)
             if self.optional:
                 res = "Optional<"
                 if self.width == FLOAT_TYPE.SINGLE:
@@ -507,7 +510,11 @@ class FloatField(BasicASTNodeField):
             res = 'printf("%s: %f\\n", "{0}", elem->get{0}());'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf("%s: %f; ", "{0}", elem.get{0}());'
+            res = 'if (elem.get{0}() != null) {{\n'
+            res += tab * 3 + 'System.out.printf("%s: %s; ", "{0}", elem.get{0}());\n'
+            res += tab * 2 + '}} else {{\n'
+            res += tab * 3 + 'System.out.printf("%s: null; ", "{0}");\n'
+            res += tab * 2 + '}}'
 
         return res.format(first_to_cap(self.name))
 
@@ -519,7 +526,7 @@ class FloatField(BasicASTNodeField):
         if lang == DST_LANGUAGE.CPP:
             res += " " + self.name + ";"
 
-        if lang == DST_LANGUAGE.CPP:
+        if lang == DST_LANGUAGE.JAVA:
             res = "protected " + res + " " + self.name + ";"
 
         return res, code
@@ -554,7 +561,11 @@ class StringField(BasicASTNodeField):
             res = 'printf("%s: \\"%s\\"\\n", "{0}", elem->get{0}().c_str());'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf(\"%s: \\"%s\\"; \", \"{0}\", elem.get{0}());'
+            res = 'if (elem.get{0}() != null) {{\n'
+            res += tab * 3 + 'System.out.printf("%s: %s; ", "{0}", elem.get{0}());\n'
+            res += tab * 2 + '}} else {{\n'
+            res += tab * 3 + 'System.out.printf("%s: null; ", "{0}");\n'
+            res += tab * 2 + '}}'
 
         return res.format(first_to_cap(self.name))
 
@@ -607,14 +618,31 @@ class ReferenceField(BasicASTNodeField):
             res += tab * 2 + 'printf("}}\\n");'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'if (elem.get{0}() != null) {{\n'
-            res += tab * 3 + 'System.out.printf("%s: {{", "{0}");\n'
-            if self.ref_type in ast_nodes.keys():
-                res += tab * 3 + 'elem.get{0}().accept(this, arg);\n'
+            if not self.optional:
+                res = 'if (elem.get{0}() != null) {{\n'
+                res += tab * 3 + 'System.out.printf("%s: {{", "{0}");\n'
+                if self.ref_type in ast_nodes.keys():
+                    res += tab * 3 + 'elem.get{0}().accept(this, arg);\n'
+                else:
+                    res += tab * 3 + 'System.out.printf("%s; ", elem.get{0}().toString());\n'
+                res += tab * 3 + 'System.out.printf("}}; ");\n'
+                res += tab * 2 + '}} else {{\n'
+                res += tab * 3 + 'System.out.printf("%s: null; ", "{0}");\n'
+                res += tab * 2 + '}}'
             else:
-                res += tab * 3 + 'System.out.printf(elem.get{0}().toString());\n'
-            res += tab * 3 + 'System.out.printf("}}; ");'
-            res += '}}\n'
+                res = 'if (elem.get{0}() != null) {{\n'
+                res += tab * 3 + 'if (elem.get{0}().isPresent()) {{\n'
+                res += tab * 4 + 'System.out.printf("%s: {{", "{0}");\n'
+                if self.ref_type in ast_nodes.keys():
+                    res += tab * 4 + 'elem.get{0}().get().accept(this, arg);\n'
+                else:
+                    res += tab * 4 + 'System.out.printf(elem.get{0}().get().toString());\n'
+                res += tab * 4 + 'System.out.printf("}}; ");\n'
+                res += tab * 3 + '}} else {{\n'
+                res += tab * 4 + 'System.out.printf("%s: null; ", "{0}");\n'
+                res += tab * 3 + '}}\n'
+                res += tab * 2 + '}}'
+
 
         return res.format(first_to_cap(self.name))
 
@@ -664,7 +692,11 @@ class EnumField(BasicASTNodeField):
             res = 'enum_printer_' + self.enum_type + '(elem->get{0}())\n'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf(elem.get{0}());\n'
+            res = 'if (elem.get{0}() != null) {{\n'
+            res += tab * 3 + 'System.out.printf("%s: %s; ", "{0}", elem.get{0}());'
+            res += tab * 2 + '}} else {{\n'
+            res += tab * 3 + 'System.out.printf("%s: null; ", {0});\n'
+            res += tab * 2 + '}}'
 
         return res.format(first_to_cap(self.name))
 
@@ -680,12 +712,10 @@ class EnumField(BasicASTNodeField):
 
 
 class BoolListField(BasicASTNodeField):
-    def __init__(self, name=None, width=INT_TYPE.NORMAL,
-                 signed=True, const=False, *args, **kwargs):
+    def __init__(self, name=None, const=False, *args, **kwargs):
         super(BoolListField, self).__init__(*args, **kwargs)
         self.name = name
-        self.width = width
-        self.signed = signed
+        self.const = const
 
     def get_type(self, lang, full=False):
         if lang == DST_LANGUAGE.CPP:
@@ -707,11 +737,30 @@ class BoolListField(BasicASTNodeField):
             res += tab * 2 + 'printf("]\\n");'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf("%s: [", "{0}");\n'
-            res += tab * 2 + 'for(boolean bval : elem.get{0}()) {{\n'
-            res += tab * 3 + 'System.out.printf("%b ", bval);\n'
-            res += tab * 2 + '}};\n'
-            res += tab * 2 + 'System.out.printf("]; ");'
+            if not self.optional:
+                res = 'if (elem.get{0}() != null) {{\n'
+                res += tab * 3 + 'System.out.printf("%s: [", "{0}");\n'
+                res += tab * 3 + 'for(Boolean bval : elem.get{0}()) {{\n'
+                res += tab * 4 + 'System.out.printf("%s ", bval);\n'
+                res += tab * 3 + '}}\n'
+                res += tab * 3 + 'System.out.printf("]; ");\n'
+                res += tab * 2 + '}} else {{\n'
+                res += tab * 3 + 'System.out.printf("%s: []; ", "{0}");\n'
+                res += tab * 2 + '}}'
+            else:
+                res = 'if (elem.get{0}() != null) {{\n'
+                res += tab * 3 + 'if (elem.get{0}().isPresent()) {{\n'
+                res += tab * 4 + 'System.out.printf("%s: [", "{0}");\n'
+                res += tab * 4 + 'for(Boolean bval : elem.get{0}().get()) {{\n'
+                res += tab * 5 + 'System.out.printf("%s ", bval);\n'
+                res += tab * 4 + '}}\n'
+                res += tab * 4 + 'System.out.printf("]; ");\n'
+                res += tab * 3 + '}} else {{\n'
+                res += tab * 4 + 'System.out.printf("%s: %s", "{0}",elem.get{0}());\n'
+                res += tab * 3 + '}}\n'
+                res += tab * 2 + '}} else {{\n'
+                res += tab * 3 + 'System.out.printf("%s: null; ", "{0}");\n'
+                res += tab * 2 + '}}'
 
         return res.format(first_to_cap(self.name))
 
@@ -786,15 +835,32 @@ class IntListField(BasicASTNodeField):
             res += tab * 2 + 'printf("]\\n");'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf("%s: [", "{0}");\n'.format(self.name)
-            res += tab * 2 + 'for({1} ival : elem.get{0}()) {{\n'.format(first_to_cap(self.name),
-                                                                         "Long" if self.width == INT_TYPE.LONG
-                                                                         else "Integer")
-            res += tab * 3 + 'System.out.printf("%d ", ival.longValue());\n'
-            res += tab * 2 + '}};\n'
-            res += tab * 2 + 'System.out.printf("]; ");'
+            if not self.optional:
+                res = 'if (elem.get{0}() != null) {{\n'
+                res += tab * 3 + 'System.out.printf("%s: [", "{0}");\n'
+                res += tab * 3 + 'for({1} ival : elem.get{0}()) {{\n'
+                res += tab * 4 + 'System.out.printf("%d ", ival.longValue());\n'
+                res += tab * 3 + '}}\n'
+                res += tab * 3 + 'System.out.printf("]; ");\n'
+                res += tab * 2 + '}} else {{\n'
+                res += tab * 3 + 'System.out.printf("%s: null; ", "{0}");\n'
+                res += tab * 2 + '}}'
+            else:
+                res = 'if (elem.get{0}() != null) {{\n'
+                res += tab * 3 + 'if (elem.get{0}().isPresent()) {{\n'
+                res += tab * 4 + 'System.out.printf("%s: [", "{0}");\n'
+                res += tab * 4 + 'for({1} ival : elem.get{0}().get()) {{\n'
+                res += tab * 5 + 'System.out.printf("%d ", ival.longValue());\n'
+                res += tab * 4 + '}}\n'
+                res += tab * 4 + 'System.out.printf("]; ");\n'
+                res += tab * 3 + '}} else {{\n'
+                res += tab * 4 + 'System.out.printf("%s: %s", "{0}", elem.get{0}());\n'
+                res += tab * 3 + '}}\n'
+                res += tab * 2 + '}} else {{\n'
+                res += tab * 3 + 'System.out.printf("%s: null; ", "{0}");\n'
+                res += tab * 2 + '}}'
 
-        return res
+        return res.format(first_to_cap(self.name), "Long" if self.width == INT_TYPE.LONG else "Integer")
 
     def generate_code(self, lang):
         res = self.get_type(lang, True)
@@ -848,7 +914,32 @@ class FloatListField(BasicASTNodeField):
             res += tab * 2 + '}};\n'
             res += tab * 2 + 'System.out.printf("]; ");'
 
-        return res.format(first_to_cap(self.name))
+            if not self.optional:
+                res = 'if (elem.get{0}() != null) {{\n'
+                res += tab * 3 + 'System.out.printf("%s: [", "{0}");\n'
+                res += tab * 3 + 'for({1} fval : elem.get{0}()) {{\n'
+                res += tab * 4 + 'System.out.printf("%s ", fval);\n'
+                res += tab * 3 + '}}\n'
+                res += tab * 3 + 'System.out.printf("]; ");\n'
+                res += tab * 2 + '}} else {{\n'
+                res += tab * 3 + 'System.out.printf("%s: null; ", "{0}");\n'
+                res += tab * 2 + '}}'
+            else:
+                res = 'if (elem.get{0}() != null) {{\n'
+                res += tab * 3 + 'if (elem.get{0}().isPresent()) {{\n'
+                res += tab * 4 + 'System.out.printf("%s: [", "{0}");\n'
+                res += tab * 4 + 'for({1} fval : elem.get{0}().get()) {{\n'
+                res += tab * 5 + 'System.out.printf("%s ", fval);\n'
+                res += tab * 4 + '}}\n'
+                res += tab * 4 + 'System.out.printf("]; ");\n'
+                res += tab * 3 + '}} else {{\n'
+                res += tab * 4 + 'System.out.printf("%s: %s", "{0}", elem.get{0}());\n'
+                res += tab * 3 + '}}\n'
+                res += tab * 2 + '}} else {{\n'
+                res += tab * 3 + 'System.out.printf("%s: null; ", "{0}");\n'
+                res += tab * 2 + '}}'
+
+        return res.format(first_to_cap(self.name), "Float" if self.width == FLOAT_TYPE.SINGLE else "Double")
 
     def generate_code(self, lang):
         res = self.get_type(lang, True)
@@ -889,11 +980,30 @@ class StringListField(BasicASTNodeField):
             res += tab * 2 + 'printf("]\\n");'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf("%s: [", "{0}");\n'
-            res += tab * 2 + 'for(String bval : elem.get{0}()) {{\n'
-            res += tab * 3 + 'System.out.printf("%s ", bval);\n'
-            res += tab * 2 + '}};\n'
-            res += tab * 2 + 'System.out.printf("]; ");'
+            if not self.optional:
+                res = 'if (elem.get{0}() != null) {{\n'
+                res += tab * 3 + 'System.out.printf("%s: [", "{0}");\n'
+                res += tab * 3 + 'for(String sval : elem.get{0}()) {{\n'
+                res += tab * 4 + 'System.out.printf("%s ", sval);\n'
+                res += tab * 3 + '}}\n'
+                res += tab * 3 + 'System.out.printf("]; ");\n'
+                res += tab * 2 + '}} else {{\n'
+                res += tab * 3 + 'System.out.printf("%s: null; ", "{0}");\n'
+                res += tab * 2 + '}}'
+            else:
+                res = 'if (elem.get{0}() != null) {{\n'
+                res += tab * 3 + 'if (elem.get{0}().isPresent()) {{\n'
+                res += tab * 4 + 'System.out.printf("%s: [", "{0}");\n'
+                res += tab * 4 + 'for(String sval : elem.get{0}().get()) {{\n'
+                res += tab * 5 + 'System.out.printf("%s ", sval);\n'
+                res += tab * 4 + '}}\n'
+                res += tab * 4 + 'System.out.printf("]; ");\n'
+                res += tab * 3 + '}} else {{\n'
+                res += tab * 4 + 'System.out.printf("%s: %s", "{0}", elem.get{0}());\n'
+                res += tab * 3 + '}}\n'
+                res += tab * 2 + '}} else {{\n'
+                res += tab * 3 + 'System.out.printf("%s: null; ", "{0}");\n'
+                res += tab * 2 + '}}'
 
         return res.format(first_to_cap(self.name))
 
@@ -903,7 +1013,7 @@ class StringListField(BasicASTNodeField):
             res = res_type + " " + self.name + ";"
 
         if lang == DST_LANGUAGE.JAVA:
-            type = "LinkedList<String>"
+            res_type = self.get_type(lang)
             res = "protected " + res_type + " " + self.name + ";"
 
         code = self.gen_getter_code(lang, res_type)
@@ -949,10 +1059,48 @@ class ReferenceListField(BasicASTNodeField):
             res += tab * 3 + 'System.out.printf("{{");\n'
             res += tab * 3 + 'bval.accept(this, arg);\n'
             res += tab * 3 + 'System.out.printf("}};");\n'
-            res += tab * 2 + '}};\n'
+            res += tab * 2 + '}}\n'
             res += tab * 2 + 'System.out.printf("]; ");'
+            if not self.optional:
+                res = 'if (elem.get{0}() != null) {{\n'
+                res += tab * 3 + 'System.out.printf("%s: [", "{0}");\n'
+                res += tab * 3 + 'for({1} rval : elem.get{0}()) {{\n'
+                res += tab * 4 + 'if (rval != null) {{\n'
+                if self.ref_type in ast_nodes.keys():
+                    res += tab * 5 + 'rval.accept(this, arg);\n'
+                else:
+                    res += tab * 5 + 'System.out.printf(rval.toString());\n'
+                res += tab * 4 + '}} else {{\n'
+                res += tab * 5 + 'System.out.printf("null ");\n'
+                res += tab * 4 + '}}\n'
+                res += tab * 3 + '}}\n'
+                res += tab * 3 + 'System.out.printf("]; ");\n'
+                res += tab * 2 + '}} else {{\n'
+                res += tab * 3 + 'System.out.printf("%s: null; ", "{0}");\n'
+                res += tab * 2 + '}}'
+            else:
+                res = 'if (elem.get{0}() != null) {{\n'
+                res += tab * 3 + 'if (elem.get{0}().isPresent()) {{\n'
+                res += tab * 4 + 'System.out.printf("%s: [", "{0}");\n'
+                res += tab * 4 + 'for({1} rval : elem.get{0}().get()) {{\n'
+                res += tab * 5 + 'if (rval != null) {{\n'
+                if self.ref_type in ast_nodes.keys():
+                    res += tab * 6 + 'rval.accept(this, arg);\n'
+                else:
+                    res += tab * 6 + 'System.out.printf(rval.toString());\n'
+                res += tab * 5 + '}} else {{\n'
+                res += tab * 6 + 'System.out.printf("null ");\n'
+                res += tab * 5 + '}}\n'
+                res += tab * 4 + '}}\n'
+                res += tab * 4 + 'System.out.printf("]; ");\n'
+                res += tab * 3 + '}} else {{\n'
+                res += tab * 4 + 'System.out.printf("%s: %s", elem.get{0}());\n'
+                res += tab * 3 + '}}\n'
+                res += tab * 2 + '}} else {{\n'
+                res += tab * 3 + 'System.out.printf("%s: null; ", "{0}");\n'
+                res += tab * 2 + '}}'
 
-        return res.format(first_to_cap(self.name))
+        return res.format(first_to_cap(self.name), self.ref_type)
 
     def generate_code(self, lang):
         if lang == DST_LANGUAGE.CPP:
@@ -960,8 +1108,8 @@ class ReferenceListField(BasicASTNodeField):
             res = res_type + " " + self.name + ";"
 
         if lang == DST_LANGUAGE.JAVA:
-            res = "protected LinkedList<" + self.ref_type + "> " + self.name + ";"
-            res_type = "LinkedList<" + self.ref_type + ">"
+            res_type = self.get_type(lang)
+            res = "protected " + res_type + " " + self.name + ";"
 
         code = self.gen_getter_code(lang, res_type)
 
@@ -1001,15 +1149,33 @@ class EnumListField(BasicASTNodeField):
             res += tab * 2 + 'printf("]\\n");'
 
         if lang == DST_LANGUAGE.JAVA:
-            res = 'System.out.printf("%s: [\\n", "{0}");\n'
-            res += tab * 2 + 'for({0} bval : elem.get{{0}}()) {{{{\n'.format(self.enum_type)
-            res += tab * 3 + 'System.out.printf("{{\\n");\n'
-            res += tab * 3 + 'bval.accept(this);\n'
-            res += tab * 3 + 'System.out.printf("}}\\n");\n'
-            res += tab * 2 + '}};\n'
-            res += tab * 2 + 'System.out.printf("]\\n");'
+            if not self.optional:
+                res = 'if (elem.get{0}() != null) {{\n'
+                res += tab * 3 + 'System.out.printf("%s: [", "{0}");\n'
+                res += tab * 3 + 'for({1}} eval : elem.get{0}()) {{\n'
+                res += tab * 4 + 'System.out.printf("%s ", eval);\n'
+                res += tab * 3 + '}}\n'
+                res += tab * 3 + 'System.out.printf("]; ");\n'
+                res += tab * 2 + '}} else {{\n'
+                res += tab * 3 + 'System.out.printf("%s: null; ", {0})\n'
+                res += tab * 2 + '}}'
+            else:
+                res = 'if (elem.get{0}() != null) {{\n'
+                res += tab * 3 + 'if (elem.get{0}().isPresent()) {{\n'
+                res += tab * 4 + 'System.out.printf("%s: [", "{0}");\n'
+                res += tab * 4 + 'for({1} eval : elem.get{0}().get()) {{\n'
+                res += tab * 5 + 'System.out.printf("%s ", eval);\n'
+                res += tab * 4 + '}}\n'
+                res += tab * 4 + 'System.out.printf("]; ");'
+                res += tab * 3 + '}} else {{\n'
+                res += tab * 4 + 'System.out.printf("%s: %s", elem.get{0});\n'
+                res += tab * 3 + '}}\n'
+                res += tab * 2 + '}} else {{\n'
+                res += tab * 3 + 'System.out.printf("%s: null; ", {0})\n'
+                res += tab * 2 + '}}'
 
-        return res.format(first_to_cap(self.name))
+
+        return res.format(self.name, self.enum_type)
 
     def generate_code(self, lang):
         if lang == DST_LANGUAGE.CPP:
@@ -1017,8 +1183,8 @@ class EnumListField(BasicASTNodeField):
             res = res_type + " " + self.name + ";"
 
         if lang == DST_LANGUAGE.JAVA:
-            res = "protected LinkedList<" + self.enum_type + "> " + self.name + ";"
-            res_type = "LinkedList<" + self.enum_type + ">"
+            res = "protected " + self.get_type(lang) + self.name + ";"
+            res_type = self.get_type(lang)
 
         code = self.gen_getter_code(lang, res_type)
 
@@ -1064,12 +1230,12 @@ class EnumSetField(BasicASTNodeField):
 
     def generate_code(self, lang):
         if lang == DST_LANGUAGE.CPP:
-            res_type = "std::set<" + self.enum_type + ">"
+            res_type = self.get_type(lang);
             res = res_type + " " + self.name + ";"
 
         if lang == DST_LANGUAGE.JAVA:
-            res = "protected EnumSet<" + self.enum_type + "> " + self.name + ";"
-            res_type = "EnumSet<" + self.enum_type + ">"
+            res_type = self.get_type(lang)
+            res = "protected " + res_type + " " + self.name + ";"
 
         code = self.gen_getter_code(lang, res_type)
 
@@ -1152,7 +1318,7 @@ def gen_printer(lang, dir):
 def gen_java_printer(dir):
     printer = "package pl.edu.mimuw.nesc.ast.gen;\n\n"
     printer += "import pl.edu.mimuw.nesc.ast.gen.Visitor;\n"
-    printer += "import pl.edu.mimuw.nesc.ast.gen.*;\n\n"
+    printer += "import pl.edu.mimuw.nesc.ast.gen.*;\n"
     printer += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
     printer += "import com.google.common.base.Optional;\n"
     printer += "public class Printer implements Visitor<Void, Object> {\n"
@@ -1172,7 +1338,7 @@ def gen_java_printer(dir):
 
 def gen_cpp_printer(dir):
     printer = "#ifndef __AST_PRINTER__\n"
-    printer += "#define __AST_PRINTER__\n"
+    printer += "#define __AST_PRINTER__\n\n"
     printer += "#include \"AST_Node.h\"\n\n"
 
     printer += "class Printer: public Visitor {\n"
@@ -1221,8 +1387,8 @@ def gen_java_visitor(dir):
     f.write(visitable)
     f.close()
 
-    visitor = "package pl.edu.mimuw.nesc.ast.gen;\n"
-    visitor += "import pl.edu.mimuw.nesc.ast.gen.*;\n\n"
+    visitor = "package pl.edu.mimuw.nesc.ast.gen;\n\n"
+    visitor += "import pl.edu.mimuw.nesc.ast.gen.*;\n"
     visitor += "import com.google.common.base.Optional;\n"
     visitor += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
     visitor += "public interface Visitor <R, A> {\n"
@@ -1234,8 +1400,8 @@ def gen_java_visitor(dir):
     f.write(visitor)
     f.close()
 
-    exceptionVisitor = "package pl.edu.mimuw.nesc.ast.gen;\n"
-    exceptionVisitor += "import pl.edu.mimuw.nesc.ast.gen.*;\n\n"
+    exceptionVisitor = "package pl.edu.mimuw.nesc.ast.gen;\n\n"
+    exceptionVisitor += "import pl.edu.mimuw.nesc.ast.gen.*;\n"
     exceptionVisitor += "import com.google.common.base.Optional;\n"
     exceptionVisitor += "import pl.edu.mimuw.nesc.ast.datadeclaration.*;\n"
     exceptionVisitor += "public abstract class ExceptionVisitor <R, A> implements Visitor <R, A> {\n"
