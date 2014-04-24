@@ -4,6 +4,7 @@ import com.google.common.base.Optional;
 import org.anarres.cpp.*;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.common.util.file.FileUtils;
 import pl.edu.mimuw.nesc.parser.Symbol;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 import pl.edu.mimuw.nesc.preprocessor.directive.IncludeDirective;
@@ -14,6 +15,7 @@ import java.io.IOException;
 import java.util.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static pl.edu.mimuw.nesc.common.util.file.FileUtils.normalizePath;
 import static pl.edu.mimuw.nesc.lexer.SymbolFactory.getSymbolCode;
 import static pl.edu.mimuw.nesc.parser.Parser.Lexer.*;
 
@@ -633,7 +635,7 @@ public final class NescLexer extends AbstractLexer {
 
             if (PUSH.equals(event)) {
                 final String previous = sourceStack.peek();
-                sourceStack.push(path.get());
+                sourceStack.push(normalizePath(path.get()));
                 if (!previous.equals(path.get())) {
                     notifyFileChange(previous, path.get(), true);
                 }
@@ -647,18 +649,18 @@ public final class NescLexer extends AbstractLexer {
         }
 
         @Override
-        public boolean beforeInclude(String filePath) {
+        public boolean beforeInclude(String filePath, int line) {
+            filePath = normalizePath(filePath);
             if (listener != null) {
                 buildIncludeDirective(Optional.of(filePath));
-                return listener.beforeInclude(filePath);
+                return listener.beforeInclude(filePath, line);
             }
             return false;
         }
 
         @Override
         public void handlePreprocesorDirective(Source source, org.anarres.cpp.PreprocessorDirective directive) {
-            final String sourceFile = source.getPath();
-            assert (sourceFile != null);
+            final String sourceFile = getSourcePath(source).get();
 
             /*
              * Postpone reporting that include directive was recognized.
@@ -687,7 +689,8 @@ public final class NescLexer extends AbstractLexer {
             LOG.trace("MACRO expansion " + line + ", " + column + "; " + macro);
 
             if (listener != null) {
-                final String startLocFileName = source.getPath() != null ? source.getPath() : "";
+                final String sourcePath = getSourcePath(source).orNull();
+                final String startLocFileName = sourcePath != null ? sourcePath : "";
                 final Location startLoc = new Location(startLocFileName, line, column + 1),
                                endLoc = new Location(startLocFileName, line, column + macro.length());
                 final Optional<Location> definitionLoc =
@@ -747,7 +750,7 @@ public final class NescLexer extends AbstractLexer {
         if (path == null || path.charAt(0) == '<') {
             return Optional.absent();
         }
-        return Optional.of(path);
+        return Optional.of(normalizePath(path));
     }
 
 }

@@ -9,12 +9,14 @@ import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.common.FileType;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
+import pl.edu.mimuw.nesc.declaration.object.*;
+import pl.edu.mimuw.nesc.environment.*;
 import pl.edu.mimuw.nesc.issue.*;
-import pl.edu.mimuw.nesc.lexer.TokenPrinter;
 import pl.edu.mimuw.nesc.parser.value.*;
 import pl.edu.mimuw.nesc.astbuilding.*;
 import pl.edu.mimuw.nesc.astbuilding.nesc.*;
 import pl.edu.mimuw.nesc.token.*;
+import pl.edu.mimuw.nesc.symboltable.*;
 
 import java.io.IOException;
 import java.util.LinkedList;
@@ -466,7 +468,7 @@ dispatch:
     | DISPATCH_PARM parm
     { entityRoot = $2; }
     | DISPATCH_PARM error
-    { entityRoot = Declarations.makeErrorDecl(); }
+    { entityRoot = declarations.makeErrorDecl(); }
     | DISPATCH_TYPE typename
     { entityRoot = $2; }
     | DISPATCH_TYPE error
@@ -501,16 +503,30 @@ include_list:
     ;
 
 interface:
-      ncheader INTERFACE idword
+      ncheader INTERFACE[keyword] idword[name]
     {
-		/* Push new level regardless the interface is generic or not. */
-	    pushLevel(false);
+	    pushLevel();
+        environment.setScopeType(ScopeType.INTERFACE_PARAMETER);
+        environment.setStartLocation($name.getEndLocation());
     }
-      interface_parms nesc_attributes LBRACE datadef_list RBRACE
+      interface_parms[params] nesc_attributes[attrs] LBRACE[lbrace]
     {
-        final Interface iface = new Interface($2.getLocation(), $6, $3, $5, $8);
-        iface.setEndLocation($9.getEndLocation());
+        pushLevel();
+        environment.setScopeType(ScopeType.INTERFACE);
+        environment.setStartLocation($lbrace.getLocation());
+    }
+      datadef_list[defs] RBRACE[rbrace]
+    {
+        final Interface iface = new Interface($keyword.getLocation(), $attrs, $name, $params, $defs);
+        iface.setEndLocation($rbrace.getEndLocation());
+
+        /* Close interface scope. */
+        environment.setEndLocation($rbrace.getEndLocation());
         popLevel();
+        /* Close interface parameter scope. */
+        environment.setEndLocation($rbrace.getEndLocation());
+        popLevel();
+
         $$ = iface;
     }
     ;
@@ -530,13 +546,12 @@ interface_parm_list:
     ;
 
 interface_parm:
-      type_parm nesc_attributes
+      type_parm[parm] nesc_attributes[attrs]
     {
-        final String paramName = $1.getValue();
-        addTypename(paramName);
+        final String paramName = $parm.getValue();
         final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
-        final TypeParmDecl decl = new TypeParmDecl($1.getLocation(), paramName, $2);
-        decl.setEndLocation(endLocation);
+        final TypeParmDecl decl = nescDeclarations.declareTypeParameter(environment, $parm.getLocation(),
+                endLocation, paramName, $attrs);
         $$ = decl;
     }
     ;
@@ -554,12 +569,21 @@ datadef_list:
     ;
 
 parameters:
-      LBRACK
+      LBRACK[lbrack]
     {
-        pushLevel(true);    // for parsing purposes
+        /*
+         * Scope of parameters for:
+         *  - parameterised interface in uses/provides section
+         *  - parameterised event/command
+         * poplevel is done by user of this production. In the second case
+         * the scope of interface parameters and event/command parameters
+         * is continuation of current scope.
+         */
+        pushLevel();
+        environment.setScopeType(ScopeType.FUNCTION_PARAMETER);
     }
-      parameters1
-    { $$ = $3; }
+      parameters1[params]
+    { $$ = $params; }
     ;
 
 parameters1:
@@ -568,7 +592,7 @@ parameters1:
         $$ = $1;
     }
     | error RBRACK
-    { $$ = Lists.<Declaration>newList(Declarations.makeErrorDecl()); }
+    { $$ = Lists.<Declaration>newList(declarations.makeErrorDecl()); }
     ;
 
 component:
@@ -581,31 +605,64 @@ component:
     ;
 
 module:
-      generic MODULE idword
+      generic[isGeneric] MODULE[keyword] idword[name]
     {
-        pushLevel(false);   // FIXME parmlevel
+        pushLevel();
+        environment.setScopeType(ScopeType.COMPONENT_PARAMETER);
+        environment.setStartLocation($name.getEndLocation());
     }
-      component_parms nesc_attributes LBRACE requires_or_provides_list RBRACE imodule
+      component_parms[params] nesc_attributes[attrs] LBRACE[lbrace]
     {
-        final Location location = $1.getLocation() != null ? $1.getLocation() : $2.getLocation();
-        final Module module = new Module(location, $6, $3, $8, $10, $1.getValue(), $5);
-        module.setEndLocation($10.getEndLocation());
+        pushLevel();
+        environment.setScopeType(ScopeType.SPECIFICATION);
+        environment.setStartLocation($lbrace.getLocation());
+    }
+      requires_or_provides_list[rplist] RBRACE[rbrace] imodule[impl]
+    {
+        final Location location = $isGeneric.getLocation() != null ? $isGeneric.getLocation() : $keyword.getLocation();
+        final Module module = new Module(location, $attrs, $name, $rplist, $impl, $isGeneric.getValue(), $params);
+        module.setEndLocation($impl.getEndLocation());
+
+        // implementation scope handled in imodule
+        // specification scope
+        environment.setEndLocation($impl.getEndLocation());
         popLevel();
+        // component parameter scope
+        environment.setEndLocation($impl.getEndLocation());
+        popLevel();
+
         $$ = module;
     }
     ;
 
 configuration:
-      generic CONFIGURATION idword
+      generic[isGeneric] CONFIGURATION[keyword] idword[name]
     {
-        pushLevel(false);   // FIXME parmlevel
+        pushLevel();
+        environment.setScopeType(ScopeType.COMPONENT_PARAMETER);
+        environment.setStartLocation($name.getEndLocation());
     }
-      component_parms nesc_attributes LBRACE requires_or_provides_list RBRACE iconfiguration
+      component_parms[parms] nesc_attributes[attrs] LBRACE[lbrace]
     {
-        final Location location = $1.getLocation() != null ? $1.getLocation() : $2.getLocation();
-        final Configuration configuration = new Configuration(location, $6, $3, $8, $10, $1.getValue(), $5);
-        configuration.setEndLocation($10.getEndLocation());
+        pushLevel();
+        environment.setScopeType(ScopeType.SPECIFICATION);
+        environment.setStartLocation($lbrace.getLocation());
+    }
+      requires_or_provides_list[rplist] RBRACE[rbrace] iconfiguration[impl]
+    {
+        final Location location = $isGeneric.getLocation() != null ? $isGeneric.getLocation() : $keyword.getLocation();
+        final Configuration configuration = new Configuration(location, $attrs, $name, $rplist, $impl,
+                $isGeneric.getValue(), $parms);
+        configuration.setEndLocation($impl.getEndLocation());
+
+        // implementation scope handled in iconfiguration
+        // specification scope
+        environment.setEndLocation($impl.getEndLocation());
         popLevel();
+        // component parameter scope
+        environment.setEndLocation($impl.getEndLocation());
+        popLevel();
+
         $$ = configuration;
     }
     ;
@@ -671,22 +728,20 @@ template_parmlist:
 template_parm:
       declspecs_ts xreferror after_type_declarator maybe_attribute
     {
-        declareName($3, $1);
-        $$ = NescDeclarations.declareTemplateParameter(Optional.of($3), $1, $4);
+        $$ = nescDeclarations.declareTemplateParameter(environment, Optional.of($3), $1, $4);
     }
     | declspecs_ts xreferror notype_declarator maybe_attribute
     {
-        declareName($3, $1);
-        $$ = NescDeclarations.declareTemplateParameter(Optional.of($3), $1, $4);
+        $$ = nescDeclarations.declareTemplateParameter(environment, Optional.of($3), $1, $4);
     }
     | declspecs_nots xreferror notype_declarator maybe_attribute
     {
-        declareName($3, $1);
-        $$ = NescDeclarations.declareTemplateParameter(Optional.of($3), $1, $4);
+        $$ = nescDeclarations.declareTemplateParameter(environment, Optional.of($3), $1, $4);
     }
     | declspecs_ts xreferror
     {
-        $$ = NescDeclarations.declareTemplateParameter(Optional.<Declarator>absent(), $1, Lists.<Attribute>newList());
+        $$ = nescDeclarations.declareTemplateParameter(environment, Optional.<Declarator>absent(), $1,
+                Lists.<Attribute>newList());
     }
     ;
 
@@ -815,10 +870,20 @@ typelist:
     ;
 
 iconfiguration:
-      IMPLEMENTATION LBRACE configuration_decls RBRACE
+      IMPLEMENTATION[keyword]
     {
-        final ConfigurationImpl impl = new ConfigurationImpl($1.getLocation(), $3);
-        impl.setEndLocation($4.getEndLocation());
+        pushLevel();
+        environment.setScopeType(ScopeType.CONFIGURATION_IMPLEMENTATION);
+        environment.setStartLocation($keyword.getLocation());
+    }
+      LBRACE[lbrace] configuration_decls[decls] RBRACE[rbrace]
+    {
+        final ConfigurationImpl impl = new ConfigurationImpl($keyword.getLocation(), $decls);
+        impl.setEndLocation($rbrace.getEndLocation());
+
+        environment.setEndLocation($rbrace.getEndLocation());
+        popLevel();
+
         $$ = impl;
     }
     ;
@@ -840,33 +905,36 @@ component_list:
     ;
 
 component_ref:
-      component_ref2
+      component_ref2[ref]
     {
-        requireComponent($1.getName());
+        requireComponent($ref.getName());
         /* Put component's name into parser's symbol table. */
-        final String componentAlias = $1.getName().getName();
-        addComponentRef(componentAlias);
+        final String componentAlias = $ref.getName().getName();
+        nescDeclarations.declareComponentRef(environment, $ref.getLocation(), $ref.getEndLocation(),
+                $ref, Optional.<String>absent());
+        $$ = $ref;
     }
-    | component_ref2 AS idword
+    | component_ref2[ref] AS idword[alias]
     {
-        requireComponent($1.getName());
+        requireComponent($ref.getName());
         /* Put component's alias into parser's symbol table. */
-        final String componentAlias = $3.getName();
-        addComponentRef(componentAlias);
-        $1.setEndLocation($3.getEndLocation());
+        final String componentAlias = $alias.getName();
+        nescDeclarations.declareComponentRef(environment, $alias.getLocation(), $alias.getEndLocation(),
+                $ref, Optional.of(componentAlias));
+        $$ = $ref;
     }
     ;
 
 component_ref2:
       idword
     {
-        final ComponentRef ref = new ComponentRef($1.getLocation(), $1, null, false, Lists.<Expression>newList());
+        final ComponentRef ref = new ComponentRef($1.getLocation(), $1, false, Lists.<Expression>newList());
         ref.setEndLocation($1.getEndLocation());   // maybe updated in higher productions
         $$ = ref;
     }
     | NEW idword LPAREN generic_args RPAREN
     {
-        final ComponentRef ref = new ComponentRef($1.getLocation(), $2, null, true, $4);
+        final ComponentRef ref = new ComponentRef($1.getLocation(), $2, true, $4);
         ref.setEndLocation($5.getEndLocation());   // maybe updated in higher productions
         $$ = ref;
     }
@@ -953,10 +1021,20 @@ parameterised_identifier:
     ;
 
 imodule:
-      IMPLEMENTATION LBRACE extdefs RBRACE
+      IMPLEMENTATION[keyword]
     {
-        final ModuleImpl impl = new ModuleImpl($1.getLocation(), $3);
-        impl.setEndLocation($4.getEndLocation());
+        pushLevel();
+        environment.setScopeType(ScopeType.MODULE_IMPLEMENTATION);
+        environment.setStartLocation($keyword.getLocation());
+    }
+      LBRACE[lbrace] extdefs[defs] RBRACE[rbrace]
+    {
+        final ModuleImpl impl = new ModuleImpl($keyword.getLocation(), $defs);
+        impl.setEndLocation($rbrace.getEndLocation());
+
+        environment.setEndLocation($rbrace.getEndLocation());
+        popLevel();
+
         $$ = impl;
     }
     ;
@@ -1007,7 +1085,7 @@ extdef:
     }
     | extension extdef
     {
-        $$ = Declarations.makeExtensionDecl($1.getLocation(), $2.getEndLocation(), $2);
+        $$ = declarations.makeExtensionDecl($1.getLocation(), $2.getEndLocation(), $2);
         // pedantic = 0
     }
     ;
@@ -1016,7 +1094,7 @@ datadef:
       setspecs notype_initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($2).get();
-        $$ = Declarations.makeDataDecl(startLocation, $3.getEndLocation(), Lists.<TypeElement>newList(), $2);
+        $$ = declarations.makeDataDecl(startLocation, $3.getEndLocation(), Lists.<TypeElement>newList(), $2);
         popDeclspecStack();
     }
     | just_datadef
@@ -1027,28 +1105,28 @@ just_datadef:
       declspecs_nots setspecs notype_initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = Declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs_ts setspecs initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = Declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs setspecs SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($3.getLocation(), $1);
-        $$ = Declarations.makeDataDecl(startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | error SEMICOLON
     {
-        $$ = Declarations.makeErrorDecl();
+        $$ = declarations.makeErrorDecl();
     }
     | error RBRACE
     {
-        $$ = Declarations.makeErrorDecl();
+        $$ = declarations.makeErrorDecl();
     }
     | SEMICOLON
     {
@@ -1078,7 +1156,7 @@ fndef:
     ;
 
 fndef2:
-      maybeasm maybe_attribute
+      maybeasm[asm] maybe_attribute[attrs]
     {
         /* NOTICE: maybe asm can be null! */
         /* NOTICE: maybeasm is only here to avoid a s/r conflict */
@@ -1090,27 +1168,30 @@ fndef2:
          * r/r conflicts)
          */
         final Declarator declarator = $<Declarator>0;
+        final Location startLocation = declarator.getLocation();
+        final FunctionDecl decl = declarations.startFunction(environment, startLocation, pstate.declspecs, declarator,
+                $attrs, true);
+        /* Push parameters environment. There is no need to change its parent. */
+        final Environment paramEnv = DeclaratorUtils.getFunctionDeclarator(declarator).getEnvironment();
+        paramEnv.setScopeType(ScopeType.FUNCTION_PARAMETER);
+        /* locations will be set on poplevel */
+        pushLevel(paramEnv);
 
-        final Location startLocation;
-        if ($1 != null) {
-            startLocation = $1.getLocation();
-        } else if (!$2.isEmpty()) {
-            startLocation = AstUtils.getStartLocation($2).get();
-        } else {
-            startLocation = declarator.getLocation();
-        }
-        final FunctionDecl decl = Declarations.startFunction(startLocation, pstate.declspecs, declarator, $2, true);
-        // TODO: detect syntax error (check !type_funcional())
+        // TODO: detect syntax error (check !type_functional())
         $<FunctionDecl>$ = decl;
     }
-    old_style_parm_decls
+    old_style_parm_decls[parms]
     {
-        $<FunctionDecl>$ = Declarations.setOldParams($<FunctionDecl>3, $4);
+        $<FunctionDecl>$ = declarations.setOldParams($<FunctionDecl>3, $parms);
     }
-    compstmt_or_error
+    compstmt_or_error[body]
     {
-        $$ = Declarations.finishFunction($<FunctionDecl>5, $6);
-        //popLevel();     // FIXME: to pop or not to pop? test it.
+        $$ = declarations.finishFunction($<FunctionDecl>5, $body);
+        /* parameter environment */
+        environment.setStartLocation($body.getLocation());
+        environment.setEndLocation($body.getEndLocation());
+        popLevel();
+
         popDeclspecStack();
     }
     ;
@@ -1555,25 +1636,25 @@ datadecl:
       declspecs_ts_nosa setspecs initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = Declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs_nots_nosa setspecs notype_initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = Declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs_ts_nosa setspecs SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($3.getLocation(), $1);
-        $$ = Declarations.makeDataDecl(startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | declspecs_nots_nosa SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($2.getLocation(), $1);
-        $$ = Declarations.makeDataDecl(startLocation, $2.getEndLocation(), $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(startLocation, $2.getEndLocation(), $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     ;
@@ -1587,11 +1668,11 @@ decls:
       decl
     { $$ = Lists.<Declaration>newList($1); }
     | errstmt
-    { $$ = Lists.<Declaration>newList(Declarations.makeErrorDecl()); }
+    { $$ = Lists.<Declaration>newList(declarations.makeErrorDecl()); }
     | decls decl
     { $$ = Lists.<Declaration>chain($1, $2); }
     | decl errstmt
-    { $$ = Lists.<Declaration>newList(Declarations.makeErrorDecl()); }
+    { $$ = Lists.<Declaration>newList(declarations.makeErrorDecl()); }
     ;
 
 /*
@@ -1638,13 +1719,13 @@ decl:
       declspecs_ts setspecs initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = Declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs_nots setspecs notype_initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = Declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs_ts setspecs nested_function
@@ -1660,12 +1741,12 @@ decl:
     | declspecs setspecs SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($3.getLocation(), $1);
-        $$ = Declarations.makeDataDecl(startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | extension decl
     {
-        $$ = Declarations.makeExtensionDecl($1.getLocation(), $2.getEndLocation(), $2);
+        $$ = declarations.makeExtensionDecl($1.getLocation(), $2.getEndLocation(), $2);
         // pedantic = $1.i
     }
     ;
@@ -2139,59 +2220,49 @@ maybeasm:
     }
     ;
 
+/*
+ * FIXME: initdcl is not only variable declaration but can be also a
+ * function prototype declaration, e.g. int max(int, int).
+ */
 initdcl:
-      declarator maybeasm maybe_attribute EQ
+      declarator maybeasm[asm] maybe_attribute[attrs] EQ
     {
-        /*
-         * The reason for the strange assignment below is the fact that
-         * to handle action inside right side of production, yacc implicitly
-         * splits current production into two separate rules. The $$ symbol
-         * probably cannot be used in anonymous production.
-         */
-        declareName($1, pstate.declspecs);
-        final VariableDecl decl = Declarations.startDecl($1, Optional.fromNullable($2), pstate.declspecs,
-                prefixAttr($3), true);
+        final VariableDecl decl = declarations.startDecl(environment, $declarator, Optional.fromNullable($asm),
+                pstate.declspecs, prefixAttr($attrs), true);
         $<VariableDecl>$ = decl;
     }
       init
     {
-          /*
-           * $<declaration>5 : The result of anonymous rule is the fifth
-           * element in the right-hand side of production.
-           */
           final VariableDecl decl = $<VariableDecl>5;
-          $$ = Declarations.finishDecl(decl, Optional.of($6));
+          $$ = declarations.finishDecl(decl, Optional.of($init));
     }
 /* Note how the declaration of the variable is in effect while its init is parsed! */
-    | declarator maybeasm maybe_attribute
+    | declarator maybeasm[asm] maybe_attribute[attrs]
     {
-        declareName($1, pstate.declspecs);
-        final VariableDecl decl = Declarations.startDecl($1, Optional.fromNullable($2),  pstate.declspecs,
-                prefixAttr($3), false);
-        $$ = Declarations.finishDecl(decl, Optional.<Expression>absent());
+        final VariableDecl decl = declarations.startDecl(environment, $declarator, Optional.fromNullable($asm),
+                pstate.declspecs, prefixAttr($attrs), false);
+        $$ = declarations.finishDecl(decl, Optional.<Expression>absent());
     }
     ;
 
 notype_initdcl:
-      notype_declarator maybeasm maybe_attribute EQ
+      notype_declarator[declarator] maybeasm[asm] maybe_attribute[attrs] EQ
     {
-        declareName($1, pstate.declspecs);
-        final VariableDecl decl = Declarations.startDecl($1, Optional.fromNullable($2), pstate.declspecs,
-                prefixAttr($3), true);
+        final VariableDecl decl = declarations.startDecl(environment, $declarator, Optional.fromNullable($asm),
+                pstate.declspecs, prefixAttr($attrs), true);
         $<VariableDecl>$ = decl;
     }
       init
     {
           final VariableDecl decl = $<VariableDecl>5;
-          $$ = Declarations.finishDecl(decl, Optional.of($6));
+          $$ = declarations.finishDecl(decl, Optional.of($init));
     }
 /* Note how the declaration of the variable is in effect while its init is parsed! */
-    | notype_declarator maybeasm maybe_attribute
+    | notype_declarator[declarator] maybeasm[asm] maybe_attribute[attrs]
     {
-        declareName($1, pstate.declspecs);
-        VariableDecl decl = Declarations.startDecl($1, Optional.fromNullable($2),  pstate.declspecs, prefixAttr($3),
-                false);
-        $$ = Declarations.finishDecl(decl, Optional.<Expression>absent());
+        VariableDecl decl = declarations.startDecl(environment, $declarator, Optional.fromNullable($asm),
+                pstate.declspecs, prefixAttr($attrs), false);
+        $$ = declarations.finishDecl(decl, Optional.<Expression>absent());
     }
     ;
 
@@ -2478,19 +2549,25 @@ designator:
     ;
 
 nested_function:
-      declarator maybeasm maybe_attribute
+      declarator maybeasm[asm] maybe_attribute[attrs]
     {
         /* NOTICE: maybe asm can be null! */
         /* NOTICE: maybeasm is only here to avoid a s/r conflict */
         // TODO refuse_asm
 
-        final FunctionDecl decl = Declarations.startFunction($1.getLocation(), pstate.declspecs, $1, $3, true);
+        final FunctionDecl decl = declarations.startFunction(environment, $declarator.getLocation(), pstate.declspecs,
+                $declarator, $attrs, true);
+        /* Push parameters environment. There is no need to change its parent. */
+        final Environment paramEnv = DeclaratorUtils.getFunctionDeclarator($declarator).getEnvironment();
+        paramEnv.setScopeType(ScopeType.FUNCTION_PARAMETER);
+        /* locations will be set on poplevel */
+        pushLevel(paramEnv);
         // TODO: detect syntax error (check !type_funcional())
         $<FunctionDecl>$ = decl;
     }
-      old_style_parm_decls
+      old_style_parm_decls[parms]
     {
-        $<FunctionDecl>$ = Declarations.setOldParams($<FunctionDecl>4, $5);
+        $<FunctionDecl>$ = declarations.setOldParams($<FunctionDecl>4, $parms);
     }
     /*
      * This used to use compstmt_or_error. That caused a bug with input
@@ -2498,27 +2575,36 @@ nested_function:
      * then was handled by compstmt_or_error. There followed a repeated
      * execution of that same rule, which called YYERROR1 again, and so on.
      */
-      compstmt
+      compstmt[body]
     {
-        $$ = Declarations.finishFunction($<FunctionDecl>6, $7);
-        //popLevel();   // FIXME: to pop or not to pop? test it.
+        $$ = declarations.finishFunction($<FunctionDecl>6, $body);
+        /* parameter environment */
+        environment.setStartLocation($body.getLocation());
+        environment.setEndLocation($body.getEndLocation());
+        popLevel();
     }
     ;
 
 notype_nested_function:
-      notype_declarator maybeasm maybe_attribute
+      notype_declarator[declarator] maybeasm[asm] maybe_attribute[attrs]
     {
         /* NOTICE: maybe asm can be null! */
         /* NOTICE: maybeasm is only here to avoid a s/r conflict */
         // TODO: refuse_asm
 
-        final FunctionDecl decl = Declarations.startFunction($1.getLocation(), pstate.declspecs, $1, $3, true);
+        final FunctionDecl decl = declarations.startFunction(environment, $declarator.getLocation(), pstate.declspecs,
+                $declarator, $attrs, true);
+        /* Push parameters environment. There is no need to change its parent. */
+        final Environment paramEnv = DeclaratorUtils.getFunctionDeclarator($declarator).getEnvironment();
+        paramEnv.setScopeType(ScopeType.FUNCTION_PARAMETER);
+        /* locations will be set on poplevel */
+        pushLevel(paramEnv);
         // TODO: detect syntax error (check !type_funcional())
         $<FunctionDecl>$ = decl;
     }
-      old_style_parm_decls
+      old_style_parm_decls[parms]
     {
-        $<FunctionDecl>$ = Declarations.setOldParams($<FunctionDecl>4, $5);
+        $<FunctionDecl>$ = declarations.setOldParams($<FunctionDecl>4, $parms);
     }
     /*
      * This used to use compstmt_or_error. That caused a bug with input
@@ -2526,10 +2612,13 @@ notype_nested_function:
      * then was handled by compstmt_or_error. There followed a repeated
      * execution of that same rule, which called YYERROR1 again, and so on.
      */
-      compstmt
+      compstmt[body]
     {
-        $$ = Declarations.finishFunction($<FunctionDecl>6, $7);
-        //popLevel();   // FIXME: to pop or not to pop? test it.
+        $$ = declarations.finishFunction($<FunctionDecl>6, $body);
+        /* parameter environment */
+        environment.setStartLocation($body.getLocation());
+        environment.setEndLocation($body.getEndLocation());
+        popLevel();
     }
     ;
 
@@ -2551,15 +2640,17 @@ after_type_declarator:
       after_type_declarator array_or_fn_declarator
     {
         // TODO make function for this (duplicated in 4 places)
-        final Declarator declarator = Declarations.finishArrayOrFnDeclarator($1, $2);
+        final Declarator declarator = declarations.finishArrayOrFnDeclarator($1, $2);
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
+            final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
+            funDeclarator.setEnvironment(environment);
             popLevel();
         }
         $$ = declarator;
     }
     | STAR maybe_type_quals_attrs after_type_declarator
     {
-        $$ = Declarations.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
+        $$ = declarations.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
     }
     | LPAREN maybe_attribute after_type_declarator RPAREN
     {
@@ -2590,15 +2681,17 @@ after_type_declarator:
 parm_declarator:
       parm_declarator array_or_fn_declarator
     {
-        final Declarator declarator = Declarations.finishArrayOrFnDeclarator($1, $2);
+        final Declarator declarator = declarations.finishArrayOrFnDeclarator($1, $2);
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
+            final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
+            funDeclarator.setEnvironment(environment);
             popLevel();
         }
         $$ = declarator;
     }
     | STAR maybe_type_quals_attrs parm_declarator
     {
-        $$ = Declarations.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
+        $$ = declarations.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
     }
     | TYPEDEF_NAME
     {
@@ -2617,15 +2710,17 @@ parm_declarator:
 notype_declarator:
       notype_declarator array_or_fn_declarator
     {
-        final Declarator declarator = Declarations.finishArrayOrFnDeclarator($1, $2);
+        final Declarator declarator = declarations.finishArrayOrFnDeclarator($1, $2);
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
+            final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
+            funDeclarator.setEnvironment(environment);
             popLevel();
         }
         $$ = declarator;
     }
     | STAR maybe_type_quals_attrs notype_declarator
     {
-        $$ = Declarations.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
+        $$ = declarations.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
     }
     | LPAREN maybe_attribute notype_declarator RPAREN
     {
@@ -2661,12 +2756,12 @@ structuse:
       structkind tag nesc_attributes
     {
         // TODO: make warning "attributes ignored"
-        $$ = Declarations.makeXrefTag($1.getLocation(), $2.getEndLocation(), $1.getKind(), $2);
+        $$ = declarations.makeXrefTag($1.getLocation(), $2.getEndLocation(), $1.getKind(), $2);
     }
     | ENUM tag nesc_attributes
     {
         // TODO: make warning "attributes ignored"
-        $$ = Declarations.makeXrefTag($1.getLocation(), $2.getEndLocation(), StructKind.ENUM, $2);
+        $$ = declarations.makeXrefTag($1.getLocation(), $2.getEndLocation(), StructKind.ENUM, $2);
     }
     ;
 
@@ -2679,29 +2774,29 @@ structdef:
       structkind tag nesc_attributes LBRACE component_decl_list RBRACE maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($6.getEndLocation(), $7);
-        $$ = Declarations.makeStruct($1.getLocation(), endLocation, $1.getKind(), Optional.of($2), $5,
+        $$ = declarations.makeStruct($1.getLocation(), endLocation, $1.getKind(), Optional.of($2), $5,
                 Lists.<Attribute>chain($3, $7));
     }
     | STRUCT AT tag nesc_attributes LBRACE component_decl_list RBRACE maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($7.getEndLocation(), $8);
-        $$ = Declarations.makeStruct($1.getLocation(), endLocation, StructKind.ATTRIBUTE, Optional.of($3), $6,
+        $$ = declarations.makeStruct($1.getLocation(), endLocation, StructKind.ATTRIBUTE, Optional.of($3), $6,
                 Lists.<Attribute>chain($4, $8));
     }
     | structkind LBRACE component_decl_list RBRACE maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($4.getEndLocation(), $5);
-        $$ = Declarations.makeStruct($1.getLocation(), endLocation, $1.getKind(), Optional.<Word>absent(), $3, $5);
+        $$ = declarations.makeStruct($1.getLocation(), endLocation, $1.getKind(), Optional.<Word>absent(), $3, $5);
     }
     | ENUM tag nesc_attributes LBRACE enumlist maybecomma_warn RBRACE maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($7.getEndLocation(), $8);
-        $$ = Declarations.makeEnum($1.getLocation(), endLocation, Optional.of($2), $5, Lists.<Attribute>chain($3, $8));
+        $$ = declarations.makeEnum($1.getLocation(), endLocation, Optional.of($2), $5, Lists.<Attribute>chain($3, $8));
     }
     | ENUM LBRACE enumlist maybecomma_warn RBRACE maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($5.getEndLocation(), $6);
-        $$ = Declarations.makeEnum($1.getLocation(), endLocation, Optional.<Word>absent(), $3, $6);
+        $$ = declarations.makeEnum($1.getLocation(), endLocation, Optional.<Word>absent(), $3, $6);
     }
     ;
 
@@ -2773,37 +2868,37 @@ component_decl:
     {
         final Location startLocation = AstUtils.getStartLocation($1, $3).get();
         final Location endLocation = AstUtils.getEndLocation($3).get();
-        $$ = Declarations.makeDataDecl(startLocation, endLocation, $1, $3);
+        $$ = declarations.makeDataDecl(startLocation, endLocation, $1, $3);
         popDeclspecStack();
     }
     | declspecs_nosc_ts setspecs
     {
         final Location startLocation = AstUtils.getStartLocation($1).get();
         final Location endLocation = AstUtils.getEndLocation($1).get();
-        $$ = Declarations.makeDataDecl(startLocation, endLocation, $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(startLocation, endLocation, $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | declspecs_nosc_nots setspecs components_notype
     {
         final Location startLocation = AstUtils.getStartLocation($1, $3).get();
         final Location endLocation = AstUtils.getEndLocation($3).get();
-        $$ = Declarations.makeDataDecl(startLocation, endLocation, $1, $3);
+        $$ = declarations.makeDataDecl(startLocation, endLocation, $1, $3);
         popDeclspecStack();
     }
     | declspecs_nosc_nots setspecs
     {
         final Location startLocation = AstUtils.getStartLocation($1).get();
         final Location endLocation = AstUtils.getEndLocation($1).get();
-        $$ = Declarations.makeDataDecl(startLocation, endLocation, $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(startLocation, endLocation, $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | error
     {
-        $$ = Declarations.makeErrorDecl();
+        $$ = declarations.makeErrorDecl();
     }
     | extension component_decl
     {
-        $$ = Declarations.makeExtensionDecl($1.getLocation(), $2.getEndLocation(), $2);
+        $$ = declarations.makeExtensionDecl($1.getLocation(), $2.getEndLocation(), $2);
     }
     ;
 
@@ -2829,19 +2924,19 @@ component_declarator:
       declarator maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
-        $$ = Declarations.makeField($1.getLocation(), endLocation,
+        $$ = declarations.makeField($1.getLocation(), endLocation,
                 Optional.of($1), Optional.<Expression>absent(), pstate.declspecs, prefixAttr($2));
     }
     | declarator COLON expr_no_commas maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($3.getEndLocation(), $4);
-        $$ = Declarations.makeField($1.getLocation(), endLocation,
+        $$ = declarations.makeField($1.getLocation(), endLocation,
                 Optional.of($1), Optional.of($3), pstate.declspecs, prefixAttr($4));
     }
     | COLON expr_no_commas maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($2.getEndLocation(), $3);
-        $$ = Declarations.makeField($1.getLocation(), endLocation,
+        $$ = declarations.makeField($1.getLocation(), endLocation,
                 Optional.<Declarator>absent(), Optional.of($2), pstate.declspecs, prefixAttr($3));
     }
     ;
@@ -2850,19 +2945,19 @@ component_notype_declarator:
       notype_declarator maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
-        $$ = Declarations.makeField($1.getLocation(), endLocation,
+        $$ = declarations.makeField($1.getLocation(), endLocation,
                 Optional.of($1), Optional.<Expression>absent(), pstate.declspecs, prefixAttr($2));
     }
     | notype_declarator COLON expr_no_commas maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($3.getEndLocation(), $4);
-        $$ = Declarations.makeField($1.getLocation(), endLocation,
+        $$ = declarations.makeField($1.getLocation(), endLocation,
                 Optional.of($1), Optional.of($3), pstate.declspecs, prefixAttr($4));
     }
     | COLON expr_no_commas maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($2.getEndLocation(), $3);
-        $$ = Declarations.makeField($1.getLocation(), endLocation,
+        $$ = declarations.makeField($1.getLocation(), endLocation,
                 Optional.<Declarator>absent(), Optional.of($2), pstate.declspecs, prefixAttr($3));
     }
     ;
@@ -2880,12 +2975,13 @@ enumlist:
 enumerator:
       identifier
     {
-        $$ = Declarations.makeEnumerator($1.getLocation(), $1.getEndLocation(), $1.getValue(),
+        $$ = declarations.makeEnumerator(environment, $1.getLocation(), $1.getEndLocation(), $1.getValue(),
                 Optional.<Expression>absent());
     }
     | identifier EQ expr_no_commas
     {
-        $$ = Declarations.makeEnumerator($1.getLocation(), $3.getEndLocation(), $1.getValue(), Optional.of($3));
+        $$ = declarations.makeEnumerator(environment, $1.getLocation(), $3.getEndLocation(), $1.getValue(),
+                Optional.of($3));
     }
     ;
 
@@ -2894,7 +2990,7 @@ typename:
       declspecs_nosc absdcl
     {
         /* NOTICE: absdcl may be null! */
-        $$ = Declarations.makeType($1, Optional.<Declarator>fromNullable($2));
+        $$ = declarations.makeType($1, Optional.<Declarator>fromNullable($2));
     }
     ;
 
@@ -2917,7 +3013,7 @@ absdcl1_noea:
     { $$ = $1; }
     | STAR maybe_type_quals_attrs absdcl1_noea
     {
-        $$ = Declarations.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
+        $$ = declarations.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
     }
     ;
 
@@ -2925,11 +3021,11 @@ absdcl1_ea:
       STAR maybe_type_quals_attrs
     {
         final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
-        $$ = Declarations.makePointerDeclarator($1.getLocation(), endLocation, Optional.<Declarator>absent(), $2);
+        $$ = declarations.makePointerDeclarator($1.getLocation(), endLocation, Optional.<Declarator>absent(), $2);
     }
     | STAR maybe_type_quals_attrs absdcl1_ea
     {
-        $$ = Declarations.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
+        $$ = declarations.makePointerDeclarator($1.getLocation(), $3.getEndLocation(), Optional.of($3), $2);
     }
     ;
 
@@ -2943,16 +3039,20 @@ direct_absdcl1:
     }
     | direct_absdcl1 array_or_absfn_declarator
     {
-        final Declarator declarator = Declarations.finishArrayOrFnDeclarator($1, $2);
+        final Declarator declarator = declarations.finishArrayOrFnDeclarator($1, $2);
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
+            final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
+            funDeclarator.setEnvironment(environment);
             popLevel();
         }
         $$ = declarator;
     }
     | array_or_absfn_declarator
     {
-        final Declarator declarator = Declarations.finishArrayOrFnDeclarator(null, $1);
+        final Declarator declarator = declarations.finishArrayOrFnDeclarator(null, $1);
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
+            final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
+            funDeclarator.setEnvironment(environment);
             popLevel();
         }
         $$ = declarator;
@@ -2975,18 +3075,19 @@ array_or_absfn_declarator:
 
 // NOTICE: fn_quals do not even appear.
 fn_declarator:
-      parameters LPAREN parmlist_or_identifiers_1 fn_quals
+      parameters[generic_params] LPAREN[lparen] parmlist_or_identifiers_1[params] fn_quals[quals]
     {
-        final Location endLocation = AstUtils.getEndLocation($2.getEndLocation(), $3);
-        final FunctionDeclarator decl = new FunctionDeclarator($2.getLocation(), null, $3, $1, $4);
+        final Location startLocation = AstUtils.getStartLocation($lparen.getLocation(), $generic_params);
+        final Location endLocation = AstUtils.getEndLocation($lparen.getEndLocation(), $params);
+        final FunctionDeclarator decl = new FunctionDeclarator(startLocation, null, $params, $generic_params, $quals);
         decl.setEndLocation(endLocation);
         $$ = decl;
     }
-    | LPAREN parmlist_or_identifiers fn_quals
+    | LPAREN[lparen] parmlist_or_identifiers[params] fn_quals[quals]
     {
-        final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
-        final FunctionDeclarator decl = new FunctionDeclarator($1.getLocation(), null, $2,
-                Lists.<Declaration>newList(), $3);
+        final Location endLocation = AstUtils.getEndLocation($lparen.getEndLocation(), $params);
+        final FunctionDeclarator decl = new FunctionDeclarator($lparen.getLocation(), null, $params,
+                Lists.<Declaration>newList(), $quals);
         decl.setEndLocation(endLocation);
         $$ = decl;
     }
@@ -3068,7 +3169,7 @@ errstmt:
 pushlevel:
       /* empty */
     {
-        pushLevel(false);
+        pushLevel();
     }
     ;
 
@@ -3117,29 +3218,51 @@ compstmt_start:
 compstmt:
       compstmt_start pushlevel RBRACE
     {
-        popLevel();
         final CompoundStmt stmt = new CompoundStmt($1.getLocation(), Lists.<IdLabel>newList(),
                 Lists.<Declaration>newList(), Lists.<Statement>newList());
+        stmt.setEnvironment(environment);
         stmt.setEndLocation($3.getEndLocation());
+
+        environment.setScopeType(ScopeType.COMPOUND);
+        environment.setStartLocation($1.getLocation());
+        environment.setEndLocation($3.getEndLocation());
+        popLevel();
+
         $$ = stmt;
     }
     | compstmt_start pushlevel maybe_label_decls decls xstmts RBRACE
     {
-        popLevel();
         final CompoundStmt stmt = new CompoundStmt($1.getLocation(), $3, $4, $5);
+        stmt.setEnvironment(environment);
         stmt.setEndLocation($6.getEndLocation());
+
+        environment.setScopeType(ScopeType.COMPOUND);
+        environment.setStartLocation($1.getLocation());
+        environment.setEndLocation($6.getEndLocation());
+        popLevel();
+
         $$ = stmt;
     }
     | compstmt_start pushlevel maybe_label_decls error RBRACE
     {
+        environment.setScopeType(ScopeType.COMPOUND);
+        environment.setStartLocation($1.getLocation());
+        environment.setEndLocation($5.getEndLocation());
         popLevel();
+
         $$ = Statements.makeErrorStmt();
     }
     | compstmt_start pushlevel maybe_label_decls stmts RBRACE
     {
-        popLevel();
         final CompoundStmt stmt = new CompoundStmt($1.getLocation(), $3, Lists.<Declaration>newList(), $4);
+        stmt.setEnvironment(environment);
         stmt.setEndLocation($5.getEndLocation());
+
+        environment.setScopeType(ScopeType.COMPOUND);
+        environment.setStartLocation($1.getLocation());
+        environment.setEndLocation($5.getEndLocation());
+        popLevel();
+
         $$ = stmt;
     }
     ;
@@ -3499,7 +3622,12 @@ parmlist:
          * NOTICE: A strange thing, an action, even empty, MUST be in here.
          * If this action were removed, erroneous parser would be produced.
          */
-        pushLevel(true);
+        /*
+         * Scope of function parameters. See also comment for
+         * non-terminal parameters.
+         */
+        pushLevel();
+        environment.setScopeType(ScopeType.FUNCTION_PARAMETER);
     }
       parmlist_1
     {
@@ -3514,7 +3642,7 @@ parmlist_1:
     | parms SEMICOLON parmlist_1
     { $$ = Lists.<Declaration>chain($1, $3); }
     | error RPAREN
-    { $$ = Lists.<Declaration>newList(Declarations.makeErrorDecl()); }
+    { $$ = Lists.<Declaration>newList(declarations.makeErrorDecl()); }
     ;
 
 /*
@@ -3526,7 +3654,7 @@ parmlist_2:
     { $$ = Lists.<Declaration>newList(); }
     | ELLIPSIS
     {
-        $$ = Lists.<Declaration>newList(Declarations.makeErrorDecl());
+        $$ = Lists.<Declaration>newList(declarations.makeErrorDecl());
 		  /* Gcc used to allow this as an extension.  However, it does
 		   * not work for all targets, and thus has been disabled.
 		   * Also, since func (...) and func () are indistinguishable,
@@ -3559,33 +3687,33 @@ parms:
 parm:
       declspecs_ts xreferror parm_declarator maybe_attribute
     {
-        $$ = Declarations.declareParameter(Optional.of($3), $1, $4);
+        $$ = declarations.declareParameter(environment, Optional.of($3), $1, $4);
     }
     | declspecs_ts xreferror notype_declarator maybe_attribute
     {
-        $$ = Declarations.declareParameter(Optional.of($3), $1, $4);
+        $$ = declarations.declareParameter(environment, Optional.of($3), $1, $4);
     }
     | declspecs_ts xreferror absdcl
     {
         /* NOTE: absdcl may be null */
-        $$ = Declarations.declareParameter(Optional.fromNullable($3), $1, Lists.<Attribute>newList());
+        $$ = declarations.declareParameter(environment, Optional.fromNullable($3), $1, Lists.<Attribute>newList());
     }
     | declspecs_ts xreferror absdcl1_noea attributes
     {
-        $$ = Declarations.declareParameter(Optional.of($3), $1, $4);
+        $$ = declarations.declareParameter(environment, Optional.of($3), $1, $4);
     }
     | declspecs_nots xreferror notype_declarator maybe_attribute
     {
-        $$ = Declarations.declareParameter(Optional.of($3), $1, $4);
+        $$ = declarations.declareParameter(environment, Optional.of($3), $1, $4);
     }
     | declspecs_nots xreferror absdcl
     {
         /* NOTICE: absdcl may be null. */
-        $$ = Declarations.declareParameter(Optional.fromNullable($3), $1, Lists.<Attribute>newList());
+        $$ = declarations.declareParameter(environment, Optional.fromNullable($3), $1, Lists.<Attribute>newList());
     }
     | declspecs_nots xreferror absdcl1_noea attributes
     {
-        $$ = Declarations.declareParameter(Optional.of($3), $1, $4);
+        $$ = declarations.declareParameter(environment, Optional.of($3), $1, $4);
     }
     ;
 
@@ -3603,7 +3731,12 @@ xreferror:
  */
 parmlist_or_identifiers:
     {
-        pushLevel(true);
+        /*
+         * Scope of function parameters. See also comment for
+         * non-terminal parameters.
+         */
+        pushLevel();
+        environment.setScopeType(ScopeType.OTHER);
     }
       parmlist_or_identifiers_1
     { $$ = $2; }
@@ -3627,7 +3760,7 @@ identifiers:
 old_parameter:
       IDENTIFIER
     {
-        $$ = Declarations.declareOldParameter($1.getLocation(), $1.getEndLocation(), $1.getValue());
+        $$ = declarations.declareOldParameter(environment, $1.getLocation(), $1.getEndLocation(), $1.getValue());
     }
     ;
 
@@ -3664,68 +3797,68 @@ extension:
 scspec:
       TYPEDEF
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.TYPEDEF);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.TYPEDEF);
         wasTypedef = true;
         LOG.trace("Setting wasTypedef to true.");
     }
     | EXTERN
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.EXTERN);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.EXTERN);
     }
     | STATIC
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.STATIC);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.STATIC);
     }
     | AUTO
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.AUTO);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.AUTO);
     }
     | REGISTER
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.REGISTER);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.REGISTER);
     }
     | COMMAND
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.COMMAND);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.COMMAND);
     }
     | EVENT
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.EVENT);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.EVENT);
     }
     | ASYNC
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.ASYNC);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.ASYNC);
     }
     | TASK
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.TASK);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.TASK);
     }
     | NORACE
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.NORACE);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.NORACE);
     }
     | DEFAULT
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.DEFAULT);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.DEFAULT);
     }
     | INLINE
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.INLINE);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.INLINE);
     }
     ;
 
 type_qual:
       CONST
     {
-        $$ = Declarations.makeQualifier($1.getLocation(), $1.getEndLocation(), RID.CONST);
+        $$ = declarations.makeQualifier($1.getLocation(), $1.getEndLocation(), RID.CONST);
     }
     | RESTRICT
     {
-        $$ = Declarations.makeQualifier($1.getLocation(), $1.getEndLocation(), RID.RESTRICT);
+        $$ = declarations.makeQualifier($1.getLocation(), $1.getEndLocation(), RID.RESTRICT);
     }
     | VOLATILE
     {
-        $$ = Declarations.makeQualifier($1.getLocation(), $1.getEndLocation(), RID.VOLATILE);
+        $$ = declarations.makeQualifier($1.getLocation(), $1.getEndLocation(), RID.VOLATILE);
     }
     ;
 
@@ -3740,39 +3873,39 @@ fn_qual:
 type_spec:
       VOID
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.VOID);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.VOID);
     }
     | CHAR
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.CHAR);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.CHAR);
     }
     | SHORT
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.SHORT);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.SHORT);
     }
     | INT
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.INT);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.INT);
     }
     | LONG
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.LONG);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.LONG);
     }
     | FLOAT
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.FLOAT);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.FLOAT);
     }
     | DOUBLE
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.DOUBLE);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.DOUBLE);
     }
     | SIGNED
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.SIGNED);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.SIGNED);
     }
     | UNSIGNED
     {
-        $$ = Declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.UNSIGNED);
+        $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.UNSIGNED);
     }
     ;
 
@@ -3820,11 +3953,7 @@ string_chain:
      * Lexer wrapper.
      */
     private LexerWrapper lexer;
-    /**
-     * Symbol table. Enables to distinguish between IDENTIFIER and TYPENAME
-     * token. Shared with LexerWrapper.
-     */
-    private SymbolTable symbolTable;
+    private Environment environment;
     private ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder;
     private ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder;
     /**
@@ -3856,24 +3985,28 @@ string_chain:
      */
     private List<Declaration> extdefs;
 
+    private Declarations declarations;
+    private NescDeclarations nescDeclarations;
+
     /**
      * Creates parser.
      *
      * @param filePath              currently being parsed file path
      * @param lex                   lexer
-     * @param symbolTable           symbol table
+     * @param environment           global environment
      * @param fileType              fileType file type
      * @param tokensMultimapBuilder tokens multimap builder
+     * @param issuesMultimapBuilder issues multimap builder
      */
     public Parser(String filePath,
                   pl.edu.mimuw.nesc.lexer.Lexer lex,
-                  SymbolTable symbolTable,
+                  Environment environment,
                   FileType fileType,
                   ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
                   ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder) {
         Preconditions.checkNotNull(filePath, "file path cannot be null");
         Preconditions.checkNotNull(lex, "lexer cannot be null");
-        Preconditions.checkNotNull(symbolTable, "symbol table cannot be null");
+        Preconditions.checkNotNull(environment, "environment cannot be null");
         Preconditions.checkNotNull(fileType, "file type cannot be null");
         Preconditions.checkNotNull(tokensMultimapBuilder, "tokens multimap builder cannot be null");
         Preconditions.checkNotNull(issuesMultimapBuilder, "issues multimap builder cannot be null");
@@ -3881,16 +4014,18 @@ string_chain:
         this.filePath = filePath;
         this.fileType = fileType;
         this.currentEntityName = Files.getNameWithoutExtension(filePath);
-        this.symbolTable = symbolTable;
+        this.environment = environment;
         this.tokensMultimapBuilder = tokensMultimapBuilder;
         this.issuesMultimapBuilder = issuesMultimapBuilder;
         this.lex = lex;
-        this.lexer = new LexerWrapper(this.lex, this.symbolTable, this.tokensMultimapBuilder,
-                this.issuesMultimapBuilder);
+        this.lexer = new LexerWrapper(this.lex, this.tokensMultimapBuilder, this.issuesMultimapBuilder);
         this.yylexer = lexer;
 
         this.errors = false;
         this.pstate = new ParserState();
+
+        this.declarations = new Declarations(this.issuesMultimapBuilder, this.tokensMultimapBuilder);
+        this.nescDeclarations = new NescDeclarations(this.issuesMultimapBuilder, this.tokensMultimapBuilder);
 
         switch (fileType) {
             case HEADER:
@@ -3959,49 +4094,25 @@ string_chain:
 
     /**
      * Adds new scope on the top of scopes stack.
-     *
-     * @param isParmLevel is parameter level
      */
-    private void pushLevel(boolean isParmLevel) {
+    private void pushLevel() {
+        pushLevel(new DefaultEnvironment(this.environment));
+    }
+
+    private void pushLevel(Environment env) {
+        //System.out.println("PUSHLEVEL");
         LOG.trace("pushlevel");
-        this.symbolTable.pushLevel(isParmLevel);
+        this.environment = env;
     }
 
     /**
      * Removes scope from the top of stack.
      */
     private void popLevel() {
+        //System.out.println("POPLEVEL");
         // XXX: see detect_bogus_env in semantics.c
         LOG.trace("poplevel");
-        this.symbolTable.popLevel();
-    }
-
-    /**
-     * Adds identifier as a type's name to current scope.
-     *
-     * @param identifier identifier
-     */
-    private void addTypename(String identifier) {
-        this.symbolTable.add(identifier, Lexer.TYPEDEF_NAME);
-    }
-
-    /**
-     * Adds identifier as a component's name to current scope.
-     *
-     * @param identifier identifier
-     */
-    private void addComponentRef(String identifier) {
-        this.symbolTable.add(identifier, Lexer.COMPONENTREF);
-    }
-
-    /**
-     * Adds identifier as a plain identifier (e.g. variable or function name) to
-     * current scope.
-     *
-     * @param identifier identifier
-     */
-    private void addIdentifier(String identifier) {
-        this.symbolTable.add(identifier, Lexer.IDENTIFIER);
+        this.environment = this.environment.getParent().get();
     }
 
     /**
@@ -4021,28 +4132,6 @@ string_chain:
     }
 
     /**
-     * Declares identifier as a type name or variable/function/array/etc
-     * name depending on there was a TYPEDEF keyword in current declaration.
-     *
-     * @param declarator declarator
-     * @param elements   type elements
-     */
-    private void declareName(Declarator declarator, LinkedList<TypeElement> elements) {
-        final boolean isTypedef = TypeElementUtils.isTypedef(elements);
-        final String name = DeclaratorUtils.getDeclaratorName(declarator);
-        LOG.trace(format("Add %s %s;", (isTypedef ? "type" : "variable"), name));
-        if (isTypedef) {
-            addTypename(name);
-        } else {
-            addIdentifier(name);
-        }
-
-        if (this.symbolTable.isGlobalLevel() && this.parserListener != null) {
-            this.parserListener.globalId(name, isTypedef ? Lexer.TYPEDEF_NAME : Lexer.IDENTIFIER);
-        }
-    }
-
-    /**
      * Merges specified list of attributes with attributes kept in parser state.
      * The specified attributes will be placed after those from parser state.
      *
@@ -4056,7 +4145,7 @@ string_chain:
 
     private void requireInterface(Word ifaceName) {
         if (this.parserListener != null
-                && !this.parserListener.interfaceDependency(filePath, ifaceName.getName())) {
+                && !this.parserListener.interfaceDependency(filePath, ifaceName.getName(), ifaceName.getLocation())) {
             final String message = format("cannot find interface %s definition file", ifaceName.getName());
             error(ifaceName.getLocation(), Optional.of(ifaceName.getEndLocation()), message);
         }
@@ -4064,7 +4153,8 @@ string_chain:
 
     private void requireComponent(Word componentName) {
         if (this.parserListener != null
-                && !this.parserListener.componentDependency(filePath, componentName.getName())) {
+                && !this.parserListener.componentDependency(filePath, componentName.getName(),
+                        componentName.getLocation())) {
             final String message = format("cannot find component %s definition file", componentName.getName());
             error(componentName.getLocation(), Optional.of(componentName.getEndLocation()), message);
         }
@@ -4099,11 +4189,6 @@ string_chain:
          * A queue of pre-read tokens to deal with the lookahead.
          */
         private LinkedList<Symbol> tokenQueue;
-        /**
-         * Symbol table. Enables to distinguish between IDENTIFIER and TYPENAME
-         * token. Shared with LexerWrapper.
-         */
-        private SymbolTable symbolTable;
         private ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder;
         private ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder;
         /**
@@ -4111,24 +4196,20 @@ string_chain:
          */
         private Symbol symbol;
         /**
-         * For testing purposes.
-         */
-        private TokenPrinter tokenPrinter;
-        /**
          * Current symbol value.
          */
         private String value;
 
+        private IdentifierTypeVisitor identifierTypeVisitor;
+
         public LexerWrapper(pl.edu.mimuw.nesc.lexer.Lexer lexer,
-                            SymbolTable symbolTable,
                             ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
                             ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder) {
-            this.symbolTable = symbolTable;
             this.lexer = lexer;
             this.tokensMultimapBuilder = tokensMultimapBuilder;
             this.issuesMultimapBuilder = issuesMultimapBuilder;
             this.tokenQueue = new LinkedList<>();
-            this.tokenPrinter = new TokenPrinter();
+            this.identifierTypeVisitor = new IdentifierTypeVisitor();
         }
 
         @Override
@@ -4150,7 +4231,11 @@ string_chain:
              */
             if (symbol.getSymbolCode() == IDENTIFIER) {
                 final String name = symbol.getValue();
-                final int type = symbolTable.get(name);
+                final Optional<? extends ObjectDeclaration> declaration =
+                        Parser.this.environment.getObjects().get(name);
+                final int type = declaration.isPresent()
+                        ? declaration.get().accept(identifierTypeVisitor, null)
+                        : IDENTIFIER;
                 symbol.setSymbolCode(type);
             }
 

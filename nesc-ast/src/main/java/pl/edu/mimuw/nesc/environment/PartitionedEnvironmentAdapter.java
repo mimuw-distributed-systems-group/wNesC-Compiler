@@ -8,6 +8,8 @@ import pl.edu.mimuw.nesc.symboltable.Partition;
 import pl.edu.mimuw.nesc.symboltable.PartitionedSymbolTableAdapter;
 import pl.edu.mimuw.nesc.symboltable.SymbolTable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -18,17 +20,21 @@ import java.util.Map;
 public final class PartitionedEnvironmentAdapter implements Environment {
 
     private final PartitionedEnvironment partitionedEnvironment;
+    private final Map<String, Partition> visiblePartitions;
     private final SymbolTable<ObjectDeclaration> objects;
     private final SymbolTable<TagDeclaration> tags;
+    private final List<Environment> enclosedEnvironments;
 
     public PartitionedEnvironmentAdapter(PartitionedEnvironment partitionedEnvironment,
                                          Partition currentPartition,
                                          Map<String, Partition> visiblePartitions) {
         this.partitionedEnvironment = partitionedEnvironment;
+        this.visiblePartitions = visiblePartitions;
         this.objects = new PartitionedSymbolTableAdapter<>(this.partitionedEnvironment.getObjects(), currentPartition,
                 visiblePartitions);
         this.tags = new PartitionedSymbolTableAdapter<>(this.partitionedEnvironment.getTags(), currentPartition,
                 visiblePartitions);
+        this.enclosedEnvironments = new ArrayList<>();
     }
 
     @Override
@@ -48,7 +54,7 @@ public final class PartitionedEnvironmentAdapter implements Environment {
 
     @Override
     public Optional<Location> getStartLocation() {
-        return Optional.absent();
+        throw new RuntimeException();
     }
 
     @Override
@@ -58,11 +64,11 @@ public final class PartitionedEnvironmentAdapter implements Environment {
 
     @Override
     public Optional<Location> getEndLocation() {
-        return Optional.absent();
+        throw new RuntimeException();
     }
 
     @Override
-    public void setEndLocation(Location endLocation) {
+    public void setEndLocation(Location location) {
         throw new RuntimeException();
     }
 
@@ -74,5 +80,20 @@ public final class PartitionedEnvironmentAdapter implements Environment {
     @Override
     public void setScopeType(ScopeType type) {
         throw new RuntimeException();
+    }
+
+    @Override
+    public void addEnclosedEnvironment(Environment environment) {
+        this.enclosedEnvironments.add(environment);
+    }
+
+    @Override
+    public List<Environment> getEnclosedEnvironments() {
+        return this.enclosedEnvironments;
+    }
+
+
+    public Map<String, Partition> getVisiblePartitions() {
+        return visiblePartitions;
     }
 }

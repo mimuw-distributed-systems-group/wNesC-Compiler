@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.parser;
 
+import pl.edu.mimuw.nesc.ast.Location;
+
 /**
  * Parser callbacks listener.
  *
@@ -14,23 +16,16 @@ public interface ParserListener {
     void extdefsFinished();
 
     /**
-     * Called when global identifier or type was defined.
-     *
-     * @param id   identifier
-     * @param type type
-     */
-    void globalId(String id, Integer type);
-
-    /**
      * Called when currently being parsed component finds a dependency on
      * specified interface.
      *
      * @param currentEntityPath path of current entity
      * @param interfaceName     interface name
+     * @param visibleFrom       location of interface reference in source file
      * @return <code>true</code> if interface declaration was found,
      * <code>false</code> otherwise
      */
-    boolean interfaceDependency(String currentEntityPath, String interfaceName);
+    boolean interfaceDependency(String currentEntityPath, String interfaceName, Location visibleFrom);
 
     /**
      * Called when currently being parsed component finds a dependency on
@@ -38,9 +33,10 @@ public interface ParserListener {
      *
      * @param currentEntityPath path of current entity
      * @param componentName     name of component
+     * @param visibleFrom       location of component reference in source file
      * @return <code>true</code> if component declaration was found,
      * <code>false</code> otherwise
      */
-    boolean componentDependency(String currentEntityPath, String componentName);
+    boolean componentDependency(String currentEntityPath, String componentName, Location visibleFrom);
 
 }

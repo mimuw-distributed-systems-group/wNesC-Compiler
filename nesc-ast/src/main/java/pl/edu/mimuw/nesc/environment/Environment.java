@@ -6,6 +6,8 @@ import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.TagDeclaration;
 import pl.edu.mimuw.nesc.symboltable.SymbolTable;
 
+import java.util.List;
+
 /**
  * <p>Environment represents a stack of scopes of objects and tags.</p>
  *
@@ -43,7 +45,7 @@ public interface Environment {
     Optional<Location> getStartLocation();
 
     /**
-     * Sets start location.
+     * Sets start location of environment.
      *
      * @param location start location
      */
@@ -57,11 +59,11 @@ public interface Environment {
     Optional<Location> getEndLocation();
 
     /**
-     * Sets end location
+     * Sets end location of environment.
      *
-     * @param endLocation end location
+     * @param location end location
      */
-    void setEndLocation(Location endLocation);
+    void setEndLocation(Location location);
 
     /**
      * Get type of environment.
@@ -71,10 +73,24 @@ public interface Environment {
     ScopeType getScopeType();
 
     /**
-     * Sets scope type
+     * Sets scope type.
      *
      * @param type scope type
      */
     void setScopeType(ScopeType type);
+
+    /**
+     * Adds environment enclosed in current one.
+     *
+     * @param environment nested environment
+     */
+    void addEnclosedEnvironment(Environment environment);
+
+    /**
+     * Returns the list of environments that are enclosed in current one.
+     *
+     * @return list of nested environments
+     */
+    List<Environment> getEnclosedEnvironments();
 
 }

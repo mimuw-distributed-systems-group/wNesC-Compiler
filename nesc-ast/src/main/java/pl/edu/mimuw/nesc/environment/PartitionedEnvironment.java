@@ -36,7 +36,7 @@ public final class PartitionedEnvironment {
         this.tags.createPartition(partition);
     }
 
-    public void removeParition(Partition partition) {
+    public void removePartition(Partition partition) {
         this.objects.removePartition(partition);
         this.tags.removePartition(partition);
     }

@@ -32,13 +32,17 @@ public enum ScopeType {
      */
     SPECIFICATION,
     /**
-     * Nested in the specification scope. For configurations, the
-     * implementation scope contains the names by which this component
-     * refers to its included components. For modules, the implementation
+     * Nested in the specification scope. For modules, the implementation
      * holds the tasks, C declarations and definitions that form the module's
      * body.
      */
-    IMPLEMENTATION,
+    MODULE_IMPLEMENTATION,
+    /**
+     * Nested in the specification scope. For configurations, the
+     * implementation scope contains the names by which this component
+     * refers to its included components.
+     */
+    CONFIGURATION_IMPLEMENTATION,
     /**
      * Nested in either global scope or in implementation scope and contains
      * function's parameters and interface parameters (in case of events and
@@ -46,4 +50,5 @@ public enum ScopeType {
      */
     FUNCTION_PARAMETER,
     COMPOUND,
+    OTHER,
 }

@@ -7,8 +7,11 @@ import pl.edu.mimuw.nesc.ast.Location;
  */
 public class InterfaceRefDeclaration extends ObjectDeclaration {
 
-    public InterfaceRefDeclaration(String name, Location location) {
+    private final String interfaceRefName;
+
+    public InterfaceRefDeclaration(String interfaceRefName, String name, Location location) {
         super(name, location);
+        this.interfaceRefName = interfaceRefName;
     }
 
     @Override
@@ -16,4 +19,7 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
         return visitor.visit(this, arg);
     }
 
+    public String getInterfaceRefName() {
+        return interfaceRefName;
+    }
 }

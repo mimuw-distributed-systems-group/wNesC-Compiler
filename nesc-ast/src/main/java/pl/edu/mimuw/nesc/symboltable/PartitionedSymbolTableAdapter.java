@@ -3,7 +3,9 @@ package pl.edu.mimuw.nesc.symboltable;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -34,16 +36,26 @@ public class PartitionedSymbolTableAdapter<T extends Declaration> implements Sym
     }
 
     @Override
+    public Set<Map.Entry<String, T>> getAll() {
+        final Set<Map.Entry<String, T>> declarations = this.partitionedSymbolTable.getAll();
+        final Set<Map.Entry<String, T>> result = new HashSet<>();
+
+        for (Map.Entry<String, T> entry : declarations) {
+            if (contains(entry.getKey())) {
+                result.add(entry);
+            }
+        }
+
+        return result;
+    }
+
+    @Override
     public boolean contains(String name) {
         return getIfVisible(name).isPresent();
     }
 
     public void removePartition() {
         this.partitionedSymbolTable.removePartition(currentPartition);
-    }
-
-    public void addVisiblePartition(Partition partition) {
-        this.visiblePartitions.put(partition.getName(), partition);
     }
 
     private Optional<? extends T> getIfVisible(String name) {

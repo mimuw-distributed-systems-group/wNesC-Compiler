@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.lexer;
 
 import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
 import pl.edu.mimuw.nesc.token.MacroToken;
 
@@ -27,10 +28,11 @@ public interface LexerListener {
      * Called when preprocessor is about to include file.
      *
      * @param filePath file path
+     * @param line     line of include directive
      * @return <code>true</code> if specified file should be skipped,
      * <code>false</code> otherwise
      */
-    boolean beforeInclude(String filePath);
+    boolean beforeInclude(String filePath, int line);
 
     /**
      * Called when the preprocessor directive was recognized.

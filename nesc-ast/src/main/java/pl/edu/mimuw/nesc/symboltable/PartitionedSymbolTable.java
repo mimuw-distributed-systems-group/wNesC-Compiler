@@ -3,6 +3,9 @@ package pl.edu.mimuw.nesc.symboltable;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 
+import java.util.Map;
+import java.util.Set;
+
 /**
  * <p>Represent a symbol table which also divide keys into partitions.</p>
  * <p>PartitionedSymbolTable consists only of global scope.</p>
@@ -31,6 +34,13 @@ public interface PartitionedSymbolTable<T extends Declaration> {
      * otherwise
      */
     Optional<? extends T> get(String name);
+
+    /**
+     * Returns all declarations in current scope.
+     *
+     * @return declarations
+     */
+    Set<Map.Entry<String, T>> getAll();
 
     /**
      * Checks if table contains given identifier.

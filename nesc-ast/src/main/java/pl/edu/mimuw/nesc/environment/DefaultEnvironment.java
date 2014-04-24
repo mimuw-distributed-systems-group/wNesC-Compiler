@@ -7,6 +7,9 @@ import pl.edu.mimuw.nesc.declaration.tag.TagDeclaration;
 import pl.edu.mimuw.nesc.symboltable.DefaultSymbolTable;
 import pl.edu.mimuw.nesc.symboltable.SymbolTable;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * <p>Default implementation of environment.</p>
  * <p>Should be used for non-global scopes.</p>
@@ -18,11 +21,15 @@ public final class DefaultEnvironment implements Environment {
     private final Optional<Environment> parent;
     private final SymbolTable<ObjectDeclaration> objects;
     private final SymbolTable<TagDeclaration> tags;
+    private final List<Environment> enclosedEnvironments;
 
     private ScopeType type;
     private Optional<Location> startLocation;
     private Optional<Location> endLocation;
 
+    public DefaultEnvironment() {
+        this(null, Optional.<Environment>absent(), Optional.<Location>absent(), Optional.<Location>absent());
+    }
 
     public DefaultEnvironment(Environment parent) {
         this(null, Optional.of(parent), Optional.<Location>absent(), Optional.<Location>absent());
@@ -42,6 +49,10 @@ public final class DefaultEnvironment implements Environment {
                 Optional.<SymbolTable<TagDeclaration>>absent());
         this.startLocation = startLocation;
         this.endLocation = endLocation;
+        this.enclosedEnvironments = new ArrayList<>();
+        if (parent.isPresent()) {
+            parent.get().addEnclosedEnvironment(this);
+        }
     }
 
     @Override
@@ -75,8 +86,8 @@ public final class DefaultEnvironment implements Environment {
     }
 
     @Override
-    public void setEndLocation(Location endLocation) {
-        this.endLocation = Optional.of(endLocation);
+    public void setEndLocation(Location location) {
+        this.endLocation = Optional.of(location);
     }
 
     @Override
@@ -87,5 +98,15 @@ public final class DefaultEnvironment implements Environment {
     @Override
     public void setScopeType(ScopeType type) {
         this.type = type;
+    }
+
+    @Override
+    public void addEnclosedEnvironment(Environment environment) {
+        this.enclosedEnvironments.add(environment);
+    }
+
+    @Override
+    public List<Environment> getEnclosedEnvironments() {
+        return this.enclosedEnvironments;
     }
 }

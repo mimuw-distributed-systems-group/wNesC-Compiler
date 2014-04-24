@@ -46,6 +46,11 @@ public class DefaultPartitionedSymbolTable<T extends Declaration> implements Par
     }
 
     @Override
+    public Set<Map.Entry<String, T>> getAll() {
+        return this.symbols.entrySet();
+    }
+
+    @Override
     public boolean contains(String name) {
         return this.symbols.containsKey(name);
     }
@@ -59,7 +64,7 @@ public class DefaultPartitionedSymbolTable<T extends Declaration> implements Par
     @Override
     public void removePartition(Partition partition) {
         final String partitionName = partition.getName();
-        checkState(this.partitions.contains(partition), "partition " + partitionName + " does not exist");
+        //checkState(this.partitions.contains(partition), "partition " + partitionName + " does not exist");
         this.partitions.remove(partition);
         final Collection<String> toRemove = this.partitionedSymbols.removeAll(partitionName);
         for (String itemName : toRemove) {

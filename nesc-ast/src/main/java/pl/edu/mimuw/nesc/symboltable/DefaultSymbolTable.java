@@ -5,6 +5,7 @@ import pl.edu.mimuw.nesc.declaration.Declaration;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -42,6 +43,11 @@ public class DefaultSymbolTable<T extends Declaration> implements SymbolTable<T>
             return Optional.absent();
         }
         return parent.get().get(name);
+    }
+
+    @Override
+    public Set<Map.Entry<String, T>> getAll() {
+        return this.symbols.entrySet();
     }
 
     @Override

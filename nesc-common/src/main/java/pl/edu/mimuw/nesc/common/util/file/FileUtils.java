@@ -65,6 +65,17 @@ public final class FileUtils {
         }
     }
 
+    /**
+     * Returns normalized path. Removes redundant occurrences of
+     * <code>../</code>, <code>./</code>, etc when possible.
+     *
+     * @param filePath path to be normalized
+     * @return normalized path
+     */
+    public static String normalizePath(String filePath) {
+        return Files.simplifyPath(filePath);
+    }
+
     private FileUtils() {
     }
 }

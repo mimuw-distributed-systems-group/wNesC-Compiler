@@ -3,6 +3,8 @@ package pl.edu.mimuw.nesc.astbuilding;
 import com.google.common.base.Preconditions;
 import pl.edu.mimuw.nesc.ast.gen.*;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * Common operations on declarators.
  *
@@ -12,6 +14,7 @@ public final class DeclaratorUtils {
 
     private static final DeclaratorNameVisitor DECLARATOR_NAME_VISITOR = new DeclaratorNameVisitor();
     private static final IsFunctionDeclaratorVisitor IS_FUNCTION_DECLARATOR_VISITOR = new IsFunctionDeclaratorVisitor();
+    private static final FunctionDeclaratorExtractor FUNCTION_DECLARATOR_EXTRACTOR = new FunctionDeclaratorExtractor();
 
     /**
      * Gets declarator's name.
@@ -20,13 +23,18 @@ public final class DeclaratorUtils {
      * @return declarator's name
      */
     public static String getDeclaratorName(Declarator declarator) {
-        Preconditions.checkNotNull(declarator, "declarator cannot be null");
+        checkNotNull(declarator, "declarator cannot be null");
         return declarator.accept(DECLARATOR_NAME_VISITOR, null);
     }
 
     public static boolean isFunctionDeclarator(Declarator declarator) {
-        Preconditions.checkNotNull(declarator, "declarator cannot be null");
+        checkNotNull(declarator, "declarator cannot be null");
         return declarator.accept(IS_FUNCTION_DECLARATOR_VISITOR, null);
+    }
+
+    public static FunctionDeclarator getFunctionDeclarator(Declarator declarator) {
+        checkNotNull(declarator, "declarator cannot be null");
+        return declarator.accept(FUNCTION_DECLARATOR_EXTRACTOR, null);
     }
 
     private DeclaratorUtils() {
@@ -40,16 +48,6 @@ public final class DeclaratorUtils {
     private static class DeclaratorNameVisitor extends ExceptionVisitor<String, Void> {
 
         @Override
-        public String visitDeclarator(Declarator elem, Void arg) {
-            throw new IllegalStateException("Declarator object must not be instantiated.");
-        }
-
-        @Override
-        public String visitNestedDeclarator(NestedDeclarator elem, Void arg) {
-            return elem.getDeclarator().accept(this, null);
-        }
-
-        @Override
         public String visitFunctionDeclarator(FunctionDeclarator elem, Void arg) {
             return elem.getDeclarator().accept(this, null);
         }
@@ -61,7 +59,10 @@ public final class DeclaratorUtils {
 
         @Override
         public String visitQualifiedDeclarator(QualifiedDeclarator elem, Void arg) {
-            return elem.getDeclarator().accept(this, null);
+            if (elem.getDeclarator() != null) {
+                return elem.getDeclarator().accept(this, null);
+            }
+            return null;
         }
 
         @Override
@@ -81,22 +82,12 @@ public final class DeclaratorUtils {
 
         @Override
         public String visitInterfaceRefDeclarator(InterfaceRefDeclarator elem, Void arg) {
-            return elem.getName().getName();
+           return elem.getDeclarator().accept(this, null);
         }
 
     }
 
     private static class IsFunctionDeclaratorVisitor extends ExceptionVisitor<Boolean, Void> {
-
-        @Override
-        public Boolean visitDeclarator(Declarator elem, Void arg) {
-            throw new IllegalStateException("Declarator object must not be instantiated.");
-        }
-
-        @Override
-        public Boolean visitNestedDeclarator(NestedDeclarator elem, Void arg) {
-            return Boolean.FALSE;
-        }
 
         @Override
         public Boolean visitFunctionDeclarator(FunctionDeclarator elem, Void arg) {
@@ -133,6 +124,44 @@ public final class DeclaratorUtils {
             return Boolean.FALSE;
         }
 
+    }
+
+    private static class FunctionDeclaratorExtractor extends ExceptionVisitor<FunctionDeclarator, Void> {
+
+        @Override
+        public FunctionDeclarator visitFunctionDeclarator(FunctionDeclarator elem, Void arg) {
+            return elem;
+        }
+
+        @Override
+        public FunctionDeclarator visitPointerDeclarator(PointerDeclarator elem, Void arg) {
+            throw new IllegalStateException("Function declarator not found");
+        }
+
+        @Override
+        public FunctionDeclarator visitQualifiedDeclarator(QualifiedDeclarator elem, Void arg) {
+            return elem.getDeclarator().accept(this, null);
+        }
+
+        @Override
+        public FunctionDeclarator visitArrayDeclarator(ArrayDeclarator elem, Void arg) {
+            throw new IllegalStateException("Function declarator not found");
+        }
+
+        @Override
+        public FunctionDeclarator visitIdentifierDeclarator(IdentifierDeclarator elem, Void arg) {
+            throw new IllegalStateException("Function declarator not found");
+        }
+
+        @Override
+        public FunctionDeclarator visitGenericDeclarator(GenericDeclarator elem, Void arg) {
+            return elem.getDeclarator().accept(this, null);
+        }
+
+        @Override
+        public FunctionDeclarator visitInterfaceRefDeclarator(InterfaceRefDeclarator elem, Void arg) {
+            return elem.getDeclarator().accept(this, null);
+        }
     }
 
 }

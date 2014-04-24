@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.declaration;
 
 import com.google.common.base.Objects;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.symboltable.Partition;
 
 /**
@@ -14,6 +15,7 @@ public abstract class Declaration {
      * Partition should be set only for global declarations.
      */
     protected Partition partition;
+    protected Environment environment;
 
     protected Declaration(Location location) {
         this.location = location;
@@ -29,6 +31,15 @@ public abstract class Declaration {
 
     public void setPartition(Partition partition) {
         this.partition = partition;
+    }
+
+
+    public Environment getEnvironment() {
+        return environment;
+    }
+
+    public void setEnvironment(Environment environment) {
+        this.environment = environment;
     }
 
     @Override

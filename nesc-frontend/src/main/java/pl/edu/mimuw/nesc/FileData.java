@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
+import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.issue.NescIssue;
 import pl.edu.mimuw.nesc.lexer.Comment;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
@@ -37,13 +38,7 @@ public final class FileData {
         checkNotNull(fileCache, "file cache cannot be null");
 
         return builder()
-                .filePath(fileCache.getFilePath())
-                .entityRoot(fileCache.getEntityRoot().orNull())
-                .extdefs(fileCache.getExtdefs())
-                .comments(fileCache.getComments())
-                .preprocessorDirectives(fileCache.getPreprocessorDirectives())
-                .tokens(fileCache.getTokens())
-                .issues(fileCache.getIssues())
+                .fileCache(fileCache)
                 .build();
     }
 
@@ -54,6 +49,7 @@ public final class FileData {
     private final List<PreprocessorDirective> preprocessorDirectives;
     private final Multimap<Integer, Token> tokens;
     private final Multimap<Integer, NescIssue> issues;
+    private final Environment environment;
 
     // TODO: extends attributes list (e.g. macros...).
 
@@ -65,6 +61,7 @@ public final class FileData {
         this.preprocessorDirectives = builder.directivesBuilder.build();
         this.tokens = builder.tokens;
         this.issues = builder.issues;
+        this.environment = builder.environment;
     }
 
     public String getFilePath() {
@@ -95,6 +92,10 @@ public final class FileData {
         return issues;
     }
 
+    public Environment getEnvironment() {
+        return environment;
+    }
+
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
@@ -105,6 +106,7 @@ public final class FileData {
                 .add("preprocessorDirectives", preprocessorDirectives)
                 .add("tokens", tokens)
                 .add("issues", issues)
+                // environment
                 .toString();
     }
 
@@ -122,6 +124,7 @@ public final class FileData {
         private final ImmutableList.Builder<PreprocessorDirective> directivesBuilder;
         private Multimap<Integer, Token> tokens;
         private Multimap<Integer, NescIssue> issues;
+        private Environment environment;
 
         public Builder() {
             this.extdefsBuilder = new ImmutableList.Builder<>();
@@ -136,6 +139,8 @@ public final class FileData {
             this.commentsBuilder.addAll(cache.getComments());
             this.directivesBuilder.addAll(cache.getPreprocessorDirectives());
             this.tokens = cache.getTokens();
+            this.issues = cache.getIssues();
+            this.environment = cache.getEnvironment();
             return this;
         }
 
@@ -198,6 +203,11 @@ public final class FileData {
             return this;
         }
 
+        public Builder environment(Environment environment) {
+            this.environment = environment;
+            return this;
+        }
+
         public FileData build() {
             if (entityRoot == null) {
                 entityRoot = Optional.absent();
@@ -210,6 +220,7 @@ public final class FileData {
             checkState(filePath != null, "file path cannot be null");
             checkState(tokens != null, "tokens multimap cannot be null");
             checkState(issues != null, "issues multimap cannot be null");
+            checkState(environment != null, "environment cannot be null");
         }
     }
 

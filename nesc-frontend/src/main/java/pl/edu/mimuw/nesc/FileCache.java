@@ -8,6 +8,7 @@ import com.google.common.collect.Multimap;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.common.FileType;
+import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.issue.NescIssue;
 import pl.edu.mimuw.nesc.lexer.Comment;
 import pl.edu.mimuw.nesc.parser.Parser;
@@ -42,6 +43,7 @@ public class FileCache {
     private final Map<String, PreprocessorMacro> macros;
     private final Multimap<Integer, Token> tokens;
     private final Multimap<Integer, NescIssue> issues;
+    private final Environment environment;
 
     private FileCache(Builder builder) {
         this.filePath = builder.filePath;
@@ -54,6 +56,7 @@ public class FileCache {
         this.macros = builder.macros.build();
         this.tokens = builder.tokens;
         this.issues = builder.issues;
+        this.environment = builder.environment;
     }
 
     public String getFilePath() {
@@ -96,6 +99,10 @@ public class FileCache {
         return issues;
     }
 
+    public Environment getEnvironment() {
+        return environment;
+    }
+
     @Override
     public String toString() {
         return Objects.toStringHelper(this)
@@ -109,6 +116,7 @@ public class FileCache {
                 .add("macros", macros)
                 .add("tokens", tokens)
                 .add("issues", issues)
+                // environment
                 .toString();
     }
 
@@ -134,6 +142,7 @@ public class FileCache {
         private ImmutableMap.Builder<String, PreprocessorMacro> macros;
         private Multimap<Integer, Token> tokens;
         private Multimap<Integer, NescIssue> issues;
+        private Environment environment;
 
         public Builder() {
             this.globalScope = SymbolTable.Scope.ofGlobalScope();
@@ -209,6 +218,11 @@ public class FileCache {
             return this;
         }
 
+        public Builder environment(Environment environment) {
+            this.environment = environment;
+            return this;
+        }
+
         public FileCache build() {
             verify();
             return new FileCache(this);
@@ -219,6 +233,7 @@ public class FileCache {
             checkState(fileType!= null, "file type cannot be null");
             checkState(tokens != null, "tokens multimap cannot be null");
             checkState(issues != null, "issues multimap cannot be null");
+            checkState(environment != null, "environment cannot be null");
         }
 
     }

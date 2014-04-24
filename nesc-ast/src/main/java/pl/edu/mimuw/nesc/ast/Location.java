@@ -72,6 +72,7 @@ public final class Location implements Comparable<Location> {
         return Objects.toStringHelper(this)
                 .add("line", line)
                 .add("column", column)
+                .add("filePath", filePath)
                 .toString();
     }
 

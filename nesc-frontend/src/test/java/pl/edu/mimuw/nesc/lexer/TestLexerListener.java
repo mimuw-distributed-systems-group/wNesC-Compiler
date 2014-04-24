@@ -15,7 +15,7 @@ public abstract class TestLexerListener implements LexerListener {
     }
 
     @Override
-    public boolean beforeInclude(String filePath) {
+    public boolean beforeInclude(String filePath, int line) {
         return true;
     }
 

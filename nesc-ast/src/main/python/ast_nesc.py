@@ -199,7 +199,9 @@ class OldIdentifierDecl(BasicASTNode):
 
 class FunctionDecl(BasicASTNode):
     """
-    A function declaration.
+    <p>A function declaration.</p>
+    <p><code>declaration</code> can be function declaration or interface
+    reference.</p>
     """
     superclass = Declaration
     declarator = ReferenceField("Declarator")
@@ -209,7 +211,7 @@ class FunctionDecl(BasicASTNode):
     oldParms = ReferenceListField("Declaration", constructor_variable=0)
     body = ReferenceField("Statement")
     isNested = BoolField(visitable=False)
-    declaration = ReferenceField("FunctionDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("ObjectDeclaration", constructor_variable=0, visitable=False)
 
     # FIXME refactor attributes below
     parentFunction = ReferenceField("FunctionDecl", constructor_variable=0, visitable=False)
@@ -238,7 +240,7 @@ class VariableDecl(BasicASTNode):
     # ARG1 is an optional initialiser.
     initializer = ReferenceField("Expression")
     asmStmt = ReferenceField("AsmStmt")
-    declaration = ReferenceField("VariableDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("ObjectDeclaration", constructor_variable=0, visitable=False)
 
     # FIXME: refactor attributes below
     # DECLARED_TYPE is the type in this declaration (which may be different
@@ -383,8 +385,8 @@ class FunctionDeclarator(BasicASTNode):
     parameters = ReferenceListField("Declaration")
     genericParameters = ReferenceListField("Declaration")
     qualifiers = ReferenceListField("TypeElement")
-    #env = ReferenceField("Environment", constructor_variable=0, visitable=False)
-    returnType = ReferenceField("AstType", constructor_variable=0, visitable=False)
+    environment = ReferenceField("Environment", constructor_variable=0, visitable=False)
+    #returnType = ReferenceField("AstType", constructor_variable=0, visitable=False)
 
 
 # Pointer declarator *DECLARATOR
@@ -432,15 +434,16 @@ class AsmStmt(BasicASTNode):
     qualifiers = ReferenceListField("TypeElement")
 
 
-# { ID_LABELS DECLS STMTS }. The ID_LABELS are GCC-specific. ID_LABELS, DECLS,
-# STMTS are lists
-# ENV is the environment for the block
 class CompoundStmt(BasicASTNode):
+    """
+    <p>Represents a block with its own environment.</p>
+    <p>It can be body of function or statement.</p>
+    """
     superclass = Statement
     idLabels = ReferenceListField("IdLabel")
     declarations = ReferenceListField("Declaration")
     statements = ReferenceListField("Statement")
-    #env = ReferenceField("Environment", constructor_variable=0, visitable=False)
+    environment = ReferenceField("Environment", constructor_variable=0, visitable=False)
 
 
 # IF (CONDITION) STMT1 ELSE STMT2. STMT2 is optional
@@ -1117,7 +1120,7 @@ class InterfaceRef(BasicASTNode):
 class ComponentRef(BasicASTNode):
     superclass = Declaration
     name = ReferenceField("Word")
-    alias = ReferenceField("Word")
+    alias = ReferenceField("Word", constructor_variable=0, optional=True)
     isAbstract = BoolField()
     arguments = ReferenceListField("Expression")
     declaration = ReferenceField("ComponentRefDeclaration", constructor_variable=0, visitable=False)

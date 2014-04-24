@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc;
 
+import pl.edu.mimuw.nesc.environment.NescEnvironment;
 import pl.edu.mimuw.nesc.filesgraph.FilesGraph;
 import pl.edu.mimuw.nesc.option.OptionsHolder;
 
@@ -22,6 +23,8 @@ public final class FrontendContext {
     private final Map<String, FileCache> cache;
     private final Map<String, FileData> fileDatas;
 
+    private final NescEnvironment nescEnvironment;
+
     public FrontendContext(OptionsHolder options) {
         this.options = options;
         this.predefinedMacros = options.getPredefinedMacros();
@@ -36,7 +39,7 @@ public final class FrontendContext {
         this.filesGraph = new FilesGraph();
         this.cache = new HashMap<>();
         this.fileDatas = new HashMap<>();
-
+        this.nescEnvironment = new NescEnvironment();
     }
 
     public OptionsHolder getOptions() {
@@ -65,6 +68,10 @@ public final class FrontendContext {
 
     public List<String> getDefaultIncludeFiles() {
         return defaultIncludeFiles;
+    }
+
+    public NescEnvironment getNescEnvironment() {
+        return nescEnvironment;
     }
 
     /**

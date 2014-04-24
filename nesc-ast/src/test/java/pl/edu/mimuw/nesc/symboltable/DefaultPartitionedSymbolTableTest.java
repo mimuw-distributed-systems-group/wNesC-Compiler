@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.symboltable;
 
 import com.google.common.base.Optional;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -94,6 +95,7 @@ public class DefaultPartitionedSymbolTableTest {
     }
 
     @Test
+    @Ignore /* Sometimes we want to call removePartition without checking if it exists. */
     public void exceptionWhenRemovingNotExistingPartition() {
         thrown.expect(IllegalStateException.class);
         thrown.expectMessage("partition " + partition1.getName() + " does not exist");
