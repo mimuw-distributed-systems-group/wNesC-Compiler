@@ -55,8 +55,8 @@ public final class Declarations extends AstBuildingBase {
          * Consider the following example :)
          * int (*max)(int, int) = ({ int __fn__ (int x, int y) { return x > y ? x : y; } __fn__; });
          */
-        final VariableDecl variableDecl = new VariableDecl(declarator.getLocation(), declarator, attributes, null,
-                asmStmt.orNull());
+        final VariableDecl variableDecl = new VariableDecl(declarator.getLocation(), Optional.of(declarator),
+                attributes, asmStmt);
 
         if (!initialised) {
             final Location endLocation = AstUtils.getEndLocation(
@@ -66,15 +66,15 @@ public final class Declarations extends AstBuildingBase {
             variableDecl.setEndLocation(endLocation);
         }
 
-        final StartDeclarationVisitor declarationVisitor = new StartDeclarationVisitor(environment, declarator, asmStmt,
-                elements, attributes);
+        final StartDeclarationVisitor declarationVisitor = new StartDeclarationVisitor(environment,variableDecl,
+                declarator, asmStmt, elements, attributes);
         declarator.accept(declarationVisitor, null);
         final Optional<? extends ObjectDeclaration> objectDeclaration = declarationVisitor.getObjectDeclaration();
 
         if (objectDeclaration.isPresent()) {
             final ObjectDeclaration declaration = objectDeclaration.get();
             if (!environment.getObjects().add(declaration.getName(), declaration)) {
-                error(declarator.getLocation(), Optional.of(declarator.getEndLocation()),
+                errorHelper.error(declarator.getLocation(), Optional.of(declarator.getEndLocation()),
                         format("redeclaration of '%s'", declaration.getName()));
             }
             variableDecl.setDeclaration(declaration);
@@ -90,7 +90,7 @@ public final class Declarations extends AstBuildingBase {
             final Location endLocation = initializer.get().getEndLocation();
             declaration.setEndLocation(endLocation);
         }
-        declaration.setInitializer(initializer.orNull());
+        declaration.setInitializer(initializer);
         return declaration;
     }
 
@@ -127,25 +127,46 @@ public final class Declarations extends AstBuildingBase {
         return declarator;
     }
 
-    public FunctionDecl startFunction(Environment environment, Location startLocation,
-                                      LinkedList<TypeElement> modifiers, Declarator declarator,
-                                      LinkedList<Attribute> attributes, boolean isNested) {
+    /**
+     * <p>Starts definition of function.</p>
+     * <p>NOTICE: The <code>declarator</code> may not be function declarator but
+     * an identifier declarator. This may happen when variable is declared,
+     * e.g. <code>message_t packet;</code> and <code>message_t</code> token is
+     * not recognized as typedef name.</p>
+     *
+     * @param environment   current environment
+     * @param startLocation start location
+     * @param modifiers     modifiers
+     * @param declarator    function declarator
+     * @param attributes    attributes
+     * @param isNested      <code>true</code> for nested functions
+     * @return function declaration or <code>Optional.absent()</code> when
+     * error occurs
+     */
+    public Optional<FunctionDecl> startFunction(Environment environment, Location startLocation,
+                                                LinkedList<TypeElement> modifiers, Declarator declarator,
+                                                LinkedList<Attribute> attributes, boolean isNested) {
         final FunctionDecl functionDecl = new FunctionDecl(startLocation, declarator, modifiers, attributes,
                 null, isNested);
 
         final StartFunctionVisitor startVisitor = new StartFunctionVisitor();
-        declarator.accept(startVisitor, null);
+        try {
+            declarator.accept(startVisitor, null);
+        } catch (RuntimeException e) {
+            /* Return absent. Syntax error should be reported. */
+            return Optional.absent();
+        }
         final ObjectDeclaration symbol = startVisitor.getObjectDeclaration();
 
         if (!environment.getObjects().add(symbol.getName(), symbol)) {
-            error(declarator.getLocation(), Optional.of(declarator.getEndLocation()),
+            errorHelper.error(declarator.getLocation(), Optional.of(declarator.getEndLocation()),
                     format("redeclaration of '%s'", symbol.getName()));
         }
         functionDecl.setDeclaration(symbol);
 
         // TODO: add to tokens
 
-        return functionDecl;
+        return Optional.of(functionDecl);
     }
 
     public FunctionDecl setOldParams(FunctionDecl functionDecl, LinkedList<Declaration> oldParams) {
@@ -186,8 +207,9 @@ public final class Declarations extends AstBuildingBase {
             varStartLocation = getStartLocation(elements).get();
             varEndLocation = getEndLocation(elements, attributes).get();
         }
-        final VariableDecl variableDecl = new VariableDecl(varStartLocation, declarator.orNull(), attributes,
-                null, null);
+        final VariableDecl variableDecl = new VariableDecl(varStartLocation, declarator, attributes,
+                Optional.<AsmStmt>absent());
+        variableDecl.setInitializer(Optional.<Expression>absent());
         variableDecl.setEndLocation(varEndLocation);
 
         /*
@@ -198,11 +220,12 @@ public final class Declarations extends AstBuildingBase {
             if (name != null) {
                 final VariableDeclaration symbol = new VariableDeclaration(name, declarator.get().getLocation());
                 if (!environment.getObjects().add(name, symbol)) {
-                    error(declarator.get().getLocation(), Optional.of(declarator.get().getEndLocation()),
+                    errorHelper.error(declarator.get().getLocation(), Optional.of(declarator.get().getEndLocation()),
                             format("redeclaration of '%s'", name));
                 }
                 variableDecl.setDeclaration(symbol);
             }
+            // TODO: name could be null here?
         } else {
             // TODO: definition consist only from modifiers, qualifiers, etc.
         }
@@ -282,7 +305,7 @@ public final class Declarations extends AstBuildingBase {
 
         final ConstantDeclaration symbol = new ConstantDeclaration(id, startLocation);
         if (!environment.getObjects().add(id, symbol)) {
-            error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", id));
+            errorHelper.error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", id));
         }
         enumerator.setDeclaration(symbol);
 
@@ -392,38 +415,41 @@ public final class Declarations extends AstBuildingBase {
         }
 
         @Override
-        public Void visitFunctionDeclarator(FunctionDeclarator elem, Void arg) {
-            final Location startLocation = elem.getLocation();
-            final Declarator innerDeclarator = elem.getDeclarator();
+        public Void visitFunctionDeclarator(FunctionDeclarator funDeclarator, Void arg) {
+            final Location startLocation = funDeclarator.getLocation();
+            final Declarator innerDeclarator = funDeclarator.getDeclarator();
 
             /* C function */
             if (innerDeclarator instanceof IdentifierDeclarator) {
-                identifierDeclarator((IdentifierDeclarator) innerDeclarator, startLocation);
+                identifierDeclarator(funDeclarator, (IdentifierDeclarator) innerDeclarator, startLocation);
             }
             /* command/event/task */
             else if (innerDeclarator instanceof InterfaceRefDeclarator) {
-                interfaceRefDeclarator((InterfaceRefDeclarator) innerDeclarator, startLocation);
+                interfaceRefDeclarator(funDeclarator, (InterfaceRefDeclarator) innerDeclarator, startLocation);
             } else {
                 throw new IllegalStateException("Unexpected declarator class " + innerDeclarator.getClass());
             }
             return null;
         }
 
-        private void identifierDeclarator(IdentifierDeclarator identifierDeclarator, Location startLocation) {
+        private void identifierDeclarator(FunctionDeclarator funDeclarator, IdentifierDeclarator identifierDeclarator,
+                                          Location startLocation) {
             final String name = identifierDeclarator.getName();
             final FunctionDeclaration functionDeclaration = new FunctionDeclaration(name, startLocation);
+            functionDeclaration.setAstFunctionDeclarator(funDeclarator);
             objectDeclaration = functionDeclaration;
         }
 
-        private void interfaceRefDeclarator(InterfaceRefDeclarator refDeclaration, Location startLocation) {
+        private void interfaceRefDeclarator(FunctionDeclarator funDeclarator, InterfaceRefDeclarator refDeclaration,
+                                            Location startLocation) {
             final String ifaceName = refDeclaration.getName().getName();
             final Declarator innerDeclarator = refDeclaration.getDeclarator();
 
             if (innerDeclarator instanceof IdentifierDeclarator) {
                 final IdentifierDeclarator idDeclarator = (IdentifierDeclarator) innerDeclarator;
                 final String callableName = idDeclarator.getName();
-                final InterfaceRefDeclaration declaration = new InterfaceRefDeclaration(ifaceName, callableName,
-                        startLocation);
+                final FunctionDeclaration declaration = new FunctionDeclaration(callableName, startLocation, ifaceName);
+                declaration.setAstFunctionDeclarator(funDeclarator);
                 objectDeclaration = declaration;
             } else {
                 throw new IllegalStateException("Unexpected declarator class " + innerDeclarator.getClass());
@@ -435,13 +461,16 @@ public final class Declarations extends AstBuildingBase {
     @SuppressWarnings("UnusedDeclaration")
     private static class StartDeclarationVisitor extends ExceptionVisitor<Void, Void> {
 
-        private LinkedList<TypeElement> elements;
+        private final VariableDecl variableDecl;
+        private final LinkedList<TypeElement> elements;
 
         private Optional<? extends ObjectDeclaration> objectDeclaration;
         private Optional<? extends Token> token;
 
-        StartDeclarationVisitor(Environment environment, Declarator declarator, Optional<AsmStmt> asmStmt,
-                                LinkedList<TypeElement> elements, LinkedList<Attribute> attributes) {
+        StartDeclarationVisitor(Environment environment, VariableDecl variableDecl, Declarator declarator,
+                                Optional<AsmStmt> asmStmt, LinkedList<TypeElement> elements,
+                                LinkedList<Attribute> attributes) {
+            this.variableDecl = variableDecl;
             this.elements = elements;
         }
 
@@ -454,7 +483,7 @@ public final class Declarations extends AstBuildingBase {
         }
 
         @Override
-        public Void visitFunctionDeclarator(FunctionDeclarator elem, Void arg) {
+        public Void visitFunctionDeclarator(FunctionDeclarator funDeclarator, Void arg) {
             /*
              * Function declaration (not definition!). There can be many
              * declarations but only one definition.
@@ -463,8 +492,10 @@ public final class Declarations extends AstBuildingBase {
              */
             // TODO provide "chain" of consecutive declaration and definitions
             // of the same function to be able to check their equality.
-            final String name = getDeclaratorName(elem);
-            final FunctionDeclaration declaration = new FunctionDeclaration(name, elem.getLocation());
+            variableDecl.setForward(true);
+            final String name = getDeclaratorName(funDeclarator);
+            final FunctionDeclaration declaration = new FunctionDeclaration(name, funDeclarator.getLocation());
+            declaration.setAstFunctionDeclarator(funDeclarator);
             objectDeclaration = Optional.of(declaration);
             return null;
         }

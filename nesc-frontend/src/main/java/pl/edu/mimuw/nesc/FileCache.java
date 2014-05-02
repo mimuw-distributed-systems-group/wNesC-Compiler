@@ -35,7 +35,6 @@ public class FileCache {
 
     private final String filePath;
     private final FileType fileType;
-    private final SymbolTable.Scope globalScope;
     private final Optional<Node> entityRoot;
     private final List<Declaration> extdefs;
     private final List<Comment> comments;
@@ -48,7 +47,6 @@ public class FileCache {
     private FileCache(Builder builder) {
         this.filePath = builder.filePath;
         this.fileType = builder.fileType;
-        this.globalScope = builder.globalScope;
         this.entityRoot = Optional.fromNullable(builder.entityRoot);
         this.extdefs = builder.extdefs.build();
         this.comments = builder.comments.build();
@@ -65,10 +63,6 @@ public class FileCache {
 
     public FileType getFileType() {
         return fileType;
-    }
-
-    public SymbolTable.Scope getGlobalScope() {
-        return globalScope;
     }
 
     public Optional<Node> getEntityRoot() {
@@ -108,7 +102,6 @@ public class FileCache {
         return Objects.toStringHelper(this)
                 .add("filePath", filePath)
                 .add("fileType", fileType)
-                .add("globalScope", globalScope)
                 .add("entityRoot", entityRoot)
                 .add("extdefs", extdefs)
                 .add("comments", comments)
@@ -134,7 +127,6 @@ public class FileCache {
 
         private String filePath;
         private FileType fileType;
-        private SymbolTable.Scope globalScope;
         private Node entityRoot;
         private ImmutableList.Builder<Declaration> extdefs;
         private ImmutableList.Builder<Comment> comments;
@@ -145,7 +137,6 @@ public class FileCache {
         private Environment environment;
 
         public Builder() {
-            this.globalScope = SymbolTable.Scope.ofGlobalScope();
             this.extdefs = ImmutableList.builder();
             this.comments = ImmutableList.builder();
             this.preprocessorDirectives = ImmutableList.builder();
@@ -159,13 +150,6 @@ public class FileCache {
 
         public Builder fileType(FileType fileType) {
             this.fileType = fileType;
-            return this;
-        }
-
-        public Builder globalId(String name, int type) {
-            checkArgument(ID_TOKEN_TYPES.contains(type),
-                    "unknown type " + type + "; expected one of " + ID_TOKEN_TYPES);
-            this.globalScope.add(name, type);
             return this;
         }
 

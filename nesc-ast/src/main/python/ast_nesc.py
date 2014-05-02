@@ -231,21 +231,25 @@ class ImplicitDecl(BasicASTNode):
     ident = ReferenceField("Identifier")
 
 
-# Declaration of DECLARATOR ASM_STMT ATTRIBUTES = ARG1.
 class VariableDecl(BasicASTNode):
+    """
+    <p>Declaration of the following syntax:
+    <code>declarator asm_stmt attributes [= initializer]</code>.</p>
+    <p>The name of the node is misleading, it corresponds not only to
+    variable declaration, but also typedef declaration or
+    function forward declaration.<p>
+    """
     superclass = Declaration
-    declarator = ReferenceField("Declarator")
-    # ATTRIBUTES is a list. ASM_STMT is optional (GCC specific).
+    declarator = ReferenceField("Declarator", optional=True)
     attributes = ReferenceListField("Attribute")
-    # ARG1 is an optional initialiser.
-    initializer = ReferenceField("Expression")
-    asmStmt = ReferenceField("AsmStmt")
+    initializer = ReferenceField("Expression", constructor_variable=0, optional=True)
+    asmStmt = ReferenceField("AsmStmt", optional=True)
     declaration = ReferenceField("ObjectDeclaration", constructor_variable=0, visitable=False)
 
     # FIXME: refactor attributes below
     # DECLARED_TYPE is the type in this declaration (which may be different
     # than that in DDECL->TYPE).
-    declaredType = ReferenceField("Type", constructor_variable=0, visitable=False)
+    #declaredType = ReferenceField("Type", constructor_variable=0, visitable=False)
     # FORWARD is true for parameters that are forward declarations.
     forward = BoolField(constructor_variable=0, visitable=False)
 
@@ -383,7 +387,7 @@ class NestedDeclarator(BasicASTNode):
 class FunctionDeclarator(BasicASTNode):
     superclass = NestedDeclarator
     parameters = ReferenceListField("Declaration")
-    genericParameters = ReferenceListField("Declaration")
+    genericParameters = ReferenceListField("Declaration", optional=True)
     qualifiers = ReferenceListField("TypeElement")
     environment = ReferenceField("Environment", constructor_variable=0, visitable=False)
     #returnType = ReferenceField("AstType", constructor_variable=0, visitable=False)
@@ -1010,18 +1014,22 @@ class NescDecl(BasicASTNode):
 
 
 class Interface(BasicASTNode):
+    """ Interface definition. """
     superclass = NescDecl
-    parameters = ReferenceListField("Declaration")
+    parameters = ReferenceListField("Declaration", optional=True)
     declarations = ReferenceListField("Declaration")
     declaration = ReferenceField("InterfaceDeclaration", constructor_variable=0, visitable=False)
 
 
 class Component(BasicASTNode):
+    """ Base class for nesc component. """
     superclass = NescDecl
     isAbstract = BoolField()
-    parameters = ReferenceListField("Declaration")
+    parameters = ReferenceListField("Declaration", optional=True)
     declarations = ReferenceListField("Declaration")
     implementation = ReferenceField("Implementation")
+    parameterEnvironment = ReferenceField("Environment", constructor_variable=0, visitable=False)
+    specificationEnvironment = ReferenceField("Environment", constructor_variable=0, visitable=False)
 
 
 class Configuration(BasicASTNode):
@@ -1040,8 +1048,7 @@ class BinaryComponent(BasicASTNode):
 
 class Implementation(BasicASTNode):
     superclass = Node
-    # FIXME
-    #ienv = ReferenceField("Environment", constructor_variable=0, visitable=False)
+    environment = ReferenceField("Environment", constructor_variable=0, visitable=False)
     #cdecl = ReferenceField("NescDeclaration", constructor_variable=0, visitable=False)
 
 
@@ -1096,7 +1103,7 @@ class ProvidesInterface(BasicASTNode):
 
 class InterfaceRef(BasicASTNode):
     """
-    <p>Interface reference in components.</p>
+    <p>Interface reference in component specification.</p>
     <p>'uses'/'provides' 'interface' NAME '<'ARGUMENTS'>' '['GENERIC_PARAMETERS']' 'as' ALIAS ATTRIBUTES;</p>
 
     <pre>
@@ -1110,11 +1117,11 @@ class InterfaceRef(BasicASTNode):
     """
     superclass = Declaration
     name = ReferenceField("Word")
-    arguments = ReferenceListField("Expression")
-    alias = ReferenceField("Word")
-    genericParameters = ReferenceListField("Declaration")
-    attributes = ReferenceListField("Attribute")
-    declaration = ReferenceField("InterfaceRefDeclaration", constructor_variable=0, visitable=False)
+    arguments = ReferenceListField("Expression", optional=True)
+    alias = ReferenceField("Word", constructor_variable=False, optional=True)
+    genericParameters = ReferenceListField("Declaration", constructor_variable=False, optional=True)
+    attributes = ReferenceListField("Attribute", constructor_variable=False)
+    declaration = ReferenceField("InterfaceRefDeclaration", constructor_variable=False, visitable=False)
 
 
 class ComponentRef(BasicASTNode):

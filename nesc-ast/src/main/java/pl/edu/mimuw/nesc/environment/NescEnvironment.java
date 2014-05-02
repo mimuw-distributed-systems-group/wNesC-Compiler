@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.environment;
 
+import pl.edu.mimuw.nesc.declaration.nesc.NescDeclaration;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -11,15 +13,15 @@ import java.util.Map;
  */
 public final class NescEnvironment {
 
-    private final Map<String, Object> entities;
+    private final NescEntityEnvironment entities;
     private final PartitionedEnvironment global;
 
     public NescEnvironment() {
-        this.entities = new HashMap<>();
+        this.entities = new NescEntityEnvironment();
         this.global = new PartitionedEnvironment();
     }
 
-    public Map<String, Object> getEntities() {
+    public NescEntityEnvironment getEntities() {
         return entities;
     }
 

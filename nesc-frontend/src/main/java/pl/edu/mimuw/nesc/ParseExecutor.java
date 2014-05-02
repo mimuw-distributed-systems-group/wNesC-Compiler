@@ -6,7 +6,9 @@ import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
+import pl.edu.mimuw.nesc.ast.gen.Printer;
 import pl.edu.mimuw.nesc.common.FileType;
+import pl.edu.mimuw.nesc.common.util.file.FileUtils;
 import pl.edu.mimuw.nesc.environment.PartitionedEnvironmentAdapter;
 import pl.edu.mimuw.nesc.exception.LexerException;
 import pl.edu.mimuw.nesc.filesgraph.GraphFile;
@@ -22,6 +24,7 @@ import pl.edu.mimuw.nesc.parser.Parser;
 import pl.edu.mimuw.nesc.parser.ParserListener;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
+import pl.edu.mimuw.nesc.semantic.nesc.NescEntityBuilder;
 import pl.edu.mimuw.nesc.symboltable.Partition;
 import pl.edu.mimuw.nesc.token.MacroToken;
 import pl.edu.mimuw.nesc.token.Token;
@@ -33,6 +36,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static pl.edu.mimuw.nesc.common.FileType.C;
 import static pl.edu.mimuw.nesc.common.FileType.HEADER;
 import static pl.edu.mimuw.nesc.common.util.file.FileUtils.fileTypeFromExtension;
+import static pl.edu.mimuw.nesc.common.util.file.FileUtils.getFileNameWithoutExtension;
 import static pl.edu.mimuw.nesc.filesgraph.walker.FilesGraphWalkerFactory.ofDfsPostOrderWalker;
 
 /**
@@ -140,6 +144,7 @@ public final class ParseExecutor {
         private String currentFilePath;
         private FileType fileType;
 
+        private Optional<Node> entity;
 
         /**
          * Creates parse file executor.
@@ -195,6 +200,14 @@ public final class ParseExecutor {
 
             /* Clear cache for current file. */
             context.getCache().remove(currentFilePath);
+
+            /* Remove nesc entity from environment. */
+            if (fileType == FileType.NESC) {
+                /* We assume that entity name is the same as file name. */
+                final String entityName = getFileNameWithoutExtension(currentFilePath);
+                LOG.info("Removing entity: " + entityName);
+                context.getNescEnvironment().getEntities().remove(entityName);
+            }
 
             /* Set environment. */
             this.currentPartition = new Partition(filePath);
@@ -272,7 +285,7 @@ public final class ParseExecutor {
                 handlePublicMacros(lexer.getMacros());
             }
 
-            final Optional<Node> entity = parser.getEntityRoot();
+            this.entity = parser.getEntityRoot();
             if (entity.isPresent() || !FileType.NESC.equals(fileType)) {
                 LOG.debug("AST was built successfully.");
             } else {
@@ -292,7 +305,11 @@ public final class ParseExecutor {
         }
 
         private void semantic() {
-            // TODO
+            final NescEntityBuilder builder = new NescEntityBuilder(this.issuesListBuilder,
+                    this.context.getNescEnvironment().getEntities());
+            if (entity.isPresent()) {
+                entity.get().accept(builder, null);
+            }
         }
 
         private void finish() {

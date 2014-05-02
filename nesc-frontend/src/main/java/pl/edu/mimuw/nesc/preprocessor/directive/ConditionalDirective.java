@@ -11,7 +11,7 @@ public abstract class ConditionalDirective extends PreprocessorDirective {
      *
      * @param builder builder.
      */
-    protected ConditionalDirective(Builder builder) {
+    protected ConditionalDirective(Builder<? extends ConditionalDirective> builder) {
         super(builder);
     }
 

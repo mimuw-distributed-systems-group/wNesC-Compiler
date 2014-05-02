@@ -1098,7 +1098,7 @@ class ReferenceListField(BasicASTNodeField):
                 res += tab * 4 + '}}\n'
                 res += tab * 4 + 'System.out.printf("]; ");\n'
                 res += tab * 3 + '}} else {{\n'
-                res += tab * 4 + 'System.out.printf("%s: %s", elem.get{0}());\n'
+                res += tab * 4 + 'System.out.printf("%s", elem.get{0}());\n'
                 res += tab * 3 + '}}\n'
                 res += tab * 2 + '}} else {{\n'
                 res += tab * 3 + 'System.out.printf("%s: null; ", "{0}");\n'

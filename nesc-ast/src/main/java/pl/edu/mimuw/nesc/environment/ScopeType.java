@@ -18,7 +18,7 @@ public enum ScopeType {
     INTERFACE_PARAMETER,
     /**
      * Nested in interface parameter scope and contains the interface's
-     * commands nad events.
+     * commands and events.
      */
     INTERFACE,
     /**

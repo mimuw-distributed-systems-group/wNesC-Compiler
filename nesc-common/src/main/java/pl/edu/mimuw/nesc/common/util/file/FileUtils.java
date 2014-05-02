@@ -43,6 +43,18 @@ public final class FileUtils {
     }
 
     /**
+     * Returns the file name without its file extension or path.
+     *
+     * @param filePath file path
+     * @return the file name without its pah or extension
+     */
+    public static String getFileNameWithoutExtension(String filePath) {
+        checkNotNull(filePath, "file path should not be null");
+
+        return Files.getNameWithoutExtension(filePath);
+    }
+
+    /**
      * Determines file type from file extension. If extension is not
      * one of .nc, .h or .c the file is treated as nesc file.
      *

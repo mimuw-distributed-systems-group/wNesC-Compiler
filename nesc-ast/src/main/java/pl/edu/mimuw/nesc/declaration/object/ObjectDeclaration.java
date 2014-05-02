@@ -23,7 +23,7 @@ import pl.edu.mimuw.nesc.declaration.Declaration;
  */
 public abstract class ObjectDeclaration extends Declaration {
 
-    private final String name;
+    protected final String name;
     // TODO type (mutable)
 
     protected ObjectDeclaration(String name, Location location) {

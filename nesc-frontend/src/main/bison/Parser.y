@@ -9,6 +9,7 @@ import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.common.FileType;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
+import pl.edu.mimuw.nesc.declaration.nesc.*;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.environment.*;
 import pl.edu.mimuw.nesc.issue.*;
@@ -517,8 +518,16 @@ interface:
     }
       datadef_list[defs] RBRACE[rbrace]
     {
-        final Interface iface = new Interface($keyword.getLocation(), $attrs, $name, $params, $defs);
+        final Interface iface = new Interface($keyword.getLocation(), $attrs, $name, Optional.fromNullable($params),
+                $defs);
         iface.setEndLocation($rbrace.getEndLocation());
+
+        final InterfaceDeclaration declaration = new InterfaceDeclaration($name.getName(), $keyword.getLocation());
+        declaration.setAstInterface(iface);
+        declaration.setParameterEnvironment(environment.getParent().get());
+        declaration.setDeclarationEnvironment(environment);
+
+        iface.setDeclaration(declaration);
 
         /* Close interface scope. */
         environment.setEndLocation($rbrace.getEndLocation());
@@ -533,7 +542,7 @@ interface:
 
 interface_parms:
       /* empty */
-    { $$ = Lists.<Declaration>newList(); }
+    { $$ = null; }
     | LT interface_parm_list GT
     { $$ = $2; }
     ;
@@ -573,26 +582,40 @@ parameters:
     {
         /*
          * Scope of parameters for:
-         *  - parameterised interface in uses/provides section
+         *  - parameterised interface in uses/provides section (in this
+         *    case, scope type must be redefined).
+         *    "uses interface Iface[int id];"
+         *                 ------->        <-----
          *  - parameterised event/command
+         *    "command Iface.foo[int id](int bar, char baz) { ... }"
+         *      params env ---->              inner env --->      <<-- (inner, params)
          * poplevel is done by user of this production. In the second case
          * the scope of interface parameters and event/command parameters
          * is continuation of current scope.
          */
         pushLevel();
         environment.setScopeType(ScopeType.FUNCTION_PARAMETER);
+        environment.setStartLocation($lbrack.getLocation());
     }
       parameters1[params]
     { $$ = $params; }
     ;
 
+/*
+ * NOTICE: update end location if current environment is not
+ * environment for interface parameters in specification section.
+ */
 parameters1:
-      parms RBRACK
+      parms RBRACK[rbrack]
     {
+        environment.setEndLocation($rbrack.getEndLocation());
         $$ = $1;
     }
-    | error RBRACK
-    { $$ = Lists.<Declaration>newList(declarations.makeErrorDecl()); }
+    | error RBRACK[rbrack]
+    {
+        environment.setEndLocation($rbrack.getEndLocation());
+        $$ = Lists.<Declaration>newList(declarations.makeErrorDecl());
+    }
     ;
 
 component:
@@ -620,8 +643,11 @@ module:
       requires_or_provides_list[rplist] RBRACE[rbrace] imodule[impl]
     {
         final Location location = $isGeneric.getLocation() != null ? $isGeneric.getLocation() : $keyword.getLocation();
-        final Module module = new Module(location, $attrs, $name, $rplist, $impl, $isGeneric.getValue(), $params);
+        final Module module = new Module(location, $attrs, $name, $rplist, $impl, $isGeneric.getValue(),
+                Optional.fromNullable($params));
         module.setEndLocation($impl.getEndLocation());
+        module.setSpecificationEnvironment(environment);
+        module.setParameterEnvironment(environment.getParent().get());
 
         // implementation scope handled in imodule
         // specification scope
@@ -652,7 +678,7 @@ configuration:
     {
         final Location location = $isGeneric.getLocation() != null ? $isGeneric.getLocation() : $keyword.getLocation();
         final Configuration configuration = new Configuration(location, $attrs, $name, $rplist, $impl,
-                $isGeneric.getValue(), $parms);
+                $isGeneric.getValue(), Optional.fromNullable($parms));
         configuration.setEndLocation($impl.getEndLocation());
 
         // implementation scope handled in iconfiguration
@@ -672,7 +698,7 @@ binary_component:
     {
         final BinaryComponentImpl dummy = new BinaryComponentImpl(null);
         final BinaryComponent component = new BinaryComponent($1.getLocation(), $3, $2, $5, dummy, false,
-                Lists.<Declaration>newList());
+                Optional.<LinkedList<Declaration>>absent());
         component.setEndLocation($6.getEndLocation());
         $$ = component;
     }
@@ -688,7 +714,7 @@ generic:
 component_parms:
       /* empty */
     {
-        $$ = Lists.<Declaration>newList();
+        $$ = null;
     }
     | LPAREN template_parms RPAREN
     {
@@ -813,50 +839,54 @@ parameterised_interfaces:
 parameterised_interface:
       just_datadef
     { $$ = $1; }
-    | interface_ref nesc_attributes SEMICOLON
+    | interface_ref[ifaceRef] nesc_attributes[attrs] SEMICOLON[semi]
     {
-        NescComponents.declareInterfaceRef($1, Lists.<Declaration>newList(), $2);
-        $1.setEndLocation($3.getEndLocation());
-        $$ = $1;
+        nescComponents.declareInterfaceRef(environment, $ifaceRef, Optional.<LinkedList<Declaration>>absent(), $attrs);
+        $ifaceRef.setEndLocation($semi.getEndLocation());
+        $$ = $ifaceRef;
     }
-    | interface_ref parameters nesc_attributes SEMICOLON
+    | interface_ref[ifaceRef] parameters[params] nesc_attributes[attrs] SEMICOLON[semi]
     {
-        NescComponents.declareInterfaceRef($1, $2, $3);
-        $1.setEndLocation($4.getEndLocation());
         // NOTICE: corresponding pushLevel() called in parameters
+        // we are in interface reference parameters scope
+        environment.setScopeType(ScopeType.OTHER);
         popLevel();
-        $$ = $1;
+        nescComponents.declareInterfaceRef(environment, $ifaceRef, Optional.of($params), $attrs);
+        $ifaceRef.setEndLocation($semi.getEndLocation());
+        $$ = $ifaceRef;
     }
     ;
 
 interface_ref:
-      interface_type
-    { $$ = $1; }
-    | interface_type AS idword
+      interface_type[ifaceRef]
     {
-        $1.setAlias($3);
-        $1.setEndLocation($3.getEndLocation()); // maybe updated in higher productions
-        $$ = $1;
+        $ifaceRef.setAlias(Optional.<Word>absent());
+        $$ = $ifaceRef;
+    }
+    | interface_type[ifaceRef] AS idword[alias]
+    {
+        $ifaceRef.setAlias(Optional.of($alias));
+        $ifaceRef.setEndLocation($alias.getEndLocation()); // maybe updated in higher productions
+        $$ = $ifaceRef;
     }
     ;
 
 interface_type:
-      INTERFACE idword
+      INTERFACE[keyword] idword[name]
     {
-        requireInterface($2);
-        final InterfaceRef ifaceRef = new InterfaceRef($1.getLocation(), $2, Lists.<Expression>newList(), null,
-                Lists.<Declaration>newList(), Lists.<Attribute>newList());
-        ifaceRef.setEndLocation($2.getEndLocation());   // maybe updated in higher productions
+        requireInterface($name);
+        final InterfaceRef ifaceRef = new InterfaceRef($keyword.getLocation(), $name,
+                Optional.<LinkedList<Expression>>absent());
+        ifaceRef.setEndLocation($name.getEndLocation());   // maybe updated in higher productions
         $$ = ifaceRef;
     }
-    | INTERFACE idword
+    | INTERFACE[keyword] idword[name]
     {
-        requireInterface($2);
+        requireInterface($name);
     }
-      LT typelist GT
+      LT typelist[args] GT[gt]
     {
-        final InterfaceRef ifaceRef = new InterfaceRef($1.getLocation(), $2, $5, null, Lists.<Declaration>newList(),
-                Lists.<Attribute>newList());
+        final InterfaceRef ifaceRef = new InterfaceRef($keyword.getLocation(), $name, Optional.of($args));
         ifaceRef.setEndLocation($6.getEndLocation());   // maybe updated in higher productions
         $$ = ifaceRef;
     }
@@ -1049,23 +1079,27 @@ extdefs:
         $<LinkedList>$ = Lists.<TypeElement>newList();
         wasTypedef = false;
     }
-    extdef
+    extdef[def]
     {
-        if ($2 == null) {
+        if ($def == null) {
             $$ = Lists.<Declaration>newList();
         } else {
-            $$ = Lists.<Declaration>newList($2);
+            $$ = Lists.<Declaration>newList($def);
         }
     }
-    | extdefs
+    | extdefs[defs]
     {
         $<TypeElement>$ = null;
         $<LinkedList>$ = Lists.<TypeElement>newList();
         wasTypedef = false;
     }
-    extdef
+    extdef[def]
     {
-        $$ = Lists.<Declaration>chain($1, $3);
+        if ($def == null) {
+            $$ = $defs;
+        } else {
+            $$ = Lists.<Declaration>chain($defs, $def);
+        }
     }
     ;
 
@@ -1169,28 +1203,45 @@ fndef2:
          */
         final Declarator declarator = $<Declarator>0;
         final Location startLocation = declarator.getLocation();
-        final FunctionDecl decl = declarations.startFunction(environment, startLocation, pstate.declspecs, declarator,
-                $attrs, true);
-        /* Push parameters environment. There is no need to change its parent. */
-        final Environment paramEnv = DeclaratorUtils.getFunctionDeclarator(declarator).getEnvironment();
-        paramEnv.setScopeType(ScopeType.FUNCTION_PARAMETER);
-        /* locations will be set on poplevel */
-        pushLevel(paramEnv);
+        final Optional<FunctionDecl> decl = declarations.startFunction(environment, startLocation, pstate.declspecs,
+                declarator, $attrs, true);
+        if (!decl.isPresent()) {
+            error(declarator.getLocation(), Optional.of(declarator.getEndLocation()),
+                "syntax error, expected function definition");
 
-        // TODO: detect syntax error (check !type_functional())
-        $<FunctionDecl>$ = decl;
+            $<FunctionDecl>$ = null;
+        } else {
+            /* Push parameters environment. There is no need to change its parent. */
+            final Environment paramEnv = DeclaratorUtils.getFunctionDeclarator(declarator).getEnvironment();
+            /* */
+            paramEnv.setScopeType(ScopeType.FUNCTION_PARAMETER);
+            pushLevel(paramEnv);
+
+            $<FunctionDecl>$ = decl.get();
+        }
     }
     old_style_parm_decls[parms]
     {
-        $<FunctionDecl>$ = declarations.setOldParams($<FunctionDecl>3, $parms);
+        if ($<FunctionDecl>3 == null) {
+            $<FunctionDecl>$ = null;
+        } else {
+            $<FunctionDecl>$ = declarations.setOldParams($<FunctionDecl>3, $parms);
+        }
     }
     compstmt_or_error[body]
     {
-        $$ = declarations.finishFunction($<FunctionDecl>5, $body);
-        /* parameter environment */
-        environment.setStartLocation($body.getLocation());
-        environment.setEndLocation($body.getEndLocation());
-        popLevel();
+        if ($<FunctionDecl>5 == null) {
+            $$ = null;
+        } else {
+            $$ = declarations.finishFunction($<FunctionDecl>5, $body);
+            /*
+             * Parameter environment, has the same start and end location
+             * as body environment.opLevel
+             */
+            environment.setStartLocation($body.getLocation());
+            environment.setEndLocation($body.getEndLocation());
+            popLevel();
+        }
 
         popDeclspecStack();
     }
@@ -1664,13 +1715,28 @@ datadecl:
  * use, rather than decl itself. This is to avoid shift/reduce conflicts in
  * contexts where statement labels are allowed.
  */
+/*
+ * NOTICE: decl may be null! (When syntax error occurs in nested_function).
+ */
 decls:
-      decl
-    { $$ = Lists.<Declaration>newList($1); }
+      decl[declaration]
+    {
+        if ($declaration == null) {
+            $$ = Lists.<Declaration>newList();
+        } else {
+            $$ = Lists.<Declaration>newList($declaration);
+        }
+    }
     | errstmt
     { $$ = Lists.<Declaration>newList(declarations.makeErrorDecl()); }
-    | decls decl
-    { $$ = Lists.<Declaration>chain($1, $2); }
+    | decls[decl_list] decl[declaration]
+    {
+        if ($declaration == null) {
+            $$ = $decl_list;
+        } else {
+            $$ = Lists.<Declaration>chain($decl_list, $declaration);
+        }
+    }
     | decl errstmt
     { $$ = Lists.<Declaration>newList(declarations.makeErrorDecl()); }
     ;
@@ -2555,19 +2621,28 @@ nested_function:
         /* NOTICE: maybeasm is only here to avoid a s/r conflict */
         // TODO refuse_asm
 
-        final FunctionDecl decl = declarations.startFunction(environment, $declarator.getLocation(), pstate.declspecs,
-                $declarator, $attrs, true);
-        /* Push parameters environment. There is no need to change its parent. */
-        final Environment paramEnv = DeclaratorUtils.getFunctionDeclarator($declarator).getEnvironment();
-        paramEnv.setScopeType(ScopeType.FUNCTION_PARAMETER);
-        /* locations will be set on poplevel */
-        pushLevel(paramEnv);
-        // TODO: detect syntax error (check !type_funcional())
-        $<FunctionDecl>$ = decl;
+        final Optional<FunctionDecl> decl = declarations.startFunction(environment, $declarator.getLocation(),
+                pstate.declspecs, $declarator, $attrs, true);
+        if (!decl.isPresent()) {
+            error($declarator.getLocation(), Optional.of($declarator.getEndLocation()),
+                    "syntax error, expected function definition");
+            $<FunctionDecl>$ = null;
+        } else {
+            /* Push parameters environment. There is no need to change its parent. */
+            final Environment paramEnv = DeclaratorUtils.getFunctionDeclarator($declarator).getEnvironment();
+            paramEnv.setScopeType(ScopeType.FUNCTION_PARAMETER);
+            /* locations will be set on poplevel */
+            pushLevel(paramEnv);
+            $<FunctionDecl>$ = decl.get();
+        }
     }
       old_style_parm_decls[parms]
     {
-        $<FunctionDecl>$ = declarations.setOldParams($<FunctionDecl>4, $parms);
+        if ($<FunctionDecl>4 == null) {
+            $<FunctionDecl>$ = null;
+        } else {
+            $<FunctionDecl>$ = declarations.setOldParams($<FunctionDecl>4, $parms);
+        }
     }
     /*
      * This used to use compstmt_or_error. That caused a bug with input
@@ -2577,8 +2652,15 @@ nested_function:
      */
       compstmt[body]
     {
-        $$ = declarations.finishFunction($<FunctionDecl>6, $body);
-        /* parameter environment */
+        if ($<FunctionDecl>6 == null) {
+            $$ = null;
+        } else {
+            $$ = declarations.finishFunction($<FunctionDecl>6, $body);
+        }
+        /*
+         * Parameter environment, has the same start and end location
+         * as body environment.
+         */
         environment.setStartLocation($body.getLocation());
         environment.setEndLocation($body.getEndLocation());
         popLevel();
@@ -2592,19 +2674,28 @@ notype_nested_function:
         /* NOTICE: maybeasm is only here to avoid a s/r conflict */
         // TODO: refuse_asm
 
-        final FunctionDecl decl = declarations.startFunction(environment, $declarator.getLocation(), pstate.declspecs,
-                $declarator, $attrs, true);
-        /* Push parameters environment. There is no need to change its parent. */
-        final Environment paramEnv = DeclaratorUtils.getFunctionDeclarator($declarator).getEnvironment();
-        paramEnv.setScopeType(ScopeType.FUNCTION_PARAMETER);
-        /* locations will be set on poplevel */
-        pushLevel(paramEnv);
-        // TODO: detect syntax error (check !type_funcional())
-        $<FunctionDecl>$ = decl;
+        final Optional<FunctionDecl> decl = declarations.startFunction(environment, $declarator.getLocation(),
+                pstate.declspecs, $declarator, $attrs, true);
+        if (!decl.isPresent()) {
+            error($declarator.getLocation(), Optional.of($declarator.getEndLocation()),
+                    "syntax error, expected function definition");
+            $<FunctionDecl>$ = null;
+        } else {
+            /* Push parameters environment. There is no need to change its parent. */
+            final Environment paramEnv = DeclaratorUtils.getFunctionDeclarator($declarator).getEnvironment();
+            paramEnv.setScopeType(ScopeType.FUNCTION_PARAMETER);
+            /* locations will be set on poplevel */
+            pushLevel(paramEnv);
+            $<FunctionDecl>$ = decl.get();
+        }
     }
       old_style_parm_decls[parms]
     {
-        $<FunctionDecl>$ = declarations.setOldParams($<FunctionDecl>4, $parms);
+        if ($<FunctionDecl>4 == null) {
+            $<FunctionDecl>$ = null;
+        } else {
+            $<FunctionDecl>$ = declarations.setOldParams($<FunctionDecl>4, $parms);
+        }
     }
     /*
      * This used to use compstmt_or_error. That caused a bug with input
@@ -2614,8 +2705,15 @@ notype_nested_function:
      */
       compstmt[body]
     {
-        $$ = declarations.finishFunction($<FunctionDecl>6, $body);
-        /* parameter environment */
+        if ($<FunctionDecl>6 == null) {
+            $$ = null;
+        } else {
+            $$ = declarations.finishFunction($<FunctionDecl>6, $body);
+        }
+        /*
+         * Parameter environment, has the same start and end location
+         * as body environment.
+         */
         environment.setStartLocation($body.getLocation());
         environment.setEndLocation($body.getEndLocation());
         popLevel();
@@ -2667,7 +2765,7 @@ after_type_declarator:
     }
     | TYPEDEF_NAME DOT identifier
     {
-        $$ = NescComponents.makeInterfaceRefDeclarator($1.getLocation(), $1.getValue(),
+        $$ = nescComponents.makeInterfaceRefDeclarator($1.getLocation(), $1.getValue(),
                 $3.getLocation(), $3.getEndLocation(), $3.getValue());
     }
     ;
@@ -2737,7 +2835,7 @@ notype_declarator:
     }
     | IDENTIFIER DOT identifier
     {
-        $$ = NescComponents.makeInterfaceRefDeclarator($1.getLocation(), $1.getValue(),
+        $$ = nescComponents.makeInterfaceRefDeclarator($1.getLocation(), $1.getValue(),
                $3.getLocation(), $3.getEndLocation(), $3.getValue());
     }
     ;
@@ -3077,28 +3175,32 @@ array_or_absfn_declarator:
 fn_declarator:
       parameters[generic_params] LPAREN[lparen] parmlist_or_identifiers_1[params] fn_quals[quals]
     {
+        /* pushLevel in parameters, popLevel in parmlist_or_identifiers_1 */
         final Location startLocation = AstUtils.getStartLocation($lparen.getLocation(), $generic_params);
         final Location endLocation = AstUtils.getEndLocation($lparen.getEndLocation(), $params);
-        final FunctionDeclarator decl = new FunctionDeclarator(startLocation, null, $params, $generic_params, $quals);
+        final Optional<LinkedList<Declaration>> gparams = $generic_params.isEmpty()
+                ? Optional.of($generic_params) : Optional.<LinkedList<Declaration>>absent();
+        final FunctionDeclarator decl = new FunctionDeclarator(startLocation, null, $params, gparams, $quals);
         decl.setEndLocation(endLocation);
         $$ = decl;
     }
     | LPAREN[lparen] parmlist_or_identifiers[params] fn_quals[quals]
     {
+        /* pushLevel, popLevel in parmlist_or_identifiers */
         final Location endLocation = AstUtils.getEndLocation($lparen.getEndLocation(), $params);
         final FunctionDeclarator decl = new FunctionDeclarator($lparen.getLocation(), null, $params,
-                Lists.<Declaration>newList(), $quals);
+                Optional.<LinkedList<Declaration>>absent(), $quals);
         decl.setEndLocation(endLocation);
         $$ = decl;
     }
     ;
 
 absfn_declarator:
-      LPAREN parmlist fn_quals
+      LPAREN[lparen] parmlist[params] fn_quals[quals]
     {
-        final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
-        final FunctionDeclarator decl = new FunctionDeclarator($1.getLocation(), null, $2,
-                Lists.<Declaration>newList(), $3);
+        final Location endLocation = AstUtils.getEndLocation($lparen.getEndLocation(), $params);
+        final FunctionDeclarator decl = new FunctionDeclarator($lparen.getLocation(), null, $params,
+                Optional.<LinkedList<Declaration>>absent(), $quals);
         decl.setEndLocation(endLocation);
         $$ = decl;
     }
@@ -3987,6 +4089,7 @@ string_chain:
 
     private Declarations declarations;
     private NescDeclarations nescDeclarations;
+    private NescComponents nescComponents;
 
     /**
      * Creates parser.
@@ -4026,6 +4129,7 @@ string_chain:
 
         this.declarations = new Declarations(this.issuesMultimapBuilder, this.tokensMultimapBuilder);
         this.nescDeclarations = new NescDeclarations(this.issuesMultimapBuilder, this.tokensMultimapBuilder);
+        this.nescComponents = new NescComponents(this.issuesMultimapBuilder, this.tokensMultimapBuilder);
 
         switch (fileType) {
             case HEADER:

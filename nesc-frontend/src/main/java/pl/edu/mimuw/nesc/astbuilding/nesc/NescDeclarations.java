@@ -48,7 +48,7 @@ public final class NescDeclarations extends AstBuildingBase {
 
         final TypenameDeclaration symbol = new TypenameDeclaration(name, startLocation);
         if (!environment.getObjects().add(name, symbol)) {
-            error(startLocation, Optional.of(endLocation),
+            errorHelper.error(startLocation, Optional.of(endLocation),
                     format("duplicate parameter name '%s' in parameter list", name));
         }
         decl.setDeclaration(symbol);
@@ -74,7 +74,7 @@ public final class NescDeclarations extends AstBuildingBase {
         final String refName = alias.isPresent() ? alias.get() : componentRef.getName().getName();
         final ComponentRefDeclaration symbol = new ComponentRefDeclaration(refName, startLocation);
         if (!environment.getObjects().add(refName, symbol)) {
-            error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", alias));
+            errorHelper.error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", alias));
         }
         componentRef.setDeclaration(symbol);
 
@@ -103,7 +103,9 @@ public final class NescDeclarations extends AstBuildingBase {
                 : getEndLocation(startLocation, elements, attributes); // elements is not empty, $1 will not be used
 
 
-        final VariableDecl variableDecl = new VariableDecl(startLocation, declarator.orNull(), attributes, null, null);
+        final VariableDecl variableDecl = new VariableDecl(startLocation, declarator, attributes,
+                Optional.<AsmStmt>absent());
+        variableDecl.setInitializer(Optional.<Expression>absent());
         variableDecl.setEndLocation(endLocation);
 
         if (declarator.isPresent()) {
@@ -116,7 +118,7 @@ public final class NescDeclarations extends AstBuildingBase {
                 declaration = new VariableDeclaration(name, startLocation);
             }
             if (!environment.getObjects().add(name, declaration)) {
-                error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", name));
+                errorHelper.error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", name));
             }
             variableDecl.setDeclaration(declaration);
         }
