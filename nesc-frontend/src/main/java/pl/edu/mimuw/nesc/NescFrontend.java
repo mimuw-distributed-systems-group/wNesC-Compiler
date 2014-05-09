@@ -103,6 +103,21 @@ public final class NescFrontend implements Frontend {
         return null;
     }
 
+    @Override
+    public Iterable<String> getKeywords() {
+        return Keywords.KEYWORDS;
+    }
+
+    @Override
+    public Iterable<String> getCoreKeywords() {
+        return Keywords.CORE_KEYWORDS;
+    }
+
+    @Override
+    public Iterable<String> getExtensionKeywords() {
+        return Keywords.EXTENSION_KEYWORDS;
+    }
+
     private FrontendContext getContext(ContextRef contextRef) {
         final FrontendContext context = this.contextsMap.get(contextRef);
         if (context == null) {

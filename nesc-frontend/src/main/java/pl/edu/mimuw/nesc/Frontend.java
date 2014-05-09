@@ -12,9 +12,9 @@ import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
  * options such as:
  *
  * <ul>
- *  <li>paths where source files should be searched for,</li>
- *  <li>(header) files included by default,</li>
- *  <li>predefined macros.</li>
+ * <li>paths where source files should be searched for,</li>
+ * <li>(header) files included by default,</li>
+ * <li>predefined macros.</li>
  * </ul>
  * </p>
  *
@@ -74,5 +74,29 @@ public interface Frontend {
      * @return result of analysis of source file
      */
     FileData update(ContextRef contextRef, String filePath);
+
+    /**
+     * Gets all keywords.
+     *
+     * @return all keywords
+     */
+    Iterable<String> getKeywords();
+
+    /**
+     * Gets keywords that are core language keywords, e.g. <code>do</code>,
+     * <code>int</code>, <code>return</code>.
+     *
+     * @return core language keywords
+     */
+    Iterable<String> getCoreKeywords();
+
+    /**
+     * Gets keywords that are keywords from language extensions
+     * (especially GNU extensions), e.g. <code>__attribute__</code>,
+     * <code>asm</code>.
+     *
+     * @return language extensions keywords
+     */
+    Iterable<String> getExtensionKeywords();
 
 }
