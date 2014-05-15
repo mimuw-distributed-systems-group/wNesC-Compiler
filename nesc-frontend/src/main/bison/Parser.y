@@ -4087,6 +4087,8 @@ string_chain:
      */
     private List<Declaration> extdefs;
 
+    private ErrorHelper errorHelper;
+
     private Declarations declarations;
     private NescDeclarations nescDeclarations;
     private NescComponents nescComponents;
@@ -4126,6 +4128,8 @@ string_chain:
 
         this.errors = false;
         this.pstate = new ParserState();
+
+        this.errorHelper = new ErrorHelper(this.issuesMultimapBuilder);
 
         this.declarations = new Declarations(this.issuesMultimapBuilder, this.tokensMultimapBuilder);
         this.nescDeclarations = new NescDeclarations(this.issuesMultimapBuilder, this.tokensMultimapBuilder);
@@ -4272,15 +4276,12 @@ string_chain:
     }
 
     private void warning(Location startLocation, Optional<Location> endLocation, String message) {
-        final NescWarning warning = new NescWarning(startLocation, endLocation, message);
-        this.issuesMultimapBuilder.put(startLocation.getLine(), warning);
-        LOG.info("Warning at (" + startLocation.getLine() + ", " + startLocation.getColumn() + "): " + message);
+        this.errorHelper.warning(startLocation, endLocation, message);
     }
 
+
     private void error(Location startLocation, Optional<Location> endLocation, String message) {
-        final NescError error = new NescError(startLocation, endLocation, message);
-        this.issuesMultimapBuilder.put(startLocation.getLine(), error);
-        LOG.info("Error at (" + startLocation.getLine() + ", " + startLocation.getColumn() + "): " + message);
+        this.errorHelper.error(startLocation, endLocation, message);
     }
 
     /**

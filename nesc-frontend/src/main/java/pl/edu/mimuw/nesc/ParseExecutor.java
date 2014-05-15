@@ -6,9 +6,8 @@ import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
-import pl.edu.mimuw.nesc.ast.gen.Printer;
 import pl.edu.mimuw.nesc.common.FileType;
-import pl.edu.mimuw.nesc.common.util.file.FileUtils;
+import pl.edu.mimuw.nesc.environment.DefaultEnvironment;
 import pl.edu.mimuw.nesc.environment.PartitionedEnvironmentAdapter;
 import pl.edu.mimuw.nesc.exception.LexerException;
 import pl.edu.mimuw.nesc.filesgraph.GraphFile;
@@ -201,11 +200,24 @@ public final class ParseExecutor {
             /* Clear cache for current file. */
             context.getCache().remove(currentFilePath);
 
+            /*
+             * Put dummy file cache to prevent from infinite loop in case of
+             * circular dependencies.
+             */
+            final FileCache dummyCache = FileCache.builder()
+                    .filePath(currentFilePath)
+                    .fileType(fileType)
+                    .tokens(ImmutableListMultimap.<Integer, Token>builder().build())
+                    .issues(ImmutableListMultimap.<Integer, NescIssue>builder().build())
+                    .environment(new DefaultEnvironment())
+                    .build();
+            context.getCache().put(currentFilePath, dummyCache);
+
             /* Remove nesc entity from environment. */
             if (fileType == FileType.NESC) {
                 /* We assume that entity name is the same as file name. */
                 final String entityName = getFileNameWithoutExtension(currentFilePath);
-                LOG.info("Removing entity: " + entityName);
+                LOG.trace("Removing entity: " + entityName);
                 context.getNescEnvironment().getEntities().remove(entityName);
             }
 
@@ -317,7 +329,7 @@ public final class ParseExecutor {
                     .environment(partitionedEnvironment)
                     .build();
             context.getCache().put(currentFilePath, cache);
-            LOG.info("Put file cache into context; file: " + currentFilePath);
+            LOG.trace("Put file cache into context; file: " + currentFilePath);
         }
 
         @Override

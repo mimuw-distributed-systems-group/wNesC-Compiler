@@ -58,16 +58,19 @@ public final class NescFrontend implements Frontend {
         final FrontendContext context = getContext(contextRef).basicCopy();
         setContext(context, contextRef);
 
-        final Optional<String> startFile = context.getPathsResolver()
-                .getEntityFile(context.getOptions().getEntryEntity());
+        final String entryFileName = context.getOptions().getEntryEntity();
+        final Optional<String> startFile = context.getPathsResolver().getEntityFile(entryFileName);
 
-        // FIXME exception
         try {
             parseFilesIncludedByDefault(context);
         } catch (IOException e) {
+            LOG.error("Error during parsing default files.");
             e.printStackTrace();
         }
 
+        if (!startFile.isPresent()) {
+            throw new IllegalArgumentException("Cannot find start file: " + entryFileName);
+        }
         update(contextRef, startFile.get());
 
         final ProjectData result = new ProjectData();
@@ -75,6 +78,7 @@ public final class NescFrontend implements Frontend {
             result.addFile(FileData.convertFrom(entry.getValue()));
         }
 
+        LOG.info("Total number of files=" + result.getFilesMap().size());
         return result;
     }
 
