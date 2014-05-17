@@ -1213,8 +1213,18 @@ fndef2:
         } else {
             /* Push parameters environment. There is no need to change its parent. */
             final Environment paramEnv = DeclaratorUtils.getFunctionDeclarator(declarator).getEnvironment();
-            /* */
             paramEnv.setScopeType(ScopeType.FUNCTION_PARAMETER);
+            /*
+             * Start location is already set. End location is equal to the end
+             * location of parameter list in declarator.
+             * Eventually the end of parameter environment should be equal to
+             * the end of body environment. It is set on poplevel, but in case
+             * function body contains syntax errors, we set absent end location
+             * to indicate that the end of scope is unknown (if it does not
+             * contain syntax errors, the null end location will be overwriten
+             * on poplevel as it was mentioned above).
+             */
+            paramEnv.setEndLocation(null);
             pushLevel(paramEnv);
 
             $<FunctionDecl>$ = decl.get();
@@ -1236,7 +1246,7 @@ fndef2:
             $$ = declarations.finishFunction($<FunctionDecl>5, $body);
             /*
              * Parameter environment, has the same start and end location
-             * as body environment.opLevel
+             * as body environment.
              */
             environment.setStartLocation($body.getLocation());
             environment.setEndLocation($body.getEndLocation());
@@ -2631,7 +2641,8 @@ nested_function:
             /* Push parameters environment. There is no need to change its parent. */
             final Environment paramEnv = DeclaratorUtils.getFunctionDeclarator($declarator).getEnvironment();
             paramEnv.setScopeType(ScopeType.FUNCTION_PARAMETER);
-            /* locations will be set on poplevel */
+            /* See coresponding code in fndef2. */
+            paramEnv.setEndLocation(null);
             pushLevel(paramEnv);
             $<FunctionDecl>$ = decl.get();
         }
@@ -2684,7 +2695,8 @@ notype_nested_function:
             /* Push parameters environment. There is no need to change its parent. */
             final Environment paramEnv = DeclaratorUtils.getFunctionDeclarator($declarator).getEnvironment();
             paramEnv.setScopeType(ScopeType.FUNCTION_PARAMETER);
-            /* locations will be set on poplevel */
+            /* See coresponding code in fndef2. */
+            paramEnv.setEndLocation(null);
             pushLevel(paramEnv);
             $<FunctionDecl>$ = decl.get();
         }
@@ -2742,6 +2754,7 @@ after_type_declarator:
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
             final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
             funDeclarator.setEnvironment(environment);
+            environment.setEndLocation($2.getEndLocation());
             popLevel();
         }
         $$ = declarator;
@@ -2783,6 +2796,7 @@ parm_declarator:
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
             final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
             funDeclarator.setEnvironment(environment);
+            environment.setEndLocation($2.getEndLocation());
             popLevel();
         }
         $$ = declarator;
@@ -2812,6 +2826,7 @@ notype_declarator:
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
             final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
             funDeclarator.setEnvironment(environment);
+            environment.setEndLocation($2.getEndLocation());
             popLevel();
         }
         $$ = declarator;
@@ -3141,6 +3156,7 @@ direct_absdcl1:
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
             final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
             funDeclarator.setEnvironment(environment);
+            environment.setEndLocation($2.getEndLocation());
             popLevel();
         }
         $$ = declarator;
@@ -3151,6 +3167,7 @@ direct_absdcl1:
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
             final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
             funDeclarator.setEnvironment(environment);
+            environment.setEndLocation($1.getEndLocation());
             popLevel();
         }
         $$ = declarator;
@@ -3175,7 +3192,7 @@ array_or_absfn_declarator:
 fn_declarator:
       parameters[generic_params] LPAREN[lparen] parmlist_or_identifiers_1[params] fn_quals[quals]
     {
-        /* pushLevel in parameters, popLevel in parmlist_or_identifiers_1 */
+        /* pushLevel in parameters, popLevel when final declarator is build */
         final Location startLocation = AstUtils.getStartLocation($lparen.getLocation(), $generic_params);
         final Location endLocation = AstUtils.getEndLocation($lparen.getEndLocation(), $params);
         final Optional<LinkedList<Declaration>> gparams = $generic_params.isEmpty()
@@ -3186,7 +3203,7 @@ fn_declarator:
     }
     | LPAREN[lparen] parmlist_or_identifiers[params] fn_quals[quals]
     {
-        /* pushLevel, popLevel in parmlist_or_identifiers */
+        /* pushLevel parmlist_or_identifiers, popLevel when final declarator is build */
         final Location endLocation = AstUtils.getEndLocation($lparen.getEndLocation(), $params);
         final FunctionDeclarator decl = new FunctionDeclarator($lparen.getLocation(), null, $params,
                 Optional.<LinkedList<Declaration>>absent(), $quals);
@@ -3730,6 +3747,8 @@ parmlist:
          */
         pushLevel();
         environment.setScopeType(ScopeType.FUNCTION_PARAMETER);
+        /* parmlist is always preceded by LPAREN */
+        environment.setStartLocation($<Symbol>0.getLocation());
     }
       parmlist_1
     {
@@ -3838,7 +3857,9 @@ parmlist_or_identifiers:
          * non-terminal parameters.
          */
         pushLevel();
-        environment.setScopeType(ScopeType.OTHER);
+        environment.setScopeType(ScopeType.FUNCTION_PARAMETER);
+        /* parmlist is always preceded by LPAREN */
+        environment.setStartLocation($<Symbol>0.getLocation());
     }
       parmlist_or_identifiers_1
     { $$ = $2; }

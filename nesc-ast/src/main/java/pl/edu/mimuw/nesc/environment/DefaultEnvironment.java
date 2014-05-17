@@ -87,7 +87,7 @@ public final class DefaultEnvironment implements Environment {
 
     @Override
     public void setEndLocation(Location location) {
-        this.endLocation = Optional.of(location);
+        this.endLocation = Optional.fromNullable(location);
     }
 
     @Override

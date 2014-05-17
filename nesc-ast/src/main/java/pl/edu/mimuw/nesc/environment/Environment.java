@@ -45,7 +45,7 @@ public interface Environment {
     Optional<Location> getStartLocation();
 
     /**
-     * Sets start location of environment.
+     * Sets start location of environment. Location cannot be null.
      *
      * @param location start location
      */
@@ -59,7 +59,7 @@ public interface Environment {
     Optional<Location> getEndLocation();
 
     /**
-     * Sets end location of environment.
+     * Sets end location of environment. Location can be null.
      *
      * @param location end location
      */

@@ -13,6 +13,7 @@ import java.util.Map;
  */
 public final class ProjectData {
 
+    // TODO: make it immutable for clients
     // TODO: what should this class contain?
 
     private final Map<String, FileData> files;
