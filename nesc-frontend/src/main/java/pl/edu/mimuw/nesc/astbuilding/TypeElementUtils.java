@@ -3,8 +3,10 @@ package pl.edu.mimuw.nesc.astbuilding;
 import com.google.common.base.Preconditions;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration.FunctionType;
 
 import java.util.LinkedList;
+import java.util.List;
 
 /**
  * Utilities for {@link TypeElement}.
@@ -29,6 +31,33 @@ public final class TypeElementUtils {
             }
         }
         return false;
+    }
+
+    /**
+     * Gets function type implied by given modifiers.
+     *
+     * @param modifiers declaration's modifiers
+     * @return one of nesc function types or <code>normal</code> if it is
+     * plain C function
+     */
+    public static FunctionType getFunctionType(List<TypeElement> modifiers) {
+        // FIXME: temporary solution, this kind of information should be
+        // kept in type object
+        for (TypeElement element : modifiers) {
+            if (element instanceof Rid) {
+                final Rid rid = (Rid) element;
+                if (rid.getId() == RID.COMMAND) {
+                    return FunctionType.COMMAND;
+                }
+                if (rid.getId() == RID.EVENT) {
+                    return FunctionType.EVENT;
+                }
+                if (rid.getId() == RID.TASK) {
+                    return FunctionType.TASK;
+                }
+            }
+        }
+        return FunctionType.NORMAL;
     }
 
     private TypeElementUtils() {

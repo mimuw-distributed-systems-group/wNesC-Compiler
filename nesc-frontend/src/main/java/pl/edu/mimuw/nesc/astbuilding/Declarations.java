@@ -149,7 +149,7 @@ public final class Declarations extends AstBuildingBase {
         final FunctionDecl functionDecl = new FunctionDecl(startLocation, declarator, modifiers, attributes,
                 null, isNested);
 
-        final StartFunctionVisitor startVisitor = new StartFunctionVisitor();
+        final StartFunctionVisitor startVisitor = new StartFunctionVisitor(modifiers);
         try {
             declarator.accept(startVisitor, null);
         } catch (RuntimeException e) {
@@ -398,9 +398,15 @@ public final class Declarations extends AstBuildingBase {
     @SuppressWarnings({"UnnecessaryLocalVariable", "UnusedDeclaration"})    // FIXME
     private static class StartFunctionVisitor extends ExceptionVisitor<Void, Void> {
 
+        private final LinkedList<TypeElement> modifiers;
+
         private ObjectDeclaration objectDeclaration;
         private Token token;
         private FunctionDecl astDeclaration;
+
+        public StartFunctionVisitor(LinkedList<TypeElement> modifiers) {
+            this.modifiers = modifiers;
+        }
 
         public ObjectDeclaration getObjectDeclaration() {
             return objectDeclaration;
@@ -419,11 +425,11 @@ public final class Declarations extends AstBuildingBase {
             final Location startLocation = funDeclarator.getLocation();
             final Declarator innerDeclarator = funDeclarator.getDeclarator();
 
-            /* C function */
+            /* C function/task */
             if (innerDeclarator instanceof IdentifierDeclarator) {
                 identifierDeclarator(funDeclarator, (IdentifierDeclarator) innerDeclarator, startLocation);
             }
-            /* command/event/task */
+            /* command/event */
             else if (innerDeclarator instanceof InterfaceRefDeclarator) {
                 interfaceRefDeclarator(funDeclarator, (InterfaceRefDeclarator) innerDeclarator, startLocation);
             } else {
@@ -437,6 +443,7 @@ public final class Declarations extends AstBuildingBase {
             final String name = identifierDeclarator.getName();
             final FunctionDeclaration functionDeclaration = new FunctionDeclaration(name, startLocation);
             functionDeclaration.setAstFunctionDeclarator(funDeclarator);
+            functionDeclaration.setFunctionType(TypeElementUtils.getFunctionType(modifiers));
             objectDeclaration = functionDeclaration;
         }
 

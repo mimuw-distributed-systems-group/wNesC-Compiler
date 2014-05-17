@@ -114,6 +114,7 @@ final class InterfaceBuilder extends SemanticBase {
             return null;
         }
 
+        // FIXME: remove (almost the same code in TypeElementUtils)
         private FunctionType getFunctionType(LinkedList<TypeElement> qualifiers) {
             // FIXME: temporary solution, this kind of information should be
             // kept in type object
@@ -125,9 +126,6 @@ final class InterfaceBuilder extends SemanticBase {
                     }
                     if (rid.getId() == RID.EVENT) {
                         return FunctionType.EVENT;
-                    }
-                    if (rid.getId() == RID.TASK) {
-                        return FunctionType.TASK;
                     }
                 }
             }
