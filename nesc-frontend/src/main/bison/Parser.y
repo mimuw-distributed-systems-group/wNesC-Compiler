@@ -3285,10 +3285,20 @@ errstmt:
       error SEMICOLON
     ;
 
+/*
+ * Push level is used only in compstmt.
+ *
+ * We need to set scope type and start location as soon as possible in case
+ * some syntax error occurs to avoid losing data useful in content assist
+ * (such as scope type and start location).
+ */
 pushlevel:
       /* empty */
     {
         pushLevel();
+        environment.setScopeType(ScopeType.COMPOUND);
+        /* pushlevel is always preceded by compstmt_start (LPAREN) */
+        environment.setStartLocation($<Symbol>0.getLocation());
     }
     ;
 
@@ -3342,8 +3352,6 @@ compstmt:
         stmt.setEnvironment(environment);
         stmt.setEndLocation($3.getEndLocation());
 
-        environment.setScopeType(ScopeType.COMPOUND);
-        environment.setStartLocation($1.getLocation());
         environment.setEndLocation($3.getEndLocation());
         popLevel();
 
@@ -3355,8 +3363,6 @@ compstmt:
         stmt.setEnvironment(environment);
         stmt.setEndLocation($6.getEndLocation());
 
-        environment.setScopeType(ScopeType.COMPOUND);
-        environment.setStartLocation($1.getLocation());
         environment.setEndLocation($6.getEndLocation());
         popLevel();
 
@@ -3364,8 +3370,6 @@ compstmt:
     }
     | compstmt_start pushlevel maybe_label_decls error RBRACE
     {
-        environment.setScopeType(ScopeType.COMPOUND);
-        environment.setStartLocation($1.getLocation());
         environment.setEndLocation($5.getEndLocation());
         popLevel();
 
@@ -3377,8 +3381,6 @@ compstmt:
         stmt.setEnvironment(environment);
         stmt.setEndLocation($5.getEndLocation());
 
-        environment.setScopeType(ScopeType.COMPOUND);
-        environment.setStartLocation($1.getLocation());
         environment.setEndLocation($5.getEndLocation());
         popLevel();
 

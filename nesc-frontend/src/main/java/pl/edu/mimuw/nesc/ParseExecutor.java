@@ -299,9 +299,9 @@ public final class ParseExecutor {
 
             this.entity = parser.getEntityRoot();
             if (entity.isPresent() || !FileType.NESC.equals(fileType)) {
-                LOG.debug("AST was built successfully.");
+                LOG.info("AST was built successfully.");
             } else {
-                LOG.debug("AST was not built.");
+                LOG.info("AST was not built.");
             }
             final List<Declaration> extdefs = parser.getExtdefs();
 
