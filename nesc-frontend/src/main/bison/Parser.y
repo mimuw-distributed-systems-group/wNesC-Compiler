@@ -643,10 +643,16 @@ module:
         nescComponents.handleComponentParametersAttributes(environment, module, Optional.fromNullable($params), $attrs);
         $<Module>$ = module;
     }
-      requires_or_provides_list[specification] RBRACE[rbrace] imodule[impl]
+      requires_or_provides_list[specification]
     {
         final Module module = $<Module>8;
-        nescComponents.finishComponent(module, $specification, $impl);
+        nescComponents.handleComponentSpecification(module, $specification);
+        $<Module>$ = module;
+    }
+      RBRACE[rbrace] imodule[impl]
+    {
+        final Module module = $<Module>10;
+        nescComponents.finishComponent(module, $impl);
 
         // implementation scope handled in imodule
         // specification scope
@@ -680,10 +686,16 @@ configuration:
                 $attrs);
         $<Configuration>$ = configuration;
     }
-      requires_or_provides_list[specification] RBRACE[rbrace] iconfiguration[impl]
+      requires_or_provides_list[specification]
     {
         final Configuration configuration = $<Configuration>8;
-        nescComponents.finishComponent(configuration, $specification, $impl);
+        nescComponents.handleComponentSpecification(configuration, $specification);
+        $<Configuration>$ = configuration;
+    }
+      RBRACE[rbrace] iconfiguration[impl]
+    {
+        final Configuration configuration = $<Configuration>10;
+        nescComponents.finishComponent(configuration, $impl);
 
         // implementation scope handled in iconfiguration
         // specification scope

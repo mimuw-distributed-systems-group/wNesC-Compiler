@@ -105,6 +105,13 @@ public final class NescComponents extends AstBuildingBase {
         component.setSpecificationEnvironment(environment);
     }
 
+    public void handleComponentSpecification(Component component, LinkedList<Declaration> specification) {
+        component.setDeclarations(specification);
+
+        final SpecificationVisitor specificationVisitor = new SpecificationVisitor();
+        specificationVisitor.visitDeclarations(component);
+    }
+
     public void finishInterface(Interface iface, Location endLocation, LinkedList<Declaration> declarations) {
         iface.setDeclarations(declarations);
         iface.setEndLocation(endLocation);
@@ -114,15 +121,9 @@ public final class NescComponents extends AstBuildingBase {
         bodyVisitor.visitDeclarations(iface.getDeclarations());
     }
 
-    public void finishComponent(Component component, LinkedList<Declaration> specification,
-                                Implementation implementation) {
-        component.setDeclarations(specification);
+    public void finishComponent(Component component, Implementation implementation) {
         component.setImplementation(implementation);
         component.setEndLocation(implementation.getEndLocation());
-
-        /* Check specification. */
-        final SpecificationVisitor specVisitor = new SpecificationVisitor();
-        specVisitor.visitDeclarations(component);
     }
 
     public void declareInterfaceRef(Environment environment, InterfaceRef ifaceRef,
