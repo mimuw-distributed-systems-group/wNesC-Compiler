@@ -23,7 +23,6 @@ import pl.edu.mimuw.nesc.parser.Parser;
 import pl.edu.mimuw.nesc.parser.ParserListener;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
-import pl.edu.mimuw.nesc.semantic.nesc.NescEntityBuilder;
 import pl.edu.mimuw.nesc.symboltable.Partition;
 import pl.edu.mimuw.nesc.token.MacroToken;
 import pl.edu.mimuw.nesc.token.Token;
@@ -261,8 +260,8 @@ public final class ParseExecutor {
             lexer.start();
 
             /* Setup parser */
-            this.parser = new Parser(currentFilePath, lexer, partitionedEnvironment, fileType,
-                    tokensMultimapBuilder, issuesListBuilder);
+            this.parser = new Parser(currentFilePath, lexer, partitionedEnvironment,
+                    context.getNescEnvironment().getEntities(), fileType, tokensMultimapBuilder, issuesListBuilder);
             parser.setListener(this);
 
 		    /* Parsing */
@@ -317,11 +316,7 @@ public final class ParseExecutor {
         }
 
         private void semantic() {
-            final NescEntityBuilder builder = new NescEntityBuilder(this.issuesListBuilder,
-                    this.context.getNescEnvironment().getEntities());
-            if (entity.isPresent()) {
-                entity.get().accept(builder, null);
-            }
+            // TODO
         }
 
         private void finish() {

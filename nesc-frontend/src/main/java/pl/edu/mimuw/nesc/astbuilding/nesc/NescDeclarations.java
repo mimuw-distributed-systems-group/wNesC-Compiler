@@ -13,6 +13,7 @@ import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.VariableDeclaration;
 import pl.edu.mimuw.nesc.environment.Environment;
+import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
 import pl.edu.mimuw.nesc.issue.NescIssue;
 import pl.edu.mimuw.nesc.token.Token;
 
@@ -27,9 +28,10 @@ import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
  */
 public final class NescDeclarations extends AstBuildingBase {
 
-    public NescDeclarations(ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
-                               ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder) {
-        super(issuesMultimapBuilder, tokensMultimapBuilder);
+    public NescDeclarations(NescEntityEnvironment nescEnvironment,
+                            ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
+                            ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder) {
+        super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder);
     }
 
     /**

@@ -509,25 +509,22 @@ interface:
 	    pushLevel();
         environment.setScopeType(ScopeType.INTERFACE_PARAMETER);
         environment.setStartLocation($name.getEndLocation());
+        final Interface iface = nescComponents.startInterface(environment, $keyword.getLocation(), $name);
+        $<Interface>$ = iface;
     }
       interface_parms[params] nesc_attributes[attrs] LBRACE[lbrace]
     {
         pushLevel();
         environment.setScopeType(ScopeType.INTERFACE);
         environment.setStartLocation($lbrace.getLocation());
+        final Interface iface = $<Interface>4;
+        nescComponents.handleInterfaceParametersAttributes(environment, iface, Optional.fromNullable($params), $attrs);
+        $<Interface>$ = iface;
     }
       datadef_list[defs] RBRACE[rbrace]
     {
-        final Interface iface = new Interface($keyword.getLocation(), $attrs, $name, Optional.fromNullable($params),
-                $defs);
-        iface.setEndLocation($rbrace.getEndLocation());
-
-        final InterfaceDeclaration declaration = new InterfaceDeclaration($name.getName(), $keyword.getLocation());
-        declaration.setAstInterface(iface);
-        declaration.setParameterEnvironment(environment.getParent().get());
-        declaration.setDeclarationEnvironment(environment);
-
-        iface.setDeclaration(declaration);
+        final Interface iface = $<Interface>8;
+        nescComponents.finishInterface(iface, $rbrace.getEndLocation(), $defs);
 
         /* Close interface scope. */
         environment.setEndLocation($rbrace.getEndLocation());
@@ -633,21 +630,23 @@ module:
         pushLevel();
         environment.setScopeType(ScopeType.COMPONENT_PARAMETER);
         environment.setStartLocation($name.getEndLocation());
+        final Module module = nescComponents.startModule(environment, $keyword.getLocation(), $name,
+                $isGeneric.getValue());
+        $<Module>$ = module;
     }
       component_parms[params] nesc_attributes[attrs] LBRACE[lbrace]
     {
         pushLevel();
         environment.setScopeType(ScopeType.SPECIFICATION);
         environment.setStartLocation($lbrace.getLocation());
+        final Module module = $<Module>4;
+        nescComponents.handleComponentParametersAttributes(environment, module, Optional.fromNullable($params), $attrs);
+        $<Module>$ = module;
     }
-      requires_or_provides_list[rplist] RBRACE[rbrace] imodule[impl]
+      requires_or_provides_list[specification] RBRACE[rbrace] imodule[impl]
     {
-        final Location location = $isGeneric.getLocation() != null ? $isGeneric.getLocation() : $keyword.getLocation();
-        final Module module = new Module(location, $attrs, $name, $rplist, $impl, $isGeneric.getValue(),
-                Optional.fromNullable($params));
-        module.setEndLocation($impl.getEndLocation());
-        module.setSpecificationEnvironment(environment);
-        module.setParameterEnvironment(environment.getParent().get());
+        final Module module = $<Module>8;
+        nescComponents.finishComponent(module, $specification, $impl);
 
         // implementation scope handled in imodule
         // specification scope
@@ -667,19 +666,24 @@ configuration:
         pushLevel();
         environment.setScopeType(ScopeType.COMPONENT_PARAMETER);
         environment.setStartLocation($name.getEndLocation());
+        final Configuration configuration = nescComponents.startConfiguration(environment, $keyword.getLocation(),
+                $name, $isGeneric.getValue());
+        $<Configuration>$ = configuration;
     }
-      component_parms[parms] nesc_attributes[attrs] LBRACE[lbrace]
+      component_parms[params] nesc_attributes[attrs] LBRACE[lbrace]
     {
         pushLevel();
         environment.setScopeType(ScopeType.SPECIFICATION);
         environment.setStartLocation($lbrace.getLocation());
+        final Configuration configuration = $<Configuration>4;
+        nescComponents.handleComponentParametersAttributes(environment, configuration, Optional.fromNullable($params),
+                $attrs);
+        $<Configuration>$ = configuration;
     }
-      requires_or_provides_list[rplist] RBRACE[rbrace] iconfiguration[impl]
+      requires_or_provides_list[specification] RBRACE[rbrace] iconfiguration[impl]
     {
-        final Location location = $isGeneric.getLocation() != null ? $isGeneric.getLocation() : $keyword.getLocation();
-        final Configuration configuration = new Configuration(location, $attrs, $name, $rplist, $impl,
-                $isGeneric.getValue(), Optional.fromNullable($parms));
-        configuration.setEndLocation($impl.getEndLocation());
+        final Configuration configuration = $<Configuration>8;
+        nescComponents.finishComponent(configuration, $specification, $impl);
 
         // implementation scope handled in iconfiguration
         // specification scope
@@ -4079,6 +4083,7 @@ string_chain:
      */
     private LexerWrapper lexer;
     private Environment environment;
+    private NescEntityEnvironment nescEnvironment;
     private ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder;
     private ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder;
     /**
@@ -4122,6 +4127,7 @@ string_chain:
      * @param filePath              currently being parsed file path
      * @param lex                   lexer
      * @param environment           global environment
+     * @param nescEnvironment       nesc environment
      * @param fileType              fileType file type
      * @param tokensMultimapBuilder tokens multimap builder
      * @param issuesMultimapBuilder issues multimap builder
@@ -4129,12 +4135,14 @@ string_chain:
     public Parser(String filePath,
                   pl.edu.mimuw.nesc.lexer.Lexer lex,
                   Environment environment,
+                  NescEntityEnvironment nescEnvironment,
                   FileType fileType,
                   ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
                   ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder) {
         Preconditions.checkNotNull(filePath, "file path cannot be null");
         Preconditions.checkNotNull(lex, "lexer cannot be null");
         Preconditions.checkNotNull(environment, "environment cannot be null");
+        Preconditions.checkNotNull(nescEnvironment, "nesc environment cannot be null");
         Preconditions.checkNotNull(fileType, "file type cannot be null");
         Preconditions.checkNotNull(tokensMultimapBuilder, "tokens multimap builder cannot be null");
         Preconditions.checkNotNull(issuesMultimapBuilder, "issues multimap builder cannot be null");
@@ -4143,6 +4151,7 @@ string_chain:
         this.fileType = fileType;
         this.currentEntityName = Files.getNameWithoutExtension(filePath);
         this.environment = environment;
+        this.nescEnvironment = nescEnvironment;
         this.tokensMultimapBuilder = tokensMultimapBuilder;
         this.issuesMultimapBuilder = issuesMultimapBuilder;
         this.lex = lex;
@@ -4154,9 +4163,12 @@ string_chain:
 
         this.errorHelper = new ErrorHelper(this.issuesMultimapBuilder);
 
-        this.declarations = new Declarations(this.issuesMultimapBuilder, this.tokensMultimapBuilder);
-        this.nescDeclarations = new NescDeclarations(this.issuesMultimapBuilder, this.tokensMultimapBuilder);
-        this.nescComponents = new NescComponents(this.issuesMultimapBuilder, this.tokensMultimapBuilder);
+        this.declarations = new Declarations(this.nescEnvironment, this.issuesMultimapBuilder,
+                this.tokensMultimapBuilder);
+        this.nescDeclarations = new NescDeclarations(this.nescEnvironment, this.issuesMultimapBuilder,
+                this.tokensMultimapBuilder);
+        this.nescComponents = new NescComponents(this.nescEnvironment, this.issuesMultimapBuilder,
+                this.tokensMultimapBuilder);
 
         switch (fileType) {
             case HEADER:
