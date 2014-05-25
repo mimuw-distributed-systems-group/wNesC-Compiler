@@ -1,6 +1,10 @@
 package pl.edu.mimuw.nesc.declaration.object;
 
+import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.gen.ComponentRef;
+import pl.edu.mimuw.nesc.ast.gen.Word;
+import pl.edu.mimuw.nesc.declaration.nesc.NescDeclaration;
 
 /**
  * <p>Component reference.</p>
@@ -10,8 +14,17 @@ import pl.edu.mimuw.nesc.ast.Location;
  */
 public class ComponentRefDeclaration extends ObjectDeclaration {
 
-    public ComponentRefDeclaration(String name, Location location) {
+    private final Word componentName;
+
+    private ComponentRef astComponentRef;
+    /**
+     * Component declaration (absent if reference is erroneous).
+     */
+    private Optional<? extends NescDeclaration> componentDeclaration;
+
+    public ComponentRefDeclaration(String name, Word componentName, Location location) {
         super(name, location);
+        this.componentName = componentName;
     }
 
     @Override
@@ -19,4 +32,23 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
         return visitor.visit(this, arg);
     }
 
+    public Word getComponentName() {
+        return componentName;
+    }
+
+    public ComponentRef getAstComponentRef() {
+        return astComponentRef;
+    }
+
+    public void setAstComponentRef(ComponentRef astComponentRef) {
+        this.astComponentRef = astComponentRef;
+    }
+
+    public Optional<? extends NescDeclaration> getComponentDeclaration() {
+        return componentDeclaration;
+    }
+
+    public void setComponentDeclaration(Optional<? extends NescDeclaration> componentDeclaration) {
+        this.componentDeclaration = componentDeclaration;
+    }
 }

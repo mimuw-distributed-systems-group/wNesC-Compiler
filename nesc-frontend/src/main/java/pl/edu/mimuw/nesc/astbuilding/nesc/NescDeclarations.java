@@ -8,6 +8,7 @@ import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
 import pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astbuilding.TypeElementUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
+import pl.edu.mimuw.nesc.declaration.nesc.NescDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
@@ -67,14 +68,20 @@ public final class NescDeclarations extends AstBuildingBase {
      * @param startLocation start location of declaration
      * @param endLocation   end location of declaration
      * @param componentRef  component reference
-     * @param alias optional alias
+     * @param alias         optional alias
      */
     public ComponentRef declareComponentRef(Environment environment, Location startLocation, Location endLocation,
-                                    ComponentRef componentRef, Optional<String> alias) {
+                                            ComponentRef componentRef, Optional<String> alias) {
         componentRef.setEndLocation(endLocation);
 
+        final Word componentName = componentRef.getName();
+        final Optional<? extends NescDeclaration> component = nescEnvironment.get(componentName.getName());
         final String refName = alias.isPresent() ? alias.get() : componentRef.getName().getName();
-        final ComponentRefDeclaration symbol = new ComponentRefDeclaration(refName, startLocation);
+
+        final ComponentRefDeclaration symbol = new ComponentRefDeclaration(refName, componentName, startLocation);
+        symbol.setAstComponentRef(componentRef);
+        symbol.setComponentDeclaration(component);
+
         if (!environment.getObjects().add(refName, symbol)) {
             errorHelper.error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", alias));
         }
@@ -132,6 +139,4 @@ public final class NescDeclarations extends AstBuildingBase {
 
         return dataDecl;
     }
-
-
 }
