@@ -46,10 +46,8 @@ public final class NescFrontend implements Frontend {
 
         final ContextRef contextRef = new ContextRef();
         final FrontendContext context = createContextWorker(args);
+        getStartFile(context); // checking if file exists
         this.contextsMap.put(contextRef, context);
-
-        rebuild(contextRef);
-
         return contextRef;
     }
 
@@ -63,15 +61,8 @@ public final class NescFrontend implements Frontend {
 
         final ProjectData.Builder projectDataBuilder = ProjectData.builder();
 
-        final String entryFileName = context.getOptions().getEntryEntity();
-        final Optional<String> startFile = context.getPathsResolver().getEntityFile(entryFileName);
-
         parseFilesIncludedByDefault(context);
-
-        if (!startFile.isPresent()) {
-            throw new FileNotFoundException("Cannot find start file: " + entryFileName);
-        }
-        update(contextRef, startFile.get());
+        update(contextRef, getStartFile(context));
 
         projectDataBuilder.addIssues(context.getIssues());
         return projectDataBuilder.build();
@@ -115,6 +106,15 @@ public final class NescFrontend implements Frontend {
     @Override
     public Iterable<String> getExtensionKeywords() {
         return Keywords.EXTENSION_KEYWORDS;
+    }
+
+    private String getStartFile(FrontendContext context) throws FileNotFoundException {
+        final String entryFileName = context.getOptions().getEntryEntity();
+        final Optional<String> startFile = context.getPathsResolver().getEntityFile(entryFileName);
+        if (!startFile.isPresent()) {
+            throw new FileNotFoundException("Cannot find start file: " + entryFileName);
+        }
+        return startFile.get();
     }
 
     private FrontendContext getContext(ContextRef contextRef) {
