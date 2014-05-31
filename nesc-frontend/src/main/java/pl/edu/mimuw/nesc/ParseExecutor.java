@@ -13,9 +13,9 @@ import pl.edu.mimuw.nesc.exception.LexerException;
 import pl.edu.mimuw.nesc.filesgraph.GraphFile;
 import pl.edu.mimuw.nesc.filesgraph.walker.FilesGraphWalker;
 import pl.edu.mimuw.nesc.filesgraph.walker.NodeAction;
-import pl.edu.mimuw.nesc.issue.NescError;
-import pl.edu.mimuw.nesc.issue.NescIssue;
-import pl.edu.mimuw.nesc.issue.NescWarning;
+import pl.edu.mimuw.nesc.problem.NescError;
+import pl.edu.mimuw.nesc.problem.NescIssue;
+import pl.edu.mimuw.nesc.problem.NescWarning;
 import pl.edu.mimuw.nesc.lexer.Comment;
 import pl.edu.mimuw.nesc.lexer.LexerListener;
 import pl.edu.mimuw.nesc.lexer.NescLexer;
@@ -276,6 +276,7 @@ public final class ParseExecutor {
             lexer.close();
 
 		    /* Errors occurred. */
+            //noinspection StatementWithEmptyBody
             if (!parseSuccess || errors) {
                 // TODO
             }
@@ -355,7 +356,7 @@ public final class ParseExecutor {
         @Override
         public void error(String fileName, int startLine, int startColumn,
                           Optional<Integer> endLine, Optional<Integer> endColumn, String message) {
-            final Location startLocation = new Location(fileName, startLine, startColumn);
+            final Optional<Location> startLocation = Optional.of(new Location(fileName, startLine, startColumn));
             final Optional<Location> endLocation;
             if (endLine.isPresent()) {
                 endLocation = Optional.of(new Location(fileName, endLine.get(), endColumn.get()));
@@ -369,7 +370,7 @@ public final class ParseExecutor {
         @Override
         public void warning(String fileName, int startLine, int startColumn,
                             Optional<Integer> endLine, Optional<Integer> endColumn, String message) {
-            final Location startLocation = new Location(fileName, startLine, startColumn);
+            final Optional<Location> startLocation = Optional.of(new Location(fileName, startLine, startColumn));
             final Optional<Location> endLocation;
             if (endLine.isPresent()) {
                 endLocation = Optional.of(new Location(fileName, endLine.get(), endColumn.get()));

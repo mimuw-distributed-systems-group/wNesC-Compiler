@@ -3,7 +3,9 @@ package pl.edu.mimuw.nesc;
 import pl.edu.mimuw.nesc.environment.NescEnvironment;
 import pl.edu.mimuw.nesc.filesgraph.FilesGraph;
 import pl.edu.mimuw.nesc.option.OptionsHolder;
+import pl.edu.mimuw.nesc.problem.NescIssue;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +27,8 @@ public final class FrontendContext {
 
     private final NescEnvironment nescEnvironment;
 
+    private List<NescIssue> issues;
+
     public FrontendContext(OptionsHolder options) {
         this.options = options;
         this.predefinedMacros = options.getPredefinedMacros();
@@ -40,6 +44,8 @@ public final class FrontendContext {
         this.cache = new HashMap<>();
         this.fileDatas = new HashMap<>();
         this.nescEnvironment = new NescEnvironment();
+
+        this.issues = new ArrayList<>();
     }
 
     public OptionsHolder getOptions() {
@@ -72,6 +78,14 @@ public final class FrontendContext {
 
     public NescEnvironment getNescEnvironment() {
         return nescEnvironment;
+    }
+
+    public List<NescIssue> getIssues() {
+        return issues;
+    }
+
+    public void setIssues(List<NescIssue> issues) {
+        this.issues = issues;
     }
 
     /**

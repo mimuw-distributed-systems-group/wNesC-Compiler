@@ -7,7 +7,7 @@ import com.google.common.collect.Multimap;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.environment.Environment;
-import pl.edu.mimuw.nesc.issue.NescIssue;
+import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.lexer.Comment;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
 import pl.edu.mimuw.nesc.token.Token;

@@ -22,6 +22,9 @@ public class DfsPostOrderWalker extends BaseWalker {
     public void walk(String startFile) {
         this.visited.clear();
         final GraphFile file = this.graph.getFile(startFile);
+        if (file == null) {
+            return;
+        }
         visit(file);
     }
 

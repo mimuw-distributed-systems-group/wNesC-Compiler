@@ -2,8 +2,8 @@ package pl.edu.mimuw.nesc.astbuilding;
 
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
-import pl.edu.mimuw.nesc.issue.ErrorHelper;
-import pl.edu.mimuw.nesc.issue.NescIssue;
+import pl.edu.mimuw.nesc.problem.ErrorHelper;
+import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.token.Token;
 
 /**

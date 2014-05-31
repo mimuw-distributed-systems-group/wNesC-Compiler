@@ -12,7 +12,7 @@ import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.nesc.*;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.environment.*;
-import pl.edu.mimuw.nesc.issue.*;
+import pl.edu.mimuw.nesc.problem.*;
 import pl.edu.mimuw.nesc.parser.value.*;
 import pl.edu.mimuw.nesc.astbuilding.*;
 import pl.edu.mimuw.nesc.astbuilding.nesc.*;

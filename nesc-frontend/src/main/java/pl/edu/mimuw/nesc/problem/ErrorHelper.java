@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.issue;
+package pl.edu.mimuw.nesc.problem;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;

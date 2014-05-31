@@ -8,6 +8,7 @@ import pl.edu.mimuw.nesc.NescFrontend;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -24,7 +25,7 @@ public class IntegrationTestBase {
     }
 
     protected FileData getFileData(Frontend frontend, String resourcePath, String mainEntity, String testEntityPath)
-            throws InvalidOptionsException {
+            throws InvalidOptionsException, FileNotFoundException {
         final String filePath = getResourceDirectory(resourcePath);
         final String dirPath = getParent(filePath);
         final String[] args = new String[]{"-p", dirPath, "-m", mainEntity};

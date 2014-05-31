@@ -1,10 +1,9 @@
 package pl.edu.mimuw.nesc;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
+import com.google.common.collect.ImmutableList;
+import pl.edu.mimuw.nesc.problem.NescIssue;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Collection;
 
 /**
  * Contains the result of parsing process for entire project.
@@ -13,55 +12,41 @@ import java.util.Map;
  */
 public final class ProjectData {
 
-    // TODO: make it immutable for clients
-    // TODO: what should this class contain?
+    public static Builder builder() {
+        return new Builder();
+    }
 
-    private final Map<String, FileData> files;
+    private final ImmutableList<NescIssue> issues;
 
-    // TODO: extend attributes list
+    private ProjectData(Builder builder) {
+        this.issues = builder.issues;
+    }
 
-    /**
-     * Creates new ProjectData instance.
-     */
-    public ProjectData() {
-        this.files = new HashMap<>();
+    public ImmutableList<NescIssue> getIssues() {
+        return issues;
     }
 
     /**
-     * Adds result of parsing of new file.
-     *
-     * @param fileData object containing result of single file parsing
+     * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
      */
-    public void addFile(FileData fileData) {
-        checkNotNull(fileData, "file result cannot be null");
-        final String fileName = fileData.getFilePath();
-        checkState(!this.files.containsKey(fileName), "duplicated entry for file " + fileName);
-        this.files.put(fileName, fileData);
-    }
+    public static class Builder {
 
-    /**
-     * Returns object containing result of parsing of specified file.
-     *
-     * @param file file path
-     * @return object containing result of parsing of specified file
-     */
-    public FileData getFile(String file) {
-        checkNotNull(file, "file cannot be null");
-        return this.files.get(file);
-    }
+        private ImmutableList<NescIssue> issues;
 
-    /**
-     * Returns map of results of parsing of all files.
-     *
-     * @return map of results
-     */
-    public Map<String, FileData> getFilesMap() {
-        return this.files;
-    }
+        public Builder() {
+        }
 
-    @Override
-    public String toString() {
-        return "{ ProjectData; {files=" + files + "}}";
-    }
+        public Builder addIssues(Collection<NescIssue> issues) {
+            this.issues = ImmutableList.copyOf(issues);
+            return this;
+        }
 
+        public ProjectData build() {
+            verify();
+            return new ProjectData(this);
+        }
+
+        private void verify() {
+        }
+    }
 }

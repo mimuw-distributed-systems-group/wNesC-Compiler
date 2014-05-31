@@ -1,8 +1,7 @@
-package pl.edu.mimuw.nesc.issue;
+package pl.edu.mimuw.nesc.problem;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import pl.edu.mimuw.nesc.ast.Location;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -14,11 +13,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public abstract class NescIssue {
 
-    protected final Location startLocation;
+    protected final Optional<Location> startLocation;
     protected final Optional<Location> endLocation;
     protected final String message;
 
-    public NescIssue(Location startLocation, Optional<Location> endLocation, String message) {
+    public NescIssue(Optional<Location> startLocation, Optional<Location> endLocation, String message) {
         checkNotNull(startLocation, "start location cannot be null");
         checkNotNull(endLocation, "end location cannot be null");
         checkNotNull(message, "message cannot be null");
@@ -27,7 +26,7 @@ public abstract class NescIssue {
         this.message = message;
     }
 
-    public Location getStartLocation() {
+    public Optional<Location> getStartLocation() {
         return startLocation;
     }
 

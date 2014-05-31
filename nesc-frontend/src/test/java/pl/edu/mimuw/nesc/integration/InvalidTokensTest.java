@@ -4,7 +4,7 @@ import com.google.common.base.Optional;
 import org.junit.Test;
 import pl.edu.mimuw.nesc.FileData;
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.issue.NescError;
+import pl.edu.mimuw.nesc.problem.NescError;
 import pl.edu.mimuw.nesc.lexer.Comment;
 import pl.edu.mimuw.nesc.token.CharacterToken;
 import pl.edu.mimuw.nesc.token.NumberToken;

@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.issue;
+package pl.edu.mimuw.nesc.problem;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
@@ -8,8 +8,12 @@ import pl.edu.mimuw.nesc.ast.Location;
  */
 public class NescWarning extends NescIssue {
 
-    public NescWarning(Location startLocation, Optional<Location> endLocation, String message) {
+    public NescWarning(Optional<Location> startLocation, Optional<Location> endLocation, String message) {
         super(startLocation, endLocation, message);
+    }
+
+    public NescWarning(Location startLocation, Optional<Location> endLocation, String message) {
+        super(Optional.of(startLocation), endLocation, message);
     }
 
     @Override

@@ -15,7 +15,7 @@ import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.VariableDeclaration;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
-import pl.edu.mimuw.nesc.issue.NescIssue;
+import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.token.Token;
 
 import java.util.LinkedList;
