@@ -19,7 +19,7 @@ public final class ProjectData {
     private final ImmutableList<NescIssue> issues;
 
     private ProjectData(Builder builder) {
-        this.issues = builder.issues;
+        this.issues = builder.issueListBuilder.build();
     }
 
     public ImmutableList<NescIssue> getIssues() {
@@ -31,13 +31,19 @@ public final class ProjectData {
      */
     public static class Builder {
 
-        private ImmutableList<NescIssue> issues;
+        private ImmutableList.Builder<NescIssue> issueListBuilder;
 
         public Builder() {
+            this.issueListBuilder = ImmutableList.builder();
+        }
+
+        public Builder addIssue(NescIssue issue) {
+            this.issueListBuilder.add(issue);
+            return this;
         }
 
         public Builder addIssues(Collection<NescIssue> issues) {
-            this.issues = ImmutableList.copyOf(issues);
+            this.issueListBuilder.addAll(issues);
             return this;
         }
 

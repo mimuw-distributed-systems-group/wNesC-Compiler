@@ -9,7 +9,6 @@ import pl.edu.mimuw.nesc.option.OptionsHolder;
 import pl.edu.mimuw.nesc.option.OptionsParser;
 import pl.edu.mimuw.nesc.problem.NescError;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -17,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 
 /**
  * Frontend implementation for nesc language.
@@ -40,19 +40,18 @@ public final class NescFrontend implements Frontend {
     }
 
     @Override
-    public ContextRef createContext(String[] args) throws InvalidOptionsException, FileNotFoundException {
+    public ContextRef createContext(String[] args) throws InvalidOptionsException {
         checkNotNull(args, "arguments cannot be null");
         LOG.info("Create context; " + Arrays.toString(args));
 
         final ContextRef contextRef = new ContextRef();
         final FrontendContext context = createContextWorker(args);
-        getStartFile(context); // checking if file exists
         this.contextsMap.put(contextRef, context);
         return contextRef;
     }
 
     @Override
-    public ProjectData rebuild(ContextRef contextRef) throws FileNotFoundException {
+    public ProjectData rebuild(ContextRef contextRef) {
         checkNotNull(contextRef, "context reference cannot be null");
         LOG.info("Rebuild; contextRef=" + contextRef);
 
@@ -60,9 +59,18 @@ public final class NescFrontend implements Frontend {
         setContext(context, contextRef);
 
         final ProjectData.Builder projectDataBuilder = ProjectData.builder();
+        final Optional<String> startFile = getStartFile(context);
 
         parseFilesIncludedByDefault(context);
-        update(contextRef, getStartFile(context));
+
+        if (startFile.isPresent()) {
+            update(contextRef, startFile.get());
+        } else {
+            final String msg = format("Cannot find main configuration '%s'", context.getOptions().getEntryEntity());
+            LOG.error(msg);
+            final NescError error = new NescError(Optional.<Location>absent(), Optional.<Location>absent(), msg);
+            projectDataBuilder.addIssue(error);
+        }
 
         projectDataBuilder.addIssues(context.getIssues());
         return projectDataBuilder.build();
@@ -108,13 +116,9 @@ public final class NescFrontend implements Frontend {
         return Keywords.EXTENSION_KEYWORDS;
     }
 
-    private String getStartFile(FrontendContext context) throws FileNotFoundException {
+    private Optional<String> getStartFile(FrontendContext context) {
         final String entryFileName = context.getOptions().getEntryEntity();
-        final Optional<String> startFile = context.getPathsResolver().getEntityFile(entryFileName);
-        if (!startFile.isPresent()) {
-            throw new FileNotFoundException("Cannot find start file: " + entryFileName);
-        }
-        return startFile.get();
+        return context.getPathsResolver().getEntityFile(entryFileName);
     }
 
     private FrontendContext getContext(ContextRef contextRef) {
@@ -175,7 +179,7 @@ public final class NescFrontend implements Frontend {
             } catch (IOException e) {
                 e.printStackTrace();
                 LOG.error("Error during parsing default files.", e);
-                final String msg = String.format("Could not find file included by default; path = %s.", filePath);
+                final String msg = format("Could not find file included by default; path = %s.", filePath);
                 final NescError error = new NescError(Optional.<Location>absent(), Optional.<Location>absent(), msg);
                 context.getIssues().add(error);
             }

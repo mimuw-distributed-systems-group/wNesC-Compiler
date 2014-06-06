@@ -53,18 +53,16 @@ public interface Frontend {
      * @param args context arguments
      * @return context reference
      * @throws InvalidOptionsException
-     * @throws java.io.FileNotFoundException
      */
-    ContextRef createContext(String[] args) throws InvalidOptionsException, FileNotFoundException;
+    ContextRef createContext(String[] args) throws InvalidOptionsException;
 
     /**
      * Rebuilds the entire project.
      *
      * @param contextRef context reference
      * @return result of analysis of the entire project
-     * @throws java.io.FileNotFoundException
      */
-    ProjectData rebuild(ContextRef contextRef) throws FileNotFoundException;
+    ProjectData rebuild(ContextRef contextRef);
 
     /**
      * <p>Parses and analyzes the specified file. If last modification
