@@ -51,6 +51,13 @@ public final class NescFrontend implements Frontend {
     }
 
     @Override
+    public void deleteContext(ContextRef contextRef) {
+        LOG.info("Delete context; " + contextRef);
+        checkNotNull(contextRef, "context reference cannot be null");
+        this.contextsMap.remove(contextRef);
+    }
+
+    @Override
     public ProjectData rebuild(ContextRef contextRef) {
         checkNotNull(contextRef, "context reference cannot be null");
         LOG.info("Rebuild; contextRef=" + contextRef);
@@ -78,6 +85,9 @@ public final class NescFrontend implements Frontend {
 
     @Override
     public FileData update(ContextRef contextRef, String filePath) {
+        // TODO: update on one file may update more than one file (e.g. when
+        // a new file is included or new NesC entity is used. Return list of
+        // FileDatas?
         checkNotNull(contextRef, "context reference cannot be null");
         checkNotNull(filePath, "file path cannot be null");
         LOG.info("Update; contextRef=" + contextRef + "; filePath=" + filePath);

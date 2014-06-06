@@ -57,6 +57,13 @@ public interface Frontend {
     ContextRef createContext(String[] args) throws InvalidOptionsException;
 
     /**
+     * <p>Deletes context.</p>
+     *
+     * @param contextRef context reference
+     */
+    void deleteContext(ContextRef contextRef);
+
+    /**
      * Rebuilds the entire project.
      *
      * @param contextRef context reference
