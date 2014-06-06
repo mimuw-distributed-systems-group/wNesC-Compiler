@@ -83,7 +83,7 @@ public final class NescDeclarations extends AstBuildingBase {
         symbol.setComponentDeclaration(component);
 
         if (!environment.getObjects().add(refName, symbol)) {
-            errorHelper.error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", alias));
+            errorHelper.error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", refName));
         }
         componentRef.setDeclaration(symbol);
 

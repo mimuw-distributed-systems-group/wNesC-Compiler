@@ -175,7 +175,12 @@ public final class NescComponents extends AstBuildingBase {
             }
         }
 
-        public Void visitErrorDecl(ErrorDecl declaration, Component arg) {
+        public Void visitDataDecl(DataDecl declaration, Component component) {
+            // TODO
+            return null;
+        }
+
+        public Void visitErrorDecl(ErrorDecl declaration, Component component) {
             /* ignore */
             return null;
         }

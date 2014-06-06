@@ -4301,7 +4301,7 @@ string_chain:
     private void requireInterface(Word ifaceName) {
         if (this.parserListener != null
                 && !this.parserListener.interfaceDependency(filePath, ifaceName.getName(), ifaceName.getLocation())) {
-            final String message = format("cannot find interface %s definition file", ifaceName.getName());
+            final String message = format("Cannot find interface %s.", ifaceName.getName());
             error(ifaceName.getLocation(), Optional.of(ifaceName.getEndLocation()), message);
         }
     }
@@ -4310,7 +4310,7 @@ string_chain:
         if (this.parserListener != null
                 && !this.parserListener.componentDependency(filePath, componentName.getName(),
                         componentName.getLocation())) {
-            final String message = format("cannot find component %s definition file", componentName.getName());
+            final String message = format("Cannot find component %s.", componentName.getName());
             error(componentName.getLocation(), Optional.of(componentName.getEndLocation()), message);
         }
     }
