@@ -15,7 +15,7 @@ public abstract class ConditionalExpDirective extends ConditionalDirective {
      *
      * @param builder builder.
      */
-    protected ConditionalExpDirective(Builder builder) {
+    protected ConditionalExpDirective(Builder<? extends ConditionalExpDirective> builder) {
         super(builder);
     }
 

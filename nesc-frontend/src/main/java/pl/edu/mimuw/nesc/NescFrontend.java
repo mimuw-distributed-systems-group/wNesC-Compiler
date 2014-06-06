@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
@@ -10,10 +11,7 @@ import pl.edu.mimuw.nesc.option.OptionsParser;
 import pl.edu.mimuw.nesc.problem.NescError;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -71,7 +69,8 @@ public final class NescFrontend implements Frontend {
         parseFilesIncludedByDefault(context);
 
         if (startFile.isPresent()) {
-            update(contextRef, startFile.get());
+            final List<FileData> fileDatas = update(contextRef, startFile.get());
+            projectDataBuilder.addFileDatas(fileDatas);
         } else {
             final String msg = format("Cannot find main configuration '%s'", context.getOptions().getEntryEntity());
             LOG.error(msg);
@@ -84,10 +83,7 @@ public final class NescFrontend implements Frontend {
     }
 
     @Override
-    public FileData update(ContextRef contextRef, String filePath) {
-        // TODO: update on one file may update more than one file (e.g. when
-        // a new file is included or new NesC entity is used. Return list of
-        // FileDatas?
+    public List<FileData> update(ContextRef contextRef, String filePath) {
         checkNotNull(contextRef, "context reference cannot be null");
         checkNotNull(filePath, "file path cannot be null");
         LOG.info("Update; contextRef=" + contextRef + "; filePath=" + filePath);
@@ -96,12 +92,8 @@ public final class NescFrontend implements Frontend {
 
         try {
             // FIXME: what if we would like to edit file included by default?
-            new ParseExecutor(context).parse(filePath, false);
-            /*
-             * File data is created only when necessary (to avoid creating
-             * costly objects that might not be used).
-             */
-            return FileData.convertFrom(context.getCache().get(filePath));
+            List<FileData> fileDatas = new ParseExecutor(context).parse(filePath, false);
+            return ImmutableList.copyOf(fileDatas);
         } catch (IOException e) {
             // TODO
             e.printStackTrace();
@@ -180,12 +172,13 @@ public final class NescFrontend implements Frontend {
         }
     }
 
-    private void parseFilesIncludedByDefault(FrontendContext context) {
+    private List<FileData> parseFilesIncludedByDefault(FrontendContext context) {
+        final List<FileData> result = new ArrayList<>();
         final List<String> defaultIncludes = context.getDefaultIncludeFiles();
 
         for (String filePath : defaultIncludes) {
             try {
-                new ParseExecutor(context).parse(filePath, true);
+                result.addAll(new ParseExecutor(context).parse(filePath, true));
             } catch (IOException e) {
                 e.printStackTrace();
                 LOG.error("Error during parsing default files.", e);
@@ -194,6 +187,7 @@ public final class NescFrontend implements Frontend {
                 context.getIssues().add(error);
             }
         }
+        return result;
     }
 
 

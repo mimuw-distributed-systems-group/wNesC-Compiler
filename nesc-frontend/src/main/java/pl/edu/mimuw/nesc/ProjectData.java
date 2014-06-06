@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 
 import java.util.Collection;
@@ -16,10 +17,16 @@ public final class ProjectData {
         return new Builder();
     }
 
+    private final ImmutableMap<String, FileData> fileDatas;
     private final ImmutableList<NescIssue> issues;
 
     private ProjectData(Builder builder) {
+        this.fileDatas = builder.fileDataBuilder.build();
         this.issues = builder.issueListBuilder.build();
+    }
+
+    public ImmutableMap<String, FileData> getFileDatas() {
+        return fileDatas;
     }
 
     public ImmutableList<NescIssue> getIssues() {
@@ -31,10 +38,24 @@ public final class ProjectData {
      */
     public static class Builder {
 
+        private ImmutableMap.Builder<String, FileData> fileDataBuilder;
         private ImmutableList.Builder<NescIssue> issueListBuilder;
 
         public Builder() {
+            this.fileDataBuilder = ImmutableMap.builder();
             this.issueListBuilder = ImmutableList.builder();
+        }
+
+        public Builder addFileData(FileData fileData) {
+            this.fileDataBuilder.put(fileData.getFilePath(), fileData);
+            return this;
+        }
+
+        public Builder addFileDatas(Collection<FileData> fileDatas) {
+            for (FileData data : fileDatas) {
+                this.fileDataBuilder.put(data.getFilePath(), data);
+            }
+            return this;
         }
 
         public Builder addIssue(NescIssue issue) {

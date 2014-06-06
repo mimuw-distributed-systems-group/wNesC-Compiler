@@ -13,9 +13,6 @@ import pl.edu.mimuw.nesc.exception.LexerException;
 import pl.edu.mimuw.nesc.filesgraph.GraphFile;
 import pl.edu.mimuw.nesc.filesgraph.walker.FilesGraphWalker;
 import pl.edu.mimuw.nesc.filesgraph.walker.NodeAction;
-import pl.edu.mimuw.nesc.problem.NescError;
-import pl.edu.mimuw.nesc.problem.NescIssue;
-import pl.edu.mimuw.nesc.problem.NescWarning;
 import pl.edu.mimuw.nesc.lexer.Comment;
 import pl.edu.mimuw.nesc.lexer.LexerListener;
 import pl.edu.mimuw.nesc.lexer.NescLexer;
@@ -23,6 +20,9 @@ import pl.edu.mimuw.nesc.parser.Parser;
 import pl.edu.mimuw.nesc.parser.ParserListener;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
+import pl.edu.mimuw.nesc.problem.NescError;
+import pl.edu.mimuw.nesc.problem.NescIssue;
+import pl.edu.mimuw.nesc.problem.NescWarning;
 import pl.edu.mimuw.nesc.symboltable.Partition;
 import pl.edu.mimuw.nesc.token.MacroToken;
 import pl.edu.mimuw.nesc.token.Token;
@@ -64,10 +64,11 @@ public final class ParseExecutor {
      *
      * @param filePath      file path
      * @param isDefaultFile indicates if default files is included by default
+     * @return list of file datas (the first one is the "root" file's data)
      * @throws IOException
      */
-    public void parse(String filePath, boolean isDefaultFile) throws IOException {
-        new ParseFileExecutor(context, isDefaultFile).parseFile(filePath);
+    public LinkedList<FileData> parse(String filePath, boolean isDefaultFile) throws IOException {
+        return new ParseFileExecutor(context, isDefaultFile).parseFile(filePath);
     }
 
     /**
@@ -100,7 +101,6 @@ public final class ParseExecutor {
                 return;
             }
 
-            //LOG.info("Trying to use cached data for file: " + filePath);
             final FileCache cache = context.getCache().get(filePath);
             assert (cache != null);
 
@@ -144,6 +144,8 @@ public final class ParseExecutor {
 
         private Optional<Node> entity;
 
+        private final LinkedList<FileData> fileDatas;
+
         /**
          * Creates parse file executor.
          *
@@ -157,16 +159,18 @@ public final class ParseExecutor {
             this.fileCacheBuilder = FileCache.builder();
             this.tokensMultimapBuilder = ImmutableListMultimap.builder();
             this.issuesListBuilder = ImmutableListMultimap.builder();
+            this.fileDatas = new LinkedList<>();
         }
 
         /**
          * Parses file.
          *
          * @param filePath file path
+         * @return list of file datas (the first one is the "root" file's data)
          * @throws java.io.IOException
          * @throws pl.edu.mimuw.nesc.exception.LexerException
          */
-        public void parseFile(final String filePath) throws IOException, LexerException {
+        public LinkedList<FileData> parseFile(final String filePath) throws IOException, LexerException {
             checkNotNull(filePath, "file path cannot be null");
             LOG.info("Start parsing file: " + filePath);
 
@@ -176,6 +180,7 @@ public final class ParseExecutor {
             finish();
 
             LOG.info("File parsing finished: " + currentFilePath);
+            return fileDatas;
         }
 
         private void setUp(String filePath) {
@@ -325,6 +330,8 @@ public final class ParseExecutor {
                     .environment(partitionedEnvironment)
                     .build();
             context.getCache().put(currentFilePath, cache);
+            final FileData data = FileData.convertFrom(cache);
+            fileDatas.addFirst(data);
             LOG.trace("Put file cache into context; file: " + currentFilePath);
         }
 
@@ -388,7 +395,7 @@ public final class ParseExecutor {
 
         @Override
         public void extdefsFinished() {
-            LOG.info("Extdefs finished; file: " + currentFilePath);
+            LOG.trace("Extdefs finished; file: " + currentFilePath);
 
             /* Handle public macros. */
             /*
@@ -447,7 +454,8 @@ public final class ParseExecutor {
                 final ParseExecutor executor = new ParseExecutor(context);
                 try {
                     /* isDefaultFile is inherited from current file. */
-                    executor.parse(otherFilePath, isDefaultFile);
+                    final LinkedList<FileData> datas = executor.parse(otherFilePath, isDefaultFile);
+                    fileDatas.addAll(datas);
                 } catch (IOException e) {
                     LOG.error("Unexpected IOException occurred.", e);
                 }

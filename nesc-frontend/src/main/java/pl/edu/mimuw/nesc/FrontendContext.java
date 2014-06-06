@@ -23,7 +23,6 @@ public final class FrontendContext {
 
     private final FilesGraph filesGraph;
     private final Map<String, FileCache> cache;
-    private final Map<String, FileData> fileDatas;
 
     private final NescEnvironment nescEnvironment;
 
@@ -42,7 +41,6 @@ public final class FrontendContext {
 
         this.filesGraph = new FilesGraph();
         this.cache = new HashMap<>();
-        this.fileDatas = new HashMap<>();
         this.nescEnvironment = new NescEnvironment();
 
         this.issues = new ArrayList<>();
@@ -62,10 +60,6 @@ public final class FrontendContext {
 
     public Map<String, FileCache> getCache() {
         return cache;
-    }
-
-    public Map<String, FileData> getFileDatas() {
-        return fileDatas;
     }
 
     public Map<String, String> getPredefinedMacros() {

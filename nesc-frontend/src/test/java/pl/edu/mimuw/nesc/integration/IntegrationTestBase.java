@@ -30,7 +30,7 @@ public class IntegrationTestBase {
         final String dirPath = getParent(filePath);
         final String[] args = new String[]{"-p", dirPath, "-m", mainEntity};
         final ContextRef contextRef = frontend.createContext(args);
-        return frontend.update(contextRef, getResourceDirectory(testEntityPath));
+        return frontend.update(contextRef, getResourceDirectory(testEntityPath)).get(0);
     }
 
     protected String getResourceDirectory(String resourcePath) {

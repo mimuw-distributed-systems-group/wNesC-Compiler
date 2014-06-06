@@ -18,7 +18,7 @@ public abstract class ConditionalMacroDirective extends ConditionalDirective {
      *
      * @param builder builder.
      */
-    protected ConditionalMacroDirective(Builder builder) {
+    protected ConditionalMacroDirective(Builder<? extends ConditionalMacroDirective> builder) {
         super(builder);
         this.macro = builder.macro;
         this.macroLocation = builder.macroLocation;

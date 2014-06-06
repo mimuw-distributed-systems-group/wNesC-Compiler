@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 
 import java.io.FileNotFoundException;
+import java.util.List;
 
 /**
  * <p> Compiler frontend interface. Provides methods for processing source
@@ -72,17 +73,18 @@ public interface Frontend {
     ProjectData rebuild(ContextRef contextRef);
 
     /**
-     * <p>Parses and analyzes the specified file. If last modification
-     * timestamp has not been changed since last analysis, cached data will be
-     * returned.</p>
+     * <p>Parses and analyzes the specified file.</p>
      * <p>Cached data is also used to retrieve external definitions during
      * processing specified file to avoid unnecessary processing.</p>
      *
      * @param contextRef context reference
      * @param filePath   file path
-     * @return result of analysis of source file
+     * @return list of results of parsing file, the first element is
+     * the data of the file with specified path, the following elements
+     * are datas of files that are dependencies of given file but were
+     * not parsed before
      */
-    FileData update(ContextRef contextRef, String filePath);
+    List<FileData> update(ContextRef contextRef, String filePath);
 
     /**
      * Gets all keywords.
