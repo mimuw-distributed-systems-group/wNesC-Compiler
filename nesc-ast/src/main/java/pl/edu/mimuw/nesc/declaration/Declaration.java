@@ -10,7 +10,7 @@ import pl.edu.mimuw.nesc.symboltable.Partition;
  */
 public abstract class Declaration {
 
-    protected final Location location;
+    protected Location location;
     /**
      * Partition should be set only for global declarations.
      */
@@ -23,6 +23,10 @@ public abstract class Declaration {
 
     public Location getLocation() {
         return location;
+    }
+
+    public void setLocation(Location location) {
+        this.location = location;
     }
 
     public Partition getPartition() {

@@ -23,14 +23,20 @@ public class FunctionDeclaration extends ObjectDeclaration {
     private FunctionDeclarator astFunctionDeclarator;
     private FunctionType functionType;
 
+    /**
+     * Indicates whether function definition (do not be confused with
+     * declaration!) have been already parsed.
+     */
+    private boolean isDefined;
+
     public FunctionDeclaration(String functionName, Location location) {
-        super(functionName, location);
-        this.ifaceName = Optional.absent();
+        this(functionName, location, null);
     }
 
     public FunctionDeclaration(String name, Location location, String ifaceName) {
         super(name, location);
-        this.ifaceName = Optional.of(ifaceName);
+        this.ifaceName = Optional.fromNullable(ifaceName);
+        this.isDefined = false;
     }
 
     @Override
@@ -68,5 +74,13 @@ public class FunctionDeclaration extends ObjectDeclaration {
 
     public void setFunctionType(FunctionType functionType) {
         this.functionType = functionType;
+    }
+
+    public boolean isDefined() {
+        return isDefined;
+    }
+
+    public void setDefined(boolean isDefined) {
+        this.isDefined = isDefined;
     }
 }

@@ -33,4 +33,8 @@ public final class ErrorHelper {
         LOG.info(format("error: %s in %s at line: %d, column: %d.", message, startLocation.getFilePath(),
                 startLocation.getLine(), startLocation.getColumn()));
     }
+
+    public void error(Location startLocation, Location endLocation, String message) {
+        error(startLocation, Optional.of(endLocation), message);
+    }
 }
