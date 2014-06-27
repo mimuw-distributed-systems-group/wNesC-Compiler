@@ -423,6 +423,18 @@ public final class Declarations extends AstBuildingBase {
         }
 
         @Override
+        public Void visitPointerDeclarator(PointerDeclarator pointerDeclarator, Void arg) {
+            pointerDeclarator.getDeclarator().accept(this, null);
+            return null;
+        }
+
+        @Override
+        public Void visitQualifiedDeclarator(QualifiedDeclarator qualifiedDeclarator, Void arg) {
+            qualifiedDeclarator.getDeclarator().accept(this, null);
+            return null;
+        }
+
+        @Override
         public Void visitFunctionDeclarator(FunctionDeclarator funDeclarator, Void arg) {
             final Location startLocation = funDeclarator.getLocation();
             final Declarator innerDeclarator = funDeclarator.getDeclarator();

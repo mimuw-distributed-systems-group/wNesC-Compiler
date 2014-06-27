@@ -1,6 +1,5 @@
 package pl.edu.mimuw.nesc.astbuilding;
 
-import com.google.common.base.Preconditions;
 import pl.edu.mimuw.nesc.ast.gen.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -135,7 +134,7 @@ public final class DeclaratorUtils {
 
         @Override
         public FunctionDeclarator visitPointerDeclarator(PointerDeclarator elem, Void arg) {
-            throw new IllegalStateException("Function declarator not found");
+            return elem.getDeclarator().accept(this, null);
         }
 
         @Override
