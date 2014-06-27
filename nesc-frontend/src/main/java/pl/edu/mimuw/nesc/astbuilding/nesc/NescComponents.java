@@ -6,6 +6,7 @@ import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
+import pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils;
 import pl.edu.mimuw.nesc.declaration.nesc.ConfigurationDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.InterfaceDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.ModuleDeclaration;
@@ -319,13 +320,16 @@ public final class NescComponents extends AstBuildingBase {
 
         public Void visitVariableDecl(VariableDecl declaration, Void arg) {
             final Declarator declarator = declaration.getDeclarator().get();
-            if (!(declarator instanceof FunctionDeclarator)) {
+            try {
+                @SuppressWarnings("UnusedDeclaration")
+                final FunctionDeclarator funDeclarator = DeclaratorUtils.getFunctionDeclarator(
+                        declaration.getDeclarator().get());
+            } catch (Exception e) {
                 errorHelper.error(declarator.getLocation(), Optional.of(declarator.getEndLocation()),
                         format("only commands and events can be defined in interfaces"));
                 // TODO: make this declaration dummy
                 return null;
             }
-            final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
             final FunctionDeclaration funDeclaration = (FunctionDeclaration) declaration.getDeclaration();
 
             final FunctionDeclaration.FunctionType functionType = getFunctionType(modifiers);
