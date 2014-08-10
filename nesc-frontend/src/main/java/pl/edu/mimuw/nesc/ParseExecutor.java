@@ -6,6 +6,7 @@ import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
+import pl.edu.mimuw.nesc.ast.gen.Printer;
 import pl.edu.mimuw.nesc.common.FileType;
 import pl.edu.mimuw.nesc.environment.DefaultEnvironment;
 import pl.edu.mimuw.nesc.environment.PartitionedEnvironmentAdapter;
@@ -175,8 +176,7 @@ public final class ParseExecutor {
             LOG.info("Start parsing file: " + filePath);
 
             setUp(filePath);
-            parsing();
-            semantic();
+            load();
             finish();
 
             LOG.info("File parsing finished: " + currentFilePath);
@@ -235,7 +235,7 @@ public final class ParseExecutor {
                     currentPartition, visiblePartitions);
         }
 
-        private void parsing() throws IOException {
+        private void load() throws IOException {
             /*
              * Collect macros and global definitions from files included by
              * default.
@@ -270,7 +270,14 @@ public final class ParseExecutor {
             parser.setListener(this);
 
 		    /* Parsing */
-            final boolean parseSuccess = parser.parse();
+            boolean parseSuccess;
+            try {
+                parser.parse();
+                parseSuccess = true;
+            } catch (LexerException e) {
+                parseSuccess = false;
+                e.printStackTrace();
+            }
             final boolean errors = parser.errors();
 
 		    /* Cleanup parser */
@@ -319,10 +326,6 @@ public final class ParseExecutor {
             for (Declaration extdef : extdefs) {
                 fileCacheBuilder.extdef(extdef);
             }
-        }
-
-        private void semantic() {
-            // TODO
         }
 
         private void finish() {
@@ -414,7 +417,7 @@ public final class ParseExecutor {
         @Override
         public boolean componentDependency(String currentEntityPath, String componentName, Location visibleFrom) {
             return nescDependency(currentEntityPath, componentName, visibleFrom);
-            // FIXME: what should be included from components?
+            // FIXME: what should be included from components? nothing!
             // TODO update components graph
         }
 
@@ -461,6 +464,7 @@ public final class ParseExecutor {
                 }
             }
 
+            // macros are loaded only when #include!
             final Map<String, PreprocessorMacro> macros = new HashMap<>();
             final Set<String> newFiles = new HashSet<>();
 

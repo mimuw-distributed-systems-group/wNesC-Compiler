@@ -506,7 +506,7 @@ include_list:
 interface:
       ncheader INTERFACE[keyword] idword[name]
     {
-	    pushLevel();
+        pushLevel();
         environment.setScopeType(ScopeType.INTERFACE_PARAMETER);
         environment.setStartLocation($name.getEndLocation());
         final Interface iface = nescComponents.startInterface(environment, $keyword.getLocation(), $name);
@@ -1033,11 +1033,23 @@ configuration_decl:
 
 connection:
       endpoint EQ endpoint SEMICOLON
-    { $$ = new EqConnection($1.getLocation(), $1, $3); }
+    {
+        final EqConnection connection = new EqConnection($1.getLocation(), $1, $3);
+        connection.setEndLocation($4.getLocation());
+        $$ = connection;
+    }
     | endpoint ARROW endpoint SEMICOLON
-    { $$ = new RpConnection($1.getLocation(), $1, $3); }
+    {
+        final RpConnection connection = new RpConnection($1.getLocation(), $1, $3);
+        connection.setEndLocation($4.getLocation());
+        $$ = connection;
+    }
     | endpoint LEFT_ARROW endpoint SEMICOLON
-    { $$ = new RpConnection($1.getLocation(), $3, $1); }
+    {
+        final RpConnection connection = new RpConnection($1.getLocation(), $3, $1);
+        connection.setEndLocation($4.getLocation());
+        $$ = connection;
+    }
     ;
 
 endpoint:
@@ -1607,16 +1619,16 @@ primary:
     }
     | function_call
     {
-    	$$ = $1;
+        $$ = $1;
     }
     | VA_ARG LPAREN expr_no_commas COMMA typename RPAREN
     {
-    	$$ = Expressions.makeVaArg($1.getLocation(), $6.getEndLocation(), Lists.newList($3), $5);
+        $$ = Expressions.makeVaArg($1.getLocation(), $6.getEndLocation(), Lists.newList($3), $5);
     }
     | OFFSETOF LPAREN typename COMMA fieldlist RPAREN
     {
-    	// FIXME: fieldlist
-    	$$ = Expressions.makeOffsetof($1.getLocation(), $6.getEndLocation(), $3, Lists.<String>newList());
+        // FIXME: fieldlist
+        $$ = Expressions.makeOffsetof($1.getLocation(), $6.getEndLocation(), $3, Lists.<String>newList());
     }
     | primary LBRACK nonnull_exprlist RBRACK
     {
@@ -3286,7 +3298,9 @@ stmt_or_labels:
     }
     | stmt_or_labels errstmt
     {
-        $$ = new ValueStatements(Lists.<Statement>newList(Statements.makeErrorStmt()), 0);
+        final LinkedList<Statement> stmts = $1.getStatements();
+        stmts.add(Statements.makeErrorStmt());
+        $$ = new ValueStatements(Lists.chain(stmts, Statements.makeErrorStmt()), 0);
     }
     ;
 
@@ -3794,13 +3808,13 @@ parmlist_2:
     | ELLIPSIS
     {
         $$ = Lists.<Declaration>newList(declarations.makeErrorDecl());
-		  /* Gcc used to allow this as an extension.  However, it does
-		   * not work for all targets, and thus has been disabled.
-		   * Also, since func (...) and func () are indistinguishable,
-		   * it caused problems with the code in expand_builtin which
-		   * tries to verify that BUILT_IN_NEXT_ARG is being used
-		   * correctly.
-		   */
+          /* Gcc used to allow this as an extension.  However, it does
+           * not work for all targets, and thus has been disabled.
+           * Also, since func (...) and func () are indistinguishable,
+           * it caused problems with the code in expand_builtin which
+           * tries to verify that BUILT_IN_NEXT_ARG is being used
+           * correctly.
+           */
     }
     | parms
     { $$ = $1; }
@@ -4193,7 +4207,6 @@ string_chain:
             default:
                 throw new RuntimeException("not handled file type " + fileType);
         }
-
     }
 
     /**
