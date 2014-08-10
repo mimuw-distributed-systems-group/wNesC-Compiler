@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc;
 
-import pl.edu.mimuw.nesc.environment.NescEnvironment;
+import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
+import pl.edu.mimuw.nesc.environment.TranslationUnitEnvironment;
 import pl.edu.mimuw.nesc.filesgraph.FilesGraph;
 import pl.edu.mimuw.nesc.option.OptionsHolder;
 import pl.edu.mimuw.nesc.problem.NescIssue;
@@ -15,20 +16,37 @@ import java.util.Map;
  */
 public final class FrontendContext {
 
+    private final boolean isStandalone;
     private final OptionsHolder options;
     private final Map<String, String> predefinedMacros;
     private final List<String> defaultIncludeFiles;
 
     private final PathsResolver pathsResolver;
+    private final MacroManager macroManager;
 
     private final FilesGraph filesGraph;
     private final Map<String, FileCache> cache;
 
-    private final NescEnvironment nescEnvironment;
+    /**
+     * Namespace for NesC components and interfaces is present only in
+     * global scope.
+     */
+    private final NescEntityEnvironment nescEntityEnvironment;
+    /**
+     * When the frontend is used as a part of plug-in, each files has its
+     * own global environment.
+     */
+    private final Map<String, TranslationUnitEnvironment> environments;
+    /**
+     * In a standalone mode a single environment is used for the entire
+     * application.
+     */
+    private final TranslationUnitEnvironment environment;
 
     private List<NescIssue> issues;
 
-    public FrontendContext(OptionsHolder options) {
+    public FrontendContext(OptionsHolder options, boolean isStandalone) {
+        this.isStandalone = isStandalone;
         this.options = options;
         this.predefinedMacros = options.getPredefinedMacros();
         this.defaultIncludeFiles = options.getDefaultIncludeFiles();
@@ -39,11 +57,19 @@ public final class FrontendContext {
                 .projectPath(options.getProjectPath())
                 .build();
 
+        this.macroManager = new MacroManager();
+
         this.filesGraph = new FilesGraph();
         this.cache = new HashMap<>();
-        this.nescEnvironment = new NescEnvironment();
+        this.nescEntityEnvironment = new NescEntityEnvironment();
+        this.environments = new HashMap<>();
+        this.environment = new TranslationUnitEnvironment();
 
         this.issues = new ArrayList<>();
+    }
+
+    public boolean isStandalone() {
+        return isStandalone;
     }
 
     public OptionsHolder getOptions() {
@@ -52,6 +78,10 @@ public final class FrontendContext {
 
     public PathsResolver getPathsResolver() {
         return pathsResolver;
+    }
+
+    public MacroManager getMacroManager() {
+        return macroManager;
     }
 
     public FilesGraph getFilesGraph() {
@@ -70,8 +100,16 @@ public final class FrontendContext {
         return defaultIncludeFiles;
     }
 
-    public NescEnvironment getNescEnvironment() {
-        return nescEnvironment;
+    public NescEntityEnvironment getNescEntityEnvironment() {
+        return nescEntityEnvironment;
+    }
+
+    public Map<String, TranslationUnitEnvironment> getEnvironments() {
+        return environments;
+    }
+
+    public TranslationUnitEnvironment getEnvironment() {
+        return environment;
     }
 
     public List<NescIssue> getIssues() {
@@ -88,6 +126,6 @@ public final class FrontendContext {
      * @return the new instance of {@link FrontendContext}
      */
     public FrontendContext basicCopy() {
-        return new FrontendContext(this.options);
+        return new FrontendContext(this.options, this.isStandalone);
     }
 }

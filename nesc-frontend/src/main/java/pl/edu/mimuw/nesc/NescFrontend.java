@@ -92,7 +92,7 @@ public final class NescFrontend implements Frontend {
 
         try {
             // FIXME: what if we would like to edit file included by default?
-            List<FileData> fileDatas = new ParseExecutor(context).parse(filePath, false);
+            List<FileData> fileDatas = new LoadExecutor(context).parse(filePath, false);
             return ImmutableList.copyOf(fileDatas);
         } catch (IOException e) {
             // TODO
@@ -100,7 +100,7 @@ public final class NescFrontend implements Frontend {
         }
         // FIXME FileData should be always returned or proper exception
         // should be thrown.
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
@@ -148,7 +148,7 @@ public final class NescFrontend implements Frontend {
         final FrontendContext result;
         try {
             final OptionsHolder options = optionsParser.parse(args);
-            result = new FrontendContext(options);
+            result = new FrontendContext(options, this.isStandalone);
             return result;
         } catch (ParseException e) {
             final String msg = e.getMessage();
@@ -178,7 +178,7 @@ public final class NescFrontend implements Frontend {
 
         for (String filePath : defaultIncludes) {
             try {
-                result.addAll(new ParseExecutor(context).parse(filePath, true));
+                result.addAll(new LoadExecutor(context).parse(filePath, true));
             } catch (IOException e) {
                 e.printStackTrace();
                 LOG.error("Error during parsing default files.", e);

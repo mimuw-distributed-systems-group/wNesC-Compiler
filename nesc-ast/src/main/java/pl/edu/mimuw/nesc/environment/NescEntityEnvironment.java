@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
+ * A namespace for NesC components and interfaces.
+ *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
 public class NescEntityEnvironment {

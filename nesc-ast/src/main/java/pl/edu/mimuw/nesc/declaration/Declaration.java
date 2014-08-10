@@ -3,7 +3,6 @@ package pl.edu.mimuw.nesc.declaration;
 import com.google.common.base.Objects;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.environment.Environment;
-import pl.edu.mimuw.nesc.symboltable.Partition;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -11,10 +10,6 @@ import pl.edu.mimuw.nesc.symboltable.Partition;
 public abstract class Declaration {
 
     protected Location location;
-    /**
-     * Partition should be set only for global declarations.
-     */
-    protected Partition partition;
     protected Environment environment;
 
     protected Declaration(Location location) {
@@ -28,15 +23,6 @@ public abstract class Declaration {
     public void setLocation(Location location) {
         this.location = location;
     }
-
-    public Partition getPartition() {
-        return partition;
-    }
-
-    public void setPartition(Partition partition) {
-        this.partition = partition;
-    }
-
 
     public Environment getEnvironment() {
         return environment;

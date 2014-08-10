@@ -16,28 +16,28 @@ import java.util.List;
 public interface Environment {
 
     /**
-     * Get environment which current one is enclosed in.
+     * Get the environment which the current one is enclosed in.
      *
      * @return parent
      */
     Optional<Environment> getParent();
 
     /**
-     * Get object table.
+     * Get the object table.
      *
      * @return object table
      */
     SymbolTable<ObjectDeclaration> getObjects();
 
     /**
-     * Get tag table.
+     * Get the tag table.
      *
      * @return tag table
      */
     SymbolTable<TagDeclaration> getTags();
 
     /**
-     * Gets start location of environment.
+     * Gets the start location of the environment.
      *
      * @return start location of <code>Optional.absent()</code> for
      * global scope
@@ -45,52 +45,51 @@ public interface Environment {
     Optional<Location> getStartLocation();
 
     /**
-     * Sets start location of environment. Location cannot be null.
+     * Sets the start location of the environment. The location cannot be null.
      *
      * @param location start location
      */
     void setStartLocation(Location location);
 
     /**
-     * Gets end location of environment.
+     * Gets the end location of the environment.
      *
      * @return end location of <code>Optional.absent()</code> for global scope
      */
     Optional<Location> getEndLocation();
 
     /**
-     * Sets end location of environment. Location can be null.
+     * Sets the end location of the environment. The location can be null.
      *
      * @param location end location
      */
     void setEndLocation(Location location);
 
     /**
-     * Get type of environment.
+     * Get the type of the environment.
      *
-     * @return type of environment
+     * @return the type of the environment
      */
     ScopeType getScopeType();
 
     /**
-     * Sets scope type.
+     * Sets the scope type.
      *
      * @param type scope type
      */
     void setScopeType(ScopeType type);
 
     /**
-     * Adds environment enclosed in current one.
+     * Adds an environment enclosed in the current one.
      *
      * @param environment nested environment
      */
     void addEnclosedEnvironment(Environment environment);
 
     /**
-     * Returns the list of environments that are enclosed in current one.
+     * Returns the list of environments that are enclosed in the current one.
      *
      * @return list of nested environments
      */
     List<Environment> getEnclosedEnvironments();
-
 }

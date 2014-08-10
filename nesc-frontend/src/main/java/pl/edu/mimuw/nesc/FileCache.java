@@ -11,7 +11,6 @@ import pl.edu.mimuw.nesc.common.FileType;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.lexer.Comment;
-import pl.edu.mimuw.nesc.parser.Parser;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
 import pl.edu.mimuw.nesc.token.Token;
@@ -19,7 +18,6 @@ import pl.edu.mimuw.nesc.token.Token;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -116,13 +114,6 @@ public class FileCache {
      * Builder.
      */
     public static class Builder {
-
-        private static final List<Integer> ID_TOKEN_TYPES = ImmutableList.<Integer>builder()
-                .add(Parser.Lexer.IDENTIFIER)
-                .add(Parser.Lexer.TYPEDEF_NAME)
-                .add(Parser.Lexer.COMPONENTREF)
-                .build();
-
 
         private String filePath;
         private FileType fileType;

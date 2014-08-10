@@ -4,7 +4,6 @@ import com.google.common.base.Optional;
 import org.anarres.cpp.*;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.common.util.file.FileUtils;
 import pl.edu.mimuw.nesc.parser.Symbol;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 import pl.edu.mimuw.nesc.preprocessor.directive.IncludeDirective;
@@ -149,12 +148,6 @@ public final class NescLexer extends AbstractLexer {
             result.put(macroName, pm);
         }
         return result;
-    }
-
-    @Override
-    public boolean isOnTopContext() {
-        // TODO
-        throw new RuntimeException("not implemented");
     }
 
     @Override
@@ -535,6 +528,7 @@ public final class NescLexer extends AbstractLexer {
             return this;
         }
 
+        @SuppressWarnings("UnusedDeclaration")
         public Builder includeFilePaths(List<String> includeFilePaths) {
             this.includeFilePaths = includeFilePaths;
             return this;

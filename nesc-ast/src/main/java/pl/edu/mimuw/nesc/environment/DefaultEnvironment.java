@@ -11,21 +11,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * <p>Default implementation of environment.</p>
+ * <p>Default implementation of an environment.</p>
  * <p>Should be used for non-global scopes.</p>
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public final class DefaultEnvironment implements Environment {
+public class DefaultEnvironment implements Environment {
 
-    private final Optional<Environment> parent;
-    private final SymbolTable<ObjectDeclaration> objects;
-    private final SymbolTable<TagDeclaration> tags;
-    private final List<Environment> enclosedEnvironments;
+    protected final Optional<Environment> parent;
+    protected final SymbolTable<ObjectDeclaration> objects;
+    protected final SymbolTable<TagDeclaration> tags;
+    protected final List<Environment> enclosedEnvironments;
 
-    private ScopeType type;
-    private Optional<Location> startLocation;
-    private Optional<Location> endLocation;
+    protected ScopeType type;
+    protected Optional<Location> startLocation;
+    protected Optional<Location> endLocation;
 
     public DefaultEnvironment() {
         this(null, Optional.<Environment>absent(), Optional.<Location>absent(), Optional.<Location>absent());

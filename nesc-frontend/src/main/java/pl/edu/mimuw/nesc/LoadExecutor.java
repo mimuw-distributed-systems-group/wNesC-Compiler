@@ -2,14 +2,17 @@ package pl.edu.mimuw.nesc;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
+import org.anarres.cpp.InternalException;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
-import pl.edu.mimuw.nesc.ast.gen.Printer;
 import pl.edu.mimuw.nesc.common.FileType;
+import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
+import pl.edu.mimuw.nesc.declaration.tag.TagDeclaration;
 import pl.edu.mimuw.nesc.environment.DefaultEnvironment;
-import pl.edu.mimuw.nesc.environment.PartitionedEnvironmentAdapter;
+import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
+import pl.edu.mimuw.nesc.environment.TranslationUnitEnvironment;
 import pl.edu.mimuw.nesc.exception.LexerException;
 import pl.edu.mimuw.nesc.filesgraph.GraphFile;
 import pl.edu.mimuw.nesc.filesgraph.walker.FilesGraphWalker;
@@ -24,7 +27,6 @@ import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
 import pl.edu.mimuw.nesc.problem.NescError;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.problem.NescWarning;
-import pl.edu.mimuw.nesc.symboltable.Partition;
 import pl.edu.mimuw.nesc.token.MacroToken;
 import pl.edu.mimuw.nesc.token.Token;
 
@@ -39,13 +41,13 @@ import static pl.edu.mimuw.nesc.common.util.file.FileUtils.getFileNameWithoutExt
 import static pl.edu.mimuw.nesc.filesgraph.walker.FilesGraphWalkerFactory.ofDfsPostOrderWalker;
 
 /**
- * The class responsible for processing source files in proper order.
+ * The class responsible for processing source files in the proper order.
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public final class ParseExecutor {
+public final class LoadExecutor {
 
-    private static final Logger LOG = Logger.getLogger(ParseExecutor.class);
+    private static final Logger LOG = Logger.getLogger(LoadExecutor.class);
 
     private final FrontendContext context;
 
@@ -54,7 +56,7 @@ public final class ParseExecutor {
      *
      * @param context context
      */
-    public ParseExecutor(FrontendContext context) {
+    public LoadExecutor(FrontendContext context) {
         checkNotNull(context, "context cannot be null");
 
         this.context = context;
@@ -74,7 +76,8 @@ public final class ParseExecutor {
 
     /**
      * Implementation of {@link NodeAction} that collects preprocessor macros
-     * and global definitions from files visited during walk over files graph.
+     * and global definitions from files visited during walk over the files
+     * graph.
      */
     private static final class CollectAction implements NodeAction {
 
@@ -83,16 +86,19 @@ public final class ParseExecutor {
         private final Set<String> visitedFiles;
 
         private final Map<String, PreprocessorMacro> macros;
-        private final Set<String> newFiles;
+        private final Map<String, ObjectDeclaration> objects;
+        private final Map<String, TagDeclaration> tags;
 
         public CollectAction(FrontendContext context,
                              Set<String> visitedFiles,
                              Map<String, PreprocessorMacro> macros,
-                             Set<String> newFiles) {
+                             Map<String, ObjectDeclaration> objects,
+                             Map<String, TagDeclaration> tags) {
             this.context = context;
             this.visitedFiles = visitedFiles;
             this.macros = macros;
-            this.newFiles = newFiles;
+            this.objects = objects;
+            this.tags = tags;
         }
 
         @Override
@@ -107,14 +113,19 @@ public final class ParseExecutor {
 
             this.visitedFiles.add(filePath);
             this.macros.putAll(cache.getMacros());
-            this.newFiles.add(filePath);
+            for (Map.Entry<String, ObjectDeclaration> entry : cache.getEnvironment().getObjects().getAllFromFile()) {
+                this.objects.put(entry.getKey(), entry.getValue());
+            }
+            for (Map.Entry<String, TagDeclaration> entry : cache.getEnvironment().getTags().getAllFromFile()) {
+                this.tags.put(entry.getKey(), entry.getValue());
+            }
         }
 
     }
 
     /**
-     * Executor that parses single source file and all header files included
-     * into this file.
+     * Executor that parses a single source file. Included header files
+     * are not pasted into the current file, they are parsed separately.
      *
      * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
      */
@@ -122,12 +133,12 @@ public final class ParseExecutor {
 
         private final FrontendContext context;
         /**
-         * Files which cached data was already used in parsing process.
+         * Files which cached data was already used in the parsing process.
          * Each file should be "visited" at most once.
          */
         private final Set<String> visitedFiles;
         /**
-         * Cache builder of currently parsed file.
+         * Cache builder of the currently parsed file.
          */
         private final FileCache.Builder fileCacheBuilder;
         private final boolean isDefaultFile;
@@ -137,8 +148,8 @@ public final class ParseExecutor {
         private NescLexer lexer;
         private Parser parser;
 
-        private Partition currentPartition;
-        private PartitionedEnvironmentAdapter partitionedEnvironment;
+        private NescEntityEnvironment nescEntityEnvironment;
+        private TranslationUnitEnvironment environment;
 
         private String currentFilePath;
         private FileType fileType;
@@ -151,7 +162,7 @@ public final class ParseExecutor {
          * Creates parse file executor.
          *
          * @param context       context
-         * @param isDefaultFile indicates if default files is included by default
+         * @param isDefaultFile indicates if default file is included by default
          */
         public ParseFileExecutor(FrontendContext context, boolean isDefaultFile) {
             this.context = context;
@@ -202,7 +213,16 @@ public final class ParseExecutor {
             context.getFilesGraph().removeOutgoingDependencies(currentFilePath);
 
             /* Clear cache for current file. */
+            // TODO: maybe clear cache after a successful build of a new one?
             context.getCache().remove(currentFilePath);
+
+            /* Set environment. */
+            if (this.context.isStandalone()) {
+                this.environment = this.context.getEnvironment();
+            } else {
+                this.environment = new TranslationUnitEnvironment();
+            }
+            this.nescEntityEnvironment = this.context.getNescEntityEnvironment();
 
             /*
              * Put dummy file cache to prevent from infinite loop in case of
@@ -217,56 +237,45 @@ public final class ParseExecutor {
                     .build();
             context.getCache().put(currentFilePath, dummyCache);
 
-            /* Remove nesc entity from environment. */
+            /* Remove the nesc entity from the entity namespace to avoid
+             * false redeclaration error. */
             if (fileType == FileType.NESC) {
                 /* We assume that entity name is the same as file name. */
                 final String entityName = getFileNameWithoutExtension(currentFilePath);
                 LOG.trace("Removing entity: " + entityName);
-                context.getNescEnvironment().getEntities().remove(entityName);
+                nescEntityEnvironment.remove(entityName);
             }
-
-            /* Set environment. */
-            this.currentPartition = new Partition(filePath);
-            context.getNescEnvironment().getGlobal().removePartition(currentPartition);
-            final Map<String, Partition> visiblePartitions = new HashMap<>();
-            visiblePartitions.put(filePath, currentPartition);
-            /* Partition is created during adapter instantiation. */
-            this.partitionedEnvironment = new PartitionedEnvironmentAdapter(context.getNescEnvironment().getGlobal(),
-                    currentPartition, visiblePartitions);
         }
 
         private void load() throws IOException {
+            /* Setup lexer */
+
+            this.lexer = NescLexer.builder().mainFile(currentFilePath)
+                    .systemIncludePaths(context.getPathsResolver().getSearchOrder())
+                    .userIncludePaths(context.getPathsResolver().getSearchOrder())
+                    .unparsedMacros(context.getPredefinedMacros())
+                    .build();
+
+            lexer.setListener(this);
+            lexer.start();
+
             /*
              * Collect macros and global definitions from files included by
              * default.
              * Files included by default depend not only on predefined macros,
              * but also on each other. We assume that they are given by client
              * in topological order.
+             * In the standalone mode just load all macros recognized so far.
              */
-            final Map<String, PreprocessorMacro> macros = new HashMap<>();
-            final Set<String> newFiles = new HashSet<>();
-
-            collectDefaultData(macros, newFiles, currentFilePath, isDefaultFile);
-
-            for (String newFile : newFiles) {
-                final Partition visiblePartition = new Partition(newFile);
-                partitionedEnvironment.getVisiblePartitions().put(newFile, visiblePartition);
+            if (this.context.isStandalone()) {
+                lexer.addMacros(this.context.getMacroManager().getAll());
+            } else {
+                collectDefaultData(currentFilePath, isDefaultFile);
             }
 
-            /* Setup lexer */
-            this.lexer = NescLexer.builder().mainFile(currentFilePath)
-                    .systemIncludePaths(context.getPathsResolver().getSearchOrder())
-                    .userIncludePaths(context.getPathsResolver().getSearchOrder())
-                    .unparsedMacros(context.getPredefinedMacros())
-                    .macros(macros.values())
-                    .build();
-
-            lexer.setListener(this);
-            lexer.start();
-
             /* Setup parser */
-            this.parser = new Parser(currentFilePath, lexer, partitionedEnvironment,
-                    context.getNescEnvironment().getEntities(), fileType, tokensMultimapBuilder, issuesListBuilder);
+            this.parser = new Parser(currentFilePath, lexer, environment,
+                    nescEntityEnvironment, fileType, tokensMultimapBuilder, issuesListBuilder);
             parser.setListener(this);
 
 		    /* Parsing */
@@ -275,6 +284,11 @@ public final class ParseExecutor {
                 parser.parse();
                 parseSuccess = true;
             } catch (LexerException e) {
+                // TODO: parse exception message and create error object?
+                parseSuccess = false;
+                e.printStackTrace();
+            } catch (InternalException e) {
+                // TODO: parse exception message and create error object?
                 parseSuccess = false;
                 e.printStackTrace();
             }
@@ -330,7 +344,7 @@ public final class ParseExecutor {
 
         private void finish() {
             final FileCache cache = fileCacheBuilder
-                    .environment(partitionedEnvironment)
+                    .environment(environment)
                     .build();
             context.getCache().put(currentFilePath, cache);
             final FileData data = FileData.convertFrom(cache);
@@ -410,29 +424,29 @@ public final class ParseExecutor {
 
         @Override
         public boolean interfaceDependency(String currentEntityPath, String interfaceName, Location visibleFrom) {
-            return nescDependency(currentEntityPath, interfaceName, visibleFrom);
-            // TODO update components graph
+            return nescDependency(currentEntityPath, interfaceName, visibleFrom, true, false, true);
         }
 
         @Override
         public boolean componentDependency(String currentEntityPath, String componentName, Location visibleFrom) {
-            return nescDependency(currentEntityPath, componentName, visibleFrom);
-            // FIXME: what should be included from components? nothing!
-            // TODO update components graph
+            return nescDependency(currentEntityPath, componentName, visibleFrom, false, false, false);
         }
 
-        private boolean nescDependency(String currentEntityPath, String dependencyName, Location visibleFrom) {
+        private boolean nescDependency(String currentEntityPath, String dependencyName, Location visibleFrom,
+                                       boolean collectData, boolean includeMacros, boolean includeSymbols) {
             final Optional<String> filePathOptional = context.getPathsResolver().getEntityFile(dependencyName);
             if (!filePathOptional.isPresent()) {
                 return false;
             }
 
-            fileDependency(currentEntityPath, filePathOptional.get(), visibleFrom);
+            fileDependency(currentEntityPath, filePathOptional.get(), visibleFrom,
+                    collectData, includeMacros, includeSymbols);
+            // TODO update components graph
             return true;
         }
 
         private void includeDependency(String currentFilePath, String includedFilePath, Location visibleFrom) {
-            fileDependency(currentFilePath, includedFilePath, visibleFrom);
+            fileDependency(currentFilePath, includedFilePath, visibleFrom, true, true, true);
         }
 
         /**
@@ -444,8 +458,15 @@ public final class ParseExecutor {
          * @param otherFilePath   other file path
          * @param visibleFrom     location from which imported declarations
          *                        will be visible in current file
+         * @param collectData     indicates whether any macros or symbols
+         *                        should be included
+         * @param includeMacros   indicates whether macros from dependency
+         *                        file should be visible
+         * @param includeSymbols  indicates whether symbols from dependency
+         *                        file should be visible
          */
-        private void fileDependency(String currentFilePath, String otherFilePath, Location visibleFrom) {
+        private void fileDependency(String currentFilePath, String otherFilePath, Location visibleFrom,
+                                    boolean collectData, boolean includeMacros, boolean includeSymbols) {
             /* Check if file was already visited. */
             if (visitedFiles.contains(otherFilePath)) {
                 return;
@@ -454,7 +475,7 @@ public final class ParseExecutor {
              * Check if file data is cached. If not, it must be parsed first.
              */
             if (!context.getCache().containsKey(otherFilePath)) {
-                final ParseExecutor executor = new ParseExecutor(context);
+                final LoadExecutor executor = new LoadExecutor(context);
                 try {
                     /* isDefaultFile is inherited from current file. */
                     final LinkedList<FileData> datas = executor.parse(otherFilePath, isDefaultFile);
@@ -464,16 +485,16 @@ public final class ParseExecutor {
                 }
             }
 
-            // macros are loaded only when #include!
-            final Map<String, PreprocessorMacro> macros = new HashMap<>();
-            final Set<String> newFiles = new HashSet<>();
-
-            collectParsedData(macros, newFiles, otherFilePath);
-
-            lexer.addMacros(macros.values());
-            for (String newFile : newFiles) {
-                final Partition visiblePartition = new Partition(newFile, visibleFrom);
-                partitionedEnvironment.getVisiblePartitions().put(newFile, visiblePartition);
+            /*
+             * In the standalone mode, load only macros and only in
+             * case of included files.
+             * In the case of components neither macros nor symbols are
+             * loaded.
+             */
+            if (this.context.isStandalone()) {
+                collectParsedData(otherFilePath, includeMacros, false);
+            } else if (collectData) {
+                collectParsedData(otherFilePath, includeMacros, includeSymbols);
             }
 
             /* Update files graph. */
@@ -486,23 +507,23 @@ public final class ParseExecutor {
          * <p>The data is put into structures passed as parameters.</p>
          * <p>It skips files that have already been visited.</p>
          *
-         * @param macros        preprocessor macros
-         * @param newFiles      set of files which symbols should become
-         *                      visible in current file
          * @param fileName      currently parsed file name
          * @param isDefaultFile indicates if default files is included by
          *                      default
          */
-        private void collectDefaultData(Map<String, PreprocessorMacro> macros,
-                                        Set<String> newFiles,
-                                        String fileName,
-                                        boolean isDefaultFile) {
-            final CollectAction action = new CollectAction(context, visitedFiles, macros, newFiles);
+        private void collectDefaultData(String fileName, boolean isDefaultFile) {
+            final Map<String, PreprocessorMacro> macros = new HashMap<>();
+            final Map<String, ObjectDeclaration> objects = new HashMap<>();
+            final Map<String, TagDeclaration> tags = new HashMap<>();
+
+            final CollectAction action = new CollectAction(context, visitedFiles, macros, objects, tags);
             final FilesGraphWalker walker = ofDfsPostOrderWalker(context.getFilesGraph(), action);
 
             for (String filePath : getDefaultIncludeFiles(fileName, isDefaultFile)) {
                 walker.walk(filePath);
             }
+
+            putData(macros, objects, tags, true, true);
         }
 
         /**
@@ -542,27 +563,48 @@ public final class ParseExecutor {
         }
 
         /**
-         * Collects cached data from specified file and all its dependencies.
-         * The data is put into structures passed as parameters.
-         * It skips files that have already been visited.
+         * Collects cached data from the specified file and all its
+         * dependencies. It skips files that have already been visited.
          *
-         * @param macros   preprocessor macros
-         * @param newFiles set of files which symbols should become
-         *                 visible in current file
          * @param filePath file path of file which data should be collected
          */
-        private void collectParsedData(Map<String, PreprocessorMacro> macros,
-                                       Set<String> newFiles,
-                                       String filePath) {
-            final CollectAction action = new CollectAction(context, visitedFiles, macros, newFiles);
+        private void collectParsedData(String filePath, boolean includeMacros, boolean includeSymbols) {
+            final Map<String, PreprocessorMacro> macros = new HashMap<>();
+            final Map<String, ObjectDeclaration> objects = new HashMap<>();
+            final Map<String, TagDeclaration> tags = new HashMap<>();
+
+            final CollectAction action = new CollectAction(context, visitedFiles, macros, objects, tags);
             final FilesGraphWalker walker = ofDfsPostOrderWalker(context.getFilesGraph(), action);
 
             walker.walk(filePath);
+
+            putData(macros, objects, tags, includeMacros, includeSymbols);
+        }
+
+        private void putData(Map<String, PreprocessorMacro> macros,
+                             Map<String, ObjectDeclaration> objects,
+                             Map<String, TagDeclaration> tags,
+                             boolean includeMacros, boolean includeSymbols) {
+            if (includeMacros) {
+                lexer.addMacros(macros.values());
+            }
+            if (includeSymbols) {
+                for (Map.Entry<String, ObjectDeclaration> entry : objects.entrySet()) {
+                    environment.getObjects().add(entry.getKey(), entry.getValue(), false);
+                }
+                for (Map.Entry<String, TagDeclaration> entry : tags.entrySet()) {
+                    environment.getTags().add(entry.getKey(), entry.getValue(), false);
+                }
+            }
         }
 
         private void handlePublicMacros(Map<String, PreprocessorMacro> macros) {
             LOG.debug("Handling public macros; number of macros=" + macros.size());
+            LOG.trace("Public macros: " + macros.entrySet());
 
+            if (this.context.isStandalone()) {
+                this.context.getMacroManager().clear();
+            }
             for (Map.Entry<String, PreprocessorMacro> entry : macros.entrySet()) {
                 final String macroName = entry.getKey();
                 final PreprocessorMacro preprocessorMacro = entry.getValue();
@@ -570,10 +612,13 @@ public final class ParseExecutor {
 
                 /*
                  * Only macros from "real" source files are taken into
-                 * account (not predefined or internal).
+                 * account (neither predefined nor internal).
                  */
                 if (sourceFilePath.isPresent() && currentFilePath.equals(sourceFilePath.get())) {
                     fileCacheBuilder.macro(macroName, preprocessorMacro);
+                }
+                if (this.context.isStandalone()) {
+                    this.context.getMacroManager().addMacro(preprocessorMacro);
                 }
             }
         }

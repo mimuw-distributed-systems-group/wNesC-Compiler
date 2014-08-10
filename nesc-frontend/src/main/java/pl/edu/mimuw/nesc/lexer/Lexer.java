@@ -9,38 +9,33 @@ import java.util.Collection;
 import java.util.Map;
 
 /**
- * Lexer interface. Provides stream of tokens. The preprocessing phase is being
- * done simultaneously with lexical analysis. This is inevitable since we have
- * to know exactly in which part of input file each macro is (un)defined. The
- * second reason is to be able to retrieve the exact location of token in input
- * file before preprocessing phase.
+ * Lexer interface. Provides a stream of tokens.
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
 public interface Lexer {
 
     /**
-     * Notify lexer that all preparation are done (e.g. listeners, macros
+     * Notify the lexer that all preparation are done (e.g. listeners, macros
      * are set).
      */
     void start();
 
     /**
-     * Sets listener for lexer callbacks.
+     * Sets a listener for lexer callbacks.
      *
      * @param listener listener
      */
     void setListener(LexerListener listener);
 
     /**
-     * Removes listener.
-     *
+     * Removes the listener.
      */
     void removeListener();
 
     /**
-     * Returns next token from preprocessed source file. Each token contains
-     * token's location in original input file.
+     * Returns the next token from the preprocessed source file. Each token contains
+     * token's location in the original input file.
      *
      * @return next token
      * @throws LexerException
@@ -48,7 +43,7 @@ public interface Lexer {
     Symbol nextToken() throws LexerException;
 
     /**
-     * Adds macro definition.
+     * Adds a macro definition.
      *
      * @param macro macro
      * @throws LexerException
@@ -64,19 +59,11 @@ public interface Lexer {
     void addMacros(Collection<PreprocessorMacro> macros) throws LexerException;
 
     /**
-     * Returns map of macros recognized so far.
+     * Returns a map of macros recognized so far.
      *
      * @return map of macros
      */
     Map<String, PreprocessorMacro> getMacros();
-
-    /**
-     * Returns <code>true</code>, whenever lexer is processing the outermost
-     * file of the translation unit.
-     *
-     * @return
-     */
-    boolean isOnTopContext();
 
     /**
      * Cancels lexical analysis.
