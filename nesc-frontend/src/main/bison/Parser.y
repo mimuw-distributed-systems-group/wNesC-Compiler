@@ -1105,7 +1105,6 @@ extdefs:
     {
         $<TypeElement>$ = null;
         $<LinkedList>$ = Lists.<TypeElement>newList();
-        wasTypedef = false;
     }
     extdef[def]
     {
@@ -1119,7 +1118,6 @@ extdefs:
     {
         $<TypeElement>$ = null;
         $<LinkedList>$ = Lists.<TypeElement>newList();
-        wasTypedef = false;
     }
     extdef[def]
     {
@@ -1794,17 +1792,13 @@ setspecs:
         final LinkedList<TypeElement> list = (LinkedList<TypeElement>) $<Object>0;
         if (list == null || list.isEmpty()) {
             pstate.declspecs = Lists.<TypeElement>newList();
-            pstate.wasTypedef = false;
         } else {
             // FIXME: ugly workaround for $<LinkedList<TypeElement>>0
             // bison does not handle <<>>
             pstate.declspecs = list;
-            pstate.wasTypedef = wasTypedef;
         }
         pstate.attributes = Lists.<Attribute>newList();
         // TODO: check why we are not making $<telements$ an empty list
-        wasTypedef = false;
-        LOG.trace("Setting wasTypedef to false.");
     }
     ;
 
@@ -3953,8 +3947,6 @@ scspec:
       TYPEDEF
     {
         $$ = declarations.makeRid($1.getLocation(), $1.getEndLocation(), RID.TYPEDEF);
-        wasTypedef = true;
-        LOG.trace("Setting wasTypedef to true.");
     }
     | EXTERN
     {
@@ -4120,14 +4112,6 @@ string_chain:
      * Keeps data essential during parsing phase.
      */
     private ParserState pstate;
-    /**
-     * Indicates if there was a TYPEDEF keyword in current declaration.
-     * This field was introduced only for proper parsing of
-     * <code>COMPONENTREF DOT X</code> construction. To determine whether
-     * general declaration is typedef declaration use special visitor
-     * {@link TypeElementUtils#isTypedef(LinkedList<TypeElement>)}.
-     */
-    private boolean wasTypedef;
     /**
      *
      */
@@ -4407,13 +4391,30 @@ string_chain:
             /*
              * Some lookahead is done below.
              *
+             * We need to handle the following case:
+             *
+             *      module M {
+             *          typedef int t;
+             *          enum { MAGIC = 54 };
+             *      } ...
+             *
+             *      configuration C { }
+             *      implementation {
+             *          components M as Someone;
+             *          typedef Someone.t Ct;
+             *          enum { GREATERMAGIC = Someone.MAGIC + 1 };
+             *      }
+             *
+             * There is an ambiguity, since 'X.X' may appear in two contexts:
+             * in a wiring declaration or in a C-like declaration.
+             *
              * Detecting construct:
              *     COMPONENTREF . (IDENTIFIER | TYPENAME | MAGIC_STRING)
              *
              * when found, should be replaced by:
              *     COMPONENTREF . IDENTIFIER
              *
-             * otherwise replace COMPONENTREF by IDENTIFIER
+             * otherwise replace COMPONENTREF by IDENTIFIER.
              */
             if (symbol.getSymbolCode() == COMPONENTREF) {
                 final Symbol componentRefSymbol = symbol;
@@ -4435,9 +4436,14 @@ string_chain:
                             thirdSymbolCode == MAGIC_STRING) {
 
                         /*
-                         *
+                         * FIXME: when semantic analysis will be developed
+                         * enough, we need to check, whether the thirdSymbol
+                         * is a typename. If yes, we need to return the
+                         * following token seqence:
+                         *     COMPONENTREF DOT IDENTIFIER
                          */
-                        if (wasTypedef) {
+                        boolean isTypedef = false;  // do a lookup in the symbol table!
+                        if (isTypedef) {
                             componentRefSymbol.setSymbolCode(COMPONENTREF);
                             thirdSymbol.setSymbolCode(IDENTIFIER);
                         }

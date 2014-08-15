@@ -12,23 +12,44 @@ import java.util.Stack;
  */
 class ParserState {
 
-    private class StackItem {
+    /*
+     * We need to keep declspecs (modifiers, qualifiers, modifiers,
+     * attributes, etc.) in the context, since they are separated from the
+     * declared name by a construct called 'declarator'.
+     *
+     * Example:
+     *    static int __attribute__(foo)     i = 1, j = i, k = 123;
+     *    |---------------------------|     |---|  |---|  |-----|
+     *            declspecs_ts                   3 x initdcl
+     *
+     * This may correspond to the grammar rules:
+     *     decl:    declspecs_ts setspecs initdecls SEMICOLON
+     *     initdcl: declarator maybeasm maybe_attribute EQ init
+     *            | declarator maybeasm maybe_attribute
+     *            ;
+     *
+     * We need to know declspecs while parsing declarator, to be able to put
+     * the declared name into the symbol table, just after the declarator is
+     * finished.
+     *
+     * Moreover, one declaration may be nested in another. For example,
+     * the declaration of a struct contains declarations of fields.
+     * In consequence, we need to keep a stack of declspecs.
+     */
 
+    private class StackItem {
         private final LinkedList<Attribute> attributes;
         private final LinkedList<TypeElement> declspecs;
-        private final boolean wasTypedef;
 
         public StackItem(LinkedList<Attribute> attributes,
-                         LinkedList<TypeElement> declspecs, boolean wasTypedef) {
+                         LinkedList<TypeElement> declspecs) {
             this.attributes = attributes;
             this.declspecs = declspecs;
-            this.wasTypedef = wasTypedef;
         }
 
         public StackItem() {
             this.attributes = Lists.newList();
             this.declspecs = Lists.newList();
-            this.wasTypedef = false;
         }
 
         public LinkedList<Attribute> getAttributes() {
@@ -39,16 +60,11 @@ class ParserState {
             return declspecs;
         }
 
-        public boolean wasTypedef() {
-            return wasTypedef;
-        }
-
     }
 
     private final Stack<StackItem> stack;
     public LinkedList<Attribute> attributes;
     public LinkedList<TypeElement> declspecs;
-    public boolean wasTypedef;
     public int stmtCount;
 
     public ParserState() {
@@ -60,16 +76,12 @@ class ParserState {
         final StackItem previous = this.stack.pop();
         this.attributes = previous.getAttributes();
         this.declspecs = previous.getDeclspecs();
-        this.wasTypedef = previous.wasTypedef();
     }
 
     public void pushDeclspecStack() {
-        final StackItem current = new StackItem(this.attributes,
-                this.declspecs, wasTypedef);
+        final StackItem current = new StackItem(this.attributes, this.declspecs);
         this.stack.push(current);
         this.attributes = Lists.newList();
         this.declspecs = Lists.newList();
-        this.wasTypedef = false;
     }
-
 }
