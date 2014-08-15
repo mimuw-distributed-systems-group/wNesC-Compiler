@@ -569,6 +569,10 @@ public final class LoadExecutor {
          * @param filePath file path of file which data should be collected
          */
         private void collectParsedData(String filePath, boolean includeMacros, boolean includeSymbols) {
+            if (!includeMacros && !includeSymbols) {
+                /* Nothing to include. */
+                return;
+            }
             final Map<String, PreprocessorMacro> macros = new HashMap<>();
             final Map<String, ObjectDeclaration> objects = new HashMap<>();
             final Map<String, TagDeclaration> tags = new HashMap<>();
