@@ -11,15 +11,21 @@ import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
+import pl.edu.mimuw.nesc.environment.ScopeType;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.token.Token;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.Set;
 
 import static java.lang.String.format;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
 import static pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils.getDeclaratorName;
+import static pl.edu.mimuw.nesc.astbuilding.Analysis.processTagReferences;
 
 /**
  * <p>
@@ -38,6 +44,23 @@ public final class Declarations extends AstBuildingBase {
         ERROR_DECLARATION.setEndLocation(Location.getDummyLocation());
     }
 
+    /**
+     * A set with scopes that can contain standalone declarations of tags, i.e.
+     * declarations that have no declarators and end with a semicolon, e.g.:
+     *     struct S;
+     *     union U;
+     */
+    private static final Set<ScopeType> STANDALONE_TAGS_SCOPES = Collections.unmodifiableSet(
+        new HashSet<>(Arrays.asList(
+            ScopeType.GLOBAL,
+            ScopeType.INTERFACE,
+            ScopeType.SPECIFICATION,
+            ScopeType.MODULE_IMPLEMENTATION,
+            ScopeType.CONFIGURATION_IMPLEMENTATION,
+            ScopeType.COMPOUND
+        ))
+    );
+
     public Declarations(NescEntityEnvironment nescEnvironment,
                         ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
                         ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder) {
@@ -51,6 +74,9 @@ public final class Declarations extends AstBuildingBase {
     public VariableDecl startDecl(Environment environment, Declarator declarator, Optional<AsmStmt> asmStmt,
                                   LinkedList<TypeElement> elements, LinkedList<Attribute> attributes,
                                   boolean initialised) {
+        // Process the potential tag declarations
+        processTagReferences(elements, environment, false, errorHelper);
+
         /*
          * NOTE: This can be variable declaration, typedef declaration,
          * function declaration etc.
@@ -83,8 +109,13 @@ public final class Declarations extends AstBuildingBase {
         return declaration;
     }
 
-    public DataDecl makeDataDecl(Location startLocation, Location endLocation,
+    public DataDecl makeDataDecl(Environment environment, Location startLocation, Location endLocation,
                                  LinkedList<TypeElement> modifiers, LinkedList<Declaration> decls) {
+        // Process declarations and definitions of tags if necessary
+        if (decls.isEmpty() && STANDALONE_TAGS_SCOPES.contains(environment.getScopeType())) {
+            processTagReferences(modifiers, environment, true, errorHelper);
+        }
+
         final DataDecl result = new DataDecl(startLocation, modifiers, decls);
         result.setEndLocation(endLocation);
         return result;
@@ -172,6 +203,9 @@ public final class Declarations extends AstBuildingBase {
      */
     public DataDecl declareParameter(Environment environment, Optional<Declarator> declarator,
                                      LinkedList<TypeElement> elements, LinkedList<Attribute> attributes) {
+        // Firstly, process the tags that may be declared by the specifiers
+        processTagReferences(elements, environment, false, errorHelper);
+
         /*
          * The order of entities:
          * elements [declarator] [attributes]
@@ -232,12 +266,13 @@ public final class Declarations extends AstBuildingBase {
 
     public TagRef makeStruct(Location startLocation, Location endLocation, StructKind kind, Optional<Word> tag,
                              LinkedList<Declaration> fields, LinkedList<Attribute> attributes) {
-        return makeTagRef(startLocation, endLocation, kind, tag, fields, attributes);
+        return makeTagRef(startLocation, endLocation, kind, tag, fields, attributes, true);
     }
 
     public TagRef makeEnum(Location startLocation, Location endLocation, Optional<Word> tag,
                            LinkedList<Declaration> fields, LinkedList<Attribute> attributes) {
-        return makeTagRef(startLocation, endLocation, StructKind.ENUM, tag, fields, attributes);
+        return makeTagRef(startLocation, endLocation, StructKind.ENUM, tag, fields,
+                          attributes, true);
     }
 
     /**
@@ -291,7 +326,11 @@ public final class Declarations extends AstBuildingBase {
         return enumerator;
     }
 
-    public AstType makeType(LinkedList<TypeElement> elements, Optional<Declarator> declarator) {
+    public AstType makeType(Environment environment, LinkedList<TypeElement> elements,
+                            Optional<Declarator> declarator) {
+        // Process potential tag declarations
+        processTagReferences(elements, environment, false, errorHelper);
+
         final Location startLocation;
         final Location endLocation;
         if (declarator.isPresent()) {
@@ -341,31 +380,31 @@ public final class Declarations extends AstBuildingBase {
                               Optional<Word> tag) {
         final LinkedList<Attribute> attributes = Lists.newList();
         final LinkedList<Declaration> declarations = Lists.newList();
-        return makeTagRef(startLocation, endLocation, structKind, tag, declarations, attributes);
+        return makeTagRef(startLocation, endLocation, structKind, tag, declarations, attributes, false);
     }
 
     private TagRef makeTagRef(Location startLocation, Location endLocation, StructKind structKind,
                               Optional<Word> tag, LinkedList<Declaration> declarations,
-                              LinkedList<Attribute> attributes) {
+                              LinkedList<Attribute> attributes, boolean isDefined) {
         final TagRef tagRef;
         switch (structKind) {
             case STRUCT:
-                tagRef = new StructRef(startLocation, attributes, declarations, true, tag.orNull());
+                tagRef = new StructRef(startLocation, attributes, declarations, isDefined, tag.orNull());
                 break;
             case UNION:
-                tagRef = new UnionRef(startLocation, attributes, declarations, true, tag.orNull());
+                tagRef = new UnionRef(startLocation, attributes, declarations, isDefined, tag.orNull());
                 break;
             case NX_STRUCT:
-                tagRef = new NxStructRef(startLocation, attributes, declarations, true, tag.orNull());
+                tagRef = new NxStructRef(startLocation, attributes, declarations, isDefined, tag.orNull());
                 break;
             case NX_UNION:
-                tagRef = new NxUnionRef(startLocation, attributes, declarations, true, tag.orNull());
+                tagRef = new NxUnionRef(startLocation, attributes, declarations, isDefined, tag.orNull());
                 break;
             case ENUM:
-                tagRef = new EnumRef(startLocation, attributes, declarations, true, tag.orNull());
+                tagRef = new EnumRef(startLocation, attributes, declarations, isDefined, tag.orNull());
                 break;
             case ATTRIBUTE:
-                tagRef = new AttributeRef(startLocation, attributes, declarations, true, tag.orNull());
+                tagRef = new AttributeRef(startLocation, attributes, declarations, isDefined, tag.orNull());
                 break;
             default:
                 throw new IllegalArgumentException("Unexpected argument " + structKind);

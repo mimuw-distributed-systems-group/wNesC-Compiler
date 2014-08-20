@@ -15,13 +15,24 @@ public abstract class TagDeclaration extends Declaration {
      */
     private final Optional<String> name;
 
-    public TagDeclaration(Optional<String> name, Location location) {
+    /**
+     * <code>true</code> if and only if this object represents a tag that has
+     * been already defined and contains information from its definition.
+     */
+    private final boolean isDefined;
+
+    protected TagDeclaration(Optional<String> name, Location location, boolean isDefined) {
         super(location);
         this.name = name;
+        this.isDefined = isDefined;
     }
 
     public Optional<String> getName() {
         return name;
+    }
+
+    public boolean isDefined() {
+        return isDefined;
     }
 
     @Override

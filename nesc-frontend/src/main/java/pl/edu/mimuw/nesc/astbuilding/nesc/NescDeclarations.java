@@ -23,6 +23,7 @@ import java.util.LinkedList;
 import static java.lang.String.format;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
+import static pl.edu.mimuw.nesc.astbuilding.Analysis.processTagReferences;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -103,6 +104,9 @@ public final class NescDeclarations extends AstBuildingBase {
      */
     public DataDecl declareTemplateParameter(Environment environment, Optional<Declarator> declarator,
                                              LinkedList<TypeElement> elements, LinkedList<Attribute> attributes) {
+        /* Process the potential tag declarations */
+        processTagReferences(elements, environment, false, errorHelper);
+
         /* Either declarator or elements is present. */
         final Location startLocation = declarator.isPresent()
                 ? declarator.get().getLocation()

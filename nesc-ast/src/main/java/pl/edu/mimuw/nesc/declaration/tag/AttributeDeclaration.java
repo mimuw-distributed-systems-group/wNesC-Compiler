@@ -9,7 +9,7 @@ import pl.edu.mimuw.nesc.ast.Location;
 public class AttributeDeclaration extends TagDeclaration {
 
     public AttributeDeclaration(Optional<String> name, Location location) {
-        super(name, location);
+        super(name, location, true);
     }
 
     @Override

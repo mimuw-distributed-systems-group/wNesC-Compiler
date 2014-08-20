@@ -1154,7 +1154,7 @@ datadef:
       setspecs notype_initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($2).get();
-        $$ = declarations.makeDataDecl(startLocation, $3.getEndLocation(), Lists.<TypeElement>newList(), $2);
+        $$ = declarations.makeDataDecl(environment, startLocation, $3.getEndLocation(), Lists.<TypeElement>newList(), $2);
         popDeclspecStack();
     }
     | just_datadef
@@ -1165,19 +1165,19 @@ just_datadef:
       declspecs_nots setspecs notype_initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs_ts setspecs initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs setspecs SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($3.getLocation(), $1);
-        $$ = declarations.makeDataDecl(startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(environment, startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | error SEMICOLON
@@ -1723,25 +1723,25 @@ datadecl:
       declspecs_ts_nosa setspecs initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs_nots_nosa setspecs notype_initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs_ts_nosa setspecs SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($3.getLocation(), $1);
-        $$ = declarations.makeDataDecl(startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(environment, startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | declspecs_nots_nosa SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($2.getLocation(), $1);
-        $$ = declarations.makeDataDecl(startLocation, $2.getEndLocation(), $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(environment, startLocation, $2.getEndLocation(), $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     ;
@@ -1817,13 +1817,13 @@ decl:
       declspecs_ts setspecs initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs_nots setspecs notype_initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = declarations.makeDataDecl(startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $1, $3);
         popDeclspecStack();
     }
     | declspecs_ts setspecs nested_function
@@ -1839,7 +1839,7 @@ decl:
     | declspecs setspecs SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($3.getLocation(), $1);
-        $$ = declarations.makeDataDecl(startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(environment, startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | extension decl
@@ -3003,28 +3003,28 @@ component_decl:
     {
         final Location startLocation = AstUtils.getStartLocation($1, $3).get();
         final Location endLocation = AstUtils.getEndLocation($3).get();
-        $$ = declarations.makeDataDecl(startLocation, endLocation, $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, endLocation, $1, $3);
         popDeclspecStack();
     }
     | declspecs_nosc_ts setspecs
     {
         final Location startLocation = AstUtils.getStartLocation($1).get();
         final Location endLocation = AstUtils.getEndLocation($1).get();
-        $$ = declarations.makeDataDecl(startLocation, endLocation, $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(environment, startLocation, endLocation, $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | declspecs_nosc_nots setspecs components_notype
     {
         final Location startLocation = AstUtils.getStartLocation($1, $3).get();
         final Location endLocation = AstUtils.getEndLocation($3).get();
-        $$ = declarations.makeDataDecl(startLocation, endLocation, $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, endLocation, $1, $3);
         popDeclspecStack();
     }
     | declspecs_nosc_nots setspecs
     {
         final Location startLocation = AstUtils.getStartLocation($1).get();
         final Location endLocation = AstUtils.getEndLocation($1).get();
-        $$ = declarations.makeDataDecl(startLocation, endLocation, $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(environment, startLocation, endLocation, $1, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | error
@@ -3125,7 +3125,7 @@ typename:
       declspecs_nosc absdcl
     {
         /* NOTICE: absdcl may be null! */
-        $$ = declarations.makeType($1, Optional.<Declarator>fromNullable($2));
+        $$ = declarations.makeType(environment, $1, Optional.<Declarator>fromNullable($2));
     }
     ;
 

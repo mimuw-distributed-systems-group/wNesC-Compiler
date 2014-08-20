@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.symboltable;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -13,6 +14,7 @@ import java.util.Set;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public class DefaultSymbolTable<T extends Declaration> implements SymbolTable<T> {
 
@@ -45,6 +47,16 @@ public class DefaultSymbolTable<T extends Declaration> implements SymbolTable<T>
             this.fromCurrentFile.add(name);
         }
         return true;
+    }
+
+    @Override
+    public boolean addOrOverwriteIf(String name, T item, Predicate<T> predicate) {
+        if (!symbols.containsKey(name) || predicate.apply(symbols.get(name))) {
+            symbols.put(name, item);
+            return true;
+        }
+
+        return false;
     }
 
     @Override
@@ -88,5 +100,19 @@ public class DefaultSymbolTable<T extends Declaration> implements SymbolTable<T>
     @Override
     public boolean contains(String name, boolean onlyCurrentScope) {
         return get(name, onlyCurrentScope).isPresent();
+    }
+
+    @Override
+    public Optional<Boolean> test(String name, Predicate<T> predicate) {
+        return test(name, predicate, false);
+    }
+
+    @Override
+    public Optional<Boolean> test(String name, Predicate<T> predicate, boolean onlyCurrentScope) {
+        final Optional<? extends T> symbol = get(name, onlyCurrentScope);
+        if (!symbol.isPresent()) {
+            return Optional.absent();
+        }
+        return Optional.of(predicate.apply(symbol.get()));
     }
 }
