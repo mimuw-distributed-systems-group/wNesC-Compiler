@@ -477,7 +477,11 @@ dispatch:
     ;
 
 /*
-* TODO: What is ncheader and includes?
+* What is ncheader and includes?
+* includes is deprecated and components can be preceded by
+* arbitrary C declarations and macros. As a result, #include behaves in a more
+* comprehensible fashion. For details on includes, see Section 9 of the
+* nesC 1.1 reference manual.
 */
 ncheader:
       includes_list
@@ -807,7 +811,6 @@ requires_or_provides:
     |
       just_datadef
     {
-        // TODO check if null?
         if ($1 == null) {
             $$ = Lists.<Declaration>newList();
         } else {
@@ -2396,7 +2399,6 @@ attributes:
 attribute:
       ATTRIBUTE LPAREN LPAREN attribute_list RPAREN RPAREN
     {
-        // TODO: wrapper for such attributes
         $$ = $4;
     }
     | target_attribute
@@ -3610,42 +3612,46 @@ stmt:
         pstate.stmtCount++;
         $$ = Statements.makeReturn($1.getLocation(), $3.getEndLocation(), $2);
     }
-    | ASM_KEYWORD maybe_type_qual LPAREN expr RPAREN SEMICOLON
+    | ASM_KEYWORD[asm] maybe_type_qual[quals] LPAREN expr RPAREN SEMICOLON[semi]
     {
-        // TODO
         /* NOTICE: maybe_type_qual may be null */
         pstate.stmtCount++;
-        $$ = new AsmStmt(null, $4, Lists.<AsmOperand>newList(),
+        final AsmStmt asmStmt = new AsmStmt($asm.getLocation(), $expr, Lists.<AsmOperand>newList(),
                 Lists.<AsmOperand>newList(), Lists.<StringAst>newList(),
-                Lists.<TypeElement>newListEmptyOnNull($2));
+                Lists.<TypeElement>newListEmptyOnNull($quals));
+        asmStmt.setEndLocation($semi.getEndLocation());
+        $$ = asmStmt;
     }
     /* This is the case with just output operands.  */
-    | ASM_KEYWORD maybe_type_qual LPAREN expr COLON asm_operands RPAREN SEMICOLON
+    | ASM_KEYWORD[asm] maybe_type_qual[quals] LPAREN expr COLON asm_operands[operands] RPAREN SEMICOLON[semi]
     {
-        // TODO
         /* NOTE: maybe_type_qual may be null */
         pstate.stmtCount++;
-        $$ = new AsmStmt(null, $4, $6, Lists.<AsmOperand>newList(),
+        final AsmStmt asmStmt = new AsmStmt($asm.getLocation(), $expr, $operands, Lists.<AsmOperand>newList(),
                 Lists.<StringAst>newList(),
-                Lists.<TypeElement>newListEmptyOnNull($2));
+                Lists.<TypeElement>newListEmptyOnNull($quals));
+        asmStmt.setEndLocation($semi.getEndLocation());
+        $$ = asmStmt;
     }
     /* This is the case with input operands as well.  */
-    | ASM_KEYWORD maybe_type_qual LPAREN expr COLON asm_operands COLON asm_operands RPAREN SEMICOLON
+    | ASM_KEYWORD[asm] maybe_type_qual[quals] LPAREN expr COLON asm_operands[operands1] COLON asm_operands[operands2] RPAREN SEMICOLON[semi]
     {
-        // TODO
         /* NOTE: maybe_type_qual may be null */
         pstate.stmtCount++;
-        $$ = new AsmStmt(null, $4, $6, $8, Lists.<StringAst>newList(),
-                Lists.<TypeElement>newListEmptyOnNull($2));
+        final AsmStmt asmStmt = new AsmStmt($asm.getLocation(), $expr, $operands1, $operands2, Lists.<StringAst>newList(),
+                Lists.<TypeElement>newListEmptyOnNull($quals));
+        asmStmt.setEndLocation($semi.getEndLocation());
+        $$ = asmStmt;
     }
     /* This is the case with clobbered registers as well.  */
-    | ASM_KEYWORD maybe_type_qual LPAREN expr COLON asm_operands COLON asm_operands COLON asm_clobbers RPAREN SEMICOLON
+    | ASM_KEYWORD[asm] maybe_type_qual[quals] LPAREN expr COLON asm_operands[operands1] COLON asm_operands[operands2] COLON asm_clobbers[clobbers] RPAREN SEMICOLON[semi]
     {
-        // TODO
         /* NOTE: maybe_type_qual may be null */
         pstate.stmtCount++;
-        $$ = new AsmStmt(null, $4, $6, $8, $10,
-                Lists.<TypeElement>newListEmptyOnNull($2));
+        final AsmStmt asmStmt = new AsmStmt($asm.getLocation(), $expr, $operands1, $operands2, $clobbers,
+                Lists.<TypeElement>newListEmptyOnNull($quals));
+        asmStmt.setEndLocation($semi.getEndLocation());
+        $$ = asmStmt;
     }
     | GOTO id_label SEMICOLON
     {
@@ -3722,7 +3728,6 @@ xexpr:
 
 /* These are the operands other than the first string and colon
  in  asm ("addextend %2,%1": "=dm" (x), "0" (y), "g" (*x))  */
-// TODO
 asm_operands:
       /* empty */
     { $$ = Lists.<AsmOperand>newList(); }
@@ -3730,7 +3735,6 @@ asm_operands:
     { $$ = $1; }
     ;
 
-// TODO
 nonnull_asm_operands:
       asm_operand
     { $$ = Lists.newList($1); }
@@ -3738,15 +3742,18 @@ nonnull_asm_operands:
     { $$ = Lists.chain($1, $3); }
     ;
 
-// TODO
 asm_operand:
-      string_chain LPAREN expr RPAREN
+      string_chain[str] LPAREN expr RPAREN[rparen]
     {
-        $$ = new AsmOperand(null, null, $1, $3);
+        final AsmOperand operand = new AsmOperand($str.getLocation(), Optional.<Word>absent(), $str, $expr);
+        operand.setEndLocation($rparen.getEndLocation());
+        $$ = operand;
     }
-    | LBRACK idword RBRACK string_chain LPAREN expr RPAREN
+    | LBRACK[lbrack] idword RBRACK string_chain[str] LPAREN expr RPAREN[rparen]
     {
-        $$ = new AsmOperand(null, $2, $4, $6);
+        final AsmOperand operand = new AsmOperand($lbrack.getLocation(), Optional.of($idword), $str, $expr);
+        operand.setEndLocation($rparen.getEndLocation());
+        $$ = operand;
     }
     ;
 

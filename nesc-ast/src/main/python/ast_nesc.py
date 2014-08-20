@@ -993,7 +993,7 @@ class Word(BasicASTNode):
 # TODO: description
 class AsmOperand(BasicASTNode):
     superclass = Node
-    word1 = ReferenceField("Word")
+    word1 = ReferenceField("Word", optional=True)
     string = ReferenceField("StringAst")
     arg1 = ReferenceField("Expression")
 
