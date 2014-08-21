@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.filesgraph;
 
 import pl.edu.mimuw.nesc.common.FileType;
+import pl.edu.mimuw.nesc.common.NesCFileType;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -22,6 +23,7 @@ public class GraphFile {
 
     private final String filePath;
     private FileType fileType;
+    private NesCFileType nesCFileType;
     private final Map<String, GraphFile> uses;
     private final Map<String, GraphFile> isUsedBy;
 
@@ -32,6 +34,7 @@ public class GraphFile {
     public GraphFile(String filePath, FileType fileType) {
         this.filePath = filePath;
         this.fileType = fileType;
+        this.nesCFileType = NesCFileType.NONE;
         this.uses = new LinkedHashMap<>();
         this.isUsedBy = new HashMap<>();
     }
@@ -46,6 +49,14 @@ public class GraphFile {
 
     public void setFileType(FileType fileType) {
         this.fileType = fileType;
+    }
+
+    public NesCFileType getNesCFileType() {
+        return nesCFileType;
+    }
+
+    public void setNesCFileType(NesCFileType nesCFileType) {
+        this.nesCFileType = nesCFileType;
     }
 
     public Map<String, GraphFile> getUses() {

@@ -2,9 +2,6 @@ package pl.edu.mimuw.nesc;
 
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 
-import java.io.FileNotFoundException;
-import java.util.List;
-
 /**
  * <p> Compiler frontend interface. Provides methods for processing source
  * files in several ways.</p>
@@ -79,35 +76,11 @@ public interface Frontend {
      *
      * @param contextRef context reference
      * @param filePath   file path
-     * @return list of results of parsing file, the first element is
-     * the data of the file with specified path, the following elements
-     * are datas of files that are dependencies of given file but were
-     * not parsed before
+     * @return an object representing parsed data of the entire project.
+     * In particular, it contains the list of results of parsing the file,
+     * the first element is the data of the file with specified path,
+     * the following elements are datas of files that are dependencies of
+     * the given file but were not parsed before
      */
-    List<FileData> update(ContextRef contextRef, String filePath);
-
-    /**
-     * Gets all keywords.
-     *
-     * @return all keywords
-     */
-    Iterable<String> getKeywords();
-
-    /**
-     * Gets keywords that are core language keywords, e.g. <code>do</code>,
-     * <code>int</code>, <code>return</code>.
-     *
-     * @return core language keywords
-     */
-    Iterable<String> getCoreKeywords();
-
-    /**
-     * Gets keywords that are keywords from language extensions
-     * (especially GNU extensions), e.g. <code>__attribute__</code>,
-     * <code>asm</code>.
-     *
-     * @return language extensions keywords
-     */
-    Iterable<String> getExtensionKeywords();
-
+    ProjectData update(ContextRef contextRef, String filePath);
 }

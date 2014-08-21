@@ -7,6 +7,7 @@ import com.google.common.collect.Multimap;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.environment.Environment;
+import pl.edu.mimuw.nesc.load.FileCache;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.lexer.Comment;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
@@ -29,9 +30,9 @@ public final class FileData {
     }
 
     /**
-     * Creates {@link FileData} instance from {@link FileCache} object.
+     * Creates {@link FileData} instance from {@link pl.edu.mimuw.nesc.load.FileCache} object.
      *
-     * @param fileCache {@link FileCache} object
+     * @param fileCache {@link pl.edu.mimuw.nesc.load.FileCache} object
      * @return {@link FileData} instance
      */
     public static FileData convertFrom(FileCache fileCache) {

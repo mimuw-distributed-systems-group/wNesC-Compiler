@@ -1,5 +1,6 @@
-package pl.edu.mimuw.nesc;
+package pl.edu.mimuw.nesc.load;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 
@@ -12,31 +13,24 @@ public final class MacroManager {
 
     private static final Logger LOG = Logger.getLogger(MacroManager.class);
 
-    private static final int EXPECTED_NUMBER_OF_MACROS = 2000;
-
     /*
      * The order in which the macros are stored is not important, since
      * the object representing macros are already "final" objects.
      * When the lexer is fed with those macros, it does not need to
      * parse them again.
      */
-    private final Set<PreprocessorMacro> allMacros;
+    private Map<String, PreprocessorMacro> allMacros;
 
     public MacroManager() {
-        this.allMacros = new HashSet<>(EXPECTED_NUMBER_OF_MACROS);
+        this.allMacros = new HashMap<>();
     }
 
-    public void clear() {
-        LOG.trace("clear macros");
-        this.allMacros.clear();
+    public void replace(Map<String, PreprocessorMacro> macros) {
+        this.allMacros = ImmutableMap.copyOf(macros);
 
     }
 
-    public void addMacro(PreprocessorMacro macro) {
-        this.allMacros.add(macro);
-    }
-
-    public Collection<PreprocessorMacro> getAll() {
+    public Map<String, PreprocessorMacro> getAll() {
         return allMacros;
     }
 }

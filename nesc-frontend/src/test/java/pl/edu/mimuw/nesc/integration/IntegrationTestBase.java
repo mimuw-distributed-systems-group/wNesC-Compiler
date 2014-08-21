@@ -1,10 +1,7 @@
 package pl.edu.mimuw.nesc.integration;
 
 import org.junit.Before;
-import pl.edu.mimuw.nesc.ContextRef;
-import pl.edu.mimuw.nesc.FileData;
-import pl.edu.mimuw.nesc.Frontend;
-import pl.edu.mimuw.nesc.NescFrontend;
+import pl.edu.mimuw.nesc.*;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 
 import java.io.File;
@@ -30,7 +27,8 @@ public class IntegrationTestBase {
         final String dirPath = getParent(filePath);
         final String[] args = new String[]{"-p", dirPath, "-m", mainEntity};
         final ContextRef contextRef = frontend.createContext(args);
-        return frontend.update(contextRef, getResourceDirectory(testEntityPath)).get(0);
+        return frontend.update(contextRef, getResourceDirectory(testEntityPath))
+                .getModifiedFileDatas().get(0);
     }
 
     protected String getResourceDirectory(String resourcePath) {

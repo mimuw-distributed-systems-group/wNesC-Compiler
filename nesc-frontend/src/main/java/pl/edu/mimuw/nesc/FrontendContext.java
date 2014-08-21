@@ -3,7 +3,11 @@ package pl.edu.mimuw.nesc;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
 import pl.edu.mimuw.nesc.environment.TranslationUnitEnvironment;
 import pl.edu.mimuw.nesc.filesgraph.FilesGraph;
+import pl.edu.mimuw.nesc.load.FileCache;
+import pl.edu.mimuw.nesc.load.MacroManager;
+import pl.edu.mimuw.nesc.load.PathsResolver;
 import pl.edu.mimuw.nesc.option.OptionsHolder;
+import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 
 import java.util.ArrayList;
@@ -45,10 +49,22 @@ public final class FrontendContext {
     /**
      * In a standalone mode a single environment is used for the entire
      * application.
+     * In a plugin mode a single environment is used for a single file.
+     * However, the environment is shared with included header files.
      */
-    private final TranslationUnitEnvironment environment;
+    private TranslationUnitEnvironment environment;
 
     private List<NescIssue> issues;
+
+    /**
+     * Macros from files included by default. Once parsed, are served for
+     * each file.
+     */
+    private final Map<String, PreprocessorMacro> defaultMacros;
+    /**
+     * Symbols from files included by default.
+     */
+    private final TranslationUnitEnvironment defaultSymbols;
 
     public FrontendContext(OptionsHolder options, boolean isStandalone) {
         this.isStandalone = isStandalone;
@@ -72,6 +88,9 @@ public final class FrontendContext {
         this.environment = new TranslationUnitEnvironment();
 
         this.issues = new ArrayList<>();
+
+        this.defaultMacros = new HashMap<>();
+        this.defaultSymbols = new TranslationUnitEnvironment();
     }
 
     public boolean isStandalone() {
@@ -122,12 +141,24 @@ public final class FrontendContext {
         return environment;
     }
 
+    public void setEnvironment(TranslationUnitEnvironment environment) {
+        this.environment = environment;
+    }
+
     public List<NescIssue> getIssues() {
         return issues;
     }
 
     public void setIssues(List<NescIssue> issues) {
         this.issues = issues;
+    }
+
+    public Map<String, PreprocessorMacro> getDefaultMacros() {
+        return defaultMacros;
+    }
+
+    public TranslationUnitEnvironment getDefaultSymbols() {
+        return defaultSymbols;
     }
 
     /**

@@ -50,7 +50,7 @@ public interface SymbolTable<T extends Declaration> {
      *                  current object associated with the given name if it
      *                  exists.
      * @return <code>true</code> if and only if a change in this table has been
-     *         made.
+     * made.
      */
     boolean addOrOverwriteIf(String name, T item, Predicate<T> predicate);
 
@@ -117,13 +117,13 @@ public interface SymbolTable<T extends Declaration> {
      * satisfies the given predicate. If the current scope does not contain the
      * identifier, it searches in the parent scope.
      *
-     * @param name Name associated with the object to test.
+     * @param name      Name associated with the object to test.
      * @param predicate Predicate to test on the object associated with the
      *                  given name.
      * @return <code>Optional.absent()</code> if the identifier is absent in the
-     *         table. If it is present, a logical value wrapped in
-     *         <code>Optional</code> that specifies if it satisfies the given
-     *         predicate.
+     * table. If it is present, a logical value wrapped in
+     * <code>Optional</code> that specifies if it satisfies the given
+     * predicate.
      */
     Optional<Boolean> test(String name, Predicate<T> predicate);
 
@@ -133,13 +133,13 @@ public interface SymbolTable<T extends Declaration> {
      * if the object is not found and <code>onlyCurrentScope</code> is
      * <code>false</code>, it searches in the parent scope.
      *
-     * @param name Name associated with the object to test.
+     * @param name      Name associated with the object to test.
      * @param predicate Predicate to test on the object associated with the
      *                  given name.
      * @return If no object with the given name is found,
-     *         <code>Optional.absent()</code>. Otherwise, a boolean value
-     *         wrapped by <code>Optional</code> that is <code>true</code> if and
-     *         only if the object satisfies the given predicate.
+     * <code>Optional.absent()</code>. Otherwise, a boolean value
+     * wrapped by <code>Optional</code> that is <code>true</code> if and
+     * only if the object satisfies the given predicate.
      */
     Optional<Boolean> test(String name, Predicate<T> predicate, boolean onlyCurrentScope);
 }

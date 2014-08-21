@@ -8,6 +8,7 @@ import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
 import pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astbuilding.TypeElementUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
+import pl.edu.mimuw.nesc.declaration.nesc.InterfaceDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.NescDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
@@ -77,6 +78,7 @@ public final class NescDeclarations extends AstBuildingBase {
 
         final Word componentName = componentRef.getName();
         final Optional<? extends NescDeclaration> component = nescEnvironment.get(componentName.getName());
+        // TODO: check if this is not an interface!
         final String refName = alias.isPresent() ? alias.get() : componentRef.getName().getName();
 
         final ComponentRefDeclaration symbol = new ComponentRefDeclaration(refName, componentName, startLocation);

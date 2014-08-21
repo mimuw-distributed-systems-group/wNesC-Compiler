@@ -1,11 +1,15 @@
 package pl.edu.mimuw.nesc;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.common.NesCFileType;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
+import pl.edu.mimuw.nesc.filesgraph.FilesGraph;
+import pl.edu.mimuw.nesc.filesgraph.GraphFile;
+import pl.edu.mimuw.nesc.filesgraph.visitor.DefaultFileGraphVisitor;
+import pl.edu.mimuw.nesc.load.LoadExecutor;
 import pl.edu.mimuw.nesc.option.OptionsHolder;
 import pl.edu.mimuw.nesc.option.OptionsParser;
 import pl.edu.mimuw.nesc.problem.NescError;
@@ -69,8 +73,9 @@ public final class NescFrontend implements Frontend {
         parseFilesIncludedByDefault(context);
 
         if (startFile.isPresent()) {
-            final List<FileData> fileDatas = update(contextRef, startFile.get());
-            projectDataBuilder.addFileDatas(fileDatas);
+            final ProjectData fileDatas = update(contextRef, startFile.get());
+            projectDataBuilder.addFileDatas(fileDatas.getFileDatas().values());
+            /* In the case of rebuild, all FileDatas are modified. */
         } else {
             final String msg = format("Cannot find main configuration '%s'", context.getOptions().getEntryEntity());
             LOG.error(msg);
@@ -83,39 +88,26 @@ public final class NescFrontend implements Frontend {
     }
 
     @Override
-    public List<FileData> update(ContextRef contextRef, String filePath) {
+    public ProjectData update(ContextRef contextRef, String filePath) {
         checkNotNull(contextRef, "context reference cannot be null");
         checkNotNull(filePath, "file path cannot be null");
         LOG.info("Update; contextRef=" + contextRef + "; filePath=" + filePath);
 
         final FrontendContext context = getContext(contextRef);
+        clearDirtyFileCache(context, filePath);
 
         try {
             // FIXME: what if we would like to edit file included by default?
             List<FileData> fileDatas = new LoadExecutor(context).parse(filePath, false);
-            return ImmutableList.copyOf(fileDatas);
+            /* There is no need to put all the FileDatas. */
+            return ProjectData.builder()
+                    .addModifiedFileDatas(fileDatas)
+                    .build();
         } catch (IOException e) {
             // TODO
             e.printStackTrace();
         }
-        // FIXME FileData should be always returned or proper exception
-        // should be thrown.
-        return Collections.emptyList();
-    }
-
-    @Override
-    public Iterable<String> getKeywords() {
-        return Keywords.KEYWORDS;
-    }
-
-    @Override
-    public Iterable<String> getCoreKeywords() {
-        return Keywords.CORE_KEYWORDS;
-    }
-
-    @Override
-    public Iterable<String> getExtensionKeywords() {
-        return Keywords.EXTENSION_KEYWORDS;
+        return ProjectData.builder().build();
     }
 
     private Optional<String> getStartFile(FrontendContext context) {
@@ -190,6 +182,45 @@ public final class NescFrontend implements Frontend {
         return result;
     }
 
+    private void clearDirtyFileCache(FrontendContext context, String modifiedFile) {
+        final FilesGraph filesGraph = context.getFilesGraph();
+        final GraphFile file = filesGraph.getFile(modifiedFile);
+        if (file == null) {
+            return;
+        }
+        final DirtyFileVisitor visitor = new DirtyFileVisitor(filesGraph.getFile(modifiedFile), false);
+        visitor.start();
+        final Set<GraphFile> dirtyFiles = visitor.getDirtyFiles();
+        for (GraphFile graphFile : dirtyFiles) {
+            context.getCache().remove(graphFile.getFilePath());
+        }
+    }
+
+    private static class DirtyFileVisitor extends DefaultFileGraphVisitor {
+
+        private final Set<GraphFile> dirtyFiles;
+
+        public DirtyFileVisitor(GraphFile startNode, boolean outgoing) {
+            super(startNode, outgoing);
+            this.dirtyFiles = new HashSet<>();
+        }
+
+        public Set<GraphFile> getDirtyFiles() {
+            return dirtyFiles;
+        }
+
+        @Override
+        public void start() {
+            super.start();
+            dirtyFiles.remove(startNode);
+        }
+
+        @Override
+        protected boolean action(GraphFile file) {
+            dirtyFiles.add(file);
+            return file.getNesCFileType() == NesCFileType.NONE;
+        }
+    }
 
     /**
      * Nesc frontend builder.

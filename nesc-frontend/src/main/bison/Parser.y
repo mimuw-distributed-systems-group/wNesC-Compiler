@@ -10,6 +10,7 @@ import pl.edu.mimuw.nesc.*;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.common.FileType;
+import pl.edu.mimuw.nesc.common.NesCFileType;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.nesc.*;
 import pl.edu.mimuw.nesc.declaration.object.*;
@@ -516,6 +517,7 @@ interface:
         environment.setScopeType(ScopeType.INTERFACE_PARAMETER);
         environment.setStartLocation($name.getEndLocation());
         entityStarted($name.getName());
+        parserListener.nescEntityRecognized(NesCFileType.INTERFACE);
         final Interface iface = nescComponents.startInterface(environment, $keyword.getLocation(), $name);
         $<Interface>$ = iface;
     }
@@ -638,6 +640,7 @@ module:
         environment.setScopeType(ScopeType.COMPONENT_PARAMETER);
         environment.setStartLocation($name.getEndLocation());
         entityStarted($name.getName());
+        parserListener.nescEntityRecognized(NesCFileType.MODULE);
         final Module module = nescComponents.startModule(environment, $keyword.getLocation(), $name,
                 $isGeneric.getValue());
         $<Module>$ = module;
@@ -681,6 +684,7 @@ configuration:
         environment.setScopeType(ScopeType.COMPONENT_PARAMETER);
         environment.setStartLocation($name.getEndLocation());
         entityStarted($name.getName());
+        parserListener.nescEntityRecognized(NesCFileType.CONFIGURATION);
         final Configuration configuration = nescComponents.startConfiguration(environment, $keyword.getLocation(),
                 $name, $isGeneric.getValue());
         $<Configuration>$ = configuration;

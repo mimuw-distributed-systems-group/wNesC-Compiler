@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.parser;
 
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.common.NesCFileType;
 
 /**
  * Parser callbacks listener.
@@ -8,6 +9,13 @@ import pl.edu.mimuw.nesc.ast.Location;
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
 public interface ParserListener {
+
+    /**
+     * Returns the type of recognized NesC entity. Is not called for
+     * header files or C files.
+     * @param nesCFileType file type
+     */
+    void nescEntityRecognized(NesCFileType nesCFileType);
 
     /**
      * Called when all definitions prior to the configuration, component or

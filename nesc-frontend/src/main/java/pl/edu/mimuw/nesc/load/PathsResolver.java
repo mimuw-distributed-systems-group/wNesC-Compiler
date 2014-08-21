@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc;
+package pl.edu.mimuw.nesc.load;
 
 import com.google.common.base.Optional;
 import com.google.common.io.Files;

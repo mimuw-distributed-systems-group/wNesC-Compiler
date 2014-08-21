@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc;
+package pl.edu.mimuw.nesc.load;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -9,10 +9,10 @@ import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.common.FileType;
 import pl.edu.mimuw.nesc.environment.Environment;
-import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.lexer.Comment;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
+import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.token.Token;
 
 import java.util.List;
@@ -37,6 +37,10 @@ public class FileCache {
     private final List<Comment> comments;
     private final List<PreprocessorDirective> preprocessorDirectives;
     private final Map<String, PreprocessorMacro> macros;
+    /**
+     * Macros that are visible for subsequently parsed files.
+     */
+    private final Map<String, PreprocessorMacro> endFileMacros;
     private final Multimap<Integer, Token> tokens;
     private final Multimap<Integer, NescIssue> issues;
     private final Environment environment;
@@ -49,6 +53,7 @@ public class FileCache {
         this.comments = builder.comments.build();
         this.preprocessorDirectives = builder.preprocessorDirectives.build();
         this.macros = builder.macros.build();
+        this.endFileMacros = builder.endFileMacros;
         this.tokens = builder.tokens;
         this.issues = builder.issues;
         this.environment = builder.environment;
@@ -82,6 +87,10 @@ public class FileCache {
         return macros;
     }
 
+    public Map<String, PreprocessorMacro> getEndFileMacros() {
+        return endFileMacros;
+    }
+
     public Multimap<Integer, Token> getTokens() {
         return tokens;
     }
@@ -106,7 +115,7 @@ public class FileCache {
                 .add("macros", macros)
                 .add("tokens", tokens)
                 .add("issues", issues)
-                // environment
+                        // environment
                 .toString();
     }
 
@@ -122,6 +131,7 @@ public class FileCache {
         private ImmutableList.Builder<Comment> comments;
         private ImmutableList.Builder<PreprocessorDirective> preprocessorDirectives;
         private ImmutableMap.Builder<String, PreprocessorMacro> macros;
+        private Map<String, PreprocessorMacro> endFileMacros;
         private Multimap<Integer, Token> tokens;
         private Multimap<Integer, NescIssue> issues;
         private Environment environment;
@@ -173,6 +183,12 @@ public class FileCache {
             return this;
         }
 
+        public Builder endFileMacros(Map<String, PreprocessorMacro> macros) {
+            checkNotNull(macros, "macros cannot be null");
+            this.endFileMacros = macros;
+            return this;
+        }
+
         /**
          * <p>Sets tokens multimap.</p>
          * <p>NOTICE: to improve performance the reference to multimap is set,
@@ -204,7 +220,7 @@ public class FileCache {
 
         private void verify() {
             checkState(filePath != null, "file path cannot be null");
-            checkState(fileType!= null, "file type cannot be null");
+            checkState(fileType != null, "file type cannot be null");
             checkState(tokens != null, "tokens multimap cannot be null");
             checkState(issues != null, "issues multimap cannot be null");
             checkState(environment != null, "environment cannot be null");
