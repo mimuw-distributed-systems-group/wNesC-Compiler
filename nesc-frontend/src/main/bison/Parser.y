@@ -5,6 +5,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.io.Files;
 import org.apache.log4j.Logger;
+
+import pl.edu.mimuw.nesc.*;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.common.FileType;
@@ -513,6 +515,7 @@ interface:
         pushLevel();
         environment.setScopeType(ScopeType.INTERFACE_PARAMETER);
         environment.setStartLocation($name.getEndLocation());
+        entityStarted($name.getName());
         final Interface iface = nescComponents.startInterface(environment, $keyword.getLocation(), $name);
         $<Interface>$ = iface;
     }
@@ -634,6 +637,7 @@ module:
         pushLevel();
         environment.setScopeType(ScopeType.COMPONENT_PARAMETER);
         environment.setStartLocation($name.getEndLocation());
+        entityStarted($name.getName());
         final Module module = nescComponents.startModule(environment, $keyword.getLocation(), $name,
                 $isGeneric.getValue());
         $<Module>$ = module;
@@ -676,6 +680,7 @@ configuration:
         pushLevel();
         environment.setScopeType(ScopeType.COMPONENT_PARAMETER);
         environment.setStartLocation($name.getEndLocation());
+        entityStarted($name.getName());
         final Configuration configuration = nescComponents.startConfiguration(environment, $keyword.getLocation(),
                 $name, $isGeneric.getValue());
         $<Configuration>$ = configuration;
@@ -716,7 +721,8 @@ configuration:
 binary_component:
       COMPONENT idword nesc_attributes LBRACE requires_or_provides_list RBRACE
     {
-        final BinaryComponentImpl dummy = new BinaryComponentImpl(null);
+        entityStarted($2.getName());
+        final BinaryComponentImpl dummy = new BinaryComponentImpl($1.getLocation());
         final BinaryComponent component = new BinaryComponent($1.getLocation(), $3, $2, $5, dummy, false,
                 Optional.<LinkedList<Declaration>>absent());
         component.setEndLocation($6.getEndLocation());
@@ -4107,6 +4113,7 @@ string_chain:
      * Lexer wrapper.
      */
     private LexerWrapper lexer;
+    private FrontendContext context;
     private Environment environment;
     private NescEntityEnvironment nescEnvironment;
     private ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder;
@@ -4143,6 +4150,7 @@ string_chain:
      *
      * @param filePath              currently being parsed file path
      * @param lex                   lexer
+     * @param context               context
      * @param environment           global environment
      * @param nescEnvironment       nesc environment
      * @param fileType              fileType file type
@@ -4151,6 +4159,7 @@ string_chain:
      */
     public Parser(String filePath,
                   pl.edu.mimuw.nesc.lexer.Lexer lex,
+                  FrontendContext context,
                   Environment environment,
                   NescEntityEnvironment nescEnvironment,
                   FileType fileType,
@@ -4158,6 +4167,7 @@ string_chain:
                   ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder) {
         Preconditions.checkNotNull(filePath, "file path cannot be null");
         Preconditions.checkNotNull(lex, "lexer cannot be null");
+        Preconditions.checkNotNull(context, "context cannot be null");
         Preconditions.checkNotNull(environment, "environment cannot be null");
         Preconditions.checkNotNull(nescEnvironment, "nesc environment cannot be null");
         Preconditions.checkNotNull(fileType, "file type cannot be null");
@@ -4167,6 +4177,7 @@ string_chain:
         this.filePath = filePath;
         this.fileType = fileType;
         this.currentEntityName = Files.getNameWithoutExtension(filePath);
+        this.context = context;
         this.environment = environment;
         this.nescEnvironment = nescEnvironment;
         this.tokensMultimapBuilder = tokensMultimapBuilder;
@@ -4249,6 +4260,15 @@ string_chain:
      */
     public boolean errors() {
         return errors;
+    }
+
+    /**
+     * Called when an entity starts being parsed.
+     *
+     * @param entityName the name of the new entity
+     */
+    public void entityStarted(String entityName) {
+        context.getFileToComponent().put(filePath, entityName);
     }
 
     /**

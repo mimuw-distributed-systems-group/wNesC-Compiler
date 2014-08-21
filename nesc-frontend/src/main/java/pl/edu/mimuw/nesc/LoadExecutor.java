@@ -37,7 +37,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static pl.edu.mimuw.nesc.common.FileType.C;
 import static pl.edu.mimuw.nesc.common.FileType.HEADER;
 import static pl.edu.mimuw.nesc.common.util.file.FileUtils.fileTypeFromExtension;
-import static pl.edu.mimuw.nesc.common.util.file.FileUtils.getFileNameWithoutExtension;
 import static pl.edu.mimuw.nesc.filesgraph.walker.FilesGraphWalkerFactory.ofDfsPostOrderWalker;
 
 /**
@@ -240,10 +239,14 @@ public final class LoadExecutor {
             /* Remove the nesc entity from the entity namespace to avoid
              * false redeclaration error. */
             if (fileType == FileType.NESC) {
-                /* We assume that entity name is the same as file name. */
-                final String entityName = getFileNameWithoutExtension(currentFilePath);
-                LOG.trace("Removing entity: " + entityName);
-                nescEntityEnvironment.remove(entityName);
+                /* We should not assume that the entity has the same name as
+                 * the file does. Therefore, we need to keep a mapping between
+                 * the file and the entity. */
+                final String entityOldName = context.getFileToComponent().get(currentFilePath);
+                if (entityOldName != null) {
+                    LOG.trace("Removing entity: " + entityOldName);
+                    nescEntityEnvironment.remove(entityOldName);
+                }
             }
         }
 
@@ -274,7 +277,7 @@ public final class LoadExecutor {
             }
 
             /* Setup parser */
-            this.parser = new Parser(currentFilePath, lexer, environment,
+            this.parser = new Parser(currentFilePath, lexer, context, environment,
                     nescEntityEnvironment, fileType, tokensMultimapBuilder, issuesListBuilder);
             parser.setListener(this);
 

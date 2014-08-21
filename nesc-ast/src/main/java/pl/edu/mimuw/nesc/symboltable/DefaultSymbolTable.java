@@ -2,8 +2,6 @@ package pl.edu.mimuw.nesc.symboltable;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 
@@ -53,6 +51,7 @@ public class DefaultSymbolTable<T extends Declaration> implements SymbolTable<T>
     public boolean addOrOverwriteIf(String name, T item, Predicate<T> predicate) {
         if (!symbols.containsKey(name) || predicate.apply(symbols.get(name))) {
             symbols.put(name, item);
+            fromCurrentFile.add(name);
             return true;
         }
 

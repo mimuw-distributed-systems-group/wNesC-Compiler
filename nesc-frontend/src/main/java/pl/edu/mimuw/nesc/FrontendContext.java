@@ -28,6 +28,11 @@ public final class FrontendContext {
     private final Map<String, FileCache> cache;
 
     /**
+     * Each file may contain at most one NesC entity. This map keeps the
+     * mapping between the file's name and the NesC entity in the file.
+     */
+    private final Map<String, String> fileToComponent;
+    /**
      * Namespace for NesC components and interfaces is present only in
      * global scope.
      */
@@ -59,6 +64,7 @@ public final class FrontendContext {
 
         this.macroManager = new MacroManager();
 
+        this.fileToComponent = new HashMap<>();
         this.filesGraph = new FilesGraph();
         this.cache = new HashMap<>();
         this.nescEntityEnvironment = new NescEntityEnvironment();
@@ -82,6 +88,10 @@ public final class FrontendContext {
 
     public MacroManager getMacroManager() {
         return macroManager;
+    }
+
+    public Map<String, String> getFileToComponent() {
+        return fileToComponent;
     }
 
     public FilesGraph getFilesGraph() {
