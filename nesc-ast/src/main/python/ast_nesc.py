@@ -1,4 +1,6 @@
-from ast_core import *
+#from ast_core import *
+from ast.core import BasicASTNode, generate_code
+from ast.fields import *
 
 #==============================================================================
 #                             
