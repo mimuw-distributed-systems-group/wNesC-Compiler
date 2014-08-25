@@ -74,7 +74,7 @@ public final class NescFrontend implements Frontend {
 
         if (startFile.isPresent()) {
             final ProjectData fileDatas = update(contextRef, startFile.get());
-            projectDataBuilder.addFileDatas(fileDatas.getFileDatas().values());
+            projectDataBuilder.addFileDatas(new HashSet<>(fileDatas.getModifiedFileDatas()));
             /* In the case of rebuild, all FileDatas are modified. */
         } else {
             final String msg = format("Cannot find main configuration '%s'", context.getOptions().getEntryEntity());
@@ -99,7 +99,6 @@ public final class NescFrontend implements Frontend {
         try {
             // FIXME: what if we would like to edit file included by default?
             List<FileData> fileDatas = new LoadExecutor(context).parse(filePath, false);
-            /* There is no need to put all the FileDatas. */
             return ProjectData.builder()
                     .addModifiedFileDatas(fileDatas)
                     .build();
