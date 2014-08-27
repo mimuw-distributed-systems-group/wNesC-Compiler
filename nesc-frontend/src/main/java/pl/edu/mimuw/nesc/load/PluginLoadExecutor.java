@@ -2,7 +2,6 @@ package pl.edu.mimuw.nesc.load;
 
 import com.google.common.base.Optional;
 import org.apache.log4j.Logger;
-import pl.edu.mimuw.nesc.FileData;
 import pl.edu.mimuw.nesc.FrontendContext;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.common.FileType;
@@ -54,9 +53,10 @@ class PluginLoadExecutor extends LoadFileExecutor {
      *                        the update command
      */
     public PluginLoadExecutor(FrontendContext context, String currentFilePath, boolean isRoot) {
-        super(context, currentFilePath, false);
+        super(context, currentFilePath);
         this.isRoot = isRoot;
         this.visitedFiles = new HashSet<>();
+        fileCacheBuilder.isRoot(isRoot);
     }
 
     @Override
@@ -82,8 +82,12 @@ class PluginLoadExecutor extends LoadFileExecutor {
     }
 
     @Override
-    protected void addData(FileData fileData) {
-        super.addData(fileData);
+    protected void consumeData(FileCache newCache) {
+        if (isRoot) {
+            context.getCache().put(currentFilePath, newCache);
+        }
+        fileCacheList.addFirst(newCache);
+        LOG.trace("Put file cache into context; file: " + currentFilePath);
     }
 
     @Override
@@ -96,9 +100,9 @@ class PluginLoadExecutor extends LoadFileExecutor {
     public boolean beforeInclude(String filePath, int line) {
         final Location visibleFrom = new Location(currentFilePath, line, 0);
         includeDependency(currentFilePath, filePath, visibleFrom);
-        /* Never include body of files, they should be parsed separately. */
-        /* FIXME: "private inclusions" ? */
-        return true;
+        /* Never include body of files, they should be parsed separately.
+         * However, "private inclusions" should be pasted! */
+        return !wasExtdefsFinished;
     }
 
     @Override
@@ -173,7 +177,6 @@ class PluginLoadExecutor extends LoadFileExecutor {
         }
     }
 
-
     @SuppressWarnings("UnusedParameters")
     private void includeDependency(String currentFilePath, String includedFilePath, Location visibleFrom) {
         final boolean isNescFile = fileType == FileType.NESC;
@@ -218,17 +221,14 @@ class PluginLoadExecutor extends LoadFileExecutor {
             /* We need to get the macros from the dependency. */
             lexer.getMacros().clear();
             lexer.addMacros(context.getMacroManager().getAll().values());
-            /* Invalidate cache for that dependency, since it is "polluted"
-             * by symbols and macros from current file. */
-            context.getCache().remove(includedFilePath);
         }
     }
 
     private void fileDependency(String otherFilePath, boolean isRoot) {
         final PluginLoadExecutor executor = new PluginLoadExecutor(context, otherFilePath, isRoot);
         try {
-            final LinkedList<FileData> datas = executor.parseFile();
-            fileDatas.addAll(datas);
+            final LinkedList<FileCache> datas = executor.parseFile();
+            fileCacheList.addAll(datas);
         } catch (IOException e) {
             LOG.error("Unexpected IOException occurred.", e);
         }

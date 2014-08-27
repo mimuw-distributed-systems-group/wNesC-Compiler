@@ -62,12 +62,21 @@ public interface Frontend {
     void deleteContext(ContextRef contextRef);
 
     /**
-     * Rebuilds the entire project.
+     * Updates the project's settings.
+     *
+     * @param contextRef context reference
+     * @param args       new settings
+     * @throws InvalidOptionsException
+     */
+    void updateSettings(ContextRef contextRef, String[] args) throws InvalidOptionsException;
+
+    /**
+     * (Re)builds the entire project.
      *
      * @param contextRef context reference
      * @return result of analysis of the entire project
      */
-    ProjectData rebuild(ContextRef contextRef);
+    ProjectData build(ContextRef contextRef);
 
     /**
      * <p>Parses and analyzes the specified file.</p>

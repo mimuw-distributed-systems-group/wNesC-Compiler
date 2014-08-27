@@ -6,6 +6,8 @@ import pl.edu.mimuw.nesc.problem.NescIssue;
 
 import java.util.Collection;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * Contains the result of parsing process for entire project.
  *
@@ -18,12 +20,12 @@ public final class ProjectData {
     }
 
     private final ImmutableMap<String, FileData> fileDatas;
-    private final ImmutableList<FileData> modifiedFileDatas;
+    private final FileData rootFileData;
     private final ImmutableList<NescIssue> issues;
 
     private ProjectData(Builder builder) {
         this.fileDatas = builder.fileDataBuilder.build();
-        this.modifiedFileDatas = builder.modifiedFileDatasBuilder.build();
+        this.rootFileData = builder.rootFileData;
         this.issues = builder.issueListBuilder.build();
     }
 
@@ -31,8 +33,8 @@ public final class ProjectData {
         return fileDatas;
     }
 
-    public ImmutableList<FileData> getModifiedFileDatas() {
-        return modifiedFileDatas;
+    public FileData getRootFileData() {
+        return rootFileData;
     }
 
     public ImmutableList<NescIssue> getIssues() {
@@ -45,22 +47,16 @@ public final class ProjectData {
     public static class Builder {
 
         private ImmutableMap.Builder<String, FileData> fileDataBuilder;
-        private ImmutableList.Builder<FileData> modifiedFileDatasBuilder;
         private ImmutableList.Builder<NescIssue> issueListBuilder;
+        private FileData rootFileData;
 
         public Builder() {
             this.fileDataBuilder = ImmutableMap.builder();
-            this.modifiedFileDatasBuilder = ImmutableList.builder();
             this.issueListBuilder = ImmutableList.builder();
         }
 
-        public Builder addFileData(FileData fileData) {
-            this.fileDataBuilder.put(fileData.getFilePath(), fileData);
-            return this;
-        }
-
-        public Builder addModifiedFileData(FileData fileData) {
-            this.modifiedFileDatasBuilder.add(fileData);
+        public Builder addRootFileData(FileData fileData) {
+            this.rootFileData = fileData;
             return this;
         }
 
@@ -68,11 +64,6 @@ public final class ProjectData {
             for (FileData data : fileDatas) {
                 this.fileDataBuilder.put(data.getFilePath(), data);
             }
-            return this;
-        }
-
-        public Builder addModifiedFileDatas(Collection<FileData> fileData) {
-            this.modifiedFileDatasBuilder.addAll(fileData);
             return this;
         }
 
@@ -92,6 +83,7 @@ public final class ProjectData {
         }
 
         private void verify() {
+            checkNotNull(rootFileData, "root file data cannot be null");
         }
     }
 }

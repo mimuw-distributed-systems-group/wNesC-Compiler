@@ -2,7 +2,6 @@ package pl.edu.mimuw.nesc.load;
 
 import com.google.common.base.Optional;
 import org.apache.log4j.Logger;
-import pl.edu.mimuw.nesc.FileData;
 import pl.edu.mimuw.nesc.FrontendContext;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
@@ -25,11 +24,9 @@ class StandaloneLoadExecutor extends LoadFileExecutor {
      *
      * @param context         context
      * @param currentFilePath current file path
-     * @param isDefaultFile   indicates if default file is included by default
      */
-    public StandaloneLoadExecutor(FrontendContext context, String currentFilePath, boolean isDefaultFile) {
-        super(context, currentFilePath, isDefaultFile);
-        // isDefault is ignored in this implementation.
+    public StandaloneLoadExecutor(FrontendContext context, String currentFilePath) {
+        super(context, currentFilePath);
     }
 
     @Override
@@ -48,6 +45,13 @@ class StandaloneLoadExecutor extends LoadFileExecutor {
     protected void finish() {
         super.finish();
         context.getMacroManager().replace(context.getCache().get(currentFilePath).getEndFileMacros());
+    }
+
+    @Override
+    protected void consumeData(FileCache newCache) {
+        context.getCache().put(currentFilePath, newCache);
+        LOG.trace("Put file cache into context; file: " + currentFilePath);
+        // TODO: FileData is needed?
     }
 
     @Override
@@ -115,10 +119,10 @@ class StandaloneLoadExecutor extends LoadFileExecutor {
      *                      file should be visible
      */
     private void fileDependency(String otherFilePath, boolean includeMacros) {
-        final LoadExecutor executor = new LoadExecutor(context);
+        final StandaloneLoadExecutor executor = new StandaloneLoadExecutor(context, otherFilePath);
         try {
-            final LinkedList<FileData> datas = executor.parse(otherFilePath, isDefaultFile);
-            fileDatas.addAll(datas);
+            final LinkedList<FileCache> datas = executor.parseFile();
+            fileCacheList.addAll(datas);
         } catch (IOException e) {
             LOG.error("Unexpected IOException occurred.", e);
         }

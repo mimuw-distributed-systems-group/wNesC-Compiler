@@ -35,9 +35,9 @@ public final class LoadExecutor {
      * @return list of file datas (the first one is the "root" file's data)
      * @throws IOException
      */
-    public LinkedList<FileData> parse(String filePath, boolean isDefaultFile) throws IOException {
+    public LinkedList<FileCache> parse(String filePath, boolean isDefaultFile) throws IOException {
         if (context.isStandalone()) {
-            return new StandaloneLoadExecutor(context, filePath, isDefaultFile).parseFile();
+            return new StandaloneLoadExecutor(context, filePath).parseFile();
         } else if (isDefaultFile) {
             return new PluginLoadDefaultExecutor(context, filePath).parseFile();
         } else {

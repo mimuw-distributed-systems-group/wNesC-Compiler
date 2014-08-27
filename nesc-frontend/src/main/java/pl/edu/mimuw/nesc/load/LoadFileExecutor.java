@@ -4,7 +4,6 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
 import org.anarres.cpp.InternalException;
 import org.apache.log4j.Logger;
-import pl.edu.mimuw.nesc.FileData;
 import pl.edu.mimuw.nesc.FrontendContext;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
@@ -50,10 +49,13 @@ public abstract class LoadFileExecutor implements LexerListener, ParserListener 
 
     protected final FrontendContext context;
     protected final FileCache.Builder fileCacheBuilder;
-    protected final boolean isDefaultFile;
     protected final ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder;
     protected final ImmutableListMultimap.Builder<Integer, NescIssue> issuesListBuilder;
-    protected final LinkedList<FileData> fileDatas;
+    /**
+     * List of datas for files parsed in this load executor and all recursive
+     * calls of load executors.
+     */
+    protected final LinkedList<FileCache> fileCacheList;
 
     protected NescLexer lexer;
     protected Parser parser;
@@ -78,30 +80,28 @@ public abstract class LoadFileExecutor implements LexerListener, ParserListener 
      *
      * @param context         context
      * @param currentFilePath current file path
-     * @param isDefaultFile   indicates if default file is included by default
      */
-    public LoadFileExecutor(FrontendContext context, String currentFilePath, boolean isDefaultFile) {
+    public LoadFileExecutor(FrontendContext context, String currentFilePath) {
         checkNotNull(context, "context cannot be null");
         checkNotNull(currentFilePath, "file path cannot be null");
 
         this.context = context;
         this.currentFilePath = currentFilePath;
-        this.isDefaultFile = isDefaultFile;
         this.fileCacheBuilder = FileCache.builder();
         this.tokensMultimapBuilder = ImmutableListMultimap.builder();
         this.issuesListBuilder = ImmutableListMultimap.builder();
-        this.fileDatas = new LinkedList<>();
+        this.fileCacheList = new LinkedList<>();
         this.wasExtdefsFinished = false;
     }
 
     /**
      * Parses file.
      *
-     * @return list of file datas (the first one is the "root" file's data)
+     * @return list of file caches (the first one is the "root" file's cache)
      * @throws java.io.IOException
      * @throws pl.edu.mimuw.nesc.exception.LexerException
      */
-    public LinkedList<FileData> parseFile() throws IOException, LexerException {
+    public LinkedList<FileCache> parseFile() throws IOException, LexerException {
         LOG.debug("Start parsing file: " + currentFilePath + (context.isStandalone() ? " (standalone)" : " (plug-in)"));
 
         setUp();
@@ -109,7 +109,7 @@ public abstract class LoadFileExecutor implements LexerListener, ParserListener 
         finish();
 
         LOG.debug("File parsing finished: " + currentFilePath);
-        return fileDatas;
+        return fileCacheList;
     }
 
     protected void setUp() throws IOException {
@@ -243,15 +243,10 @@ public abstract class LoadFileExecutor implements LexerListener, ParserListener 
         final FileCache cache = fileCacheBuilder
                 .environment(environment)
                 .build();
-        context.getCache().put(currentFilePath, cache);
-        final FileData data = FileData.convertFrom(cache);
-        addData(data);
-        LOG.trace("Put file cache into context; file: " + currentFilePath);
+        consumeData(cache);
     }
 
-    protected void addData(FileData fileData) {
-        fileDatas.addFirst(fileData);
-    }
+    protected abstract void consumeData(FileCache newCache);
 
     @Override
     public void fileChanged(Optional<String> from, String to, boolean push) {
@@ -260,17 +255,16 @@ public abstract class LoadFileExecutor implements LexerListener, ParserListener 
 
     @Override
     public void preprocessorDirective(PreprocessorDirective directive) {
-        /* Prevent from adding items from included files. */
         if (currentFilePath.equals(directive.getSourceFile())) {
             fileCacheBuilder.directive(directive);
-        }
+        } // no need to collect other directives
     }
 
     @Override
     public void comment(Comment comment) {
         if (currentFilePath.equals(comment.getLocation().getFilePath())) {
             fileCacheBuilder.comment(comment);
-        }
+        } // no need to collect other comments
     }
 
     @Override
@@ -287,7 +281,10 @@ public abstract class LoadFileExecutor implements LexerListener, ParserListener 
         if (currentFilePath.equals(fileName)) {
             issuesListBuilder.put(startLine, error);
         }
-
+        /*
+         * TODO: "private includes" are pasted.
+         * TODO: Collect errors from that include.
+         */
     }
 
     @Override
@@ -305,6 +302,10 @@ public abstract class LoadFileExecutor implements LexerListener, ParserListener 
         if (currentFilePath.equals(fileName)) {
             issuesListBuilder.put(startLine, warning);
         }
+        /*
+         * TODO: "private includes" are pasted.
+         * TODO: Collect warnings from that include.
+         */
     }
 
     @Override
@@ -323,7 +324,7 @@ public abstract class LoadFileExecutor implements LexerListener, ParserListener 
     public void extdefsFinished() {
         LOG.trace("Extdefs finished; file: " + currentFilePath);
         this.wasExtdefsFinished = true;
-        /* TODO private macros are currently ignored, handle them at the
+        /* TODO: private macros are currently ignored, handle them at the
          * end of file. */
         handlePublicMacros(lexer.getMacros());
     }
@@ -342,7 +343,7 @@ public abstract class LoadFileExecutor implements LexerListener, ParserListener 
              */
             if (sourceFilePath.isPresent() && currentFilePath.equals(sourceFilePath.get())) {
                 fileCacheBuilder.macro(macroName, preprocessorMacro);
-            }
+            } // no need to collect other macros
         }
     }
 

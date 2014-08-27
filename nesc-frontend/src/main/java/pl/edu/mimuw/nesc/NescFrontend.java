@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.Lists;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
@@ -9,6 +10,7 @@ import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 import pl.edu.mimuw.nesc.filesgraph.FilesGraph;
 import pl.edu.mimuw.nesc.filesgraph.GraphFile;
 import pl.edu.mimuw.nesc.filesgraph.visitor.DefaultFileGraphVisitor;
+import pl.edu.mimuw.nesc.load.FileCache;
 import pl.edu.mimuw.nesc.load.LoadExecutor;
 import pl.edu.mimuw.nesc.option.OptionsHolder;
 import pl.edu.mimuw.nesc.option.OptionsParser;
@@ -47,7 +49,7 @@ public final class NescFrontend implements Frontend {
         LOG.info("Create context; " + Arrays.toString(args));
 
         final ContextRef contextRef = new ContextRef();
-        final FrontendContext context = createContextWorker(args);
+        final FrontendContext context = createContextFromOptions(args);
         this.contextsMap.put(contextRef, context);
         return contextRef;
     }
@@ -60,26 +62,45 @@ public final class NescFrontend implements Frontend {
     }
 
     @Override
-    public ProjectData rebuild(ContextRef contextRef) {
+    public void updateSettings(ContextRef contextRef, String[] args) throws InvalidOptionsException {
+        checkNotNull(args, "arguments cannot be null");
+        LOG.info("Update settings; " + Arrays.toString(args));
+
+        final OptionsParser optionsParser = new OptionsParser();
+        try {
+            final OptionsHolder options = optionsParser.parse(args);
+            final FrontendContext context = getContext(contextRef);
+            context.updateOptions(options);
+        } catch (ParseException e) {
+            final String msg = e.getMessage();
+            throw new InvalidOptionsException(msg);
+        } catch (IOException e) {
+            // TODO
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public ProjectData build(ContextRef contextRef) {
         checkNotNull(contextRef, "context reference cannot be null");
         LOG.info("Rebuild; contextRef=" + contextRef);
 
         final FrontendContext context = getContext(contextRef).basicCopy();
         setContext(context, contextRef);
 
-        final ProjectData.Builder projectDataBuilder = ProjectData.builder();
+        final ProjectData.Builder projectDataBuilder;
         final Optional<String> startFile = getStartFile(context);
 
         parseFilesIncludedByDefault(context);
+        context.setWasInitialBuild(true);
 
         if (startFile.isPresent()) {
-            final ProjectData fileDatas = update(contextRef, startFile.get());
-            projectDataBuilder.addFileDatas(new HashSet<>(fileDatas.getModifiedFileDatas()));
-            /* In the case of rebuild, all FileDatas are modified. */
+            projectDataBuilder = _update(contextRef, startFile.get());
         } else {
             final String msg = format("Cannot find main configuration '%s'", context.getOptions().getEntryEntity());
             LOG.error(msg);
             final NescError error = new NescError(Optional.<Location>absent(), Optional.<Location>absent(), msg);
+            projectDataBuilder = ProjectData.builder();
             projectDataBuilder.addIssue(error);
         }
 
@@ -91,6 +112,22 @@ public final class NescFrontend implements Frontend {
     public ProjectData update(ContextRef contextRef, String filePath) {
         checkNotNull(contextRef, "context reference cannot be null");
         checkNotNull(filePath, "file path cannot be null");
+        final FrontendContext context = getContext(contextRef);
+
+        if (context.wasInitialBuild()) {
+            return _update(contextRef, filePath).build();
+        } else {
+            final ProjectData projectData = build(contextRef);
+            context.setWasInitialBuild(true);
+            return ProjectData.builder()
+                    .addFileDatas(projectData.getFileDatas().values())
+                    .addRootFileData(projectData.getFileDatas().get(filePath))
+                    .addIssues(projectData.getIssues())
+                    .build();
+        }
+    }
+
+    private ProjectData.Builder _update(ContextRef contextRef, String filePath) {
         LOG.info("Update; contextRef=" + contextRef + "; filePath=" + filePath);
 
         final FrontendContext context = getContext(contextRef);
@@ -98,15 +135,21 @@ public final class NescFrontend implements Frontend {
 
         try {
             // FIXME: what if we would like to edit file included by default?
-            List<FileData> fileDatas = new LoadExecutor(context).parse(filePath, false);
+            List<FileCache> fileCacheList = new LoadExecutor(context).parse(filePath, false);
+            final List<FileData> fileDatas = Lists.newArrayList();
+            for (FileCache cache : fileCacheList) {
+                if (cache.isRoot()) {
+                    fileDatas.add(new FileData(cache));
+                }
+            }
             return ProjectData.builder()
-                    .addModifiedFileDatas(fileDatas)
-                    .build();
+                    .addFileDatas(fileDatas)
+                    .addRootFileData(fileDatas.get(0));
         } catch (IOException e) {
             // TODO
             e.printStackTrace();
         }
-        return ProjectData.builder().build();
+        return ProjectData.builder();
     }
 
     private Optional<String> getStartFile(FrontendContext context) {
@@ -127,14 +170,14 @@ public final class NescFrontend implements Frontend {
     }
 
     /**
-     * Creates context worker from given options.
+     * Creates context from given options.
      *
      * @param args unstructured options
-     * @return context worker
+     * @return context
      * @throws InvalidOptionsException thrown when context options cannot be
      *                                 parsed successfully
      */
-    private FrontendContext createContextWorker(String[] args) throws InvalidOptionsException {
+    private FrontendContext createContextFromOptions(String[] args) throws InvalidOptionsException {
         final OptionsParser optionsParser = new OptionsParser();
         final FrontendContext result;
         try {
@@ -167,9 +210,17 @@ public final class NescFrontend implements Frontend {
         final List<FileData> result = new ArrayList<>();
         final List<String> defaultIncludes = context.getDefaultIncludeFiles();
 
+        context.resetDefaultMacros();
+        context.resetDefaultSymbols();
+        
         for (String filePath : defaultIncludes) {
             try {
-                result.addAll(new LoadExecutor(context).parse(filePath, true));
+                final List<FileCache> fileCacheList = new LoadExecutor(context).parse(filePath, true);
+                for (FileCache cache : fileCacheList) {
+                    if (cache.isRoot()) {
+                        result.add(new FileData(cache));
+                    }
+                }
             } catch (IOException e) {
                 e.printStackTrace();
                 LOG.error("Error during parsing default files.", e);
@@ -233,7 +284,7 @@ public final class NescFrontend implements Frontend {
         }
 
         /**
-         * Sets whether frontend is standalone or used as a library.
+         * Sets whether the frontend is standalone or used as a library.
          * By default is not standalone.
          *
          * @param standalone is standalone
@@ -251,7 +302,5 @@ public final class NescFrontend implements Frontend {
 
         private void verify() {
         }
-
     }
-
 }

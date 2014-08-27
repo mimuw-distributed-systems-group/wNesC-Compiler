@@ -20,12 +20,12 @@ import java.util.Map;
  */
 public final class FrontendContext {
 
-    private final boolean isStandalone;
-    private final OptionsHolder options;
-    private final Map<String, String> predefinedMacros;
-    private final List<String> defaultIncludeFiles;
+    private OptionsHolder options;
+    private Map<String, String> predefinedMacros;
+    private List<String> defaultIncludeFiles;
+    private PathsResolver pathsResolver;
 
-    private final PathsResolver pathsResolver;
+    private final boolean isStandalone;
     private final MacroManager macroManager;
 
     private final FilesGraph filesGraph;
@@ -46,6 +46,19 @@ public final class FrontendContext {
      * own global environment.
      */
     private final Map<String, TranslationUnitEnvironment> environments;
+
+    private final List<NescIssue> issues;
+
+    /**
+     * Macros from files included by default. Once parsed, are served for
+     * each file.
+     */
+    private Map<String, PreprocessorMacro> defaultMacros;
+    /**
+     * Symbols from files included by default.
+     */
+    private TranslationUnitEnvironment defaultSymbols;
+
     /**
      * In a standalone mode a single environment is used for the entire
      * application.
@@ -54,17 +67,7 @@ public final class FrontendContext {
      */
     private TranslationUnitEnvironment environment;
 
-    private List<NescIssue> issues;
-
-    /**
-     * Macros from files included by default. Once parsed, are served for
-     * each file.
-     */
-    private final Map<String, PreprocessorMacro> defaultMacros;
-    /**
-     * Symbols from files included by default.
-     */
-    private final TranslationUnitEnvironment defaultSymbols;
+    private boolean wasInitialBuild;
 
     public FrontendContext(OptionsHolder options, boolean isStandalone) {
         this.isStandalone = isStandalone;
@@ -72,11 +75,7 @@ public final class FrontendContext {
         this.predefinedMacros = options.getPredefinedMacros();
         this.defaultIncludeFiles = options.getDefaultIncludeFiles();
 
-        this.pathsResolver = PathsResolver.builder()
-                .sourcePaths(options.getSourcePaths())
-                .quoteIncludePaths(options.getUserSourcePaths())
-                .projectPath(options.getProjectPath())
-                .build();
+        this.pathsResolver = getPathsResolver(options);
 
         this.macroManager = new MacroManager();
 
@@ -91,6 +90,7 @@ public final class FrontendContext {
 
         this.defaultMacros = new HashMap<>();
         this.defaultSymbols = new TranslationUnitEnvironment();
+        this.wasInitialBuild = false;
     }
 
     public boolean isStandalone() {
@@ -149,16 +149,35 @@ public final class FrontendContext {
         return issues;
     }
 
-    public void setIssues(List<NescIssue> issues) {
-        this.issues = issues;
-    }
-
     public Map<String, PreprocessorMacro> getDefaultMacros() {
         return defaultMacros;
     }
 
+    public void resetDefaultMacros() {
+        this.defaultMacros = new HashMap<>();
+    }
+
     public TranslationUnitEnvironment getDefaultSymbols() {
         return defaultSymbols;
+    }
+
+    public void resetDefaultSymbols() {
+        this.defaultSymbols = new TranslationUnitEnvironment();
+    }
+
+    public boolean wasInitialBuild() {
+        return wasInitialBuild;
+    }
+
+    public void setWasInitialBuild(boolean wasInitialBuild) {
+        this.wasInitialBuild = wasInitialBuild;
+    }
+
+    public void updateOptions(OptionsHolder options) {
+        this.options = options;
+        this.pathsResolver = getPathsResolver(options);
+        this.predefinedMacros = options.getPredefinedMacros();
+        this.defaultIncludeFiles = options.getDefaultIncludeFiles();
     }
 
     /**
@@ -168,5 +187,13 @@ public final class FrontendContext {
      */
     public FrontendContext basicCopy() {
         return new FrontendContext(this.options, this.isStandalone);
+    }
+
+    private PathsResolver getPathsResolver(OptionsHolder options) {
+        return PathsResolver.builder()
+                .sourcePaths(options.getSourcePaths())
+                .quoteIncludePaths(options.getUserSourcePaths())
+                .projectPath(options.getProjectPath())
+                .build();
     }
 }

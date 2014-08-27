@@ -4,6 +4,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
@@ -19,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -32,6 +32,12 @@ public class FileCache {
 
     private final String filePath;
     private final FileType fileType;
+    /**
+     * Indicates whether the object represents structures for file that
+     * is a separate unit or was parsed as a part of another unit
+     * (e.g. a file included in another included file).
+     */
+    private final boolean isRoot;
     private final Optional<Node> entityRoot;
     private final List<Declaration> extdefs;
     private final List<Comment> comments;
@@ -48,14 +54,15 @@ public class FileCache {
     private FileCache(Builder builder) {
         this.filePath = builder.filePath;
         this.fileType = builder.fileType;
+        this.isRoot = builder.isRoot;
         this.entityRoot = Optional.fromNullable(builder.entityRoot);
         this.extdefs = builder.extdefs.build();
         this.comments = builder.comments.build();
         this.preprocessorDirectives = builder.preprocessorDirectives.build();
         this.macros = builder.macros.build();
-        this.endFileMacros = builder.endFileMacros;
-        this.tokens = builder.tokens;
-        this.issues = builder.issues;
+        this.endFileMacros = builder.endFileMacros.build();
+        this.tokens = builder.tokens.build();
+        this.issues = builder.issues.build();
         this.environment = builder.environment;
     }
 
@@ -65,6 +72,10 @@ public class FileCache {
 
     public FileType getFileType() {
         return fileType;
+    }
+
+    public boolean isRoot() {
+        return isRoot;
     }
 
     public Optional<Node> getEntityRoot() {
@@ -115,7 +126,6 @@ public class FileCache {
                 .add("macros", macros)
                 .add("tokens", tokens)
                 .add("issues", issues)
-                        // environment
                 .toString();
     }
 
@@ -126,14 +136,15 @@ public class FileCache {
 
         private String filePath;
         private FileType fileType;
+        private boolean isRoot;
         private Node entityRoot;
         private ImmutableList.Builder<Declaration> extdefs;
         private ImmutableList.Builder<Comment> comments;
         private ImmutableList.Builder<PreprocessorDirective> preprocessorDirectives;
         private ImmutableMap.Builder<String, PreprocessorMacro> macros;
-        private Map<String, PreprocessorMacro> endFileMacros;
-        private Multimap<Integer, Token> tokens;
-        private Multimap<Integer, NescIssue> issues;
+        private ImmutableMap.Builder<String, PreprocessorMacro> endFileMacros;
+        private ImmutableMultimap.Builder<Integer, Token> tokens;
+        private ImmutableMultimap.Builder<Integer, NescIssue> issues;
         private Environment environment;
 
         public Builder() {
@@ -141,6 +152,10 @@ public class FileCache {
             this.comments = ImmutableList.builder();
             this.preprocessorDirectives = ImmutableList.builder();
             this.macros = ImmutableMap.builder();
+            this.endFileMacros = ImmutableMap.builder();
+            this.tokens = ImmutableMultimap.builder();
+            this.issues = ImmutableMultimap.builder();
+            this.isRoot = true;
         }
 
         public Builder filePath(String filePath) {
@@ -150,6 +165,11 @@ public class FileCache {
 
         public Builder fileType(FileType fileType) {
             this.fileType = fileType;
+            return this;
+        }
+
+        public Builder isRoot(boolean isRoot) {
+            this.isRoot = isRoot;
             return this;
         }
 
@@ -185,26 +205,17 @@ public class FileCache {
 
         public Builder endFileMacros(Map<String, PreprocessorMacro> macros) {
             checkNotNull(macros, "macros cannot be null");
-            this.endFileMacros = macros;
+            this.endFileMacros.putAll(macros);
             return this;
         }
 
-        /**
-         * <p>Sets tokens multimap.</p>
-         * <p>NOTICE: to improve performance the reference to multimap is set,
-         * defensive copy is not created.</p>
-         * TODO: test performance impact
-         *
-         * @param tokens tokens multimap
-         * @return builder
-         */
         public Builder tokens(Multimap<Integer, Token> tokens) {
-            this.tokens = tokens;
+            this.tokens.putAll(tokens);
             return this;
         }
 
         public Builder issues(Multimap<Integer, NescIssue> issues) {
-            this.issues = issues;
+            this.issues.putAll(issues);
             return this;
         }
 
@@ -219,13 +230,9 @@ public class FileCache {
         }
 
         private void verify() {
-            checkState(filePath != null, "file path cannot be null");
-            checkState(fileType != null, "file type cannot be null");
-            checkState(tokens != null, "tokens multimap cannot be null");
-            checkState(issues != null, "issues multimap cannot be null");
-            checkState(environment != null, "environment cannot be null");
+            checkNotNull(filePath, "file path cannot be null");
+            checkNotNull(fileType, "file type cannot be null");
+            checkNotNull(environment, "environment cannot be null");
         }
-
     }
-
 }

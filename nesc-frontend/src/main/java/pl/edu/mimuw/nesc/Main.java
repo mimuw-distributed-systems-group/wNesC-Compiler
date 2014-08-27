@@ -12,7 +12,6 @@ public class Main {
                 .standalone(true)
                 .build();
         final ContextRef contextRef = frontend.createContext(args);
-        frontend.rebuild(contextRef);
+        frontend.build(contextRef);
     }
-
 }

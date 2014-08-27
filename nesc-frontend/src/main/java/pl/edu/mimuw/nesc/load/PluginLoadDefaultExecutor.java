@@ -1,7 +1,6 @@
 package pl.edu.mimuw.nesc.load;
 
 import org.apache.log4j.Logger;
-import pl.edu.mimuw.nesc.FileData;
 import pl.edu.mimuw.nesc.FrontendContext;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
@@ -34,7 +33,7 @@ class PluginLoadDefaultExecutor extends LoadFileExecutor {
      * @param currentFilePath current file path
      */
     public PluginLoadDefaultExecutor(FrontendContext context, String currentFilePath) {
-        super(context, currentFilePath, true);
+        super(context, currentFilePath);
         this.visitedFiles = new HashSet<>();
     }
 
@@ -51,6 +50,12 @@ class PluginLoadDefaultExecutor extends LoadFileExecutor {
          * of macrosManager all the time. After all default files are
          * parsed, the map will contain all default macros. */
         lexer.addMacros(context.getDefaultMacros().values());
+    }
+
+    @Override
+    protected void consumeData(FileCache newCache) {
+        context.getCache().put(currentFilePath, newCache);
+        LOG.trace("Put file cache into context; file: " + currentFilePath);
     }
 
     @Override
@@ -105,8 +110,8 @@ class PluginLoadDefaultExecutor extends LoadFileExecutor {
     private void fileDependency(String otherFilePath) {
         final PluginLoadDefaultExecutor executor = new PluginLoadDefaultExecutor(context, otherFilePath);
         try {
-            final LinkedList<FileData> datas = executor.parseFile();
-            fileDatas.addAll(datas);
+            final LinkedList<FileCache> datas = executor.parseFile();
+            fileCacheList.addAll(datas);
         } catch (IOException e) {
             LOG.error("Unexpected IOException occurred.", e);
         }
