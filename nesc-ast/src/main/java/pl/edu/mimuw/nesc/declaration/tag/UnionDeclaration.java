@@ -10,7 +10,7 @@ import static com.google.common.base.Preconditions.*;
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public class UnionDeclaration extends TagDeclaration {
+public class UnionDeclaration extends MaybeExternalTagDeclaration {
     /**
      * AST node that corresponds to this declaration.
      */
@@ -19,8 +19,9 @@ public class UnionDeclaration extends TagDeclaration {
     /**
      * Constructor for declarations of union tags that are not definitions.
      */
-    public UnionDeclaration(Optional<String> name, Location location, UnionRef astUnionRef) {
-        super(name, location, false);
+    public UnionDeclaration(Optional<String> name, Location location, UnionRef astUnionRef,
+                            boolean isExternal) {
+        super(name, location, false, isExternal);
         checkNotNull(astUnionRef, "AST node of a union declaration cannot be null");
         this.astUnionRef = astUnionRef;
     }

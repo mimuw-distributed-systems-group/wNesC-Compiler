@@ -22,10 +22,10 @@ import java.util.LinkedList;
 import java.util.Set;
 
 import static java.lang.String.format;
+import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.processTagReferences;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
 import static pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils.getDeclaratorName;
-import static pl.edu.mimuw.nesc.astbuilding.Analysis.processTagReferences;
 
 /**
  * <p>

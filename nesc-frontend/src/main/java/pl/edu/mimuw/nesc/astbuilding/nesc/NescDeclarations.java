@@ -8,7 +8,6 @@ import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
 import pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astbuilding.TypeElementUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
-import pl.edu.mimuw.nesc.declaration.nesc.InterfaceDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.NescDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
@@ -22,9 +21,9 @@ import pl.edu.mimuw.nesc.token.Token;
 import java.util.LinkedList;
 
 import static java.lang.String.format;
+import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.processTagReferences;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
-import static pl.edu.mimuw.nesc.astbuilding.Analysis.processTagReferences;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>

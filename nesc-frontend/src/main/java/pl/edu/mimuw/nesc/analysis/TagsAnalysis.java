@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.astbuilding;
+package pl.edu.mimuw.nesc.analysis;
 
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
@@ -21,7 +21,7 @@ import static java.lang.String.format;
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public class Analysis {
+public class TagsAnalysis {
     /**
      * Updates information in the given environment that is related to tag
      * references encountered in the given specifiers collection. All detected
@@ -155,7 +155,7 @@ public class Analysis {
 
             if (!structRef.getIsDefined()) {
                 declare(new StructDeclaration(Optional.of(structRef.getName().getName()),
-                        structRef.getLocation(), structRef), structRef);
+                        structRef.getLocation(), structRef, false), structRef);
             }
 
             // TODO process the definition
@@ -171,7 +171,7 @@ public class Analysis {
 
             if (!unionRef.getIsDefined()) {
                 declare(new UnionDeclaration(Optional.of(unionRef.getName().getName()),
-                        unionRef.getLocation(), unionRef), unionRef);
+                        unionRef.getLocation(), unionRef, false), unionRef);
             }
 
             // TODO process the definition
