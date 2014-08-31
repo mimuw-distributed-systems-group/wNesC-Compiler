@@ -24,4 +24,9 @@ public final class ExternalStructureType extends MaybeExternalTagType<StructDecl
         super(constQualified, volatileQualified, structDecl);
         checkArgument(structDecl.isExternal(), "the structure declaration must be external");
     }
+
+    @Override
+    public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
+        return visitor.visit(this, arg);
+    }
 }

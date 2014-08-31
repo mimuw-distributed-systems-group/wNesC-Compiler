@@ -26,13 +26,20 @@ public final class FunctionType extends DerivedType {
     private final List<Type> argumentsTypes;
 
     /**
+     * <code>true</code> if and only if a function of this type takes variable
+     * arguments.
+     */
+    private final boolean variableArguments;
+
+    /**
      * Initializes this function type.
      *
      * @throws NullPointerException One of the arguments is null.
      * @throws IllegalArgumentException One of the elements of the given list is
      *                                  null.
      */
-    public FunctionType(Type returnType, List<Type> argumentsTypes) {
+    public FunctionType(Type returnType, List<Type> argumentsTypes,
+                        boolean variableArguments) {
         super(false, false);
 
         // Validate the arguments
@@ -45,10 +52,40 @@ public final class FunctionType extends DerivedType {
         // Initialize this object
         this.returnType = returnType;
         this.argumentsTypes = Collections.unmodifiableList(new ArrayList<>(argumentsTypes));
+        this.variableArguments = variableArguments;
+    }
+
+    /**
+     * @return Object that represents the type of values that a function of this
+     *         function type returns.
+     */
+    public final Type getReturnType() {
+        return returnType;
+    }
+
+    /**
+     * @return Unmodifiable list with types of arguments that a function of this
+     *         type takes.
+     */
+    public final List<Type> getArgumentsTypes() {
+        return argumentsTypes;
+    }
+
+    /**
+     * @return <code>true</code> if and only if a function of this type takes
+     *         variable arguments.
+     */
+    public final boolean getVariableArguments() {
+        return variableArguments;
     }
 
     @Override
     public final boolean isScalarType() {
         return false;
+    }
+
+    @Override
+    public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
+        return visitor.visit(this, arg);
     }
 }

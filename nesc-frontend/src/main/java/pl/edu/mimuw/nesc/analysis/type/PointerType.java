@@ -41,8 +41,21 @@ public final class PointerType extends DerivedType {
         return isRestrictQualified;
     }
 
+    /**
+     * @return Object that represents the type of the value a pointer of this
+     *         type points to.
+     */
+    public final Type getReferencedType() {
+        return referencedType;
+    }
+
     @Override
     public final boolean isScalarType() {
         return true;
+    }
+
+    @Override
+    public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
+        return visitor.visit(this, arg);
     }
 }

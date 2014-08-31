@@ -23,6 +23,10 @@ public abstract class MaybeExternalTagType<D extends MaybeExternalTagDeclaration
         this.maybeExternalTagDeclaration = tagDeclaration;
     }
 
+    public final D getDeclaration() {
+        return maybeExternalTagDeclaration;
+    }
+
     @Override
     public final boolean isScalarType() {
         return false;

@@ -60,4 +60,11 @@ public abstract class NescType implements Type {
     public final boolean isVolatileQualified() {
         return false;
     }
+
+    @Override
+    public final String toString() {
+        final PrintVisitor visitor = new PrintVisitor();
+        accept(visitor, false);
+        return visitor.get();
+    }
 }

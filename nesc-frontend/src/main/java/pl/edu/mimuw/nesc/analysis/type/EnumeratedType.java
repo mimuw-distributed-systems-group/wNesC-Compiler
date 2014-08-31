@@ -31,6 +31,10 @@ public final class EnumeratedType extends IntegerType {
         this.enumType = enumType;
     }
 
+    public final EnumDeclaration getEnumDeclaration() {
+        return enumType;
+    }
+
     @Override
     public final boolean isSignedIntegerType() {
         return false;
@@ -44,5 +48,10 @@ public final class EnumeratedType extends IntegerType {
     @Override
     public final boolean isCharacterType() {
         return false;
+    }
+
+    @Override
+    public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
+        return visitor.visit(this, arg);
     }
 }

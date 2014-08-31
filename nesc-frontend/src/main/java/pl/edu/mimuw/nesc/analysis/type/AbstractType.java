@@ -34,4 +34,11 @@ public abstract class AbstractType implements Type {
     public final boolean isVolatileQualified() {
         return volatileQualified;
     }
+
+    @Override
+    public final String toString() {
+        final PrintVisitor visitor = new PrintVisitor();
+        accept(visitor, false);
+        return visitor.get();
+    }
 }

@@ -23,4 +23,9 @@ public final class UnionType extends MaybeExternalTagType<UnionDeclaration> {
         super(constQualified, volatileQualified, unionDecl);
         checkArgument(!unionDecl.isExternal(), "the union type cannot be external");
     }
+
+    @Override
+    public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
+        return visitor.visit(this, arg);
+    }
 }

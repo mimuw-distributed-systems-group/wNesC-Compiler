@@ -62,4 +62,18 @@ public final class InterfaceType extends NescType {
     public final String getInterfaceName() {
         return interfaceName;
     }
+
+    /**
+     * @return Type parameters that are part of this interface type. The object
+     *         is present if and only if this type is a type of a generic
+     *         interface.
+     */
+    public final Optional<List<Type>> getTypeParameters() {
+        return maybeTypeArguments;
+    }
+
+    @Override
+    public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
+        return visitor.visit(this, arg);
+    }
 }

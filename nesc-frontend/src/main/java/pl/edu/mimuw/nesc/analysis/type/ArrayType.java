@@ -33,8 +33,30 @@ public final class ArrayType extends DerivedType {
         this.elementType = elementType;
     }
 
+    /**
+     * @return <code>true</code> if and only if the size of an array this type
+     *         represents is known (it has been explicitly given in the
+     *         declaration).
+     */
+    public final boolean isOfKnownSize() {
+        return ofKnownSize;
+    }
+
+    /**
+     * @return Object that represents the element type of this array. Never
+     *         null.
+     */
+    public final Type getElementType() {
+        return elementType;
+    }
+
     @Override
     public final boolean isScalarType() {
         return false;
+    }
+
+    @Override
+    public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
+        return visitor.visit(this, arg);
     }
 }

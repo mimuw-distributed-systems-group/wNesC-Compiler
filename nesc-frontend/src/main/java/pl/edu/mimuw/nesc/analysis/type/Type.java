@@ -99,4 +99,13 @@ public interface Type {
      *         e.g. <code>volatile unsigned int</code>.
      */
     boolean isVolatileQualified();
+
+    /**
+     * Method that allows using the types class hierarchy in the Visitor design
+     * pattern. It shall contain only a single statement:
+     * <code>return visitor.visit(this, arg);</code>
+     *
+     * @return Value returned by the given visitor.
+     */
+    <R, A> R accept(TypeVisitor<R, A> visitor, A arg);
 }
