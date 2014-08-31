@@ -97,7 +97,7 @@ public final class NescFrontend implements Frontend {
         if (startFile.isPresent()) {
             projectDataBuilder = _update(contextRef, startFile.get());
         } else {
-            final String msg = format("Cannot find main configuration '%s'", context.getOptions().getEntryEntity());
+            final String msg = format("Cannot find main configuration '%s'", context.getOptions().getEntryEntityPath());
             LOG.error(msg);
             final NescError error = new NescError(Optional.<Location>absent(), Optional.<Location>absent(), msg);
             projectDataBuilder = ProjectData.builder();
@@ -153,8 +153,8 @@ public final class NescFrontend implements Frontend {
     }
 
     private Optional<String> getStartFile(FrontendContext context) {
-        final String entryFileName = context.getOptions().getEntryEntity();
-        return context.getPathsResolver().getEntityFile(entryFileName);
+        final String entryFilePath = context.getOptions().getEntryEntityPath();
+        return context.getPathsResolver().getEntryPointPath(entryFilePath);
     }
 
     private FrontendContext getContext(ContextRef contextRef) {

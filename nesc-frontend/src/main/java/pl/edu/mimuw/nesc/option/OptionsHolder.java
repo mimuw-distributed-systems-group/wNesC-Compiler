@@ -17,7 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public class OptionsHolder {
 
-    public static final String NESC_ENTRY_NAME = "m";
+    public static final String NESC_ENTRY_PATH = "m";
     public static final String NESC_PROJECT_DIRECTORY_NAME = "p";
     public static final String NESC_INCLUDE_NAME = "include";
     public static final String NESC_SEARCH_PATH_NAME = "I";
@@ -85,12 +85,13 @@ public class OptionsHolder {
     }
 
     /**
-     * Returns file path to the main configuration definition.
+     * Returns a relative path to the top-level configuration definition
+     * (without .nc extension).
      *
-     * @return main configuration's file path
+     * @return path to definition of top-level configuration
      */
-    public String getEntryEntity() {
-        return getValue(NESC_ENTRY_NAME);
+    public String getEntryEntityPath() {
+        return getValue(NESC_ENTRY_PATH);
     }
 
     /**

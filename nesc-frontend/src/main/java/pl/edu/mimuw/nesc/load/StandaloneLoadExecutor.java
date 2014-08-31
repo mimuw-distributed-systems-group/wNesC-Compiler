@@ -51,7 +51,7 @@ class StandaloneLoadExecutor extends LoadFileExecutor {
     protected void consumeData(FileCache newCache) {
         context.getCache().put(currentFilePath, newCache);
         LOG.trace("Put file cache into context; file: " + currentFilePath);
-        // TODO: FileData is needed?
+        fileCacheList.add(newCache);
     }
 
     @Override

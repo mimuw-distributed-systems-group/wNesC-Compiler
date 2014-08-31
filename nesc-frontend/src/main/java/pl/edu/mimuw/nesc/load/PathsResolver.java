@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.load;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.io.Files;
 
@@ -8,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static pl.edu.mimuw.nesc.common.util.file.FileUtils.normalizePath;
 
 /**
  * <p>
@@ -88,11 +90,11 @@ public final class PathsResolver {
     }
 
     /**
-     * Returns file containing the definition of configuration, module or
-     * interface of specified name.
+     * Returns a path to the file containing the definition of
+     * a configuration, module or interface of the specified name.
      *
      * @param name configuration's, module's or interface's name
-     * @return path to file containing entity definition or
+     * @return a path to the file containing the entity definition or
      * <code>Optional.absent()</code> when no file matches given entity name
      */
     public Optional<String> getEntityFile(String name) {
@@ -119,6 +121,22 @@ public final class PathsResolver {
                     return Optional.of(child.getPath());
                 }
             }
+        }
+        return Optional.absent();
+    }
+
+    /**
+     * Returns an absolute path to the application's top-level configuration.
+     *
+     * @param relativePath relative path to the top-level configuration
+     * @return an absolute path to the top-level configuration
+     */
+    public Optional<String> getEntryPointPath(String relativePath) {
+        checkNotNull(relativePath, "path cannot be null");
+        final String path = normalizePath(Joiner.on(File.separator).join(getProjectPath(), (relativePath + ".nc")));
+        final File file = new File(path);
+        if (file.exists()) {
+            return Optional.of(path);
         }
         return Optional.absent();
     }
