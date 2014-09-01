@@ -21,7 +21,7 @@ import static java.lang.String.format;
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public class TagsAnalysis {
+public final class TagsAnalysis {
     /**
      * Updates information in the given environment that is related to tag
      * references encountered in the given specifiers collection. All detected
@@ -51,6 +51,40 @@ public class TagsAnalysis {
         for (TypeElement specifier : specifiers) {
             specifier.accept(tagRefVisitor, null);
         }
+    }
+
+    /**
+     * Unconditionally creates an <code>EnumDeclaration</code> object that
+     * reflects the given <code>EnumRef</code> object.
+     *
+     * @return Declaration object that reflects the given enumeration reference.
+     * @throws NullPointerException Given argument is null.
+     */
+    static EnumDeclaration makeEnumDeclaration(EnumRef enumRef) {
+        checkNotNull(enumRef, "enum reference cannot be null");
+
+        if (!enumRef.getIsDefined()) {
+            return new EnumDeclaration(enumRef.getName().getName(), enumRef.getLocation(),
+                                       enumRef);
+        }
+
+        final List<ConstantDeclaration> enumerators = new LinkedList<>();
+        for (Declaration declaration : enumRef.getFields()) {
+            if (!(declaration instanceof Enumerator)) {
+                throw new RuntimeException("an enumerator has class '"
+                        + declaration.getClass().getCanonicalName() + "'");
+            }
+
+            final Enumerator enumerator = (Enumerator) declaration;
+            enumerators.add(enumerator.getDeclaration());
+        }
+
+        final String maybeName =   enumRef.getName() != null
+                                 ? enumRef.getName().getName()
+                                 : null;
+
+        return new EnumDeclaration(Optional.fromNullable(maybeName), enumRef.getLocation(),
+                                   enumerators, enumRef);
     }
 
     /**
@@ -154,7 +188,7 @@ public class TagsAnalysis {
             }
 
             if (!structRef.getIsDefined()) {
-                declare(new StructDeclaration(Optional.of(structRef.getName().getName()),
+                declare(new StructDeclaration(structRef.getName().getName(),
                         structRef.getLocation(), structRef, false), structRef);
             }
 
@@ -170,7 +204,7 @@ public class TagsAnalysis {
             }
 
             if (!unionRef.getIsDefined()) {
-                declare(new UnionDeclaration(Optional.of(unionRef.getName().getName()),
+                declare(new UnionDeclaration(unionRef.getName().getName(),
                         unionRef.getLocation(), unionRef, false), unionRef);
             }
 
@@ -203,20 +237,10 @@ public class TagsAnalysis {
                 return null;
             }
 
-            EnumDeclaration enumDeclaration;
+            final EnumDeclaration enumDeclaration = makeEnumDeclaration(enumRef);
             if (!enumRef.getIsDefined()) {
-                enumDeclaration = new EnumDeclaration(enumRef.getName().getName(),
-                        enumRef.getLocation(), enumRef);
                 declare(enumDeclaration, enumRef);
             } else {
-                // Collect all enumerators before creating the object
-                enumerators.clear();
-                for (Declaration declaration : enumRef.getFields()) {
-                    declaration.accept(this, null);
-                }
-
-                enumDeclaration = new EnumDeclaration(Optional.of(enumRef.getName().getName()),
-                        enumRef.getLocation(), enumerators, enumRef);
                 define(enumDeclaration, enumRef);
             }
             enumRef.setDeclaration(enumDeclaration);

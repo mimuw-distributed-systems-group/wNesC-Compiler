@@ -1,28 +1,37 @@
 package pl.edu.mimuw.nesc.declaration.tag;
 
-import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.StructRef;
-import static com.google.common.base.Preconditions.*;
+
+import com.google.common.base.Optional;
+import java.util.List;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public class StructDeclaration extends MaybeExternalTagDeclaration {
-    /**
-     * AST node that represents this structure.
-     */
-    private final StructRef astStructRef;
-
+public class StructDeclaration extends MaybeExternalTagDeclaration<StructRef> {
     /**
      * Constructor for declarations of structure tags that are not definitions.
      */
-    public StructDeclaration(Optional<String> name, Location location, StructRef astStructRef,
+    public StructDeclaration(String name, Location location, StructRef astStructRef,
                              boolean isExternal) {
-        super(name, location, false, isExternal);
-        checkNotNull(astStructRef, "AST node of the structure cannot be null");
-        this.astStructRef = astStructRef;
+        super(Optional.of(name), location, false, astStructRef, isExternal,
+              Optional.absent());
+    }
+
+    /**
+     * Constructor for definitions of structure tags.
+     *
+     * @throws NullPointerException <code>astStructRef</code> or <code>fields</code>
+     *                              is null.
+     */
+    public StructDeclaration(Optional<String> name, Location location, StructRef astStructRef,
+                             boolean isExternal, List<FieldDeclaration> fields) {
+        super(name, location, true, astStructRef, isExternal,
+              Optional.of(fields));
     }
 
     @Override

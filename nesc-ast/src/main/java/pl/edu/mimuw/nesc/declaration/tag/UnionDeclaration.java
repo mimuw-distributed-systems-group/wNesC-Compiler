@@ -1,29 +1,29 @@
 package pl.edu.mimuw.nesc.declaration.tag;
 
-import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.UnionRef;
 
-import static com.google.common.base.Preconditions.*;
+import com.google.common.base.Optional;
+import java.util.List;
+
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public class UnionDeclaration extends MaybeExternalTagDeclaration {
-    /**
-     * AST node that corresponds to this declaration.
-     */
-    private final UnionRef astUnionRef;
-
+public class UnionDeclaration extends MaybeExternalTagDeclaration<UnionRef> {
     /**
      * Constructor for declarations of union tags that are not definitions.
      */
-    public UnionDeclaration(Optional<String> name, Location location, UnionRef astUnionRef,
+    public UnionDeclaration(String name, Location location, UnionRef astUnionRef,
                             boolean isExternal) {
-        super(name, location, false, isExternal);
-        checkNotNull(astUnionRef, "AST node of a union declaration cannot be null");
-        this.astUnionRef = astUnionRef;
+        super(Optional.of(name), location, false, astUnionRef, isExternal,
+              Optional.absent());
+    }
+
+    public UnionDeclaration(Optional<String> name, Location location, UnionRef astUnionRef,
+                            boolean isExternal, List<FieldDeclaration> fields) {
+        super(name, location, true, astUnionRef, isExternal, Optional.of(fields));
     }
 
     @Override
