@@ -6,24 +6,24 @@ package pl.edu.mimuw.nesc.ast;
  */
 public enum RID {
 	UNUSED(""),
-	
+
 	INT("int"),
 	CHAR("char"),
 	FLOAT("float"),
 	DOUBLE("double"),
 	VOID("void"),
-	
+
 	UNSIGNED("unsigned"),
 	SHORT("short"),
 	LONG("long"),
 	SIGNED("signed"),
 	COMPLEX("__complex"),
 	LASTTYPE(""),
-	
+
 	INLINE("__inline"),
 	DEFAULT("default"),
 	NORACE("norace"),
-	
+
 	AUTO("auto"),
 	STATIC("static"),
 	EXTERN("extern"),
@@ -33,7 +33,7 @@ public enum RID {
 	EVENT("event"),
 	TASK("task"),
 	ASYNC("async"),
-	
+
 	CONST("const"),
 	VOLATILE("volatile"),
 	RESTRICT("__restrict"),

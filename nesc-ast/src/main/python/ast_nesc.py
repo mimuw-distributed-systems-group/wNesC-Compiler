@@ -156,6 +156,7 @@ class DataDecl(BasicASTNode):
     superclass = Declaration
     modifiers = ReferenceListField("TypeElement")
     declarations = ReferenceListField("Declaration")
+    type = ReferenceField("Type", optional=True, constructor_variable=0, visitable=False)
 
 
 class ExtensionDecl(BasicASTNode):
@@ -247,6 +248,7 @@ class VariableDecl(BasicASTNode):
     initializer = ReferenceField("Expression", constructor_variable=0, optional=True)
     asmStmt = ReferenceField("AsmStmt", optional=True)
     declaration = ReferenceField("ObjectDeclaration", constructor_variable=0, visitable=False)
+    type = ReferenceField("Type", optional=True, constructor_variable=0, visitable=False)
 
     # FIXME: refactor attributes below
     # DECLARED_TYPE is the type in this declaration (which may be different
@@ -344,6 +346,7 @@ class TagRef(BasicASTNode):
 # A struct
 class StructRef(BasicASTNode):
     superclass = TagRef
+    declaration = ReferenceField("StructDeclaration", constructor_variable=0, visitable=False)
 
 
 # An attribute definition.

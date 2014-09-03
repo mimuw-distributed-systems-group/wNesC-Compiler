@@ -2,7 +2,7 @@ package pl.edu.mimuw.nesc.declaration.tag;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
-import pl.edu.mimuw.nesc.analysis.type.Type;
+import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 
@@ -10,6 +10,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public class FieldDeclaration extends Declaration {
 
@@ -19,15 +20,32 @@ public class FieldDeclaration extends Declaration {
     private final Optional<String> name;
 
     /**
-     * Type of the value in this field. Never null.
+     * End location of this field.
      */
-    private final Type type;
+    private final Location endLocation;
 
-    public FieldDeclaration(Optional<String> name, Location location, Type type) {
-        super(location);
+    /**
+     * Type of the value in this field. Never null. The value shall be absent
+     * if and only if the type of this fields that has been specified is
+     * invalid.
+     */
+    private final Optional<Type> maybeType;
+
+    /**
+     * <code>true</code> if and only if this object represents a bit-field.
+     */
+    private final boolean isBitField;
+
+    public FieldDeclaration(Optional<String> name, Location startLocation, Location endLocation,
+                            Optional<Type> type, boolean isBitField) {
+        super(startLocation);
+        checkNotNull(endLocation, "end location of a field cannot be null");
         checkNotNull(type, "type of a field cannot be null");
+
         this.name = name;
-        this.type = type;
+        this.endLocation = endLocation;
+        this.maybeType = type;
+        this.isBitField = isBitField;
     }
 
     public Optional<String> getName() {
@@ -38,8 +56,16 @@ public class FieldDeclaration extends Declaration {
         return location;
     }
 
-    public Type getType() {
-        return type;
+    public Location getEndLocation() {
+        return endLocation;
+    }
+
+    public Optional<Type> getType() {
+        return maybeType;
+    }
+
+    public boolean isBitField() {
+        return isBitField;
     }
 
     @Override

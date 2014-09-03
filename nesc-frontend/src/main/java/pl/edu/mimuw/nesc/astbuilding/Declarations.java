@@ -12,8 +12,10 @@ import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
 import pl.edu.mimuw.nesc.environment.ScopeType;
+import pl.edu.mimuw.nesc.parser.TypeElementsAssociation;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.token.Token;
+import pl.edu.mimuw.nesc.ast.type.Type;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -22,7 +24,8 @@ import java.util.LinkedList;
 import java.util.Set;
 
 import static java.lang.String.format;
-import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.processTagReferences;
+import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.makeFieldDeclaration;
+import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveType;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
 import static pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils.getDeclaratorName;
@@ -34,6 +37,7 @@ import static pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils.getDeclaratorName;
  * </p>
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class Declarations extends AstBuildingBase {
 
@@ -72,11 +76,8 @@ public final class Declarations extends AstBuildingBase {
     }
 
     public VariableDecl startDecl(Environment environment, Declarator declarator, Optional<AsmStmt> asmStmt,
-                                  LinkedList<TypeElement> elements, LinkedList<Attribute> attributes,
+                                  TypeElementsAssociation association, LinkedList<Attribute> attributes,
                                   boolean initialised) {
-        // Process the potential tag declarations
-        processTagReferences(elements, environment, false, errorHelper);
-
         /*
          * NOTE: This can be variable declaration, typedef declaration,
          * function declaration etc.
@@ -89,13 +90,18 @@ public final class Declarations extends AstBuildingBase {
         if (!initialised) {
             final Location endLocation = AstUtils.getEndLocation(
                     asmStmt.isPresent() ? asmStmt.get().getEndLocation() : declarator.getEndLocation(),
-                    elements,
+                    association.getTypeElements(),
                     attributes);
             variableDecl.setEndLocation(endLocation);
         }
 
+        // Resolve and save type
+        variableDecl.setType(association.resolveType(Optional.of(declarator),
+                environment, errorHelper, variableDecl.getLocation(),
+                variableDecl.getLocation()));
+
         final StartDeclarationVisitor declarationVisitor = new StartDeclarationVisitor(environment, variableDecl,
-                declarator, asmStmt, elements, attributes);
+                declarator, asmStmt, association.getTypeElements(), attributes);
         declarator.accept(declarationVisitor, null);
         return variableDecl;
     }
@@ -110,14 +116,14 @@ public final class Declarations extends AstBuildingBase {
     }
 
     public DataDecl makeDataDecl(Environment environment, Location startLocation, Location endLocation,
-                                 LinkedList<TypeElement> modifiers, LinkedList<Declaration> decls) {
-        // Process declarations and definitions of tags if necessary
-        if (decls.isEmpty() && STANDALONE_TAGS_SCOPES.contains(environment.getScopeType())) {
-            processTagReferences(modifiers, environment, true, errorHelper);
-        }
+                                 TypeElementsAssociation association, LinkedList<Declaration> decls) {
+        // Process potential tag declarations from the type specifiers
+        final Optional<Type> type = association.getType(environment, decls.isEmpty(), errorHelper, startLocation, startLocation);
 
-        final DataDecl result = new DataDecl(startLocation, modifiers, decls);
+        final DataDecl result = new DataDecl(startLocation, association.getTypeElements(), decls);
         result.setEndLocation(endLocation);
+        result.setType(type);
+
         return result;
     }
 
@@ -203,9 +209,6 @@ public final class Declarations extends AstBuildingBase {
      */
     public DataDecl declareParameter(Environment environment, Optional<Declarator> declarator,
                                      LinkedList<TypeElement> elements, LinkedList<Attribute> attributes) {
-        // Firstly, process the tags that may be declared by the specifiers
-        processTagReferences(elements, environment, false, errorHelper);
-
         /*
          * The order of entities:
          * elements [declarator] [attributes]
@@ -224,6 +227,8 @@ public final class Declarations extends AstBuildingBase {
                 Optional.<AsmStmt>absent());
         variableDecl.setInitializer(Optional.<Expression>absent());
         variableDecl.setEndLocation(varEndLocation);
+        variableDecl.setType(resolveType(environment, elements, declarator,
+                errorHelper, varStartLocation, varEndLocation));
 
         /*
          * FIXME: parameter definition may not contain name.
@@ -298,17 +303,23 @@ public final class Declarations extends AstBuildingBase {
      * @param endLocation   end location
      * @param declarator    declarator
      * @param bitfield      bitfield
-     * @param elements      elements
+     * @param association   type elements association
      * @param attributes    attributes
      * @return declaration of field
      */
-    public FieldDecl makeField(Location startLocation, Location endLocation,
+    public FieldDecl makeField(Environment environment, Location startLocation, Location endLocation,
                                Optional<Declarator> declarator, Optional<Expression> bitfield,
-                               LinkedList<TypeElement> elements, LinkedList<Attribute> attributes) {
+                               TypeElementsAssociation association, LinkedList<Attribute> attributes) {
+        // Resolve the base type for this field if it has not been already done
+        final Optional<Type> maybeBaseType = association.getType(environment, false, errorHelper,
+                startLocation, endLocation);
+
         // FIXME: elements?
         endLocation = getEndLocation(endLocation, attributes);
         final FieldDecl decl = new FieldDecl(startLocation, declarator.orNull(), attributes, bitfield.orNull());
         decl.setEndLocation(endLocation);
+        makeFieldDeclaration(decl, maybeBaseType, errorHelper);
+
         return decl;
     }
 
@@ -328,9 +339,6 @@ public final class Declarations extends AstBuildingBase {
 
     public AstType makeType(Environment environment, LinkedList<TypeElement> elements,
                             Optional<Declarator> declarator) {
-        // Process potential tag declarations
-        processTagReferences(elements, environment, false, errorHelper);
-
         final Location startLocation;
         final Location endLocation;
         if (declarator.isPresent()) {

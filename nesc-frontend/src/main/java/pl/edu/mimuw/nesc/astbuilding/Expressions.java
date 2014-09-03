@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.astbuilding;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.ast.type.Type;
 
 import java.util.LinkedList;
 

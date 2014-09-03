@@ -428,6 +428,7 @@ import static java.lang.String.format;
 %type <Component> binary_component
 
 %type <StringAst> string_chain
+%type <TypeElementsAssociation> setspecs
 
 %%
 
@@ -1167,7 +1168,7 @@ datadef:
       setspecs notype_initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($2).get();
-        $$ = declarations.makeDataDecl(environment, startLocation, $3.getEndLocation(), Lists.<TypeElement>newList(), $2);
+        $$ = declarations.makeDataDecl(environment, startLocation, $3.getEndLocation(), $1, $2);
         popDeclspecStack();
     }
     | just_datadef
@@ -1178,19 +1179,19 @@ just_datadef:
       declspecs_nots setspecs notype_initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $2, $3);
         popDeclspecStack();
     }
     | declspecs_ts setspecs initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $2, $3);
         popDeclspecStack();
     }
     | declspecs setspecs SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($3.getLocation(), $1);
-        $$ = declarations.makeDataDecl(environment, startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(environment, startLocation, $3.getEndLocation(), $2, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | error SEMICOLON
@@ -1242,7 +1243,7 @@ fndef2:
          */
         final Declarator declarator = $<Declarator>0;
         final Location startLocation = declarator.getLocation();
-        final Optional<FunctionDecl> decl = declarations.startFunction(environment, startLocation, pstate.declspecs,
+        final Optional<FunctionDecl> decl = declarations.startFunction(environment, startLocation, pstate.declspecs.getTypeElements(),
                 declarator, $attrs, true);
         if (!decl.isPresent()) {
             error(declarator.getLocation(), Optional.of(declarator.getEndLocation()),
@@ -1736,25 +1737,26 @@ datadecl:
       declspecs_ts_nosa setspecs initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $2, $3);
         popDeclspecStack();
     }
     | declspecs_nots_nosa setspecs notype_initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $2, $3);
         popDeclspecStack();
     }
     | declspecs_ts_nosa setspecs SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($3.getLocation(), $1);
-        $$ = declarations.makeDataDecl(environment, startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(environment, startLocation, $3.getEndLocation(), $2, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | declspecs_nots_nosa SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($2.getLocation(), $1);
-        $$ = declarations.makeDataDecl(environment, startLocation, $2.getEndLocation(), $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(environment, startLocation, $2.getEndLocation(), new TypeElementsAssociation($1),
+              Lists.<Declaration>newList());
         popDeclspecStack();
     }
     ;
@@ -1804,14 +1806,16 @@ setspecs:
          // the preceding element in production containing setspecs
         final LinkedList<TypeElement> list = (LinkedList<TypeElement>) $<Object>0;
         if (list == null || list.isEmpty()) {
-            pstate.declspecs = Lists.<TypeElement>newList();
+            pstate.declspecs = new TypeElementsAssociation(Lists.<TypeElement>newList());
         } else {
             // FIXME: ugly workaround for $<LinkedList<TypeElement>>0
             // bison does not handle <<>>
-            pstate.declspecs = list;
+            pstate.declspecs = new TypeElementsAssociation(list);
         }
         pstate.attributes = Lists.<Attribute>newList();
         // TODO: check why we are not making $<telements$ an empty list
+
+        $$ = pstate.declspecs;
     }
     ;
 
@@ -1830,13 +1834,13 @@ decl:
       declspecs_ts setspecs initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $2, $3);
         popDeclspecStack();
     }
     | declspecs_nots setspecs notype_initdecls SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($4.getLocation(), $1, $3);
-        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, $4.getEndLocation(), $2, $3);
         popDeclspecStack();
     }
     | declspecs_ts setspecs nested_function
@@ -1852,7 +1856,7 @@ decl:
     | declspecs setspecs SEMICOLON
     {
         final Location startLocation = AstUtils.getStartLocation($3.getLocation(), $1);
-        $$ = declarations.makeDataDecl(environment, startLocation, $3.getEndLocation(), $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(environment, startLocation, $3.getEndLocation(), $2, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | extension decl
@@ -2666,7 +2670,7 @@ nested_function:
         // TODO refuse_asm
 
         final Optional<FunctionDecl> decl = declarations.startFunction(environment, $declarator.getLocation(),
-                pstate.declspecs, $declarator, $attrs, true);
+                pstate.declspecs.getTypeElements(), $declarator, $attrs, true);
         if (!decl.isPresent()) {
             error($declarator.getLocation(), Optional.of($declarator.getEndLocation()),
                     "syntax error, expected function definition");
@@ -2720,7 +2724,7 @@ notype_nested_function:
         // TODO: refuse_asm
 
         final Optional<FunctionDecl> decl = declarations.startFunction(environment, $declarator.getLocation(),
-                pstate.declspecs, $declarator, $attrs, true);
+                pstate.declspecs.getTypeElements(), $declarator, $attrs, true);
         if (!decl.isPresent()) {
             error($declarator.getLocation(), Optional.of($declarator.getEndLocation()),
                     "syntax error, expected function definition");
@@ -3015,28 +3019,28 @@ component_decl:
     {
         final Location startLocation = AstUtils.getStartLocation($1, $3).get();
         final Location endLocation = AstUtils.getEndLocation($3).get();
-        $$ = declarations.makeDataDecl(environment, startLocation, endLocation, $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, endLocation, $2, $3);
         popDeclspecStack();
     }
     | declspecs_nosc_ts setspecs
     {
         final Location startLocation = AstUtils.getStartLocation($1).get();
         final Location endLocation = AstUtils.getEndLocation($1).get();
-        $$ = declarations.makeDataDecl(environment, startLocation, endLocation, $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(environment, startLocation, endLocation, $2, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | declspecs_nosc_nots setspecs components_notype
     {
         final Location startLocation = AstUtils.getStartLocation($1, $3).get();
         final Location endLocation = AstUtils.getEndLocation($3).get();
-        $$ = declarations.makeDataDecl(environment, startLocation, endLocation, $1, $3);
+        $$ = declarations.makeDataDecl(environment, startLocation, endLocation, $2, $3);
         popDeclspecStack();
     }
     | declspecs_nosc_nots setspecs
     {
         final Location startLocation = AstUtils.getStartLocation($1).get();
         final Location endLocation = AstUtils.getEndLocation($1).get();
-        $$ = declarations.makeDataDecl(environment, startLocation, endLocation, $1, Lists.<Declaration>newList());
+        $$ = declarations.makeDataDecl(environment, startLocation, endLocation, $2, Lists.<Declaration>newList());
         popDeclspecStack();
     }
     | error
@@ -3071,19 +3075,19 @@ component_declarator:
       declarator maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
-        $$ = declarations.makeField($1.getLocation(), endLocation,
+        $$ = declarations.makeField(environment, $1.getLocation(), endLocation,
                 Optional.of($1), Optional.<Expression>absent(), pstate.declspecs, prefixAttr($2));
     }
     | declarator COLON expr_no_commas maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($3.getEndLocation(), $4);
-        $$ = declarations.makeField($1.getLocation(), endLocation,
+        $$ = declarations.makeField(environment, $1.getLocation(), endLocation,
                 Optional.of($1), Optional.of($3), pstate.declspecs, prefixAttr($4));
     }
     | COLON expr_no_commas maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($2.getEndLocation(), $3);
-        $$ = declarations.makeField($1.getLocation(), endLocation,
+        $$ = declarations.makeField(environment, $1.getLocation(), endLocation,
                 Optional.<Declarator>absent(), Optional.of($2), pstate.declspecs, prefixAttr($3));
     }
     ;
@@ -3092,19 +3096,19 @@ component_notype_declarator:
       notype_declarator maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), $2);
-        $$ = declarations.makeField($1.getLocation(), endLocation,
+        $$ = declarations.makeField(environment, $1.getLocation(), endLocation,
                 Optional.of($1), Optional.<Expression>absent(), pstate.declspecs, prefixAttr($2));
     }
     | notype_declarator COLON expr_no_commas maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($3.getEndLocation(), $4);
-        $$ = declarations.makeField($1.getLocation(), endLocation,
+        $$ = declarations.makeField(environment, $1.getLocation(), endLocation,
                 Optional.of($1), Optional.of($3), pstate.declspecs, prefixAttr($4));
     }
     | COLON expr_no_commas maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($2.getEndLocation(), $3);
-        $$ = declarations.makeField($1.getLocation(), endLocation,
+        $$ = declarations.makeField(environment, $1.getLocation(), endLocation,
                 Optional.<Declarator>absent(), Optional.of($2), pstate.declspecs, prefixAttr($3));
     }
     ;

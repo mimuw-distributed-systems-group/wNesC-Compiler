@@ -240,6 +240,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             res += "import java.util.LinkedList;\n"
             res += "import com.google.common.base.Optional;\n"
             res += "import pl.edu.mimuw.nesc.ast.*;\n"
+            res += "import pl.edu.mimuw.nesc.ast.type.Type;\n"
             res += "import pl.edu.mimuw.nesc.declaration.label.*;\n"
             res += "import pl.edu.mimuw.nesc.declaration.nesc.*;\n"
             res += "import pl.edu.mimuw.nesc.declaration.object.*;\n"

@@ -39,24 +39,24 @@ class ParserState {
 
     private class StackItem {
         private final LinkedList<Attribute> attributes;
-        private final LinkedList<TypeElement> declspecs;
+        private final TypeElementsAssociation declspecs;
 
         public StackItem(LinkedList<Attribute> attributes,
-                         LinkedList<TypeElement> declspecs) {
+                         TypeElementsAssociation declspecs) {
             this.attributes = attributes;
             this.declspecs = declspecs;
         }
 
         public StackItem() {
             this.attributes = Lists.newList();
-            this.declspecs = Lists.newList();
+            this.declspecs = new TypeElementsAssociation(Lists.<TypeElement>newList());
         }
 
         public LinkedList<Attribute> getAttributes() {
             return attributes;
         }
 
-        public LinkedList<TypeElement> getDeclspecs() {
+        public TypeElementsAssociation getDeclspecs() {
             return declspecs;
         }
 
@@ -64,7 +64,7 @@ class ParserState {
 
     private final Stack<StackItem> stack;
     public LinkedList<Attribute> attributes;
-    public LinkedList<TypeElement> declspecs;
+    public TypeElementsAssociation declspecs;
     public int stmtCount;
 
     public ParserState() {
@@ -82,6 +82,6 @@ class ParserState {
         final StackItem current = new StackItem(this.attributes, this.declspecs);
         this.stack.push(current);
         this.attributes = Lists.newList();
-        this.declspecs = Lists.newList();
+        this.declspecs = new TypeElementsAssociation(Lists.<TypeElement>newList());
     }
 }

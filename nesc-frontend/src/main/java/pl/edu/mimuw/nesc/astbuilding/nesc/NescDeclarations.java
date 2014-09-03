@@ -21,7 +21,6 @@ import pl.edu.mimuw.nesc.token.Token;
 import java.util.LinkedList;
 
 import static java.lang.String.format;
-import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.processTagReferences;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
 
@@ -105,9 +104,6 @@ public final class NescDeclarations extends AstBuildingBase {
      */
     public DataDecl declareTemplateParameter(Environment environment, Optional<Declarator> declarator,
                                              LinkedList<TypeElement> elements, LinkedList<Attribute> attributes) {
-        /* Process the potential tag declarations */
-        processTagReferences(elements, environment, false, errorHelper);
-
         /* Either declarator or elements is present. */
         final Location startLocation = declarator.isPresent()
                 ? declarator.get().getLocation()

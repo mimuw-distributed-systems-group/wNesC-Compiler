@@ -7,6 +7,8 @@ import java.util.List;
 import pl.edu.mimuw.nesc.ast.gen.EnumRef;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
+import pl.edu.mimuw.nesc.ast.type.EnumeratedType;
+import pl.edu.mimuw.nesc.ast.type.Type;
 
 import static com.google.common.base.Preconditions.*;
 
@@ -52,6 +54,11 @@ public class EnumDeclaration extends TagDeclaration {
 
         this.enumerators = Optional.of(Collections.unmodifiableList(new ArrayList<>(enumerators)));
         this.astEnumRef = astRef;
+    }
+
+    @Override
+    public Type getType(boolean constQualified, boolean volatileQualified) {
+        return new EnumeratedType(constQualified, volatileQualified, this);
     }
 
     @Override

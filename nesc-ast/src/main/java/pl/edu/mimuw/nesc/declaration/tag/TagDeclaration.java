@@ -4,6 +4,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.declaration.Declaration;
+import pl.edu.mimuw.nesc.ast.type.Type;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -34,6 +35,12 @@ public abstract class TagDeclaration extends Declaration {
     public boolean isDefined() {
         return isDefined;
     }
+
+    /**
+     * @return Newly created object that represents the type that this tag
+     *         corresponds to.
+     */
+    public abstract Type getType(boolean constQualified, boolean volatileQualified);
 
     @Override
     public int hashCode() {

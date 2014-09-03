@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.ast;
 
+import pl.edu.mimuw.nesc.ast.type.Type;
+
 public class IValue {
 
 	/*
