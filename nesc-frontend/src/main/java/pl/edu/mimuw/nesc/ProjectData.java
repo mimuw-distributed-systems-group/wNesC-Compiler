@@ -1,12 +1,11 @@
 package pl.edu.mimuw.nesc;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 
 import java.util.Collection;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Contains the result of parsing process for entire project.
@@ -20,12 +19,12 @@ public final class ProjectData {
     }
 
     private final ImmutableMap<String, FileData> fileDatas;
-    private final FileData rootFileData;
+    private final Optional<FileData> rootFileData;
     private final ImmutableList<NescIssue> issues;
 
     private ProjectData(Builder builder) {
         this.fileDatas = builder.fileDataBuilder.build();
-        this.rootFileData = builder.rootFileData;
+        this.rootFileData = Optional.fromNullable(builder.rootFileData);
         this.issues = builder.issueListBuilder.build();
     }
 
@@ -33,7 +32,7 @@ public final class ProjectData {
         return fileDatas;
     }
 
-    public FileData getRootFileData() {
+    public Optional<FileData> getRootFileData() {
         return rootFileData;
     }
 
@@ -83,7 +82,6 @@ public final class ProjectData {
         }
 
         private void verify() {
-            checkNotNull(rootFileData, "root file data cannot be null");
         }
     }
 }

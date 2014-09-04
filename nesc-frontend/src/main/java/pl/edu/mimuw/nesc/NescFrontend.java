@@ -100,12 +100,10 @@ public final class NescFrontend implements Frontend {
             final String msg = format("Cannot find main configuration '%s'", context.getOptions().getEntryEntityPath());
             LOG.error(msg);
             final NescError error = new NescError(Optional.<Location>absent(), Optional.<Location>absent(), msg);
-            projectDataBuilder = ProjectData.builder();
-            projectDataBuilder.addIssue(error);
+            projectDataBuilder = ProjectData.builder()
+                    .addIssue(error);
         }
-
-        projectDataBuilder.addIssues(context.getIssues());
-        return projectDataBuilder.build();
+        return projectDataBuilder.addIssues(context.getIssues()).build();
     }
 
     @Override
