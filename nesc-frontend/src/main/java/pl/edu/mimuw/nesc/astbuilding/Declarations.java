@@ -147,8 +147,10 @@ public final class Declarations extends AstBuildingBase {
      *                   function parameters
      * @return declarator combining these two declarators
      */
-    public Declarator finishArrayOrFnDeclarator(Declarator nested, NestedDeclarator declarator) {
-        declarator.setLocation(nested.getLocation());
+    public Declarator finishArrayOrFnDeclarator(Optional<Declarator> nested, NestedDeclarator declarator) {
+        if (nested.isPresent()) {
+            declarator.setLocation(nested.get().getLocation());
+        }
         declarator.setDeclarator(nested);
         return declarator;
     }
@@ -230,9 +232,6 @@ public final class Declarations extends AstBuildingBase {
         variableDecl.setType(resolveType(environment, elements, declarator,
                 errorHelper, varStartLocation, varEndLocation));
 
-        /*
-         * FIXME: parameter definition may not contain name.
-         */
         if (declarator.isPresent()) {
             final String name = getDeclaratorName(declarator.get());
             if (name != null) {
@@ -264,7 +263,7 @@ public final class Declarations extends AstBuildingBase {
         final OldIdentifierDecl decl = new OldIdentifierDecl(startLocation, id);
         decl.setEndLocation(endLocation);
 
-        // TODO update symbol table
+        // TODO update symbol table, currently old-style declarations are ignored
 
         return decl;
     }
@@ -316,7 +315,7 @@ public final class Declarations extends AstBuildingBase {
 
         // FIXME: elements?
         endLocation = getEndLocation(endLocation, attributes);
-        final FieldDecl decl = new FieldDecl(startLocation, declarator.orNull(), attributes, bitfield.orNull());
+        final FieldDecl decl = new FieldDecl(startLocation, declarator, attributes, bitfield);
         decl.setEndLocation(endLocation);
         makeFieldDeclaration(decl, maybeBaseType, errorHelper);
 
@@ -362,12 +361,13 @@ public final class Declarations extends AstBuildingBase {
                         : startLocation,
                 qualifiers);
         final QualifiedDeclarator qualifiedDeclarator = new QualifiedDeclarator(qualifiedDeclStartLocation,
-                declarator.orNull(), qualifiers);
+                declarator, qualifiers);
         qualifiedDeclarator.setEndLocation(declarator.isPresent()
                 ? declarator.get().getEndLocation()
                 : endLocation);
 
-        final PointerDeclarator pointerDeclarator = new PointerDeclarator(startLocation, qualifiedDeclarator);
+        final PointerDeclarator pointerDeclarator = new PointerDeclarator(startLocation,
+                Optional.<Declarator>of(qualifiedDeclarator));
         pointerDeclarator.setEndLocation(endLocation);
         return pointerDeclarator;
     }
@@ -436,20 +436,24 @@ public final class Declarations extends AstBuildingBase {
 
         @Override
         public Void visitPointerDeclarator(PointerDeclarator pointerDeclarator, Void arg) {
-            pointerDeclarator.getDeclarator().accept(this, null);
+            if (pointerDeclarator.getDeclarator().isPresent()) {
+                pointerDeclarator.getDeclarator().get().accept(this, null);
+            }
             return null;
         }
 
         @Override
         public Void visitQualifiedDeclarator(QualifiedDeclarator qualifiedDeclarator, Void arg) {
-            qualifiedDeclarator.getDeclarator().accept(this, null);
+            if (qualifiedDeclarator.getDeclarator().isPresent()) {
+                qualifiedDeclarator.getDeclarator().get().accept(this, null);
+            }
             return null;
         }
 
         @Override
         public Void visitFunctionDeclarator(FunctionDeclarator funDeclarator, Void arg) {
             final Location startLocation = funDeclarator.getLocation();
-            final Declarator innerDeclarator = funDeclarator.getDeclarator();
+            final Declarator innerDeclarator = funDeclarator.getDeclarator().get();
 
             /* C function/task */
             if (innerDeclarator instanceof IdentifierDeclarator) {
@@ -513,7 +517,7 @@ public final class Declarations extends AstBuildingBase {
         private void interfaceRefDeclarator(FunctionDeclarator funDeclarator, InterfaceRefDeclarator refDeclaration,
                                             Location startLocation) {
             final String ifaceName = refDeclaration.getName().getName();
-            final Declarator innerDeclarator = refDeclaration.getDeclarator();
+            final Declarator innerDeclarator = refDeclaration.getDeclarator().get();
 
             if (innerDeclarator instanceof IdentifierDeclarator) {
                 final IdentifierDeclarator idDeclarator = (IdentifierDeclarator) innerDeclarator;
@@ -555,6 +559,7 @@ public final class Declarations extends AstBuildingBase {
 
         @Override
         public Void visitFunctionDeclarator(FunctionDeclarator funDeclarator, Void arg) {
+            // FIXME: refactoring needed
             /*
              * Function declaration (not definition!). There can be many
              * declarations but only one definition.
@@ -600,17 +605,26 @@ public final class Declarations extends AstBuildingBase {
 
         @Override
         public Void visitPointerDeclarator(PointerDeclarator declarator, Void arg) {
-            return declarator.getDeclarator().accept(this, null);
+            if (declarator.getDeclarator().isPresent()) {
+                return declarator.getDeclarator().get().accept(this, null);
+            }
+            return null;
         }
 
         @Override
         public Void visitQualifiedDeclarator(QualifiedDeclarator declarator, Void arg) {
-            return declarator.getDeclarator().accept(this, null);
+            if (declarator.getDeclarator().isPresent()) {
+                return declarator.getDeclarator().get().accept(this, null);
+            }
+            return null;
         }
 
         @Override
         public Void visitArrayDeclarator(ArrayDeclarator declarator, Void arg) {
-            return declarator.getDeclarator().accept(this, null);
+            if (declarator.getDeclarator().isPresent()) {
+                return declarator.getDeclarator().get().accept(this, null);
+            }
+            return null;
         }
 
         @Override

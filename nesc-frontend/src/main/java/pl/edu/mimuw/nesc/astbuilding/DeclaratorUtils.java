@@ -48,25 +48,31 @@ public final class DeclaratorUtils {
 
         @Override
         public String visitFunctionDeclarator(FunctionDeclarator elem, Void arg) {
-            return elem.getDeclarator().accept(this, null);
+            return elem.getDeclarator().get().accept(this, null);
         }
 
         @Override
         public String visitPointerDeclarator(PointerDeclarator elem, Void arg) {
-            return elem.getDeclarator().accept(this, null);
+            if (elem.getDeclarator().isPresent()) {
+                return elem.getDeclarator().get().accept(this, null);
+            }
+            return null;
         }
 
         @Override
         public String visitQualifiedDeclarator(QualifiedDeclarator elem, Void arg) {
-            if (elem.getDeclarator() != null) {
-                return elem.getDeclarator().accept(this, null);
+            if (elem.getDeclarator().isPresent()) {
+                return elem.getDeclarator().get().accept(this, null);
             }
             return null;
         }
 
         @Override
         public String visitArrayDeclarator(ArrayDeclarator elem, Void arg) {
-            return elem.getDeclarator().accept(this, null);
+            if (elem.getDeclarator().isPresent()) {
+                return elem.getDeclarator().get().accept(this, null);
+            }
+            return null;
         }
 
         @Override
@@ -76,7 +82,7 @@ public final class DeclaratorUtils {
 
         @Override
         public String visitInterfaceRefDeclarator(InterfaceRefDeclarator elem, Void arg) {
-           return elem.getDeclarator().accept(this, null);
+           return elem.getDeclarator().get().accept(this, null);
         }
 
     }
@@ -124,12 +130,12 @@ public final class DeclaratorUtils {
 
         @Override
         public FunctionDeclarator visitPointerDeclarator(PointerDeclarator elem, Void arg) {
-            return elem.getDeclarator().accept(this, null);
+            return elem.getDeclarator().get().accept(this, null);
         }
 
         @Override
         public FunctionDeclarator visitQualifiedDeclarator(QualifiedDeclarator elem, Void arg) {
-            return elem.getDeclarator().accept(this, null);
+            return elem.getDeclarator().get().accept(this, null);
         }
 
         @Override
@@ -144,7 +150,7 @@ public final class DeclaratorUtils {
 
         @Override
         public FunctionDeclarator visitInterfaceRefDeclarator(InterfaceRefDeclarator elem, Void arg) {
-            return elem.getDeclarator().accept(this, null);
+            return elem.getDeclarator().get().accept(this, null);
         }
     }
 

@@ -247,9 +247,8 @@ class VariableDecl(BasicASTNode):
     """
     <p>Declaration of the following syntax:
     <code>declarator asm_stmt attributes [= initializer]</code>.</p>
-    <p>The name of the node is misleading, it corresponds not only to
-    variable declaration, but also typedef declaration or
-    function forward declaration.<p>
+    <p>The name of the node is misleading, it corresponds not only to a variable declaration, but also to
+    a typedef declaration or a function forward declaration.<p>
     """
     superclass = Declaration
     declarator = ReferenceField("Declarator", optional=True)
@@ -258,29 +257,18 @@ class VariableDecl(BasicASTNode):
     asmStmt = ReferenceField("AsmStmt", optional=True)
     declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False)
     type = ReferenceField("Type", optional=True, constructor_variable=False, visitable=False)
-
-    # FIXME: refactor attributes below
-    # DECLARED_TYPE is the type in this declaration (which may be different
-    # than that in DDECL->TYPE).
-    #declaredType = ReferenceField("Type", constructor_variable=False, visitable=False)
-    # FORWARD is true for parameters that are forward declarations.
     forward = BoolField(constructor_variable=False, visitable=False)
 
 
-# Declaration of field DECLARATOR ATTRIBUTES : ARG1.
 class FieldDecl(BasicASTNode):
+    """
+    <p>Tag field declaration.</p>
+    """
     superclass = Declaration
-    declarator = ReferenceField("Declarator")
-    # QUALIFIERS and ATTRIBUTEES are lists.
+    declarator = ReferenceField("Declarator", optional=True)
     attributes = ReferenceListField("Attribute")
-    # ARG1 is an optional bitfield specifier.
-    bitfield = ReferenceField("Expression")
+    bitfield = ReferenceField("Expression", optional=True)
     declaration = ReferenceField("FieldDeclaration", constructor_variable=False, visitable=False)
-
-    # FIXME: refactor attributes below
-    # TYPE_CHECKED is set to true once it has been checked that this field is
-    # of network type (inside network structures).
-    typeChecked = BoolField(constructor_variable=False, visitable=False)
 
 
 #==============================================================================
@@ -339,21 +327,24 @@ class Qualifier(BasicASTNode):
     id = ReferenceField("RID")
 
 
-# struct/union/enum WORD1 { FIELDS; }  ATTRIBUTES
-# ATTRIBUTES and FIELDS are lists.
-# ATTRIBUTES is GCC specific. WORD1 is optional.
-# DEFINED is TRUE if this declaration defines the struct/union/enum.
-# DEFINED == FALSE => FIELDS == NULL
 class TagRef(BasicASTNode):
+    """
+    <p>A reference to a tag in a declaration.</p>
+    <p><code>isDefined</code> is <code>true</code> if this declaration defines the struct/union/enum.
+    If <code>isDefined</code> if <code>false</code>, then the list of fields is absent.</p>
+    """
     superclass = TypeElement
-    name = ReferenceField("Word")
+    name = ReferenceField("Word")   # FIXME optional!
     attributes = ReferenceListField("Attribute")
-    fields = ReferenceListField("Declaration")
+    fields = ReferenceListField("Declaration")  # FIXME optional!
     isDefined = BoolField(visitable=False)
 
 
 # A struct
 class StructRef(BasicASTNode):
+    """
+    <p>A struct.</p>
+    """
     superclass = TagRef
     declaration = ReferenceField("StructDeclaration", constructor_variable=False, visitable=False)
 
@@ -395,9 +386,12 @@ class NestedDeclarator(BasicASTNode):
       ^^^
       declarator
     </pre>
+
+    <p><code>declarator</code> can be absent. Consider the forward declaration with parameters without names
+    <code>void f(int*);</code> .</p>
     """
     superclass = Declarator
-    declarator = ReferenceField("Declarator")
+    declarator = ReferenceField("Declarator", optional=True)
 
 
 class FunctionDeclarator(BasicASTNode):

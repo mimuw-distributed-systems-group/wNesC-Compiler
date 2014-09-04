@@ -687,21 +687,27 @@ public final class TypesAnalysis {
             typeError = typeError || paramsVisitor.typeError;
             accumulatedType = new FunctionType(accumulatedType, paramsVisitor.types,
                     paramsVisitor.variableArguments);
-            jump(ignoreQualifiers(declarator.getDeclarator()));
+            jump(ignoreQualifiers(declarator.getDeclarator().get()));
             return null;
         }
 
-        private void jump(Declarator next) {
-            if (next != null) {
-                next.accept(this, null);
+        private void jump(Optional<Declarator> next) {
+            if (next.isPresent()) {
+                next.get().accept(this, null);
             }
+        }
+
+        private void jump(Declarator next) {
+            next.accept(this, null);
         }
 
         private PointerTypeQualifiers processPointerQualifiers(PointerDeclarator startDeclarator) {
             boolean isConstQualified = false,
                     isVolatileQualified = false,
                     isRestrictQualified = false;
-            Declarator nextDeclarator = startDeclarator.getDeclarator();
+            // FIXME: the inner declarator of the PointerDeclarator CAN be null
+            // in one case, but currently I'm not able to produce any example.
+            Declarator nextDeclarator = startDeclarator.getDeclarator().get();
 
             while (nextDeclarator instanceof QualifiedDeclarator) {
                 final QualifiedDeclarator qualified = (QualifiedDeclarator) nextDeclarator;
@@ -740,7 +746,12 @@ public final class TypesAnalysis {
                     }
                 }
 
-                nextDeclarator = qualified.getDeclarator();
+                if (qualified.getDeclarator().isPresent()) {
+                    nextDeclarator = qualified.getDeclarator().get();
+                } else {
+                    // FIXME do not know exactly what you have planned to do.
+                    break;
+                }
             }
 
             return new PointerTypeQualifiers(isConstQualified, isVolatileQualified,
@@ -759,7 +770,12 @@ public final class TypesAnalysis {
                     );
                 }
 
-                declarator = qualified.getDeclarator();
+                if (qualified.getDeclarator().isPresent()) {
+                    declarator = qualified.getDeclarator().get();
+                } else {
+                    // FIXME do not know exactly what you have planned to do.
+                    break;
+                }
             }
 
             return declarator;

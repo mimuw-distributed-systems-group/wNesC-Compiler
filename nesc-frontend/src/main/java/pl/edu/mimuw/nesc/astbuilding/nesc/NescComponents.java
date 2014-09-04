@@ -160,8 +160,8 @@ public final class NescComponents extends AstBuildingBase {
                                                              Location funcNameEndLocation, String functionName) {
         final IdentifierDeclarator id = new IdentifierDeclarator(funcNameStartLocation, functionName);
         id.setEndLocation(funcNameEndLocation);
-        final InterfaceRefDeclarator declarator = new InterfaceRefDeclarator(ifaceStartLocation, id,
-                makeWord(ifaceStartLocation, funcNameEndLocation, ifaceName));
+        final InterfaceRefDeclarator declarator = new InterfaceRefDeclarator(ifaceStartLocation,
+                Optional.<Declarator>of(id), makeWord(ifaceStartLocation, funcNameEndLocation, ifaceName));
         return declarator;
     }
 

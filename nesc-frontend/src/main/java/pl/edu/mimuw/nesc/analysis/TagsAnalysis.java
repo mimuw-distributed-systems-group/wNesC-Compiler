@@ -90,8 +90,8 @@ public final class TagsAnalysis {
      */
     public static void makeFieldDeclaration(FieldDecl fieldDecl, Optional<Type> maybeBaseType,
                                             ErrorHelper errorHelper) {
-        final Optional<Declarator> maybeDeclarator = Optional.fromNullable(fieldDecl.getDeclarator());
-        final Optional<Expression> maybeBitField = Optional.fromNullable(fieldDecl.getBitfield());
+        final Optional<Declarator> maybeDeclarator = fieldDecl.getDeclarator();
+        final Optional<Expression> maybeBitField = fieldDecl.getBitfield();
 
         Optional<Type> fullType = maybeBaseType;
         Optional<String> name = Optional.absent();

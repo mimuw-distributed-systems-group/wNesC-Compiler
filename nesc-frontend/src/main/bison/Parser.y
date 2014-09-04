@@ -2787,7 +2787,7 @@ after_type_declarator:
       after_type_declarator array_or_fn_declarator
     {
         // TODO make function for this (duplicated in 4 places)
-        final Declarator declarator = declarations.finishArrayOrFnDeclarator($1, $2);
+        final Declarator declarator = declarations.finishArrayOrFnDeclarator(Optional.<Declarator>of($1), $2);
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
             final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
             funDeclarator.setEnvironment(environment);
@@ -2802,7 +2802,7 @@ after_type_declarator:
     }
     | LPAREN maybe_attribute after_type_declarator RPAREN
     {
-        final QualifiedDeclarator decl = new QualifiedDeclarator($1.getLocation(), $3,
+        final QualifiedDeclarator decl = new QualifiedDeclarator($1.getLocation(), Optional.<Declarator>of($3),
                 Lists.<Attribute, TypeElement>convert($2));
         decl.setEndLocation($4.getEndLocation());
         $$ = decl;
@@ -2829,7 +2829,7 @@ after_type_declarator:
 parm_declarator:
       parm_declarator array_or_fn_declarator
     {
-        final Declarator declarator = declarations.finishArrayOrFnDeclarator($1, $2);
+        final Declarator declarator = declarations.finishArrayOrFnDeclarator(Optional.<Declarator>of($1), $2);
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
             final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
             funDeclarator.setEnvironment(environment);
@@ -2859,7 +2859,7 @@ parm_declarator:
 notype_declarator:
       notype_declarator array_or_fn_declarator
     {
-        final Declarator declarator = declarations.finishArrayOrFnDeclarator($1, $2);
+        final Declarator declarator = declarations.finishArrayOrFnDeclarator(Optional.<Declarator>of($1), $2);
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
             final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
             funDeclarator.setEnvironment(environment);
@@ -2874,7 +2874,7 @@ notype_declarator:
     }
     | LPAREN maybe_attribute notype_declarator RPAREN
     {
-        final QualifiedDeclarator decl = new QualifiedDeclarator($1.getLocation(), $3,
+        final QualifiedDeclarator decl = new QualifiedDeclarator($1.getLocation(), Optional.of($3),
                 Lists.<Attribute, TypeElement>convert($2));
         decl.setEndLocation($4.getEndLocation());
         $$ = decl;
@@ -3181,14 +3181,14 @@ absdcl1_ea:
 direct_absdcl1:
       LPAREN maybe_attribute absdcl1 RPAREN
     {
-        final QualifiedDeclarator decl = new QualifiedDeclarator($1.getLocation(), $3,
+        final QualifiedDeclarator decl = new QualifiedDeclarator($1.getLocation(), Optional.<Declarator>of($3),
                 Lists.<Attribute, TypeElement>convert($2));
         decl.setEndLocation($4.getEndLocation());
         $$ = decl;
     }
     | direct_absdcl1 array_or_absfn_declarator
     {
-        final Declarator declarator = declarations.finishArrayOrFnDeclarator($1, $2);
+        final Declarator declarator = declarations.finishArrayOrFnDeclarator(Optional.<Declarator>of($1), $2);
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
             final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
             funDeclarator.setEnvironment(environment);
@@ -3199,7 +3199,7 @@ direct_absdcl1:
     }
     | array_or_absfn_declarator
     {
-        final Declarator declarator = declarations.finishArrayOrFnDeclarator(null, $1);
+        final Declarator declarator = declarations.finishArrayOrFnDeclarator(Optional.<Declarator>absent(), $1);
         if (DeclaratorUtils.isFunctionDeclarator(declarator)) {
             final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
             funDeclarator.setEnvironment(environment);
@@ -3232,8 +3232,9 @@ fn_declarator:
         final Location startLocation = AstUtils.getStartLocation($lparen.getLocation(), $generic_params);
         final Location endLocation = AstUtils.getEndLocation($lparen.getEndLocation(), $params);
         final Optional<LinkedList<Declaration>> gparams = $generic_params.isEmpty()
-                ? Optional.of($generic_params) : Optional.<LinkedList<Declaration>>absent();
-        final FunctionDeclarator decl = new FunctionDeclarator(startLocation, null, $params, gparams, $quals);
+                 ? Optional.<LinkedList<Declaration>>absent() : Optional.of($generic_params);
+        final FunctionDeclarator decl = new FunctionDeclarator(startLocation, Optional.<Declarator>absent(), $params,
+                gparams, $quals);
         decl.setEndLocation(endLocation);
         $$ = decl;
     }
@@ -3241,8 +3242,8 @@ fn_declarator:
     {
         /* pushLevel parmlist_or_identifiers, popLevel when final declarator is build */
         final Location endLocation = AstUtils.getEndLocation($lparen.getEndLocation(), $params);
-        final FunctionDeclarator decl = new FunctionDeclarator($lparen.getLocation(), null, $params,
-                Optional.<LinkedList<Declaration>>absent(), $quals);
+        final FunctionDeclarator decl = new FunctionDeclarator($lparen.getLocation(), Optional.<Declarator>absent(),
+                $params, Optional.<LinkedList<Declaration>>absent(), $quals);
         decl.setEndLocation(endLocation);
         $$ = decl;
     }
@@ -3252,8 +3253,8 @@ absfn_declarator:
       LPAREN[lparen] parmlist[params] fn_quals[quals]
     {
         final Location endLocation = AstUtils.getEndLocation($lparen.getEndLocation(), $params);
-        final FunctionDeclarator decl = new FunctionDeclarator($lparen.getLocation(), null, $params,
-                Optional.<LinkedList<Declaration>>absent(), $quals);
+        final FunctionDeclarator decl = new FunctionDeclarator($lparen.getLocation(), Optional.<Declarator>absent(),
+                $params, Optional.<LinkedList<Declaration>>absent(), $quals);
         decl.setEndLocation(endLocation);
         $$ = decl;
     }
@@ -3262,13 +3263,15 @@ absfn_declarator:
 array_declarator:
       LBRACK expr RBRACK
     {
-        final ArrayDeclarator decl = new ArrayDeclarator($1.getLocation(), null, Optional.of($2));
+        final ArrayDeclarator decl = new ArrayDeclarator($1.getLocation(), Optional.<Declarator>absent(),
+                Optional.of($2));
         decl.setEndLocation($3.getEndLocation());
         $$ = decl;
     }
     | LBRACK RBRACK
     {
-        final ArrayDeclarator decl = new ArrayDeclarator($1.getLocation(), null, Optional.<Expression>absent());
+        final ArrayDeclarator decl = new ArrayDeclarator($1.getLocation(), Optional.<Declarator>absent(),
+                Optional.<Expression>absent());
         decl.setEndLocation($2.getEndLocation());
         $$ = decl;
     }
