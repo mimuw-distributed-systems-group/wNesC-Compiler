@@ -2,11 +2,8 @@ package pl.edu.mimuw.nesc.ast;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
- *
  */
 public enum RID {
-	UNUSED(""),
-
 	INT("int"),
 	CHAR("char"),
 	FLOAT("float"),
@@ -18,7 +15,6 @@ public enum RID {
 	LONG("long"),
 	SIGNED("signed"),
 	COMPLEX("__complex"),
-	LASTTYPE(""),
 
 	INLINE("__inline"),
 	DEFAULT("default"),
@@ -36,11 +32,7 @@ public enum RID {
 
 	CONST("const"),
 	VOLATILE("volatile"),
-	RESTRICT("__restrict"),
-
-	MAX(""),
-
-	NESC("");
+	RESTRICT("__restrict");
 
 	private final String name;
 

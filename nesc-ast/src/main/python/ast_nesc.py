@@ -1,3 +1,4 @@
+# coding=utf-8
 #from ast_core import *
 from ast.core import BasicASTNode, generate_code
 from ast.fields import *
@@ -40,10 +41,8 @@ from ast.fields import *
 class Node(BasicASTNode):
     """ A common superclass of all AST nodes. """
     location = ReferenceField("Location", visitable=False)
-    endLocation = ReferenceField("Location", constructor_variable=0, visitable=False)
-    next = ReferenceField("Node", constructor_variable=0, visitable=False)
-    parent = ReferenceField("Node", constructor_variable=0, visitable=False)
-    instantiation = ReferenceField("Node", constructor_variable=0, visitable=False)
+    endLocation = ReferenceField("Location", constructor_variable=False, visitable=False)
+    next = ReferenceField("Node", constructor_variable=False, visitable=False)
 
 
 class Declaration(BasicASTNode):
@@ -51,16 +50,17 @@ class Declaration(BasicASTNode):
     superclass = Node
 
 
-# TODO: statements probably should have pointer to the next statement
+# TODO: statements probably should have pointer to the next statement,
 class Statement(BasicASTNode):
     """ A common superclass of all statements. """
     superclass = Node
+    # FIXME: the fields below are borrowed from ncc, but they are propably not required in our implementation.
     # PARENT_LOOP
     # - for break and continue: the containing for/while/do-while/switch
     # statement they escape from.
     # - for for/while/do-while: the containing for/while/do-while/switch
     # statement.
-    parentLoop = ReferenceField("Statement", constructor_variable=0, visitable=False)
+    # parentLoop = ReferenceField("Statement", constructor_variable=False, visitable=False)
     # CONTAINING_ATOMIC
     # - for return statement: their containing atomic statement
     # - for labels and looping statements, their containing atomic statement
@@ -68,54 +68,57 @@ class Statement(BasicASTNode):
     # break in or out of an atomic statement.
     # (Note: for nested atomic statements, CONTAINING_ATOMIC will point to a
     # dangling node as we drop these nested statements from the AST).
-    containingAtomic = ReferenceField("AtomicStmt", constructor_variable=0, visitable=False)
+    # containingAtomic = ReferenceField("AtomicStmt", constructor_variable=False, visitable=False)
     # See section: Selected fields description.
-    isAtomic = ReferenceField("AtomicType", constructor_variable=0, visitable=False)
+    # isAtomic = ReferenceField("AtomicType", constructor_variable=False, visitable=False)
 
 
 class Expression(BasicASTNode):
-    """ A common superclass of all expressions. """
+    """
+    <p>A common superclass of all expressions.</p>
+    """
     superclass = Node
+    type = ReferenceField("Type", constructor_variable=False, visitable=False)
+    # FIXME: the fields below are borrowed from ncc, but they are propably not required in our implementation.
     # LVALUE is true if this expression can be used in a context requiring an
     # lvalue.
-    lvalue = BoolField(constructor_variable=0, visitable=False)
+    #lvalue = BoolField(constructor_variable=False, visitable=False)
     # SIDE_EFFECTS is true if the expression has side effects.
-    sideEffects = BoolField(constructor_variable=0, visitable=False)
+    #sideEffects = BoolField(constructor_variable=False, visitable=False)
     # CST is non-null (and points to an appropriate constant) if this
     # expression is constant.
-    cst = ReferenceField("KnownCst", constructor_variable=0, visitable=False)
+    #cst = ReferenceField("KnownCst", constructor_variable=False, visitable=False)
     # BITFIELD is true if this lvalue is a bitfield.
-    bitfield = BoolField(constructor_variable=0, visitable=False)
+    #bitfield = BoolField(constructor_variable=False, visitable=False)
     # ISREGISTER is true if this lvalue is (declared to be) in a register.
-    isRegister = BoolField(constructor_variable=0, visitable=False)
-    #
-    type = ReferenceField("Type", constructor_variable=0, visitable=False)
+    #isRegister = BoolField(constructor_variable=False, visitable=False)
+
     # STATIC_ADDRESS is true for lvalues whose address is a constant
     # expression.
-    staticAddress = ReferenceField("KnownCst", constructor_variable=0, visitable=False)
+    #staticAddress = ReferenceField("KnownCst", constructor_variable=False, visitable=False)
     # CONVERTED_TO_POINTER is true for expressions which default_conversion
     # indicates need converting to pointer type (note that these nodes did not
     # have their type changed).
-    convertedToPointer = BoolField(constructor_variable=0, visitable=False)
+    #convertedToPointer = BoolField(constructor_variable=False, visitable=False)
     # CST_CHECKED is set to true once we've successfully checked this
     # expression's constantness, and associated constant value (used to avoid
     # duplicate error messages in repeated constant folding passes).
-    cstChecked = BoolField(constructor_variable=0, visitable=False)
+    #cstChecked = BoolField(constructor_variable=False, visitable=False)
     # SPELLING saves the `spelling' (a user-friendly name) of expressions used
     # in initialisers.
-    spelling = StringField(constructor_variable=0, visitable=False)
+    #spelling = StringField(constructor_variable=False, visitable=False)
     # PARENS is TRUE if the expression is in parentheses
-    parens = BoolField(constructor_variable=0, visitable=False)
+    #parens = BoolField(constructor_variable=False, visitable=False)
     # IVALUE is a pointer to an ivalue (see init.h) holding the value of an
     # initialiser expression. On an init_list or in an expression used as
     # a simple initialiser (e.g., '3 + 2' in 'int x = 3 + 2'), this is the
     # value of the initialiser. Inside these initialisers, ivalue points into
     # the ivalue structure of the containing initialiser.
-    ivalue = ReferenceField("IValue", constructor_variable=0, visitable=False)
+    #ivalue = ReferenceField("IValue", constructor_variable=False, visitable=False)
     # CONTEXT is the usage context for this expression (see nesc-uses.h).
-    context = ReferenceField("Context", constructor_variable=0, visitable=False)
+    #context = ReferenceField("Context", constructor_variable=False, visitable=False)
     # See section: Selected fields description.
-    isAtomic = ReferenceField("AtomicType", constructor_variable=0, visitable=False)
+    #isAtomic = ReferenceField("AtomicType", constructor_variable=False, visitable=False)
 
 
 class TypeElement(BasicASTNode):
@@ -129,11 +132,13 @@ class Declarator(BasicASTNode):
 
 
 class Label(BasicASTNode):
-    """ A common superclass for all labels. """
+    """
+    <p>A common superclass for all labels.</p>
+    <p><code>nextLabel</code> points to the next case or default label of a switch (for case or default labels only).
+    </p>
+    """
     superclass = Node
-    # NEXT_LABEL points to the next case or default label of a switch (for case
-    # or default labels only).
-    nextLabel = ReferenceField("Label", constructor_variable=0, visitable=False)
+    nextLabel = ReferenceField("Label", constructor_variable=False, visitable=False)
 
 
 #==============================================================================
@@ -145,18 +150,22 @@ class ErrorDecl(BasicASTNode):
     superclass = Declaration
 
 
-# Asm statement STMT at the top level of a file (GCC).
 class AsmDecl(BasicASTNode):
+    """
+    <p>Asm declaration. GNU extension.</p>
+    """
     superclass = Declaration
     asmStmt = ReferenceField("AsmStmt")
 
 
 # The declaration MODIFIERS DECLS; DECLS is a list.
+# TODO: description
 class DataDecl(BasicASTNode):
     superclass = Declaration
     modifiers = ReferenceListField("TypeElement")
     declarations = ReferenceListField("Declaration")
-    type = ReferenceField("Type", optional=True, constructor_variable=0, visitable=False)
+    # FIXME: type?
+    type = ReferenceField("Type", optional=True, constructor_variable=False, visitable=False)
 
 
 class ExtensionDecl(BasicASTNode):
@@ -179,7 +188,7 @@ class Enumerator(BasicASTNode):
     # name is optional.
     name = StringField()
     value = ReferenceField("Expression")
-    declaration = ReferenceField("ConstantDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("ConstantDeclaration", constructor_variable=False, visitable=False)
 
 
 class OldIdentifierDecl(BasicASTNode):
@@ -197,7 +206,7 @@ class OldIdentifierDecl(BasicASTNode):
     superclass = Declaration
     # CSTRING in an old-style parameter list.
     name = StringField()
-    declaration = ReferenceField("VariableDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("VariableDeclaration", constructor_variable=False, visitable=False)
 
 
 class FunctionDecl(BasicASTNode):
@@ -211,20 +220,20 @@ class FunctionDecl(BasicASTNode):
     modifiers = ReferenceListField("TypeElement")
     attributes = ReferenceListField("Attribute")
     # OLD_PARMS is the old-style parameter declaration list.
-    oldParms = ReferenceListField("Declaration", constructor_variable=0)
+    oldParms = ReferenceListField("Declaration", constructor_variable=False)
     body = ReferenceField("Statement")
     isNested = BoolField(visitable=False)
-    declaration = ReferenceField("ObjectDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False)
 
     # FIXME refactor attributes below
-    parentFunction = ReferenceField("FunctionDecl", constructor_variable=0, visitable=False)
-    fdeclarator = ReferenceField("FunctionDeclarator", constructor_variable=0, visitable=False)
-    declaredType = ReferenceField("Type", constructor_variable=0, visitable=False)
-    #undeclaredVariables = ReferenceField("Env", constructor_variable=0, visitable=False)
-    #baseLabels = ReferenceField("Env", constructor_variable=0, visitable=False)
-    #scopedLabels = ReferenceField("Env", constructor_variable=0, visitable=False)
-    currentLoop = ReferenceField("Statement", constructor_variable=0, visitable=False)
-    nlocals = IntField(constructor_variable=0, visitable=False)
+    #parentFunction = ReferenceField("FunctionDecl", constructor_variable=False, visitable=False)
+    #fdeclarator = ReferenceField("FunctionDeclarator", constructor_variable=False, visitable=False)
+    #declaredType = ReferenceField("Type", constructor_variable=False, visitable=False)
+    #undeclaredVariables = ReferenceField("Env", constructor_variable=False, visitable=False)
+    #baseLabels = ReferenceField("Env", constructor_variable=False, visitable=False)
+    #scopedLabels = ReferenceField("Env", constructor_variable=False, visitable=False)
+    #currentLoop = ReferenceField("Statement", constructor_variable=False, visitable=False)
+    #nlocals = IntField(constructor_variable=False, visitable=False)
 
 
 # Used as the AST node for implicit declarations.
@@ -245,17 +254,17 @@ class VariableDecl(BasicASTNode):
     superclass = Declaration
     declarator = ReferenceField("Declarator", optional=True)
     attributes = ReferenceListField("Attribute")
-    initializer = ReferenceField("Expression", constructor_variable=0, optional=True)
+    initializer = ReferenceField("Expression", constructor_variable=False, optional=True)
     asmStmt = ReferenceField("AsmStmt", optional=True)
-    declaration = ReferenceField("ObjectDeclaration", constructor_variable=0, visitable=False)
-    type = ReferenceField("Type", optional=True, constructor_variable=0, visitable=False)
+    declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False)
+    type = ReferenceField("Type", optional=True, constructor_variable=False, visitable=False)
 
     # FIXME: refactor attributes below
     # DECLARED_TYPE is the type in this declaration (which may be different
     # than that in DDECL->TYPE).
-    #declaredType = ReferenceField("Type", constructor_variable=0, visitable=False)
+    #declaredType = ReferenceField("Type", constructor_variable=False, visitable=False)
     # FORWARD is true for parameters that are forward declarations.
-    forward = BoolField(constructor_variable=0, visitable=False)
+    forward = BoolField(constructor_variable=False, visitable=False)
 
 
 # Declaration of field DECLARATOR ATTRIBUTES : ARG1.
@@ -266,12 +275,12 @@ class FieldDecl(BasicASTNode):
     attributes = ReferenceListField("Attribute")
     # ARG1 is an optional bitfield specifier.
     bitfield = ReferenceField("Expression")
-    declaration = ReferenceField("FieldDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("FieldDeclaration", constructor_variable=False, visitable=False)
 
     # FIXME: refactor attributes below
     # TYPE_CHECKED is set to true once it has been checked that this field is
     # of network type (inside network structures).
-    typeChecked = BoolField(constructor_variable=0, visitable=False)
+    typeChecked = BoolField(constructor_variable=False, visitable=False)
 
 
 #==============================================================================
@@ -283,14 +292,14 @@ class AstType(BasicASTNode):
     superclass = Node
     declarator = ReferenceField("Declarator")
     qualifiers = ReferenceListField("TypeElement")
-    type = ReferenceField("Type", constructor_variable=0)
+    type = ReferenceField("Type", constructor_variable=False)
 
 
 # typedef-type with declaration DDECL. The name is ddecl->name.
 class Typename(BasicASTNode):
     superclass = TypeElement
     name = StringField()
-    declaration = ReferenceField("TypenameDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("TypenameDeclaration", constructor_variable=False, visitable=False)
 
 
 # typeof ARG1
@@ -346,79 +355,99 @@ class TagRef(BasicASTNode):
 # A struct
 class StructRef(BasicASTNode):
     superclass = TagRef
-    declaration = ReferenceField("StructDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("StructDeclaration", constructor_variable=False, visitable=False)
 
 
 # An attribute definition.
 # FIXME what does this node represents?
 class AttributeRef(BasicASTNode):
     superclass = TagRef
-    declaration = ReferenceField("AttributeDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("AttributeDeclaration", constructor_variable=False, visitable=False)
 
 
 # A union
 class UnionRef(BasicASTNode):
     superclass = TagRef
-    declaration = ReferenceField("UnionDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("UnionDeclaration", constructor_variable=False, visitable=False)
 
 
 # An enum
 class EnumRef(BasicASTNode):
     superclass = TagRef
-    declaration = ReferenceField("EnumDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("EnumDeclaration", constructor_variable=False, visitable=False)
 
 
 #==============================================================================
 #                                 Declarators
 #==============================================================================
 
-#   The last DECLARATOR in a chain is:
-#   NULL_NODE in absolute declarations
-#   an identifier_decl otherwise
-
-# A common supertype for function/pointer/array declarator which includes
-# the nested declarator.
 class NestedDeclarator(BasicASTNode):
+    """
+    <p>A common supertype for function/pointer/array declarator which includes the nested declarator.</p>
+    <p> <code>declarator</code> refers to declarator that precedes e.g. function/array parentheses or follows
+    pointer asterisk, e.g.:</p>
+    <pre>
+    foo(int i, int j)
+    ^^^
+    declarator
+
+    * foo
+      ^^^
+      declarator
+    </pre>
+    """
     superclass = Declarator
-    # Refers to declarator that precedes e.g. function/array parentheses
-    # or follows pointer asterisk.
     declarator = ReferenceField("Declarator")
 
 
-# Function declarator DECLARATOR(PARMS). PARMS is a list of declarations.
-# ENV is the environment for parms
-# GPARMS is the list of declarations of generic parameters (commands, events only)
-# RETURN_TYPE (optional) contains an overridden return type from nesdoc
 class FunctionDeclarator(BasicASTNode):
+    """
+    <p>Function declarator. Represents either C function or NesC command/event.</p>
+    <p>It consists of:
+    <ul>
+    <li><code>parameters</code> - list of standard function parameters,</li>
+    <li><code>genericParameters</code> - list of generic parameters, present only in NesC command/event,</li>
+    <li><code>qualifiers</code> - list of qualifiers,</li>
+    <li><code>environment</code> - environment for both kind of function parameters.</li>
+    </ul>
+    </p>
+    """
     superclass = NestedDeclarator
     parameters = ReferenceListField("Declaration")
     genericParameters = ReferenceListField("Declaration", optional=True)
     qualifiers = ReferenceListField("TypeElement")
-    environment = ReferenceField("Environment", constructor_variable=0, visitable=False)
-    #returnType = ReferenceField("AstType", constructor_variable=0, visitable=False)
+    environment = ReferenceField("Environment", constructor_variable=False, visitable=False)
+    #returnType = ReferenceField("AstType", constructor_variable=False, optional=True, visitable=False)
 
 
-# Pointer declarator *DECLARATOR
 class PointerDeclarator(BasicASTNode):
+    """
+    Pointer declarator.
+    """
     superclass = NestedDeclarator
 
-
-# Declarator MODIFIERS DECLARATOR. The MODIFIERS are qualifiers
-# or attributes.
-# Note: MODIFIERS is never NULL
 class QualifiedDeclarator(BasicASTNode):
+    """
+    A declarator that is preceded by a list of type elements:
+    qualifiers or attributes. The list must not be empty.
+    """
     superclass = NestedDeclarator
     modifiers = ReferenceListField("TypeElement")
 
 
 # Array declarator DECLARATOR[ARG1]. ARG1 is optional.
 class ArrayDeclarator(BasicASTNode):
+    """
+    Array declarator. The <code>size</code> is optional.
+    """
     superclass = NestedDeclarator
-    index = ReferenceField("Expression")
+    size = ReferenceField("Expression", optional=True)
 
 
-# Declaration of CSTRING
 class IdentifierDeclarator(BasicASTNode):
+    """
+    A simple declarator consisting of only a single identifier.
+    """
     superclass = Declarator
     name = StringField()
 
@@ -427,14 +456,19 @@ class IdentifierDeclarator(BasicASTNode):
 #                                  Statements
 #==============================================================================
 
-# Placeholder for erroneous statements.
 class ErrorStmt(BasicASTNode):
+    """
+    Placeholder for erroneous statements.
+    """
     superclass = Statement
 
 
-# The statement asm QUALIFIERS (ARG1 : ASM_OPERANDS1 : ASM_OPERANDS2 : ASM_CLOBBERS)
-# where ASM_OPERANDS1, ASM_OPERANDS2, QUALIFIERS are optional, ASM_CLOBBERS is a list (GCC)
+# TODO: improve description
 class AsmStmt(BasicASTNode):
+    """
+    The statement asm QUALIFIERS (ARG1 : ASM_OPERANDS1 : ASM_OPERANDS2 : ASM_CLOBBERS)
+    where ASM_OPERANDS1, ASM_OPERANDS2, QUALIFIERS are optional, ASM_CLOBBERS is a list (GCC)
+    """
     superclass = Statement
     arg1 = ReferenceField("Expression")
     asmOperands1 = ReferenceListField("AsmOperand")
@@ -452,87 +486,123 @@ class CompoundStmt(BasicASTNode):
     idLabels = ReferenceListField("IdLabel")
     declarations = ReferenceListField("Declaration")
     statements = ReferenceListField("Statement")
-    environment = ReferenceField("Environment", constructor_variable=0, visitable=False)
+    environment = ReferenceField("Environment", constructor_variable=False, visitable=False)
 
 
-# IF (CONDITION) STMT1 ELSE STMT2. STMT2 is optional
 class IfStmt(BasicASTNode):
+    """
+    <p>If statement. The <code>falseStatement</code> is optional.</p>
+    """
     superclass = Statement
     condition = ReferenceField("Expression")
     trueStatement = ReferenceField("Statement")
-    falseStatement = ReferenceField("Statement")
+    falseStatement = ReferenceField("Statement", optional=True)
 
 
-# LABEL: STMT
 class LabeledStmt(BasicASTNode):
+    """
+    <p>Labeled statement is a statement preceded by a label.</p>
+    """
     superclass = Statement
     label = ReferenceField("Label")
     statement = ReferenceField("Statement")
 
 
-# EXPR;
 class ExpressionStmt(BasicASTNode):
+    """
+    <p>Expression statement.</p>
+    """
     superclass = Statement
     expression = ReferenceField("Expression")
 
 
-# Basic type for all conditional statements
 class ConditionalStmt(BasicASTNode):
+    """
+    <p>Base class for all conditional statements.</p>
+    """
     superclass = Statement
     condition = ReferenceField("Expression")
     statement = ReferenceField("Statement")
 
 
 class WhileStmt(BasicASTNode):
+    """
+    <p>While statement.</p>
+    """
     superclass = ConditionalStmt
 
 
 class DoWhileStmt(BasicASTNode):
+    """
+    <p>Do-while statement.</p>
+    """
     superclass = ConditionalStmt
 
 
-# SWITCH (CONDITION) STMT.
-# NEXT_LABEL points to the switches first label
 class SwitchStmt(BasicASTNode):
+    """
+    <p>Switch statement.</p>
+    <p><code>firstLabel</code> points to the first label. The remaining labels are in
+    {@link ConditionalStmt#statement} field.</p>
+    """
     superclass = ConditionalStmt
-    nextLabel = ReferenceField("Label", constructor_variable=0, visitable=False)
+    firstLabel = ReferenceField("Label", constructor_variable=False, visitable=False)
 
 
-# FOR (ARG1; ARG2; ARG3) STMT. ARG1, ARG2, ARG3 are optional
 class ForStmt(BasicASTNode):
+    """
+    <p>For loop statement.</p>
+    """
     superclass = Statement
-    initExpression = ReferenceField("Expression")
-    conditionExpression = ReferenceField("Expression")
-    incrementExpression = ReferenceField("Expression")
+    initExpression = ReferenceField("Expression", optional=True)
+    conditionExpression = ReferenceField("Expression", optional=True)
+    incrementExpression = ReferenceField("Expression", optional=True)
     statement = ReferenceField("Statement")
 
 
 class BreakStmt(BasicASTNode):
+    """
+    <p>Break statement.</p>
+    """
     superclass = Statement
 
 
 class ContinueStmt(BasicASTNode):
+    """
+    <p>Continue statement.</p>
+    """
     superclass = Statement
 
 
-# RETURN ARG1. ARG1 is optional
 class ReturnStmt(BasicASTNode):
+    """
+    <p>Return statement. The <code>value</code> is optional.</p>
+    """
     superclass = Statement
-    value = ReferenceField("Expression")
+    value = ReferenceField("Expression", optional=True)
 
 
 class GotoStmt(BasicASTNode):
+    """
+    <p>Goto statement.</p>
+    """
     superclass = Statement
     idLabel = ReferenceField("IdLabel")
 
 
-# GOTO *ARG1 (GCC)
 class ComputedGotoStmt(BasicASTNode):
+    """
+    <p>Goto statement. This is a GNU extension, which allows to jump to a label represented by an expression.</p>
+    <p>See: https://gcc.gnu.org/onlinedocs/gcc/Labels-as-Values.html#Labels-as-Values</p>
+    """
     superclass = Statement
     address = ReferenceField("Expression")
 
 
 class EmptyStmt(BasicASTNode):
+    """
+    <p>Empty statement.</p>
+    """
     superclass = Statement
 
 
@@ -628,7 +698,7 @@ class Conditional(BasicASTNode):
 class Identifier(BasicASTNode):
     superclass = Expression
     name = StringField()
-    declaration = ReferenceField("ObjectDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False)
 
 
 class CompoundExpr(BasicASTNode):
@@ -667,7 +737,7 @@ class ArrayRef(BasicASTNode):
 class FieldRef(BasicASTNode):
     superclass = Unary
     fieldName = StringField()
-    declaration = ReferenceField("FieldDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("FieldDeclaration", constructor_variable=False, visitable=False)
 
 
 class Dereference(BasicASTNode):
@@ -720,9 +790,6 @@ class Not(BasicASTNode):
 
 class Increment(BasicASTNode):
     superclass = Unary
-    # FIXME
-    #temp1 = ReferenceField("ObjectDeclaration", constructor_variable=0, visitable=False)
-    #temp2 = ReferenceField("ObjectDeclaration", constructor_variable=0, visitable=False)
 
 
 class Preincrement(BasicASTNode):
@@ -819,8 +886,6 @@ class Oror(BasicASTNode):
 
 class Assignment(BasicASTNode):
     superclass = Binary
-    # FIXME
-    #temp1 = ReferenceField("ObjectDeclaration", constructor_variable=0, visitable=False)
 
 
 class Assign(BasicASTNode):
@@ -952,8 +1017,6 @@ class StringAst(BasicASTNode):
     """ A list of StringCst nodes forming a single string constant. """
     superclass = Expression
     strings = ReferenceListField("StringCst")
-    # FIXME: does it need declaration field?
-    # declaration = ReferenceField("ObjectDeclaration", constructor_variable=0, visitable=False)
 
 
 #==============================================================================
@@ -963,7 +1026,7 @@ class StringAst(BasicASTNode):
 class IdLabel(BasicASTNode):
     superclass = Label
     id = StringField()
-    declaration = ReferenceField("LabelDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("LabelDeclaration", constructor_variable=False, visitable=False)
 
 
 class CaseLabel(BasicASTNode):
@@ -991,6 +1054,9 @@ class DefaultLabel(BasicASTNode):
 #==============================================================================
 
 class Word(BasicASTNode):
+    """
+    <p>A convenient class for representing identifiers in the source code. It additionally contains location fields.<p>
+    """
     superclass = Node
     name = StringField()
 
@@ -1023,7 +1089,7 @@ class Interface(BasicASTNode):
     superclass = NescDecl
     parameters = ReferenceListField("Declaration", optional=True)
     declarations = ReferenceListField("Declaration")
-    declaration = ReferenceField("InterfaceDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("InterfaceDeclaration", constructor_variable=False, visitable=False)
 
 
 class Component(BasicASTNode):
@@ -1033,18 +1099,18 @@ class Component(BasicASTNode):
     parameters = ReferenceListField("Declaration", optional=True)
     declarations = ReferenceListField("Declaration")
     implementation = ReferenceField("Implementation")
-    parameterEnvironment = ReferenceField("Environment", constructor_variable=0, visitable=False)
-    specificationEnvironment = ReferenceField("Environment", constructor_variable=0, visitable=False)
+    parameterEnvironment = ReferenceField("Environment", constructor_variable=False, visitable=False)
+    specificationEnvironment = ReferenceField("Environment", constructor_variable=False, visitable=False)
 
 
 class Configuration(BasicASTNode):
     superclass = Component
-    declaration = ReferenceField("ConfigurationDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("ConfigurationDeclaration", constructor_variable=False, visitable=False)
 
 
 class Module(BasicASTNode):
     superclass = Component
-    declaration = ReferenceField("ModuleDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("ModuleDeclaration", constructor_variable=False, visitable=False)
 
 
 class BinaryComponent(BasicASTNode):
@@ -1053,8 +1119,8 @@ class BinaryComponent(BasicASTNode):
 
 class Implementation(BasicASTNode):
     superclass = Node
-    environment = ReferenceField("Environment", constructor_variable=0, visitable=False)
-    #cdecl = ReferenceField("NescDeclaration", constructor_variable=0, visitable=False)
+    environment = ReferenceField("Environment", constructor_variable=False, visitable=False)
+    #cdecl = ReferenceField("NescDeclaration", constructor_variable=False, visitable=False)
 
 
 class ConfigurationImpl(BasicASTNode):
@@ -1132,10 +1198,10 @@ class InterfaceRef(BasicASTNode):
 class ComponentRef(BasicASTNode):
     superclass = Declaration
     name = ReferenceField("Word")
-    alias = ReferenceField("Word", constructor_variable=0, optional=True)
+    alias = ReferenceField("Word", constructor_variable=False, optional=True)
     isAbstract = BoolField()
     arguments = ReferenceListField("Expression")
-    declaration = ReferenceField("ComponentRefDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("ComponentRefDeclaration", constructor_variable=False, visitable=False)
 
 
 class Connection(BasicASTNode):
@@ -1177,13 +1243,6 @@ class ParameterisedIdentifier(BasicASTNode):
 #                  Types for extensions to the regular C syntax
 #==============================================================================
 
-# parameterised declaration DECLARATOR [ PARMS ].
-class GenericDeclarator(BasicASTNode):
-    superclass = Declarator
-    declarator = ReferenceField("Declarator")
-    parameters = ReferenceListField("Declaration")
-
-
 class GenericCall(BasicASTNode):
     """
     <p>Parameterised interface function call.</p>
@@ -1222,7 +1281,7 @@ class InterfaceDeref(BasicASTNode):
     superclass = Unary
     methodName = StringField()
     # FIXME: does it need declaration reference?
-    #declaration = ReferenceField("ObjectDeclaration", constructor_variable=0, visitable=False)
+    #declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False)
 
 
 class ComponentDeref(BasicASTNode):
@@ -1246,7 +1305,7 @@ class ComponentDeref(BasicASTNode):
     superclass = Unary
     fieldName = StringField()
     # FIXME: does it need declaration reference?
-    #declaration = ReferenceField("ObjectDeclaration", constructor_variable=0, visitable=False)
+    #declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False)
 
 
 class ComponentTyperef(BasicASTNode):
@@ -1288,7 +1347,7 @@ class NescAttribute(BasicASTNode):
     """ NesC attribute decorated with @. """
     superclass = Attribute
     value = ReferenceField("Expression")
-    declaration = ReferenceField("AttributeDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("AttributeDeclaration", constructor_variable=False, visitable=False)
 
 
 class TargetAttribute(BasicASTNode):
@@ -1312,7 +1371,7 @@ class TypeParmDecl(BasicASTNode):
     superclass = Declaration
     name = StringField()
     attributes = ReferenceListField("Attribute")
-    declaration = ReferenceField("TypenameDeclaration", constructor_variable=0, visitable=False)
+    declaration = ReferenceField("TypenameDeclaration", constructor_variable=False, visitable=False)
 
 
 class TypeArgument(BasicASTNode):

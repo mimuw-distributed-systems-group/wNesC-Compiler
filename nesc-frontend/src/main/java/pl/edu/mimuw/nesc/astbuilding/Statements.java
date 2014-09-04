@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.astbuilding;
 
+import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
 
@@ -22,13 +23,13 @@ public final class Statements {
     }
 
     public static ReturnStmt makeReturn(Location startLocation, Location endLocation, Expression expression) {
-        final ReturnStmt returnStmt = new ReturnStmt(startLocation, expression);
+        final ReturnStmt returnStmt = new ReturnStmt(startLocation, Optional.of(expression));
         returnStmt.setEndLocation(endLocation);
         return returnStmt;
     }
 
     public static ReturnStmt makeVoidReturn(Location startLocation, Location endLocation) {
-        final ReturnStmt returnStmt = new ReturnStmt(startLocation, null);
+        final ReturnStmt returnStmt = new ReturnStmt(startLocation, Optional.<Expression>absent());
         returnStmt.setEndLocation(endLocation);
         return returnStmt;
     }
@@ -46,17 +47,13 @@ public final class Statements {
         assert l1 != null;
         assert l2 != null;
 
+        // FIXME
+
         if (l1.isEmpty())
             return l2;
         if (l2.isEmpty())
             return l1;
-        /* There may be an unfinished sub-label due to 'a: b:' */
-
-        /*
-         * The result will always be merged l1 and l2 lists.
-         */
         l1.addAll(l2);
-        // TODO
         return l1;
     }
 

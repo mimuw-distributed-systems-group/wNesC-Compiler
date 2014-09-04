@@ -10,7 +10,7 @@ public class IValue {
 	 */
 
     public static enum Kind {
-        BASE, ARRAY, STRUCTURED;
+        BASE, ARRAY, STRUCTURED
     }
 
     private Kind kind;

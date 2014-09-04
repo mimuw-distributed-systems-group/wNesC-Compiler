@@ -75,11 +75,6 @@ public final class DeclaratorUtils {
         }
 
         @Override
-        public String visitGenericDeclarator(GenericDeclarator elem, Void arg) {
-            return elem.getDeclarator().accept(this, null);
-        }
-
-        @Override
         public String visitInterfaceRefDeclarator(InterfaceRefDeclarator elem, Void arg) {
            return elem.getDeclarator().accept(this, null);
         }
@@ -110,11 +105,6 @@ public final class DeclaratorUtils {
 
         @Override
         public Boolean visitIdentifierDeclarator(IdentifierDeclarator elem, Void arg) {
-            return Boolean.FALSE;
-        }
-
-        @Override
-        public Boolean visitGenericDeclarator(GenericDeclarator elem, Void arg) {
             return Boolean.FALSE;
         }
 
@@ -150,11 +140,6 @@ public final class DeclaratorUtils {
         @Override
         public FunctionDeclarator visitIdentifierDeclarator(IdentifierDeclarator elem, Void arg) {
             throw new IllegalStateException("Function declarator not found");
-        }
-
-        @Override
-        public FunctionDeclarator visitGenericDeclarator(GenericDeclarator elem, Void arg) {
-            return elem.getDeclarator().accept(this, null);
         }
 
         @Override

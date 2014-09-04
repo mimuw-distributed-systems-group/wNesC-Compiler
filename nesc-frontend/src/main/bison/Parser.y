@@ -1618,7 +1618,6 @@ primary:
     }
     | LPAREN expr RPAREN
     {
-        $2.setParens(true);
         $$ = $2;
     }
     | LPAREN error RPAREN
@@ -3136,7 +3135,6 @@ enumerator:
     }
     ;
 
-// FIXME
 typename:
       declspecs_nosc absdcl
     {
@@ -3264,13 +3262,13 @@ absfn_declarator:
 array_declarator:
       LBRACK expr RBRACK
     {
-        final ArrayDeclarator decl = new ArrayDeclarator($1.getLocation(), null, $2);
+        final ArrayDeclarator decl = new ArrayDeclarator($1.getLocation(), null, Optional.of($2));
         decl.setEndLocation($3.getEndLocation());
         $$ = decl;
     }
     | LBRACK RBRACK
     {
-        final ArrayDeclarator decl = new ArrayDeclarator($1.getLocation(), null, null);
+        final ArrayDeclarator decl = new ArrayDeclarator($1.getLocation(), null, Optional.<Expression>absent());
         decl.setEndLocation($2.getEndLocation());
         $$ = decl;
     }
@@ -3434,7 +3432,7 @@ compstmt:
 simple_if:
       if_prefix labeled_stmt
     {
-        final IfStmt stmt = new IfStmt($1.getLocation(), $1.getExpression(), $2, null);
+        final IfStmt stmt = new IfStmt($1.getLocation(), $1.getExpression(), $2, Optional.<Statement>absent());
         stmt.setEndLocation($2.getEndLocation());
         $$ = new ValueStatement(stmt, $1.getCounter());
     }
@@ -3540,7 +3538,7 @@ stmt:
          */
         if ($$ instanceof IfStmt) {
             final IfStmt ifStmt = (IfStmt) stmt;
-            ifStmt.setFalseStatement($4);
+            ifStmt.setFalseStatement(Optional.<Statement>of($4));
         }
         $$ = stmt;
     }
@@ -3581,14 +3579,15 @@ stmt:
     {
         $$ = Statements.makeErrorStmt();
     }
-    | FOR LPAREN xexpr SEMICOLON
+    | FOR LPAREN xexpr[einit] SEMICOLON
     {
         pstate.stmtCount++;
     }
-      xexpr SEMICOLON xexpr RPAREN labeled_stmt
+      xexpr[econdition] SEMICOLON xexpr[eincrement] RPAREN labeled_stmt
     {
         /* NOTICE: xexpr may be null. */
-        final ForStmt stmt = new ForStmt($1.getLocation(), $3, $6, $8, $10);
+        final ForStmt stmt = new ForStmt($1.getLocation(), Optional.of($einit), Optional.of($econdition),
+                Optional.of($eincrement), $labeled_stmt);
         stmt.setEndLocation($10.getEndLocation());
         $$ = stmt;
     }
