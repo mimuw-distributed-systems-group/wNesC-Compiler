@@ -828,7 +828,7 @@ public final class TypesAnalysis {
         /**
          * Types of the parameters that are resolved.
          */
-        private final List<Type> types = new ArrayList<>();
+        private final List<Optional<Type>> types = new ArrayList<>();
 
         /**
          * <code>true</code> if and only if ellipsis has been encountered.
@@ -866,10 +866,9 @@ public final class TypesAnalysis {
 
             if (!curArgType.isPresent()) {
                 typeError = true;
-                return null;
             }
 
-            types.add(curArgType.get());
+            types.add(curArgType);
             return null;
         }
 

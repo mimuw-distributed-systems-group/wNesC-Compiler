@@ -4,6 +4,7 @@ import com.google.common.base.Optional;
 import org.junit.Before;
 import org.junit.Test;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.VariableDeclaration;
 
@@ -28,8 +29,8 @@ public class DefaultSymbolTableTest {
     @Before
     public void setUp() throws Exception {
         objectTable = new DefaultSymbolTable<>();
-        variableA = new VariableDeclaration(VAR_A, LOCATION_10_15);
-        variableB = new VariableDeclaration(VAR_B, LOCATION_11_12);
+        variableA = new VariableDeclaration(VAR_A, LOCATION_10_15, Optional.<Type>absent());
+        variableB = new VariableDeclaration(VAR_B, LOCATION_11_12, Optional.<Type>absent());
     }
 
     @Test
@@ -54,7 +55,7 @@ public class DefaultSymbolTableTest {
     @Test
     public void tryToRedeclare() {
         assertThat(objectTable.add(VAR_A, variableA)).isTrue();
-        final ObjectDeclaration newVariableA = new VariableDeclaration(VAR_A, LOCATION_11_12);
+        final ObjectDeclaration newVariableA = new VariableDeclaration(VAR_A, LOCATION_11_12, Optional.<Type>absent());
         assertThat(objectTable.add(VAR_A, newVariableA)).isFalse();
     }
 
@@ -62,7 +63,7 @@ public class DefaultSymbolTableTest {
     public void shadow() {
         assertThat(objectTable.add(VAR_A, variableA)).isTrue();
         final SymbolTable<ObjectDeclaration> enclosedObjectTable = new DefaultSymbolTable<>(Optional.of(objectTable));
-        final ObjectDeclaration newVariableA = new VariableDeclaration(VAR_A, LOCATION_11_12);
+        final ObjectDeclaration newVariableA = new VariableDeclaration(VAR_A, LOCATION_11_12, Optional.<Type>absent());
 
         assertThat(enclosedObjectTable.add(VAR_A, newVariableA)).isTrue();
         assertThat(enclosedObjectTable.contains(VAR_A)).isTrue();

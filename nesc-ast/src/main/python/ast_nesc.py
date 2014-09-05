@@ -78,7 +78,7 @@ class Expression(BasicASTNode):
     <p>A common superclass of all expressions.</p>
     """
     superclass = Node
-    type = ReferenceField("Type", constructor_variable=False, visitable=False)
+    type = ReferenceField("Type", optional=True, constructor_variable=False)
     # FIXME: the fields below are borrowed from ncc, but they are propably not required in our implementation.
     # LVALUE is true if this expression can be used in a context requiring an
     # lvalue.
@@ -165,7 +165,7 @@ class DataDecl(BasicASTNode):
     modifiers = ReferenceListField("TypeElement")
     declarations = ReferenceListField("Declaration")
     # FIXME: type?
-    type = ReferenceField("Type", optional=True, constructor_variable=False, visitable=False)
+    type = ReferenceField("Type", optional=True, constructor_variable=False)
 
 
 class ExtensionDecl(BasicASTNode):
@@ -256,7 +256,7 @@ class VariableDecl(BasicASTNode):
     initializer = ReferenceField("Expression", constructor_variable=False, optional=True)
     asmStmt = ReferenceField("AsmStmt", optional=True)
     declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False)
-    type = ReferenceField("Type", optional=True, constructor_variable=False, visitable=False)
+    type = ReferenceField("Type", optional=True, constructor_variable=False)
     forward = BoolField(constructor_variable=False, visitable=False)
 
 
@@ -280,7 +280,7 @@ class AstType(BasicASTNode):
     superclass = Node
     declarator = ReferenceField("Declarator")
     qualifiers = ReferenceListField("TypeElement")
-    type = ReferenceField("Type", constructor_variable=False)
+    type = ReferenceField("Type", optional=True, constructor_variable=False)
 
 
 # typedef-type with declaration DDECL. The name is ddecl->name.

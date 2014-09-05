@@ -4,6 +4,8 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.ast.type.TypeDefinitionType;
 import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
 import pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astbuilding.TypeElementUtils;
@@ -21,6 +23,7 @@ import pl.edu.mimuw.nesc.token.Token;
 import java.util.LinkedList;
 
 import static java.lang.String.format;
+import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveType;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
 
@@ -49,7 +52,7 @@ public final class NescDeclarations extends AstBuildingBase {
         final TypeParmDecl decl = new TypeParmDecl(startLocation, name, attributes);
         decl.setEndLocation(endLocation);
 
-        final TypenameDeclaration symbol = new TypenameDeclaration(name, startLocation);
+        final TypenameDeclaration symbol = new TypenameDeclaration(name, startLocation, Optional.<Type>absent());
         if (!environment.getObjects().add(name, symbol)) {
             errorHelper.error(startLocation, Optional.of(endLocation),
                     format("duplicate parameter name '%s' in parameter list", name));
@@ -117,15 +120,18 @@ public final class NescDeclarations extends AstBuildingBase {
                 Optional.<AsmStmt>absent());
         variableDecl.setInitializer(Optional.<Expression>absent());
         variableDecl.setEndLocation(endLocation);
+        variableDecl.setType(resolveType(environment, elements, declarator,
+                errorHelper, startLocation, endLocation));
 
         if (declarator.isPresent()) {
             final boolean isTypedef = TypeElementUtils.isTypedef(elements);
             final String name = DeclaratorUtils.getDeclaratorName(declarator.get());
             final ObjectDeclaration declaration;
             if (isTypedef) {
-                declaration = new TypenameDeclaration(name, startLocation);
+                declaration = new TypenameDeclaration(name, startLocation, variableDecl.getType());
+                variableDecl.setType(Optional.of((Type) TypeDefinitionType.getInstance()));
             } else {
-                declaration = new VariableDeclaration(name, startLocation);
+                declaration = new VariableDeclaration(name, startLocation, variableDecl.getType());
             }
             if (!environment.getObjects().add(name, declaration)) {
                 errorHelper.error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", name));

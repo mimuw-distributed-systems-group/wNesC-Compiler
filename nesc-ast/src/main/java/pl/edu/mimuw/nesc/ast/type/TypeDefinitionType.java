@@ -1,11 +1,31 @@
 package pl.edu.mimuw.nesc.ast.type;
 
 /**
- * Artificial base type for NesC objects: interfaces and components.
+ * An artificial type of type definitions, e.g.
+ * <code>typedef unsigned long long size_t;</code>.
+ *
+ * It follows the Singleton design pattern.
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public abstract class NescType implements Type {
+public final class TypeDefinitionType implements Type {
+    /**
+     * The only instance of this class.
+     */
+    private static final TypeDefinitionType instance = new TypeDefinitionType();
+
+    /**
+     * @return The only instance of this class.
+     */
+    public static TypeDefinitionType getInstance() {
+        return instance;
+    }
+
+    /**
+     * Private constructor for the Singleton design pattern.
+     */
+    private TypeDefinitionType() {}
+
     @Override
     public final boolean isArithmetic() {
         return false;
@@ -58,7 +78,7 @@ public abstract class NescType implements Type {
 
     @Override
     public final boolean isTypeDefinition() {
-        return false;
+        return true;
     }
 
     @Override
@@ -72,9 +92,7 @@ public abstract class NescType implements Type {
     }
 
     @Override
-    public final String toString() {
-        final PrintVisitor visitor = new PrintVisitor();
-        accept(visitor, false);
-        return visitor.get();
+    public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
+        return visitor.visit(this, arg);
     }
 }

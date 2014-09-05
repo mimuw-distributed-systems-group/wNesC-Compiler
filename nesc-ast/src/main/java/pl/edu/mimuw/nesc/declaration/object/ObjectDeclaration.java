@@ -1,7 +1,9 @@
 package pl.edu.mimuw.nesc.declaration.object;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 
 /**
@@ -24,15 +26,27 @@ import pl.edu.mimuw.nesc.declaration.Declaration;
 public abstract class ObjectDeclaration extends Declaration {
 
     protected final String name;
-    // TODO type (mutable)
 
-    protected ObjectDeclaration(String name, Location location) {
+    /**
+     * Type of the object that this declaration represents. It may not be
+     * present, e.g. when the type given in the corresponding declaration has
+     * been invalid. Artificial types are created for objects other than
+     * variables and functions.
+     */
+    protected final Optional<Type> type;
+
+    protected ObjectDeclaration(String name, Location location, Optional<Type> type) {
         super(location);
         this.name = name;
+        this.type = type;
     }
 
     public String getName() {
         return name;
+    }
+
+    public Optional<Type> getType() {
+        return type;
     }
 
     @Override

@@ -25,6 +25,7 @@ public interface TypeVisitor<R, A> {
     R visit(ShortType type, A arg);
     R visit(SignedCharType type, A arg);
     R visit(StructureType type, A arg);
+    R visit(TypeDefinitionType type, A arg);
     R visit(UnionType type, A arg);
     R visit(UnsignedCharType type, A arg);
     R visit(UnsignedIntType type, A arg);

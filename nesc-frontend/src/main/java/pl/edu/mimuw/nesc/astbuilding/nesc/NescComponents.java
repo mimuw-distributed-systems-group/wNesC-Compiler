@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
 import pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils;
 import pl.edu.mimuw.nesc.declaration.nesc.ConfigurationDeclaration;
@@ -18,7 +19,9 @@ import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.token.Token;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.List;
 
 import static java.lang.String.format;
 import static pl.edu.mimuw.nesc.ast.AstUtils.makeWord;
@@ -147,7 +150,20 @@ public final class NescComponents extends AstBuildingBase {
             refEndLocation = ifaceRef.getName().getEndLocation();
         }
 
-        final InterfaceRefDeclaration declaration = new InterfaceRefDeclaration(refName, ifaceName, refLocation);
+        List<Optional<Type>> resolvedParams = null;
+        if (ifaceRef.getArguments().isPresent()) {
+            resolvedParams = new ArrayList<>();
+            for (Expression expr : ifaceRef.getArguments().get()) {
+                if (!(expr instanceof TypeArgument)) {
+                    throw new RuntimeException(format("unexpected class '%s' as a type argument in interface reference", expr.getClass().getCanonicalName()));
+                }
+                resolvedParams.add(expr.getType());
+            }
+        }
+        final Optional<List<Optional<Type>>> maybeParams = Optional.fromNullable(resolvedParams);
+
+        final InterfaceRefDeclaration declaration = new InterfaceRefDeclaration(refName,
+                ifaceName, refLocation, maybeParams);
         declaration.setAstInterfaceRef(ifaceRef);
         if (!environment.getObjects().add(refName, declaration)) {
             errorHelper.error(refLocation, Optional.of(refEndLocation), format("redefinition of '%s'", refName));

@@ -98,6 +98,12 @@ public interface Type {
     boolean isFieldTagType();
 
     /**
+     * @return <code>true</code> if and only if this type is the type definition
+     *         type. If so, it can be casted to a proper class without error.
+     */
+    boolean isTypeDefinition();
+
+    /**
      * @return <code>true</code> if and only if this type is const-qualified,
      *         e.g. <code>const int</code>.
      */

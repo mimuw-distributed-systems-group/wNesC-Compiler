@@ -33,6 +33,7 @@ final class PrintVisitor implements TypeVisitor<Void, Boolean> {
     private static final String TYPE_DOUBLE = "double";
     private static final String TYPE_LONG_DOUBLE = "long double";
     private static final String TYPE_VOID = "void";
+    private static final String TYPE_ERROR = "<error>";
     private static final String TAG_ENUMERATED_TYPE = "enum";
     private static final String TAG_STRUCTURE = "struct";
     private static final String TAG_UNION = "union";
@@ -40,6 +41,7 @@ final class PrintVisitor implements TypeVisitor<Void, Boolean> {
     private static final String TAG_EXTERNAL_UNION = "nx_union";
     private static final String NESC_INTERFACE = "interface";
     private static final String NESC_COMPONENT = "component";
+    private static final String TYPE_DEFINITION = "typename";
     private static final char SYMBOL_ASTERISK = '*';
     private static final char SYMBOL_LBRACKET = '[';
     private static final char SYMBOL_RBRACKET = ']';
@@ -132,7 +134,7 @@ final class PrintVisitor implements TypeVisitor<Void, Boolean> {
         builder.append(' ');
         builder.append(type.getInterfaceName());
 
-        final Optional<List<Type>> maybeTypeParams = type.getTypeParameters();
+        final Optional<List<Optional<Type>>> maybeTypeParams = type.getTypeParameters();
         if (maybeTypeParams.isPresent()) {
             builder.append(SYMBOL_LANGLE);
             appendTypesList(maybeTypeParams.get(), false);
@@ -191,6 +193,12 @@ final class PrintVisitor implements TypeVisitor<Void, Boolean> {
     }
 
     @Override
+    public Void visit(TypeDefinitionType type, Boolean pointerTo) {
+        prepend(TYPE_DEFINITION);
+        return null;
+    }
+
+    @Override
     public Void visit(UnionType type, Boolean pointerTo) {
         return prependTypename(getTagTypename(TAG_UNION, type.getDeclaration()), type);
     }
@@ -244,16 +252,19 @@ final class PrintVisitor implements TypeVisitor<Void, Boolean> {
         return null;
     }
 
-    private void appendTypesList(List<Type> types, boolean ellipsisPresent) {
+    private void appendTypesList(List<Optional<Type>> types, boolean ellipsisPresent) {
         boolean first = true;
 
-        for (Type type : types) {
+        for (Optional<Type> type : types) {
             if (!first) {
                 builder.append(", ");
             }
 
             first = false;
-            builder.append(type.toString());
+            final String toAppend =    type.isPresent()
+                                     ? type.get().toString()
+                                     : TYPE_ERROR;
+            builder.append(toAppend);
         }
 
         if (ellipsisPresent) {

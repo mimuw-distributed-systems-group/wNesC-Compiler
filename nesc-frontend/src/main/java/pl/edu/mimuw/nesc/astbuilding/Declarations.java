@@ -7,6 +7,7 @@ import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.ast.type.TypeDefinitionType;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.environment.Environment;
@@ -176,8 +177,11 @@ public final class Declarations extends AstBuildingBase {
                                                 LinkedList<Attribute> attributes, boolean isNested) {
         final FunctionDecl functionDecl = new FunctionDecl(startLocation, declarator, modifiers, attributes,
                 null, isNested);
+        final Optional<Type> maybeType = resolveType(environment, modifiers, Optional.of(declarator),
+                errorHelper, startLocation, declarator.getEndLocation());
 
-        final StartFunctionVisitor startVisitor = new StartFunctionVisitor(environment, functionDecl, modifiers);
+        final StartFunctionVisitor startVisitor = new StartFunctionVisitor(environment,
+                functionDecl, modifiers, maybeType);
         try {
             declarator.accept(startVisitor, null);
         } catch (RuntimeException e) {
@@ -235,7 +239,8 @@ public final class Declarations extends AstBuildingBase {
         if (declarator.isPresent()) {
             final String name = getDeclaratorName(declarator.get());
             if (name != null) {
-                final VariableDeclaration symbol = new VariableDeclaration(name, declarator.get().getLocation());
+                final VariableDeclaration symbol = new VariableDeclaration(name, declarator.get().getLocation(),
+                        variableDecl.getType());
                 if (!environment.getObjects().add(name, symbol)) {
                     errorHelper.error(declarator.get().getLocation(), Optional.of(declarator.get().getEndLocation()),
                             format("redeclaration of '%s'", name));
@@ -349,6 +354,11 @@ public final class Declarations extends AstBuildingBase {
         }
         final AstType type = new AstType(startLocation, declarator.orNull(), elements);
         type.setEndLocation(endLocation);
+
+        // Resolve the type
+        type.setType(resolveType(environment, elements, declarator, errorHelper,
+                                 startLocation, endLocation));
+
         return type;
     }
 
@@ -426,12 +436,14 @@ public final class Declarations extends AstBuildingBase {
         private final Environment environment;
         private final FunctionDecl functionDecl;
         private final LinkedList<TypeElement> modifiers;
+        private final Optional<Type> maybeType;
 
         public StartFunctionVisitor(Environment environment, FunctionDecl functionDecl,
-                                    LinkedList<TypeElement> modifiers) {
+                                    LinkedList<TypeElement> modifiers, Optional<Type> maybeType) {
             this.environment = environment;
             this.functionDecl = functionDecl;
             this.modifiers = modifiers;
+            this.maybeType = maybeType;
         }
 
         @Override
@@ -476,7 +488,7 @@ public final class Declarations extends AstBuildingBase {
             /* Check previous declaration. */
             final Optional<? extends ObjectDeclaration> previousDeclarationOpt = environment.getObjects().get(name);
             if (!previousDeclarationOpt.isPresent()) {
-                functionDeclaration = new FunctionDeclaration(name, startLocation);
+                functionDeclaration = new FunctionDeclaration(name, startLocation, maybeType);
                 define(functionDeclaration, funDeclarator);
             } else {
                 final ObjectDeclaration previousDeclaration = previousDeclarationOpt.get();
@@ -487,7 +499,7 @@ public final class Declarations extends AstBuildingBase {
 
                     /* Nevertheless, create declaration, put it into ast node
                      * but not into environment. */
-                    functionDeclaration = new FunctionDeclaration(name, startLocation);
+                    functionDeclaration = new FunctionDeclaration(name, startLocation, maybeType);
                 }
                 /* Previous declaration is a function declaration or
                  * definition. */
@@ -501,7 +513,7 @@ public final class Declarations extends AstBuildingBase {
                         /* Function redefinition is forbidden. */
                         Declarations.this.errorHelper.error(funDeclarator.getLocation(), funDeclarator.getEndLocation(),
                                 format("redefinition of '%s'", name));
-                        functionDeclaration = new FunctionDeclaration(name, startLocation);
+                        functionDeclaration = new FunctionDeclaration(name, startLocation, maybeType);
                     }
 
                     // TODO: check if types match in declarations
@@ -522,7 +534,8 @@ public final class Declarations extends AstBuildingBase {
             if (innerDeclarator instanceof IdentifierDeclarator) {
                 final IdentifierDeclarator idDeclarator = (IdentifierDeclarator) innerDeclarator;
                 final String callableName = idDeclarator.getName();
-                final FunctionDeclaration declaration = new FunctionDeclaration(callableName, startLocation, ifaceName);
+                final FunctionDeclaration declaration = new FunctionDeclaration(callableName,
+                        startLocation, ifaceName, maybeType);
                 declaration.setAstFunctionDeclarator(funDeclarator);
                 define(declaration, funDeclarator);
                 declaration.setDefined(true);
@@ -574,7 +587,8 @@ public final class Declarations extends AstBuildingBase {
              */
             final Optional<? extends ObjectDeclaration> previousDeclarationOpt = environment.getObjects().get(name);
             if (!previousDeclarationOpt.isPresent()) {
-                functionDeclaration = new FunctionDeclaration(name, funDeclarator.getLocation());
+                functionDeclaration = new FunctionDeclaration(name, funDeclarator.getLocation(),
+                        variableDecl.getType());
                 declare(functionDeclaration, funDeclarator);
             } else {
                 final ObjectDeclaration previousDeclaration = previousDeclarationOpt.get();
@@ -585,7 +599,8 @@ public final class Declarations extends AstBuildingBase {
 
                     /* Nevertheless, create declaration, put it into ast node
                      * but not into environment. */
-                    functionDeclaration = new FunctionDeclaration(name, funDeclarator.getLocation());
+                    functionDeclaration = new FunctionDeclaration(name, funDeclarator.getLocation(),
+                            variableDecl.getType());
                 }
                 /* Previous declaration is a function declaration or
                  * definition. */
@@ -634,9 +649,10 @@ public final class Declarations extends AstBuildingBase {
             final boolean isTypedef = TypeElementUtils.isTypedef(elements);
             final ObjectDeclaration declaration;
             if (isTypedef) {
-                declaration = new TypenameDeclaration(name, startLocation);
+                declaration = new TypenameDeclaration(name, startLocation, variableDecl.getType());
+                variableDecl.setType(Optional.of((Type) TypeDefinitionType.getInstance()));
             } else {
-                declaration = new VariableDeclaration(name, startLocation);
+                declaration = new VariableDeclaration(name, startLocation, variableDecl.getType());
             }
             declare(declaration, declarator);
             variableDecl.setDeclaration(declaration);

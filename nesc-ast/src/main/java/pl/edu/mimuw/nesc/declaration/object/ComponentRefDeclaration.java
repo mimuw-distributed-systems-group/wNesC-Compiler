@@ -4,6 +4,8 @@ import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.ComponentRef;
 import pl.edu.mimuw.nesc.ast.gen.Word;
+import pl.edu.mimuw.nesc.ast.type.ComponentType;
+import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.declaration.nesc.NescDeclaration;
 
 /**
@@ -23,7 +25,7 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
     private Optional<? extends NescDeclaration> componentDeclaration;
 
     public ComponentRefDeclaration(String name, Word componentName, Location location) {
-        super(name, location);
+        super(name, location, Optional.of((Type) new ComponentType(componentName.getName())));
         this.componentName = componentName;
     }
 

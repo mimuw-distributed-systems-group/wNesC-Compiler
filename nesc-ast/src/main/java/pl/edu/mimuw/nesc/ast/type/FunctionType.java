@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.ast.type;
 
+import com.google.common.base.Optional;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -23,7 +25,7 @@ public final class FunctionType extends DerivedType {
      * Types of arguments that a function of this function type must be given.
      * Never null and all of the elements of the array also never null.
      */
-    private final List<Type> argumentsTypes;
+    private final List<Optional<Type>> argumentsTypes;
 
     /**
      * <code>true</code> if and only if a function of this type takes variable
@@ -38,14 +40,14 @@ public final class FunctionType extends DerivedType {
      * @throws IllegalArgumentException One of the elements of the given list is
      *                                  null.
      */
-    public FunctionType(Type returnType, List<Type> argumentsTypes,
+    public FunctionType(Type returnType, List<Optional<Type>> argumentsTypes,
                         boolean variableArguments) {
         super(false, false);
 
         // Validate the arguments
         checkNotNull(returnType, "return type cannot be null");
         checkNotNull(argumentsTypes, "arguments types cannot be null");
-        for (Type type : argumentsTypes) {
+        for (Optional<Type> type : argumentsTypes) {
             checkArgument(type != null, "a type of an argument of a function type cannot be null");
         }
 
@@ -67,7 +69,7 @@ public final class FunctionType extends DerivedType {
      * @return Unmodifiable list with types of arguments that a function of this
      *         type takes.
      */
-    public final List<Type> getArgumentsTypes() {
+    public final List<Optional<Type>> getArgumentsTypes() {
         return argumentsTypes;
     }
 

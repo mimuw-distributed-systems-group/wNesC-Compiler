@@ -26,6 +26,11 @@ public abstract class AbstractType implements Type {
     }
 
     @Override
+    public final boolean isTypeDefinition() {
+        return false;
+    }
+
+    @Override
     public final boolean isConstQualified() {
         return constQualified;
     }

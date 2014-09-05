@@ -3,7 +3,11 @@ package pl.edu.mimuw.nesc.declaration.object;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.InterfaceRef;
+import pl.edu.mimuw.nesc.ast.type.InterfaceType;
+import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.declaration.nesc.InterfaceDeclaration;
+
+import java.util.List;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -20,8 +24,9 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
 
     private boolean provides;
 
-    public InterfaceRefDeclaration(String name, String ifaceName, Location location) {
-        super(name, location);
+    public InterfaceRefDeclaration(String name, String ifaceName, Location location,
+                                   Optional<List<Optional<Type>>> typeArguments) {
+        super(name, location, Optional.of((Type) new InterfaceType(ifaceName, typeArguments)));
         this.ifaceName = ifaceName;
     }
 

@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.declaration.object;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDeclarator;
+import pl.edu.mimuw.nesc.ast.type.Type;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -29,12 +30,12 @@ public class FunctionDeclaration extends ObjectDeclaration {
      */
     private boolean isDefined;
 
-    public FunctionDeclaration(String functionName, Location location) {
-        this(functionName, location, null);
+    public FunctionDeclaration(String functionName, Location location, Optional<Type> type) {
+        this(functionName, location, null, type);
     }
 
-    public FunctionDeclaration(String name, Location location, String ifaceName) {
-        super(name, location);
+    public FunctionDeclaration(String name, Location location, String ifaceName, Optional<Type> type) {
+        super(name, location, type);
         this.ifaceName = Optional.fromNullable(ifaceName);
         this.isDefined = false;
     }

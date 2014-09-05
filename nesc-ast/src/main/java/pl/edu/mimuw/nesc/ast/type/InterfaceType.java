@@ -26,7 +26,7 @@ public final class InterfaceType extends NescType {
      * Type arguments for the interface that form this type. If present, the
      * list should be at least one parameter long.
      */
-    private final Optional<List<Type>> maybeTypeArguments;
+    private final Optional<List<Optional<Type>>> maybeTypeArguments;
 
     /**
      * Initializes this interface type with given parameters.
@@ -36,13 +36,13 @@ public final class InterfaceType extends NescType {
      *                                 string or <code>maybeTypeArguments</code>
      *                                 contains a list with an empty element.
      */
-    public InterfaceType(String interfaceName, Optional<List<Type>> maybeTypeArguments) {
+    public InterfaceType(String interfaceName, Optional<List<Optional<Type>>> maybeTypeArguments) {
         // Validate arguments
         checkNotNull(interfaceName, "interface name cannot be null");
         checkNotNull(maybeTypeArguments, "type arguments cannot be null");
         checkArgument(!interfaceName.isEmpty(), "interface name cannot be an empty string");
         if (maybeTypeArguments.isPresent()) {
-            for (Type type : maybeTypeArguments.get()) {
+            for (Optional<Type> type : maybeTypeArguments.get()) {
                 checkArgument(type != null, "a type argument for an interface cannot be null");
             }
         }
@@ -52,7 +52,7 @@ public final class InterfaceType extends NescType {
         this.maybeTypeArguments =
                   maybeTypeArguments.isPresent()
                 ? Optional.of(Collections.unmodifiableList(new ArrayList<>(maybeTypeArguments.get())))
-                : Optional.<List<Type>>absent();
+                : Optional.<List<Optional<Type>>>absent();
     }
 
     /**
@@ -68,7 +68,7 @@ public final class InterfaceType extends NescType {
      *         is present if and only if this type is a type of a generic
      *         interface.
      */
-    public final Optional<List<Type>> getTypeParameters() {
+    public final Optional<List<Optional<Type>>> getTypeParameters() {
         return maybeTypeArguments;
     }
 
