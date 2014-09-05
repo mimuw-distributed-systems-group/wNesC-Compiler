@@ -716,7 +716,9 @@ public final class TypesAnalysis {
                 final QualifiedDeclarator qualified = (QualifiedDeclarator) nextDeclarator;
 
                 for (TypeElement typeElement : qualified.getModifiers()) {
-                    if (!(typeElement instanceof Qualifier)) {
+                    if (typeElement instanceof Attribute) {
+                        continue;
+                    } else if (!(typeElement instanceof Qualifier)) {
                         throw new RuntimeException(format("unexpected type element of class '%s' in a pointer declarator",
                                 typeElement.getClass().getCanonicalName()));
                     }
