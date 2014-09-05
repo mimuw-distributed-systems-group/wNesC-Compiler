@@ -271,7 +271,25 @@ public final class TagsAnalysis {
 
         @Override
         public Void visitAttributeRef(AttributeRef attrRef, Void v) {
-            // TODO
+            checkState(attrRef.getIsDefined(), "attribute reference that is not definition of an attribute");
+            checkState(attrRef.getName() != null, "name of an attribute in its definition is null");
+
+            if (!isStandalone) {
+                errorHelper.error(attrRef.getLocation(), attrRef.getEndLocation(),
+                        "Cannot use an attribute definition as a type");
+            }
+
+            // Get fields of the attribute definition
+            FieldTagDefinitionVisitor visitor = new FieldTagDefinitionVisitor(errorHelper);
+            for (Declaration declaration : attrRef.getFields()) {
+                declaration.accept(visitor, null);
+            }
+
+            // Create the object that represents the attribute and define it
+            final AttributeDeclaration attrDeclaration = new AttributeDeclaration(attrRef.getName().getName(),
+                    attrRef.getLocation(), attrRef, visitor.fields);
+            define(attrDeclaration, attrRef);
+
             return null;
         }
 

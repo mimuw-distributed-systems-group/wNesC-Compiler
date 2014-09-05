@@ -303,7 +303,9 @@ public final class TypesAnalysis {
                 return Optional.absent();
             }
 
-            if (!typeSpecifiers.isEmpty()) {
+            if (tagReference instanceof AttributeRef) {
+                return Optional.absent();
+            } else if (!typeSpecifiers.isEmpty()) {
                 return finishFundamentalType();
             } else if (tagAccepted()) {
                 return finishTagType();
@@ -466,6 +468,7 @@ public final class TypesAnalysis {
 
         @Override
         public Void visitAttributeRef(AttributeRef attrRef, Void v) {
+            acceptTag(attrRef);
             return null;
         }
 
@@ -500,24 +503,24 @@ public final class TypesAnalysis {
         }
 
         private void processRID(RID rid, Location startLoc, Location endLoc) {
-            String warnMsg = null;
-            String errMsg = null;
+            Optional<String> warnMsg = Optional.absent();
+            Optional<String> errMsg = Optional.absent();
 
             switch (rid) {
                 case CONST:
                     if (isConstQualified) {
-                        warnMsg = format(FMT_WARN_QUALIFIER, rid.getName());
+                        warnMsg = Optional.of(format(FMT_WARN_QUALIFIER, rid.getName()));
                     }
                     isConstQualified = true;
                     break;
                 case VOLATILE:
                     if (isVolatileQualified) {
-                        warnMsg = format(FMT_WARN_QUALIFIER, rid.getName());
+                        warnMsg = Optional.of(format(FMT_WARN_QUALIFIER, rid.getName()));
                     }
                     isVolatileQualified = true;
                     break;
                 case RESTRICT:
-                    warnMsg = format(FMT_WARN_RESTRICT, rid.getName());
+                    warnMsg = Optional.of(format(FMT_WARN_RESTRICT, rid.getName()));
                     break;
                 default:
                     if (!TYPE_SPECIFIERS.contains(rid)) {
@@ -525,39 +528,39 @@ public final class TypesAnalysis {
                     }
                     updateLocations(startLoc, endLoc);
                     if (tagAccepted()) {
-                        errMsg = format(FMT_ERR_TAG, rid.getName());
+                        errMsg = Optional.of(format(FMT_ERR_TAG, rid.getName()));
                     } else if (rid != RID.LONG && typeSpecifiers.contains(rid)) {
-                        errMsg = format(FMT_ERR_SPECIFIER, rid.getName());
+                        errMsg = Optional.of(format(FMT_ERR_SPECIFIER, rid.getName()));
                     } else if (rid == RID.LONG && typeSpecifiers.count(rid) >= MAX_LONG_COUNT) {
-                        errMsg = format(FMT_ERR_LONG, rid.getName());
+                        errMsg = Optional.of(format(FMT_ERR_LONG, rid.getName()));
                     } else {
                         typeSpecifiers.add(rid);
                     }
                     break;
             }
 
-            if (errMsg != null) {
+            if (errMsg.isPresent()) {
                 typeError = true;
-                errorHelper.error(startLoc, endLoc, errMsg);
+                errorHelper.error(startLoc, endLoc, errMsg.get());
             }
-            if (warnMsg != null) {
-                errorHelper.warning(startLoc, Optional.of(endLoc), warnMsg);
+            if (warnMsg.isPresent()) {
+                errorHelper.warning(startLoc, Optional.of(endLoc), warnMsg.get());
             }
         }
 
         private void acceptTag(TagRef tagRef) {
             updateLocations(tagRef.getLocation(), tagRef.getEndLocation());
-            String errMsg = null;
+            Optional<String> errMsg = Optional.absent();
 
             if (tagAccepted()) {
-                errMsg = FMT_ERR_MULTIPLE_TAGS;
+                errMsg = Optional.of(FMT_ERR_MULTIPLE_TAGS);
             } else if (!typeSpecifiers.isEmpty()) {
-                errMsg = FMT_ERR_TAG_CONFLICT;
+                errMsg = Optional.of(FMT_ERR_TAG_CONFLICT);
             }
 
-            if (errMsg != null) {
+            if (errMsg.isPresent()) {
                 typeError = true;
-                errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(), errMsg);
+                errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(), errMsg.get());
                 return;
             }
 

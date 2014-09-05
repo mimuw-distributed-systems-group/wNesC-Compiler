@@ -1,16 +1,24 @@
 package pl.edu.mimuw.nesc.declaration.tag;
 
 import com.google.common.base.Optional;
+import java.util.List;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.gen.AttributeRef;
 import pl.edu.mimuw.nesc.ast.type.Type;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public class AttributeDeclaration extends TagDeclaration {
+public class AttributeDeclaration extends FieldTagDeclaration<AttributeRef> {
 
-    public AttributeDeclaration(Optional<String> name, Location location) {
-        super(name, location, true);
+    /**
+     * Constructor for an attribute definition. Declarations of attributes that
+     * are not definitions are forbidden.
+     */
+    public AttributeDeclaration(String name, Location location, AttributeRef astRef,
+            List<FieldDeclaration> fields) {
+        super(Optional.of(name), location, true, astRef, false, Optional.of(fields));
     }
 
     @Override

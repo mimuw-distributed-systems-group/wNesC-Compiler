@@ -14,7 +14,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * This class represents tags that contain fields. The only such tags are
- * structures and unions. One of their features is that they can be external.
+ * structures, unions and attributes. One of their features is that they can be
+ * external (except for attributes).
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
