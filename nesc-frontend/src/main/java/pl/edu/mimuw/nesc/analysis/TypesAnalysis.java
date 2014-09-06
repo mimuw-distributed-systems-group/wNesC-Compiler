@@ -801,7 +801,7 @@ public final class TypesAnalysis {
             typeError = typeError || paramsVisitor.typeError;
             accumulatedType = new FunctionType(accumulatedType, paramsVisitor.types,
                     paramsVisitor.variableArguments);
-            jump(ignoreQualifiers(declarator.getDeclarator().get()));
+            jump(ignoreQualifiers(declarator.getDeclarator()));
             return null;
         }
 
@@ -811,20 +811,14 @@ public final class TypesAnalysis {
             }
         }
 
-        private void jump(Declarator next) {
-            next.accept(this, null);
-        }
-
         private PointerTypeQualifiers processPointerQualifiers(PointerDeclarator startDeclarator) {
             boolean isConstQualified = false,
                     isVolatileQualified = false,
                     isRestrictQualified = false;
-            // FIXME: the inner declarator of the PointerDeclarator CAN be null
-            // in one case, but currently I'm not able to produce any example.
-            Declarator nextDeclarator = startDeclarator.getDeclarator().get();
+            Optional<Declarator> nextDeclarator = startDeclarator.getDeclarator();
 
-            while (nextDeclarator instanceof QualifiedDeclarator) {
-                final QualifiedDeclarator qualified = (QualifiedDeclarator) nextDeclarator;
+            while (nextDeclarator.isPresent() && nextDeclarator.get() instanceof QualifiedDeclarator) {
+                final QualifiedDeclarator qualified = (QualifiedDeclarator) nextDeclarator.get();
 
                 for (TypeElement typeElement : qualified.getModifiers()) {
                     if (typeElement instanceof Attribute) {
@@ -862,21 +856,16 @@ public final class TypesAnalysis {
                     }
                 }
 
-                if (qualified.getDeclarator().isPresent()) {
-                    nextDeclarator = qualified.getDeclarator().get();
-                } else {
-                    // FIXME do not know exactly what you have planned to do.
-                    break;
-                }
+                nextDeclarator = qualified.getDeclarator();
             }
 
             return new PointerTypeQualifiers(isConstQualified, isVolatileQualified,
                     isRestrictQualified, nextDeclarator);
         }
 
-        private Declarator ignoreQualifiers(Declarator declarator) {
-            while (declarator instanceof QualifiedDeclarator) {
-                final QualifiedDeclarator qualified = (QualifiedDeclarator) declarator;
+        private Optional<Declarator> ignoreQualifiers(Optional<Declarator> declarator) {
+            while (declarator.isPresent() && declarator.get() instanceof QualifiedDeclarator) {
+                final QualifiedDeclarator qualified = (QualifiedDeclarator) declarator.get();
 
                 if (!qualified.getModifiers().isEmpty()) {
                     errorHelper.warning(
@@ -886,12 +875,7 @@ public final class TypesAnalysis {
                     );
                 }
 
-                if (qualified.getDeclarator().isPresent()) {
-                    declarator = qualified.getDeclarator().get();
-                } else {
-                    // FIXME do not know exactly what you have planned to do.
-                    break;
-                }
+                declarator = qualified.getDeclarator();
             }
 
             return declarator;
@@ -907,10 +891,10 @@ public final class TypesAnalysis {
             private final boolean constQualified;
             private final boolean volatileQualified;
             private final boolean restrictQualified;
-            private final Declarator nextDeclarator;
+            private final Optional<Declarator> nextDeclarator;
 
             private PointerTypeQualifiers(boolean constQualified, boolean volatileQualified,
-                    boolean restrictQualified, Declarator nextDeclarator) {
+                    boolean restrictQualified, Optional<Declarator> nextDeclarator) {
                 this.constQualified = constQualified;
                 this.volatileQualified = volatileQualified;
                 this.restrictQualified = restrictQualified;
