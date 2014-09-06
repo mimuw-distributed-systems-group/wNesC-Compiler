@@ -17,7 +17,7 @@ public class TypenameDeclaration extends ObjectDeclaration {
     private final Optional<Type> denotedType;
 
     public TypenameDeclaration(String name, Location location, Optional<Type> denotedType) {
-        super(name, location, Optional.of((Type) TypeDefinitionType.getInstance()));
+        super(name, location, Optional.<Type>of(TypeDefinitionType.getInstance()));
         this.denotedType = denotedType;
     }
 

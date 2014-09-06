@@ -13,7 +13,7 @@ import pl.edu.mimuw.nesc.ast.type.Type;
 public class ConstantDeclaration extends ObjectDeclaration {
 
     public ConstantDeclaration(String name, Location location) {
-        super(name, location, Optional.of((Type) new IntType(true, false)));
+        super(name, location, Optional.<Type>of(new IntType(true, false)));
     }
 
     @Override

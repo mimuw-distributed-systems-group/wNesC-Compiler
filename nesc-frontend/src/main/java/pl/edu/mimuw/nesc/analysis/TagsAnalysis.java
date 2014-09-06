@@ -493,11 +493,22 @@ public final class TagsAnalysis {
         }
 
         @Override
-        public Void visitFieldDecl(FieldDecl fieldDecl, Void maybeBaseType) {
+        public Void visitFieldDecl(FieldDecl fieldDecl, Void v) {
             final FieldDeclaration fieldDeclaration = fieldDecl.getDeclaration();
             checkState(fieldDeclaration != null, "a FieldDecl object is not " +
                        "associated with its FieldDeclaration object");
             appendField(fieldDeclaration);
+            return null;
+        }
+
+        @Override
+        public Void visitExtensionDecl(ExtensionDecl extDecl, Void v) {
+            extDecl.getDeclaration().accept(this, null);
+            return null;
+        }
+
+        @Override
+        public Void visitErrorDecl(ErrorDecl errorDecl, Void v) {
             return null;
         }
 

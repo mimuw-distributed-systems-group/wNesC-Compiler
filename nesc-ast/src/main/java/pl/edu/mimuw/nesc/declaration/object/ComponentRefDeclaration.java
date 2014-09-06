@@ -25,7 +25,7 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
     private Optional<? extends NescDeclaration> componentDeclaration;
 
     public ComponentRefDeclaration(String name, Word componentName, Location location) {
-        super(name, location, Optional.of((Type) new ComponentType(componentName.getName())));
+        super(name, location, Optional.<Type>of(new ComponentType(componentName.getName())));
         this.componentName = componentName;
     }
 

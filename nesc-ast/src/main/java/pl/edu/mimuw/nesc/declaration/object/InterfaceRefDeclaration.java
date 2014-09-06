@@ -26,7 +26,7 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
 
     public InterfaceRefDeclaration(String name, String ifaceName, Location location,
                                    Optional<List<Optional<Type>>> typeArguments) {
-        super(name, location, Optional.of((Type) new InterfaceType(ifaceName, typeArguments)));
+        super(name, location, Optional.<Type>of(new InterfaceType(ifaceName, typeArguments)));
         this.ifaceName = ifaceName;
     }
 

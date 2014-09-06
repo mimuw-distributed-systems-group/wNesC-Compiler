@@ -773,7 +773,7 @@ public final class TypesAnalysis {
         @Override
         public Void visitArrayDeclarator(ArrayDeclarator declarator, Void v) {
             accumulatedType = new ArrayType(accumulatedType, declarator.getSize().isPresent());
-            jump(declarator.getDeclarator());
+            jump(ignoreQualifiers(declarator.getDeclarator()));
             return null;
         }
 
