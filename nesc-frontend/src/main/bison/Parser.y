@@ -459,8 +459,8 @@ nonnull_exprlist_:
  */
 
 /*
- * NOTE:FIXME: DISPATCH_X tokens are fake. They were created to avoid
- * conflicts. The selection of particular production depends (I believe) on
+ * NOTICE: DISPATCH_X tokens are fake. They were created to avoid
+ * conflicts. The selection of a particular production depends on
  * the extension of source file (.nc, .c, etc.).
  */
 
@@ -825,11 +825,7 @@ requires_or_provides:
     |
       just_datadef
     {
-        if ($1 == null) {
-            $$ = Lists.<Declaration>newList();
-        } else {
-            $$ = Lists.<Declaration>newList($1);
-        }
+        $$ = Lists.<Declaration>newListEmptyOnNull($1);
     }
     ;
 
@@ -1156,11 +1152,12 @@ extdef:
     {
         // FIXME
         analyzeExpression(Optional.of($expr));
-        AsmStmt asmStmt = new AsmStmt(null, $3, Lists.<AsmOperand>newList(),
-                Lists.<AsmOperand>newList(), Lists.<StringAst>newList(),
-                Lists.<TypeElement>newList());
-
-        $$ = new AsmDecl(null, asmStmt);
+        final AsmStmt asmStmt = new AsmStmt($1.getLocation(), $3, Lists.<AsmOperand>newList(),
+                Lists.<AsmOperand>newList(), Lists.<StringAst>newList(), Lists.<TypeElement>newList());
+        asmStmt.setEndLocation($5.getEndLocation());
+        final AsmDecl asmDecl = new AsmDecl($1.getLocation(), asmStmt);
+        asmDecl.setEndLocation($5.getEndLocation());
+        $$ = asmDecl;
     }
     | extension extdef
     {
@@ -1209,8 +1206,10 @@ just_datadef:
     }
     | SEMICOLON
     {
-        // FIXME: null!
-        $$ = null;
+        /* Redundant semicolon after declaration. */
+        final EmptyDecl empty = new EmptyDecl($1.getLocation());
+        empty.setEndLocation($1.getEndLocation());
+        $$ = empty;
     }
     | target_def
     { $$ = $1; }
@@ -1542,11 +1541,11 @@ expr_no_commas:
     }
     | expr_no_commas QUESTION expr COLON expr_no_commas
     {
-        $$ = Expressions.makeConditional($1, $3, $5);
+        $$ = Expressions.makeConditional($1, Optional.<Expression>of($3), $5);
     }
     | expr_no_commas QUESTION COLON expr_no_commas
     {
-        $$ = Expressions.makeConditional($1, null, $4);
+        $$ = Expressions.makeConditional($1, Optional.<Expression>absent(), $4);
     }
     | expr_no_commas EQ expr_no_commas
     {
@@ -1778,11 +1777,7 @@ datadecl:
 decls:
       decl[declaration]
     {
-        if ($declaration == null) {
-            $$ = Lists.<Declaration>newList();
-        } else {
-            $$ = Lists.<Declaration>newList($declaration);
-        }
+        $$ = Lists.<Declaration>newListEmptyOnNull($declaration);
     }
     | errstmt
     { $$ = Lists.<Declaration>newList(declarations.makeErrorDecl()); }
@@ -2298,7 +2293,7 @@ type_spec_nonreserved_nonattr:
     }
     | TYPEOF LPAREN typename RPAREN
     {
-        final TypeofType typeof = new TypeofType(null, $3);
+        final TypeofType typeof = new TypeofType($1.getLocation(), $3);
         typeof.setEndLocation($4.getEndLocation());
         $$ = typeof;
     }
@@ -2336,8 +2331,10 @@ maybeasm:
     }
     | ASM_KEYWORD LPAREN string_chain RPAREN
     {
-        // FIXME AsmStms
-        $$ = new AsmStmt(null, null, null, null, null, null);
+        final AsmStmt asmStmt = new AsmStmt($1.getLocation(), $3, Lists.<AsmOperand>newList(),
+                Lists.<AsmOperand>newList(), Lists.<StringAst>newList(), Lists.<TypeElement>newList());
+                asmStmt.setEndLocation($4.getEndLocation());
+        $$ = asmStmt;
     }
     ;
 
@@ -2487,11 +2484,7 @@ attribute_list:
       attrib
     {
         /* NOTE: attrib can be null! */
-        if ($1 == null) {
-            $$ = Lists.<Attribute>newList();
-        } else {
-            $$ = Lists.<Attribute>newList($1);
-        }
+        $$ = Lists.<Attribute>newListEmptyOnNull($1);
     }
     | attribute_list COMMA attrib
     {
@@ -2508,7 +2501,7 @@ attrib:
     { $$ = null; }
     | any_word
     {
-        final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, null);
+        final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Lists.<Expression>newList());
         attribute.setEndLocation($1.getEndLocation());
         $$ = attribute;
     }
@@ -2670,11 +2663,11 @@ designator:
        so don't include these productions in the Objective-C grammar.  */
     | LBRACK expr_no_commas ELLIPSIS expr_no_commas RBRACK
     {
-        $$ = Initializers.setInitIndex($1.getLocation(), $5.getEndLocation(), $2, $4);
+        $$ = Initializers.setInitIndex($1.getLocation(), $5.getEndLocation(), $2, Optional.<Expression>of($4));
     }
     | LBRACK expr_no_commas RBRACK
     {
-        $$ = Initializers.setInitIndex($1.getLocation(), $3.getEndLocation(), $2, null);
+        $$ = Initializers.setInitIndex($1.getLocation(), $3.getEndLocation(), $2, Optional.<Expression>absent());
     }
     ;
 
@@ -2988,7 +2981,6 @@ structdef:
     }
     ;
 
-//FIXME
 structkind:
       STRUCT
     {
@@ -3502,7 +3494,7 @@ do_stmt_start:
     }
       labeled_stmt WHILE
     {
-        final DoWhileStmt stmt = new DoWhileStmt($1.getLocation(), null, $3);
+        final DoWhileStmt stmt = new DoWhileStmt($1.getLocation(), null, $3);   // expression will be set later
         stmt.setEndLocation($4.getEndLocation());
         $$ = stmt;
     }
@@ -3756,7 +3748,7 @@ label:
       CASE expr_no_commas COLON
     {
         analyzeExpression(Optional.of($expr_no_commas));
-        final CaseLabel label = new CaseLabel($1.getLocation(), $2, null);
+        final CaseLabel label = new CaseLabel($1.getLocation(), $2, Optional.<Expression>absent());
         label.setEndLocation($3.getEndLocation());
         $$ = label;
     }
@@ -3764,7 +3756,7 @@ label:
     {
         analyzeExpression(Optional.of($leftexpr));
         analyzeExpression(Optional.of($rightexpr));
-        final CaseLabel label = new CaseLabel($1.getLocation(), $2, $4);
+        final CaseLabel label = new CaseLabel($1.getLocation(), $leftexpr, Optional.<Expression>of($rightexpr));
         label.setEndLocation($5.getEndLocation());
         $$ = label;
     }

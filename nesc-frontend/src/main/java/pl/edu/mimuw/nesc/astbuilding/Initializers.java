@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.astbuilding;
 
+import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
@@ -12,7 +13,7 @@ import java.util.LinkedList;
 public final class Initializers {
 
     public static Designator setInitIndex(Location startLocation, Location endLocation, Expression first,
-                                          Expression last) {
+                                          Optional<Expression> last) {
         final Designator designator = new DesignateIndex(startLocation, first, last);
         designator.setEndLocation(endLocation);
         return designator;

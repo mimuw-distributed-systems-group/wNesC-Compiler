@@ -154,6 +154,11 @@ class ErrorDecl(BasicASTNode):
     superclass = Declaration
 
 
+class EmptyDecl(BasicASTNode):
+    """ Empty declaration. Represents a redundant semicolon after declaration chain. """
+    superclass = Declaration
+
+
 class AsmDecl(BasicASTNode):
     """
     <p>Asm declaration. GNU extension.</p>
@@ -314,8 +319,11 @@ class Attribute(BasicASTNode):
 
 # The (gcc) attribute WORD1(ARGS).
 class GccAttribute(BasicASTNode):
+    """
+    <p>GCC attribute.</p>
+    <p><code>arguments</code> of attribute may be empty and may not be semantically valid.</p>
+    """
     superclass = Attribute
-    # args can be empty, and may not be semantically valid.
     arguments = ReferenceListField("Expression")
 
 
@@ -694,7 +702,7 @@ class Conditional(BasicASTNode):
     """
     superclass = Expression
     condition = ReferenceField("Expression")
-    onTrueExp = ReferenceField("Expression")
+    onTrueExp = ReferenceField("Expression", optional=True)
     onFalseExp = ReferenceField("Expression")
 
 
@@ -998,7 +1006,7 @@ class DesignateIndex(BasicASTNode):
     """
     superclass = Designator
     first = ReferenceField("Expression")
-    last = ReferenceField("Expression")
+    last = ReferenceField("Expression", optional=True)
 
 
 #==============================================================================
@@ -1071,7 +1079,7 @@ class CaseLabel(BasicASTNode):
     """
     superclass = Label
     low = ReferenceField("Expression")
-    high = ReferenceField("Expression")
+    high = ReferenceField("Expression", optional=True)
 
 
 class DefaultLabel(BasicASTNode):

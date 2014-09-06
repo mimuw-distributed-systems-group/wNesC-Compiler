@@ -210,6 +210,11 @@ public final class NescComponents extends AstBuildingBase {
             return null;
         }
 
+        public Void visitEmptyDecl(EmptyDecl declaration, Component component) {
+            /* ignore, additional semicolon */
+            return null;
+        }
+
         public Void visitRequiresInterface(RequiresInterface elem, Component component) {
             final RequiresProvidesVisitor rpVisitor = new RequiresProvidesVisitor(component, false);
             rpVisitor.visitDeclarations(elem.getDeclarations());
@@ -252,6 +257,12 @@ public final class NescComponents extends AstBuildingBase {
         @Override
         public Void visitErrorDecl(ErrorDecl errorDecl, Void arg) {
             // ignore
+            return null;
+        }
+
+        @Override
+        public Void visitEmptyDecl(EmptyDecl declaration, Void arg) {
+            /* ignore, additional semicolon */
             return null;
         }
 
@@ -310,6 +321,12 @@ public final class NescComponents extends AstBuildingBase {
             return null;
         }
 
+        @Override
+        public Void visitEmptyDecl(EmptyDecl declaration, Void arg) {
+            /* ignore, additional semicolon */
+            return null;
+        }
+
         public Void visitDataDecl(DataDecl declaration, Void arg) {
             final InterfaceDeclarationVisitor visitor = new InterfaceDeclarationVisitor(declaration.getModifiers());
             visitor.visitDeclarations(declaration.getDeclarations());
@@ -340,6 +357,12 @@ public final class NescComponents extends AstBuildingBase {
 
         public Void visitErrorDecl(ErrorDecl declaration, Void arg) {
             /* ignore */
+            return null;
+        }
+
+        @Override
+        public Void visitEmptyDecl(EmptyDecl declaration, Void arg) {
+            /* ignore, additional semicolon */
             return null;
         }
 

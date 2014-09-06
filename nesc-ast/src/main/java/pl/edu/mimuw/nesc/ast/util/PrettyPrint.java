@@ -363,7 +363,11 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
 
         expr.getCondition().accept(this, null);
         strBuilder.append(" ? ");
-        expr.getOnTrueExp().accept(this, null);
+        if (expr.getOnTrueExp().isPresent()) {
+            expr.getOnTrueExp().get().accept(this, null);
+        } else {
+            strBuilder.append(" <absent> ");
+        }
         strBuilder.append(" : ");
         expr.getOnFalseExp().accept(this, null);
 

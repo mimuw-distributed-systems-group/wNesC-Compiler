@@ -120,7 +120,7 @@ public final class Expressions {
         return result;
     }
 
-    public static Conditional makeConditional(Expression condition, Expression trueExp, Expression falseExp) {
+    public static Conditional makeConditional(Expression condition, Optional<Expression> trueExp, Expression falseExp) {
         final Conditional result = new Conditional(condition.getLocation(), condition, trueExp, falseExp);
         result.setEndLocation(falseExp.getEndLocation());
         return result;
