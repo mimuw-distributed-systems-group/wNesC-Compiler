@@ -62,6 +62,17 @@ public abstract class NescType implements Type {
     }
 
     @Override
+    public final boolean isPointerType() {
+        return false;
+    }
+
+    @Override
+    public final Type addQualifiers(boolean constQualified,
+            boolean volatileQualified, boolean restrictQualified) {
+        throw new UnsupportedOperationException("adding qualifiers to an artificial type");
+    }
+
+    @Override
     public final boolean isConstQualified() {
         return false;
     }

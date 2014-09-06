@@ -104,6 +104,22 @@ public interface Type {
     boolean isTypeDefinition();
 
     /**
+     * @return <code>true</code> if and only if this type is a pointer type. If
+     *         so, it can be casted to a proper class without error.
+     */
+    boolean isPointerType();
+
+    /**
+     * @return Newly created object that represents the same type as this object
+     *         but with given qualifiers added if necessary. If a type does not
+     *         use a qualifier, the parameter related to it is ignored.
+     * @throws UnsupportedOperationException Method invoked on an object that
+     *                                       represents an artificial type.
+     */
+    Type addQualifiers(boolean constQualifier, boolean volatileQualifier,
+                       boolean restrictQualifier);
+
+    /**
      * @return <code>true</code> if and only if this type is const-qualified,
      *         e.g. <code>const int</code>.
      */

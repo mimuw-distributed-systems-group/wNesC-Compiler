@@ -33,6 +33,11 @@ public abstract class FieldTagType<D extends FieldTagDeclaration> extends Derive
     }
 
     @Override
+    public final boolean isPointerType() {
+        return false;
+    }
+
+    @Override
     public final boolean isFieldTagType() {
         return true;
     }

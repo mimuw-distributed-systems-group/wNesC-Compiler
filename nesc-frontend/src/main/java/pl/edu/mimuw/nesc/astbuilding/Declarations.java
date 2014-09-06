@@ -178,7 +178,7 @@ public final class Declarations extends AstBuildingBase {
         final FunctionDecl functionDecl = new FunctionDecl(startLocation, declarator, modifiers, attributes,
                 null, isNested);
         final Optional<Type> maybeType = resolveType(environment, modifiers, Optional.of(declarator),
-                errorHelper, startLocation, declarator.getEndLocation());
+                errorHelper, startLocation, startLocation);
 
         final StartFunctionVisitor startVisitor = new StartFunctionVisitor(environment,
                 functionDecl, modifiers, maybeType);

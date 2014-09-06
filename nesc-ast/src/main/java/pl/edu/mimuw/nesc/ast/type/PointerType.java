@@ -60,6 +60,18 @@ public final class PointerType extends DerivedType {
     }
 
     @Override
+    public final boolean isPointerType() {
+        return true;
+    }
+
+    @Override
+    public final Type addQualifiers(boolean addConst, boolean addVolatile,
+                                    boolean addRestrict) {
+        return new PointerType(addConstQualifier(addConst), addVolatileQualifier(addVolatile),
+                isRestrictQualified() || addRestrict, getReferencedType());
+    }
+
+    @Override
     public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
     }

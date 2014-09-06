@@ -32,4 +32,9 @@ public abstract class ArithmeticType extends AbstractType {
     public final boolean isFieldTagType() {
         return false;
     }
+
+    @Override
+    public final boolean isPointerType() {
+        return false;
+    }
 }

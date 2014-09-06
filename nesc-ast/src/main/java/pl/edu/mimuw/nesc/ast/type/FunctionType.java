@@ -92,6 +92,17 @@ public final class FunctionType extends DerivedType {
     }
 
     @Override
+    public final boolean isPointerType() {
+        return false;
+    }
+
+    @Override
+    public final Type addQualifiers(boolean addConst, boolean addVolatile,
+                                    boolean addRestrict) {
+        return this;
+    }
+
+    @Override
     public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
     }

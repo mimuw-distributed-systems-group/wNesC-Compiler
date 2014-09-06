@@ -26,6 +26,13 @@ public final class StructureType extends FieldTagType<StructDeclaration> {
     }
 
     @Override
+    public final Type addQualifiers(boolean addConst, boolean addVolatile,
+                                    boolean addRestrict) {
+        return new StructureType(addConstQualifier(addConst),
+                addVolatileQualifier(addVolatile), getDeclaration());
+    }
+
+    @Override
     public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
     }

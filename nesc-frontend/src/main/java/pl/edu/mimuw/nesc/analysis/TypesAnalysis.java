@@ -1,6 +1,8 @@
 package pl.edu.mimuw.nesc.analysis;
 
 import com.google.common.base.Function;
+import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.EnumDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.StructDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.TagDeclaration;
@@ -136,14 +138,19 @@ public final class TypesAnalysis {
         /**
          * Constants with error format strings.
          */
-        private static final String FMT_WARN_RESTRICT = "'%s' type qualifier ignored because it cannot be applied to a non-pointer type; remove it";
+        private static final String FMT_WARN_RESTRICT = "'restrict' type qualifier ignored because it cannot be applied to a non-pointer type; remove it";
         private static final String FMT_ERR_SPECIFIER = "Cannot use '%s' type specifier because it has been already specified";
         private static final String FMT_ERR_LONG = "Cannot use '%s' type specifier because it has been already specified twice";
         private static final String FMT_ERR_TAG = "Cannot combine '%s' type specifier with a tag type specifier";
+        private static final String FMT_ERR_TYPENAME = "Cannot combine '%s' type specifier with a typename type specifier";
         private static final String FMT_ERR_MULTIPLE_TAGS = "Cannot combine a tag type specifier with an another tag type specifier";
         private static final String FMT_ERR_TAG_CONFLICT = "Cannot combine a tag type specifier with previously used type specifiers";
         private static final String FMT_ERR_INVALID_COMBINATION = "Invalid combination of type specifiers";
         private static final String FMT_ERR_NO_TYPE_SPECIFIERS = "Expecting a type specifier";
+        private static final String FMT_ERR_TYPENAME_CONFLICT = "Cannot combine '%s' type specifier with previously used type specifiers";
+        private static final String FMT_ERR_UNDECLARED_IDENTIFIER = "Usage of undeclared identifier '%s'";
+        private static final String FMT_ERR_IDENTIFIER_WRONG_TYPE_UNKNOWN = "Expected a type name but identifier '%s' does not denote a type";
+        private static final String FMT_ERR_IDENTIFIER_WRONG_TYPE = "Expected a type name but identifier '%s' has type '%s'";
 
         /**
          * Type specifiers that build each fundamental type.
@@ -281,8 +288,10 @@ public final class TypesAnalysis {
          */
         private boolean isConstQualified = false;
         private boolean isVolatileQualified = false;
+        private Optional<Interval> restrictQualifier = Optional.absent();
         private final Multiset<RID> typeSpecifiers = EnumMultiset.create(RID.class);
         private TagRef tagReference;
+        private Typename typename;
 
         private BaseTypeVisitor(Environment environment, ErrorHelper errorHelper,
                                 boolean isStandalone, Location startFuzzy, Location endFuzzy) {
@@ -303,12 +312,18 @@ public final class TypesAnalysis {
                 return Optional.absent();
             }
 
+            if (!typenameAccepted()) {
+                emitRestrictWarning();
+            }
+
             if (tagReference instanceof AttributeRef) {
                 return Optional.absent();
             } else if (!typeSpecifiers.isEmpty()) {
                 return finishFundamentalType();
             } else if (tagAccepted()) {
                 return finishTagType();
+            } else if (typenameAccepted()) {
+                return finishTypename();
             } else {
                 typeError = true;
                 errorHelper.error(startFuzzy, endFuzzy, FMT_ERR_NO_TYPE_SPECIFIERS);
@@ -412,6 +427,48 @@ public final class TypesAnalysis {
             return Optional.of(tagDeclaration);
         }
 
+        private Optional<Type> finishTypename() {
+            if (typename instanceof ComponentTyperef) {
+                // TODO handle typedefs from other components
+                return Optional.absent();
+            }
+
+            // Resolve the typename
+            final String typenameStr = typename.getName();
+            Optional<String> errMsg = Optional.absent();
+            final Optional<? extends ObjectDeclaration> maybeDecl = environment.getObjects().get(typenameStr);
+            if (!maybeDecl.isPresent()) {
+                errMsg = Optional.of(format(FMT_ERR_UNDECLARED_IDENTIFIER, typenameStr));
+            } else if (!maybeDecl.get().getType().isPresent()) {
+                errMsg = Optional.of(format(FMT_ERR_IDENTIFIER_WRONG_TYPE_UNKNOWN, typenameStr));
+            } else {
+                final Type type = maybeDecl.get().getType().get();
+                if (!type.isTypeDefinition()) {
+                    errMsg = Optional.of(format(FMT_ERR_IDENTIFIER_WRONG_TYPE,
+                                                typenameStr, type.toString()));
+                } else {
+                    final TypenameDeclaration declaration = (TypenameDeclaration) maybeDecl.get();
+                    final Optional<Type> denotedType = declaration.getDenotedType();
+                    final Function<Type, Type> transformFun = new Function<Type, Type>() {
+                        @Override
+                        public final Type apply(Type type) {
+                            return type.addQualifiers(isConstQualified, isVolatileQualified,
+                                                      restrictQualifier.isPresent());
+                        }
+                    };
+
+                    if (denotedType.isPresent() && !denotedType.get().isPointerType()) {
+                        emitRestrictWarning();
+                    }
+
+                    return declaration.getDenotedType().transform(transformFun);
+                }
+            }
+
+            errorHelper.error(typename.getLocation(), typename.getEndLocation(), errMsg.get());
+            return Optional.absent();
+        }
+
         @Override
         public Void visitRid(Rid rid, Void v) {
             processRID(rid.getId(), rid.getLocation(), rid.getEndLocation());
@@ -456,13 +513,13 @@ public final class TypesAnalysis {
 
         @Override
         public Void visitTypename(Typename typename, Void v) {
-            // TODO resolve typedefs
+            acceptTypename(typename);
             return null;
         }
 
         @Override
         public Void visitComponentTyperef(ComponentTyperef typeref, Void v) {
-            // TODO resolve typedefs from other components
+            acceptTypename(typeref);
             return null;
         }
 
@@ -520,7 +577,11 @@ public final class TypesAnalysis {
                     isVolatileQualified = true;
                     break;
                 case RESTRICT:
-                    warnMsg = Optional.of(format(FMT_WARN_RESTRICT, rid.getName()));
+                    if (restrictQualifier.isPresent()) {
+                        warnMsg = Optional.of(format(FMT_WARN_QUALIFIER, rid.getName()));
+                    } else {
+                        restrictQualifier = Optional.of(new Interval(startLoc, endLoc));
+                    }
                     break;
                 default:
                     if (!TYPE_SPECIFIERS.contains(rid)) {
@@ -529,6 +590,8 @@ public final class TypesAnalysis {
                     updateLocations(startLoc, endLoc);
                     if (tagAccepted()) {
                         errMsg = Optional.of(format(FMT_ERR_TAG, rid.getName()));
+                    } else if (typenameAccepted()) {
+                        errMsg = Optional.of(format(FMT_ERR_TYPENAME, rid.getName()));
                     } else if (rid != RID.LONG && typeSpecifiers.contains(rid)) {
                         errMsg = Optional.of(format(FMT_ERR_SPECIFIER, rid.getName()));
                     } else if (rid == RID.LONG && typeSpecifiers.count(rid) >= MAX_LONG_COUNT) {
@@ -554,7 +617,7 @@ public final class TypesAnalysis {
 
             if (tagAccepted()) {
                 errMsg = Optional.of(FMT_ERR_MULTIPLE_TAGS);
-            } else if (!typeSpecifiers.isEmpty()) {
+            } else if (!typeSpecifiers.isEmpty() || typenameAccepted()) {
                 errMsg = Optional.of(FMT_ERR_TAG_CONFLICT);
             }
 
@@ -568,12 +631,33 @@ public final class TypesAnalysis {
             tagReference = tagRef;
         }
 
+        private void acceptTypename(Typename typename) {
+            updateLocations(typename.getLocation(), typename.getEndLocation());
+
+            if (tagAccepted() || !typeSpecifiers.isEmpty()) {
+                typeError = true;
+                errorHelper.error(typename.getLocation(), typename.getEndLocation(),
+                                  format(FMT_ERR_TYPENAME_CONFLICT, typename.getName()));
+                return;
+            }
+
+            this.typename = typename;
+        }
+
         /**
          * @return <code>true</code> if and only if a tag has been accepted as
          *         a type specifier by this object.
          */
         private boolean tagAccepted() {
             return tagReference != null;
+        }
+
+        /**
+         * @return <code>true</code> if and only if a typename has been accepted
+         *         as a type specifier by this object.
+         */
+        private boolean typenameAccepted() {
+            return typename != null;
         }
 
         /**
@@ -592,11 +676,38 @@ public final class TypesAnalysis {
         }
 
         private void updateLocations(Location startLoc, Location endLoc) {
-            if (startTypeSpecifiers == null) {
+            if (startTypeSpecifiers == null && startLoc != null) {
                 startTypeSpecifiers = startLoc;
             }
 
-            endTypeSpecifiers = endLoc;
+            if (endLoc != null) {
+                endTypeSpecifiers = endLoc;
+            }
+        }
+
+        private void emitRestrictWarning() {
+            if (restrictQualifier.isPresent()) {
+                errorHelper.warning(
+                    restrictQualifier.get().startLocation,
+                    Optional.of(restrictQualifier.get().endLocation),
+                    FMT_WARN_RESTRICT
+                );
+            }
+        }
+
+        /**
+         * A simple helper class to carry information about a restrict qualifier.
+         *
+         * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+         */
+        private static class Interval {
+            private final Location startLocation;
+            private final Location endLocation;
+
+            private Interval(Location startLoc, Location endLoc) {
+                this.startLocation = startLoc;
+                this.endLocation = endLoc;
+            }
         }
     }
 

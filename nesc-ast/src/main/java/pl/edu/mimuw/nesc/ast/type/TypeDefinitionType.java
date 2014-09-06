@@ -82,6 +82,17 @@ public final class TypeDefinitionType implements Type {
     }
 
     @Override
+    public final boolean isPointerType() {
+        return false;
+    }
+
+    @Override
+    public final Type addQualifiers(boolean constQualified,
+            boolean volatileQualified, boolean restrictQualified) {
+        throw new UnsupportedOperationException("adding qualifiers to an artificial type");
+    }
+
+    @Override
     public final boolean isConstQualified() {
         return false;
     }
@@ -94,5 +105,12 @@ public final class TypeDefinitionType implements Type {
     @Override
     public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
+    }
+
+    @Override
+    public final String toString() {
+        final PrintVisitor visitor = new PrintVisitor();
+        accept(visitor, false);
+        return visitor.get();
     }
 }

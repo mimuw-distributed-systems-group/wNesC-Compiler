@@ -25,6 +25,22 @@ public abstract class AbstractType implements Type {
         this.volatileQualified = volatileQualified;
     }
 
+    /**
+     * @return <code>true</code> if and only if this type is const-qualified or
+     *         the qualifier is to be added.
+     */
+    protected final boolean addConstQualifier(boolean add) {
+        return isConstQualified() || add;
+    }
+
+    /**
+     * @return <code>true</code> if and only if this type is volatile-qualified
+     *         or the qualifier it to be added.
+     */
+    protected final boolean addVolatileQualifier(boolean add) {
+        return isVolatileQualified() || add;
+    }
+
     @Override
     public final boolean isTypeDefinition() {
         return false;

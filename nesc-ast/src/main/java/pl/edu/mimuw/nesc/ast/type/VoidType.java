@@ -61,6 +61,17 @@ public final class VoidType extends AbstractType {
     }
 
     @Override
+    public final boolean isPointerType() {
+        return false;
+    }
+
+    @Override
+    public final Type addQualifiers(boolean addConst, boolean addVolatile,
+                                    boolean addRestrict) {
+        return new VoidType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+    }
+
+    @Override
     public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
     }
