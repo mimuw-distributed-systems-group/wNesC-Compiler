@@ -645,7 +645,9 @@ public final class Declarations extends AstBuildingBase {
 
         @Override
         public Void visitInterfaceRefDeclarator(InterfaceRefDeclarator elem, Void arg) {
-            throw new IllegalStateException();
+            Declarations.this.errorHelper.error(elem.getLocation(), Optional.of(elem.getEndLocation()),
+                    "unexpected interface reference");
+            return null;
         }
 
         private void declare(ObjectDeclaration declaration, Declarator declarator) {

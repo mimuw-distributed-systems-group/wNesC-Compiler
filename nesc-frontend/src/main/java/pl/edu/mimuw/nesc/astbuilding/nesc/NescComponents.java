@@ -162,6 +162,7 @@ public final class NescComponents extends AstBuildingBase {
         id.setEndLocation(funcNameEndLocation);
         final InterfaceRefDeclarator declarator = new InterfaceRefDeclarator(ifaceStartLocation,
                 Optional.<Declarator>of(id), makeWord(ifaceStartLocation, funcNameEndLocation, ifaceName));
+        declarator.setEndLocation(funcNameEndLocation);
         return declarator;
     }
 
@@ -263,6 +264,7 @@ public final class NescComponents extends AstBuildingBase {
         @Override
         public Void visitDataDecl(DataDecl dataDecl, Void arg) {
             // TODO: bare event/command
+            // TODO: typedef, tagged type
             return null;
         }
 
@@ -327,7 +329,6 @@ public final class NescComponents extends AstBuildingBase {
             } catch (Exception e) {
                 errorHelper.error(declarator.getLocation(), Optional.of(declarator.getEndLocation()),
                         format("only commands and events can be defined in interfaces"));
-                // TODO: make this declaration dummy
                 return null;
             }
             final FunctionDeclaration funDeclaration = (FunctionDeclaration) declaration.getDeclaration();
