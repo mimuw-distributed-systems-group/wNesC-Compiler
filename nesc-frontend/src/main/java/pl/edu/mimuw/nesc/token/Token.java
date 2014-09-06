@@ -9,10 +9,10 @@ import pl.edu.mimuw.nesc.ast.Location;
  * divided in several semantic groups, such as:
  * </p>
  * <ul>
- * <li>keywords,</li>
- * <li>punctuation marks,</li>
+ * <li>macro usages,</li>
  * <li>identifiers (variables, type names, interface references etc.).</li>
  * </ul>
+ * </p>
  * <p>Token may contain some references to semantic structures: AST nodes,
  * symbol table etc.</p>
  *
@@ -58,36 +58,13 @@ public abstract class Token {
             return false;
         }
         final Token other = (Token) obj;
-        return Objects.equal(this.startLocation, other.startLocation) && Objects.equal(this.endLocation, other.endLocation);
+        return Objects.equal(this.startLocation, other.startLocation)
+                && Objects.equal(this.endLocation, other.endLocation);
     }
 
     public abstract <R, A> R accept(Visitor<R, A> visitor, A arg);
 
     public static interface Visitor<R, A> {
-
-        /* constant tokens */
-
-        R visit(CharacterToken character, A arg);
-
-        R visit(NumberToken number, A arg);
-
-        R visit(StringToken string, A arg);
-
-        /* Keyword tokens */
-
-        R visit(KeywordToken keyword, A arg);
-
-        /* Punctuation tokens */
-
-        R visit(PunctuationToken punctuation, A arg);
-
-        /* identifier tokens */
-
-        R visit(IdToken id, A arg);
-
-        /* macro tokens */
-
         R visit(MacroToken macroToken, A arg);
-
     }
 }

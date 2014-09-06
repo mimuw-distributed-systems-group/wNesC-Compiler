@@ -6,10 +6,11 @@ import pl.edu.mimuw.nesc.ast.gen.Node;
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public class IdToken extends Token {
+public abstract class IdToken extends Token {
 
     protected final String id;
     protected Node astNode;
+    // TODO: Symbol reference
 
     protected IdToken(Location startLocation, Location endLocation, String id) {
         super(startLocation, endLocation);
@@ -32,10 +33,5 @@ public class IdToken extends Token {
 
     public void setAstNode(Node astNode) {
         this.astNode = astNode;
-    }
-
-    @Override
-    public <R, A> R accept(Visitor<R, A> visitor, A arg) {
-        return visitor.visit(this, arg);
     }
 }

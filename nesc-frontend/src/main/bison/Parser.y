@@ -4489,9 +4489,6 @@ string_chain:
                     pushtoken(secondSymbol);
                 }
             }
-
-            addSymbol(symbol);
-
             return symbol.getSymbolCode();
         }
 
@@ -4528,22 +4525,6 @@ string_chain:
         public void pushtoken(Symbol symbol) {
             this.tokenQueue.addFirst(symbol);
         }
-
-        /**
-         * Convert symbol into token. Only tokens carrying no semantic data
-         * (ast nodes, symbol table references) are added into map in this
-         * step.
-         *
-         * @param symbol symbol
-         */
-        private void addSymbol(Symbol symbol) {
-            final Optional<? extends Token> tokenOptional = TokenFactory.of(symbol);
-            if (tokenOptional.isPresent()) {
-                final int line = symbol.getLocation().getLine();
-                this.tokensMultimapBuilder.put(line, tokenOptional.get());
-            }
-        }
-
     }
 
 }

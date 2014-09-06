@@ -21,7 +21,7 @@ public class TokensLocationsTest extends LexerTestBase {
     @Test
     @Ignore // FIXME
     public void testLocations1() throws IOException {
-        final String filePath = Thread.currentThread().getContextClassLoader()
+        @SuppressWarnings("ConstantConditions") final String filePath = Thread.currentThread().getContextClassLoader()
                 .getResource("lexer/locations/tokens_locations1.nc")
                 .getFile();
 
@@ -31,7 +31,6 @@ public class TokensLocationsTest extends LexerTestBase {
         lexer.start();
 
         final List<Symbol> actual = readSymbols(lexer);
-
         lexer.close();
 
         final List<Symbol> expected = ImmutableList.<Symbol>builder()
