@@ -3589,8 +3589,8 @@ stmt:
       xexpr[econdition] SEMICOLON xexpr[eincrement] RPAREN labeled_stmt
     {
         /* NOTICE: xexpr may be null. */
-        final ForStmt stmt = new ForStmt($1.getLocation(), Optional.of($einit), Optional.of($econdition),
-                Optional.of($eincrement), $labeled_stmt);
+        final ForStmt stmt = new ForStmt($1.getLocation(), Optional.fromNullable($einit),
+                Optional.fromNullable($econdition), Optional.fromNullable($eincrement), $labeled_stmt);
         stmt.setEndLocation($10.getEndLocation());
         $$ = stmt;
     }
