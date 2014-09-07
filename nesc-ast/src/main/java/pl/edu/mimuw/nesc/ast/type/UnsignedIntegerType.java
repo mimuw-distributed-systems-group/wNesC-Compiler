@@ -17,4 +17,10 @@ public abstract class UnsignedIntegerType extends IntegerType {
     public final boolean isUnsignedIntegerType() {
         return true;
     }
+
+    /**
+     * @return Newly created object that represents the corresponding signed
+     *         integer type with the same type qualifiers.
+     */
+    public abstract SignedIntegerType getSignedIntegerType();
 }

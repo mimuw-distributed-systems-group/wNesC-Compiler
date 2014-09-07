@@ -29,6 +29,11 @@ public final class SignedCharType extends SignedIntegerType {
     }
 
     @Override
+    public final UnsignedCharType getUnsignedIntegerType() {
+        return new UnsignedCharType(isConstQualified(), isVolatileQualified());
+    }
+
+    @Override
     public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
     }

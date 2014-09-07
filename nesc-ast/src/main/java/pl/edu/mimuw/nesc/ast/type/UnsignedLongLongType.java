@@ -27,6 +27,11 @@ public final class UnsignedLongLongType extends UnsignedIntegerType {
     }
 
     @Override
+    public final LongLongType getSignedIntegerType() {
+        return new LongLongType(isConstQualified(), isVolatileQualified());
+    }
+
+    @Override
     public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
     }

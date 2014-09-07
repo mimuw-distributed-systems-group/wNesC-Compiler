@@ -25,6 +25,11 @@ public final class UnsignedShortType extends UnsignedIntegerType {
     }
 
     @Override
+    public final ShortType getSignedIntegerType() {
+        return new ShortType(isConstQualified(), isVolatileQualified());
+    }
+
+    @Override
     public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
     }
