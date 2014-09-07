@@ -110,16 +110,6 @@ public interface Type {
     boolean isPointerType();
 
     /**
-     * @return Newly created object that represents the same type as this object
-     *         but with given qualifiers added if necessary. If a type does not
-     *         use a qualifier, the parameter related to it is ignored.
-     * @throws UnsupportedOperationException Method invoked on an object that
-     *                                       represents an artificial type.
-     */
-    Type addQualifiers(boolean constQualifier, boolean volatileQualifier,
-                       boolean restrictQualifier);
-
-    /**
      * @return <code>true</code> if and only if this type is const-qualified,
      *         e.g. <code>const int</code>.
      */
@@ -130,6 +120,29 @@ public interface Type {
      *         e.g. <code>volatile unsigned int</code>.
      */
     boolean isVolatileQualified();
+
+    /**
+     * @return Newly created object that represents the same type as this object
+     *         but with given qualifiers added if necessary. If a type does not
+     *         use a qualifier, the parameter related to it is ignored.
+     * @throws UnsupportedOperationException Method invoked on an object that
+     *                                       represents an artificial type.
+     */
+    Type addQualifiers(boolean constQualifier, boolean volatileQualifier,
+                       boolean restrictQualifier);
+
+    /**
+     * Performs integer promotions. If this type is other than
+     * <code>char</code>, <code>signed char</code>, <code>unsigned char</code>,
+     * <code>short</code>, <code>unsigned short</code> and an enumerated type,
+     * <code>this</code> will be returned.
+     *
+     * @return An object representing this type after performing the integer
+     *         promotion on it.
+     * @throws UnsupportedOperationException Method invoked on an object that
+     *                                       represents an artificial type.
+     */
+    Type promote();
 
     /**
      * Method that allows using the types class hierarchy in the Visitor design

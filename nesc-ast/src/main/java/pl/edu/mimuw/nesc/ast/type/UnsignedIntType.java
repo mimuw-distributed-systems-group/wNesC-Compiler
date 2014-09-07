@@ -22,6 +22,11 @@ public final class UnsignedIntType extends UnsignedIntegerType {
     }
 
     @Override
+    public final int getIntegerRank() {
+        return IntType.INTEGER_RANK;
+    }
+
+    @Override
     public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
     }

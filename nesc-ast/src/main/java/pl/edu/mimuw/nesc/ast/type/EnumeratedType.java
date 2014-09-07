@@ -9,6 +9,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class EnumeratedType extends IntegerType {
+    public static final int INTEGER_RANK = 15;
+
     /**
      * Enum declaration object that is associated with this enumerated type.
      * It shall be inside the symbol table if and only if it is named.
@@ -55,6 +57,11 @@ public final class EnumeratedType extends IntegerType {
                                     boolean addRestrict) {
         return new EnumeratedType(addConstQualifier(addConst), addVolatileQualifier(addVolatile),
                                   getEnumDeclaration());
+    }
+
+    @Override
+    public final int getIntegerRank() {
+        return INTEGER_RANK;
     }
 
     @Override

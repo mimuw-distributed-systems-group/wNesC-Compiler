@@ -93,6 +93,11 @@ public final class TypeDefinitionType implements Type {
     }
 
     @Override
+    public final Type promote() {
+        throw new UnsupportedOperationException("promoting an artificial type");
+    }
+
+    @Override
     public final boolean isConstQualified() {
         return false;
     }

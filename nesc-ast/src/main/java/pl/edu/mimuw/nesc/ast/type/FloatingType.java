@@ -32,4 +32,9 @@ public abstract class FloatingType extends ArithmeticType {
     public final boolean isUnsignedIntegerType() {
         return false;
     }
+
+    @Override
+    public final Type promote() {
+        return this;
+    }
 }

@@ -7,6 +7,8 @@ package pl.edu.mimuw.nesc.ast.type;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class CharType extends IntegerType {
+    public static final int INTEGER_RANK = 5;
+
     public CharType(boolean constQualified, boolean volatileQualified) {
         super(constQualified, volatileQualified);
     }
@@ -30,6 +32,11 @@ public final class CharType extends IntegerType {
     public final Type addQualifiers(boolean addConst, boolean addVolatile,
                                     boolean addRestrict) {
         return new CharType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+    }
+
+    @Override
+    public final int getIntegerRank() {
+        return INTEGER_RANK;
     }
 
     @Override

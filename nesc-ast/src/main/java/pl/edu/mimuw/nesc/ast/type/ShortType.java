@@ -6,6 +6,8 @@ package pl.edu.mimuw.nesc.ast.type;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class ShortType extends SignedIntegerType {
+    public static final int INTEGER_RANK = 10;
+
     public ShortType(boolean constQualified, boolean volatileQualified) {
         super(constQualified, volatileQualified);
     }
@@ -19,6 +21,11 @@ public final class ShortType extends SignedIntegerType {
     public final Type addQualifiers(boolean addConst, boolean addVolatile,
                                     boolean addRestrict) {
         return new ShortType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+    }
+
+    @Override
+    public final int getIntegerRank() {
+        return INTEGER_RANK;
     }
 
     @Override

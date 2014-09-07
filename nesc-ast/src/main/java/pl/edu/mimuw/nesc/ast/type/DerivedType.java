@@ -47,4 +47,9 @@ public abstract class DerivedType extends AbstractType {
     public final boolean isCharacterType() {
         return false;
     }
+
+    @Override
+    public final Type promote() {
+        return this;
+    }
 }

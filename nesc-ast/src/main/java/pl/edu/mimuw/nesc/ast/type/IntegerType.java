@@ -17,4 +17,19 @@ public abstract class IntegerType extends ArithmeticType {
     public final boolean isFloatingType() {
         return false;
     }
+
+    /**
+     * @return The integer rank of this type as defined in the ISO C standard.
+     */
+    public abstract int getIntegerRank();
+
+    @Override
+    public final Type promote() {
+        final boolean properIntegerType = !(this instanceof IntType)
+                && !(this instanceof UnsignedIntType);
+
+        return   getIntegerRank() <= IntType.INTEGER_RANK && properIntegerType
+               ? new IntType(isConstQualified(), isVolatileQualified())
+               : this;
+    }
 }
