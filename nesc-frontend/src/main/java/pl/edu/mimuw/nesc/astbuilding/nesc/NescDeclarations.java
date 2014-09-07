@@ -120,17 +120,19 @@ public final class NescDeclarations extends AstBuildingBase {
                 Optional.<AsmStmt>absent());
         variableDecl.setInitializer(Optional.<Expression>absent());
         variableDecl.setEndLocation(endLocation);
-        variableDecl.setType(resolveType(environment, elements, declarator,
-                errorHelper, startLocation, endLocation));
 
         if (declarator.isPresent()) {
             final boolean isTypedef = TypeElementUtils.isTypedef(elements);
             final String name = DeclaratorUtils.getDeclaratorName(declarator.get());
             final ObjectDeclaration declaration;
             if (isTypedef) {
-                declaration = new TypenameDeclaration(name, startLocation, variableDecl.getType());
-                variableDecl.setType(Optional.of((Type) TypeDefinitionType.getInstance()));
+                /* FIXME replace Optional.absent() with an object that reflects
+                   the type with regards to information from attributes */
+                declaration = new TypenameDeclaration(name, startLocation, Optional.<Type>absent());
+                variableDecl.setType(Optional.<Type>of(TypeDefinitionType.getInstance()));
             } else {
+                variableDecl.setType(resolveType(environment, elements, declarator,
+                        errorHelper, startLocation, endLocation));
                 declaration = new VariableDeclaration(name, startLocation, variableDecl.getType());
             }
             if (!environment.getObjects().add(name, declaration)) {
