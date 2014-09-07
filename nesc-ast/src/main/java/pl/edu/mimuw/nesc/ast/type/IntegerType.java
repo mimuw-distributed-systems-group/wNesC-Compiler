@@ -18,6 +18,11 @@ public abstract class IntegerType extends ArithmeticType {
         return false;
     }
 
+    @Override
+    public final boolean isRealType() {
+        return true;
+    }
+
     /**
      * @return The integer rank of this type as defined in the ISO C standard.
      */

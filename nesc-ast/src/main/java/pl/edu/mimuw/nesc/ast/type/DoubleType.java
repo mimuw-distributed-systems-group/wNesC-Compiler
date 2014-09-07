@@ -11,6 +11,11 @@ public final class DoubleType extends FloatingType {
     }
 
     @Override
+    public final boolean isRealType() {
+        return true;
+    }
+
+    @Override
     public final Type addQualifiers(boolean addConst, boolean addVolatile,
                                     boolean addRestrict) {
         return new DoubleType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));

@@ -46,6 +46,11 @@ public final class VoidType extends AbstractType {
     }
 
     @Override
+    public final boolean isRealType() {
+        return false;
+    }
+
+    @Override
     public final boolean isCharacterType() {
         return false;
     }

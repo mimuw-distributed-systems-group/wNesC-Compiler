@@ -32,6 +32,11 @@ public abstract class NescType implements Type {
     }
 
     @Override
+    public final boolean isRealType() {
+        return false;
+    }
+
+    @Override
     public final boolean isCharacterType() {
         return false;
     }

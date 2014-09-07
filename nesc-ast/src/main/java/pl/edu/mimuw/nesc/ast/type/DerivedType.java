@@ -44,6 +44,11 @@ public abstract class DerivedType extends AbstractType {
     }
 
     @Override
+    public final boolean isRealType() {
+        return false;
+    }
+
+    @Override
     public final boolean isCharacterType() {
         return false;
     }

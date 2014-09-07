@@ -52,6 +52,11 @@ public final class TypeDefinitionType implements Type {
     }
 
     @Override
+    public final boolean isRealType() {
+        return false;
+    }
+
+    @Override
     public final boolean isCharacterType() {
         return false;
     }

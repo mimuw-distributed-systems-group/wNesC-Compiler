@@ -11,6 +11,11 @@ public final class LongDoubleType extends FloatingType {
     }
 
     @Override
+    public final boolean isRealType() {
+        return true;
+    }
+
+    @Override
     public final Type addQualifiers(boolean addConst, boolean addVolatile,
                                     boolean addRestrict) {
         return new LongDoubleType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));

@@ -58,6 +58,13 @@ public interface Type {
     boolean isFloatingType();
 
     /**
+     * Real types are: integer and real floating types.
+     *
+     * @return <code>true</code> if and only if this type is a real type.
+     */
+    boolean isRealType();
+
+    /**
      * Character types are: <code>char</code>, <code>signed char</code>
      * and <code>unsigned char</code>.
      *
