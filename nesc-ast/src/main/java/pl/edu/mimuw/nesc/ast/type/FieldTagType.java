@@ -14,17 +14,17 @@ public abstract class FieldTagType<D extends FieldTagDeclaration> extends Derive
      * Object that actually represents the type. It is contained in a symbol
      * table if and only if it is named.
      */
-    private final D maybeExternalTagDeclaration;
+    private final D fieldTagDeclaration;
 
     protected FieldTagType(boolean constQualified, boolean volatileQualified,
                            D tagDeclaration) {
         super(constQualified, volatileQualified);
         checkNotNull(tagDeclaration, "the maybe external tag declaration object cannot be null");
-        this.maybeExternalTagDeclaration = tagDeclaration;
+        this.fieldTagDeclaration = tagDeclaration;
     }
 
     public final D getDeclaration() {
-        return maybeExternalTagDeclaration;
+        return fieldTagDeclaration;
     }
 
     @Override
@@ -40,5 +40,16 @@ public abstract class FieldTagType<D extends FieldTagDeclaration> extends Derive
     @Override
     public final boolean isFieldTagType() {
         return true;
+    }
+
+    @Override
+    public boolean isCompatibleWith(Type type) {
+        if (!super.isCompatibleWith(type)) {
+            return false;
+        }
+
+        final FieldTagType<? extends FieldTagDeclaration> fieldTagType =
+                (FieldTagType<? extends FieldTagDeclaration>) type;
+        return getDeclaration() == fieldTagType.getDeclaration();
     }
 }

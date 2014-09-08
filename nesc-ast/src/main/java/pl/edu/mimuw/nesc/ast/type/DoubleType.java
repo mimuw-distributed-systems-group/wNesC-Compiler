@@ -10,15 +10,25 @@ public final class DoubleType extends FloatingType {
         super(constQualified, volatileQualified);
     }
 
+    public DoubleType() {
+        this(false, false);
+    }
+
     @Override
     public final boolean isRealType() {
         return true;
     }
 
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final DoubleType addQualifiers(boolean addConst, boolean addVolatile,
+                                          boolean addRestrict) {
         return new DoubleType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+    }
+
+    @Override
+    public final DoubleType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                           boolean removeRestrict) {
+        return new DoubleType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile));
     }
 
     @Override

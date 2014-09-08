@@ -8,15 +8,25 @@ public final class UnsignedShortType extends UnsignedIntegerType {
         super(constQualified, volatileQualified);
     }
 
+    public UnsignedShortType() {
+        this(false, false);
+    }
+
     @Override
     public final boolean isCharacterType() {
         return false;
     }
 
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final UnsignedShortType addQualifiers(boolean addConst, boolean addVolatile,
+                                                 boolean addRestrict) {
         return new UnsignedShortType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+    }
+
+    @Override
+    public final UnsignedShortType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                                    boolean removeRestrict) {
+        return new UnsignedShortType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile));
     }
 
     @Override

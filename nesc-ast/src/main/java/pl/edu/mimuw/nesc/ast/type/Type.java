@@ -132,11 +132,32 @@ public interface Type {
      * @return Newly created object that represents the same type as this object
      *         but with given qualifiers added if necessary. If a type does not
      *         use a qualifier, the parameter related to it is ignored.
+     *         If a parameter is <code>false</code> the presence of the
+     *         corresponding qualifier is not affected.
      * @throws UnsupportedOperationException Method invoked on an object that
      *                                       represents an artificial type.
      */
-    Type addQualifiers(boolean constQualifier, boolean volatileQualifier,
-                       boolean restrictQualifier);
+    Type addQualifiers(boolean addConstQualifier, boolean addVolatileQualifier,
+                       boolean addRestrictQualifier);
+
+    /**
+     * @return Newly created object that represents the same type as this object
+     *         but with given qualifiers removed if necessary. If a type does
+     *         not use a qualifier, the parameter related to it is ignored. If
+     *         a parameter is <code>false</code> the presence of the
+     *         corresponding qualifier is not affected.
+     * @throws UnsupportedOperationException Method invoked on an object that
+     *                                       represents an artificial type.
+     */
+    Type removeQualifiers(boolean removeConstQualifier, boolean removeVolatileQualifier,
+                          boolean removeRestrictQualifier);
+
+    /**
+     * @return Newly created object that represents the same type as this object
+     *         but with all qualifiers removed. Equivalent to
+     *         <code>removeQualifiers(true, true, true);</code>.
+     */
+    Type removeQualifiers();
 
     /**
      * Performs integer promotions. If this type is other than
@@ -150,6 +171,15 @@ public interface Type {
      *                                       represents an artificial type.
      */
     Type promote();
+
+    /**
+     * @return <code>true</code> if and only if this type is compatible with the
+     *         given type as defined in the ISO C standard.
+     * @throws UnsupportedOperationException Method invoked on an object that
+     *                                       represents an artificial type.
+     * @throws NullPointerException Given argument is null.
+     */
+    boolean isCompatibleWith(Type type);
 
     /**
      * Method that allows using the types class hierarchy in the Visitor design

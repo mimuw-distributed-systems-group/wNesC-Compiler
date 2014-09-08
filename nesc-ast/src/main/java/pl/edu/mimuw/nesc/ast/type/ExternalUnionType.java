@@ -16,11 +16,22 @@ public final class ExternalUnionType extends FieldTagType<UnionDeclaration> {
         checkArgument(unionDecl.isExternal(), "the union must be external");
     }
 
+    public ExternalUnionType(UnionDeclaration unionDecl) {
+        this(false, false, unionDecl);
+    }
+
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final ExternalUnionType addQualifiers(boolean addConst, boolean addVolatile,
+                                                 boolean addRestrict) {
         return new ExternalUnionType(addConstQualifier(addConst),
                 addVolatileQualifier(addVolatile), getDeclaration());
+    }
+
+    @Override
+    public final ExternalUnionType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                                    boolean removeRestrict) {
+        return new ExternalUnionType(removeConstQualifier(removeConst),
+                removeVolatileQualifier(removeVolatile), getDeclaration());
     }
 
     @Override

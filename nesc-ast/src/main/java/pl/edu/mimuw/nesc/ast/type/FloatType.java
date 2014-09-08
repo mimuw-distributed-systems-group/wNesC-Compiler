@@ -9,15 +9,25 @@ public final class FloatType extends FloatingType {
         super(constQualified, volatileQualified);
     }
 
+    public FloatType() {
+        this(false, false);
+    }
+
     @Override
     public final boolean isRealType() {
         return true;
     }
 
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final FloatType addQualifiers(boolean addConst, boolean addVolatile,
+                                         boolean addRestrict) {
         return new FloatType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+    }
+
+    @Override
+    public final FloatType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                            boolean removeRestrict) {
+        return new FloatType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile));
     }
 
     @Override

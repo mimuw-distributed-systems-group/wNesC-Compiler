@@ -13,6 +13,10 @@ public final class CharType extends IntegerType {
         super(constQualified, volatileQualified);
     }
 
+    public CharType() {
+        this(false, false);
+    }
+
     @Override
     public final boolean isCharacterType() {
         return true;
@@ -29,9 +33,15 @@ public final class CharType extends IntegerType {
     }
 
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final CharType addQualifiers(boolean addConst, boolean addVolatile,
+                                        boolean addRestrict) {
         return new CharType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+    }
+
+    @Override
+    public final CharType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                           boolean removeRestrict) {
+        return new CharType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile));
     }
 
     @Override

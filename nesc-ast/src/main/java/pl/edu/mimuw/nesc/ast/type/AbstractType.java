@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.ast.type;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * Base class for all true types. All types can be const and volatile-qualified
  * and this class allows specifying it.
@@ -41,6 +43,27 @@ public abstract class AbstractType implements Type {
         return isVolatileQualified() || add;
     }
 
+    /**
+     * @return <code>true</code> if and only if this type is const-qualified and
+     *         the qualifier is not to be removed.
+     */
+    protected final boolean removeConstQualifier(boolean remove) {
+        return !remove && isConstQualified();
+    }
+
+    /**
+     * @return <code>true</code> if and only if this type is volatile-qualified
+     *         and the qualifier is not to be removed.
+     */
+    protected final boolean removeVolatileQualifier(boolean remove) {
+        return !remove && isVolatileQualified();
+    }
+
+    @Override
+    public final Type removeQualifiers() {
+        return removeQualifiers(true, true, true);
+    }
+
     @Override
     public final boolean isTypeDefinition() {
         return false;
@@ -54,6 +77,15 @@ public abstract class AbstractType implements Type {
     @Override
     public final boolean isVolatileQualified() {
         return volatileQualified;
+    }
+
+    @Override
+    public boolean isCompatibleWith(Type type) {
+        checkNotNull(type, "type checked for compatibility cannot be null");
+
+        return getClass().equals(type.getClass())
+               && isConstQualified() == type.isConstQualified()
+               && isVolatileQualified() == type.isVolatileQualified();
     }
 
     @Override

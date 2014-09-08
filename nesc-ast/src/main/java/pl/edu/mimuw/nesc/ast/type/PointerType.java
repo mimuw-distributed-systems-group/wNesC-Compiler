@@ -33,6 +33,10 @@ public final class PointerType extends DerivedType {
         this.referencedType = referencedType;
     }
 
+    public PointerType(Type referencedType) {
+        this(false, false, false, referencedType);
+    }
+
     /**
      * @return <code>true</code> if and only if this pointer type is
      *         restrict-qualified.
@@ -65,10 +69,31 @@ public final class PointerType extends DerivedType {
     }
 
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final PointerType addQualifiers(boolean addConst, boolean addVolatile,
+                                           boolean addRestrict) {
         return new PointerType(addConstQualifier(addConst), addVolatileQualifier(addVolatile),
                 isRestrictQualified() || addRestrict, getReferencedType());
+    }
+
+    @Override
+    public final PointerType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                           boolean removeRestrict) {
+        return new PointerType(
+                removeConstQualifier(removeConst),
+                removeVolatileQualifier(removeVolatile),
+                !removeRestrict && isRestrictQualified(),
+                getReferencedType()
+        );
+    }
+
+    @Override
+    public boolean isCompatibleWith(Type otherType) {
+        if (!super.isCompatibleWith(otherType)) {
+            return false;
+        }
+
+        final PointerType otherPtrType = (PointerType) otherType;
+        return getReferencedType().isCompatibleWith(otherPtrType.getReferencedType());
     }
 
     @Override

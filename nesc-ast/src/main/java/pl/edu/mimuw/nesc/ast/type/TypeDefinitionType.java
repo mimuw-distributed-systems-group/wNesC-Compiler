@@ -98,8 +98,24 @@ public final class TypeDefinitionType implements Type {
     }
 
     @Override
+    public final Type removeQualifiers(boolean removeConst,
+            boolean removeVolatile, boolean removeRestrict) {
+        throw new UnsupportedOperationException("removing qualifiers from an artificial type");
+    }
+
+    @Override
+    public final Type removeQualifiers() {
+        return removeQualifiers(true, true, true);
+    }
+
+    @Override
     public final Type promote() {
         throw new UnsupportedOperationException("promoting an artificial type");
+    }
+
+    @Override
+    public final boolean isCompatibleWith(Type type) {
+        throw new UnsupportedOperationException("checking the compatibility with an artificial type");
     }
 
     @Override

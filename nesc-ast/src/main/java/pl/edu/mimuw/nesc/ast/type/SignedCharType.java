@@ -12,15 +12,25 @@ public final class SignedCharType extends SignedIntegerType {
         super(constQualified, volatileQualified);
     }
 
+    public SignedCharType() {
+        this(false, false);
+    }
+
     @Override
     public final boolean isCharacterType() {
         return true;
     }
 
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final SignedCharType addQualifiers(boolean addConst, boolean addVolatile,
+                                              boolean addRestrict) {
         return new SignedCharType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+    }
+
+    @Override
+    public final SignedCharType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                                 boolean removeRestrict) {
+        return new SignedCharType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile));
     }
 
     @Override

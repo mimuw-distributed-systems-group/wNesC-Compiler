@@ -25,11 +25,22 @@ public final class StructureType extends FieldTagType<StructDeclaration> {
         checkArgument(!structDeclaration.isExternal(), "the structure must not be external");
     }
 
+    public StructureType(StructDeclaration structDeclaration) {
+        this(false, false, structDeclaration);
+    }
+
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final StructureType addQualifiers(boolean addConst, boolean addVolatile,
+                                             boolean addRestrict) {
         return new StructureType(addConstQualifier(addConst),
                 addVolatileQualifier(addVolatile), getDeclaration());
+    }
+
+    @Override
+    public final StructureType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                                boolean removeRestrict) {
+        return new StructureType(removeConstQualifier(removeConst),
+                removeVolatileQualifier(removeVolatile), getDeclaration());
     }
 
     @Override

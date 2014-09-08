@@ -12,15 +12,25 @@ public final class ShortType extends SignedIntegerType {
         super(constQualified, volatileQualified);
     }
 
+    public ShortType() {
+        this(false, false);
+    }
+
     @Override
     public final boolean isCharacterType() {
         return false;
     }
 
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final ShortType addQualifiers(boolean addConst, boolean addVolatile,
+                                         boolean addRestrict) {
         return new ShortType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+    }
+
+    @Override
+    public final ShortType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                            boolean removeRestrict) {
+        return new ShortType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile));
     }
 
     @Override

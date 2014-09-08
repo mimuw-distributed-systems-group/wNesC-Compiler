@@ -29,7 +29,7 @@ public abstract class IntegerType extends ArithmeticType {
     public abstract int getIntegerRank();
 
     @Override
-    public final Type promote() {
+    public final IntegerType promote() {
         final boolean properIntegerType = !(this instanceof IntType)
                 && !(this instanceof UnsignedIntType);
 

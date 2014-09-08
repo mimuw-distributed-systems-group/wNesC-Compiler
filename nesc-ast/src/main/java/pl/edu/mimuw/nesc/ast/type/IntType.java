@@ -12,15 +12,25 @@ public final class IntType extends SignedIntegerType {
         super(constQualified, volatileQualified);
     }
 
+    public IntType() {
+        this(false, false);
+    }
+
     @Override
     public final boolean isCharacterType() {
         return false;
     }
 
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final IntType addQualifiers(boolean addConst, boolean addVolatile,
+                                       boolean addRestrict) {
         return new IntType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+    }
+
+    @Override
+    public final IntType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                          boolean removeRestrict) {
+        return new IntType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile));
     }
 
     @Override

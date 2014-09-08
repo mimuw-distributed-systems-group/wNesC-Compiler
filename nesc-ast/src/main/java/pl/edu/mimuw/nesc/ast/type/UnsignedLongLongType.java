@@ -10,15 +10,25 @@ public final class UnsignedLongLongType extends UnsignedIntegerType {
         super(constQualified, volatileQualified);
     }
 
+    public UnsignedLongLongType() {
+        this(false, false);
+    }
+
     @Override
     public final boolean isCharacterType() {
         return false;
     }
 
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final UnsignedLongLongType addQualifiers(boolean addConst, boolean addVolatile,
+                                                    boolean addRestrict) {
         return new UnsignedLongLongType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+    }
+
+    @Override
+    public final UnsignedLongLongType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                                       boolean removeRestrict) {
+        return new UnsignedLongLongType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile));
     }
 
     @Override

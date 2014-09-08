@@ -10,6 +10,10 @@ public final class VoidType extends AbstractType {
         super(constQualified, volatileQualified);
     }
 
+    public VoidType() {
+        this(false, false);
+    }
+
     @Override
     public final boolean isUnsignedIntegerType() {
         return false;
@@ -71,9 +75,15 @@ public final class VoidType extends AbstractType {
     }
 
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final VoidType addQualifiers(boolean addConst, boolean addVolatile,
+                                        boolean addRestrict) {
         return new VoidType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+    }
+
+    @Override
+    public final VoidType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                           boolean removeRestrict) {
+        return new VoidType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile));
     }
 
     @Override

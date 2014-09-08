@@ -8,15 +8,25 @@ public final class UnsignedCharType extends UnsignedIntegerType {
         super(constQualified, volatileQualified);
     }
 
+    public UnsignedCharType() {
+        this(false, false);
+    }
+
     @Override
     public final boolean isCharacterType() {
         return true;
     }
 
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final UnsignedCharType addQualifiers(boolean addConst, boolean addVolatile,
+                                                boolean addRestrict) {
         return new UnsignedCharType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+    }
+
+    @Override
+    public final UnsignedCharType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                                   boolean removeRestrict) {
+        return new UnsignedCharType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile));
     }
 
     @Override

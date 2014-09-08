@@ -37,4 +37,7 @@ public abstract class ArithmeticType extends AbstractType {
     public final boolean isPointerType() {
         return false;
     }
+
+    @Override
+    public abstract ArithmeticType promote();
 }

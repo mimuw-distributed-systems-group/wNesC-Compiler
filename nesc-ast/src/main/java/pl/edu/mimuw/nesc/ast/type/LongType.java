@@ -12,15 +12,25 @@ public final class LongType extends SignedIntegerType {
         super(constQualified, volatileQualified);
     }
 
+    public LongType() {
+        this(false, false);
+    }
+
     @Override
     public final boolean isCharacterType() {
         return false;
     }
 
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final LongType addQualifiers(boolean addConst, boolean addVolatile,
+                                        boolean addRestrict) {
         return new LongType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+    }
+
+    @Override
+    public final LongType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                           boolean removeRestrict) {
+        return new LongType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile));
     }
 
     @Override

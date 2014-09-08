@@ -33,6 +33,10 @@ public final class EnumeratedType extends IntegerType {
         this.enumType = enumType;
     }
 
+    public EnumeratedType(EnumDeclaration enumType) {
+        this(false, false, enumType);
+    }
+
     public final EnumDeclaration getEnumDeclaration() {
         return enumType;
     }
@@ -53,15 +57,32 @@ public final class EnumeratedType extends IntegerType {
     }
 
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final EnumeratedType addQualifiers(boolean addConst, boolean addVolatile,
+                                              boolean addRestrict) {
         return new EnumeratedType(addConstQualifier(addConst), addVolatileQualifier(addVolatile),
+                                  getEnumDeclaration());
+    }
+
+    @Override
+    public final EnumeratedType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                                 boolean removeRestrict) {
+        return new EnumeratedType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile),
                                   getEnumDeclaration());
     }
 
     @Override
     public final int getIntegerRank() {
         return INTEGER_RANK;
+    }
+
+    @Override
+    public final boolean isCompatibleWith(Type type) {
+        if (!super.isCompatibleWith(type)) {
+            return false;
+        }
+
+        final EnumeratedType enumType = (EnumeratedType) type;
+        return enumType.getEnumDeclaration() == getEnumDeclaration();
     }
 
     @Override

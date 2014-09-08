@@ -97,9 +97,45 @@ public final class FunctionType extends DerivedType {
     }
 
     @Override
-    public final Type addQualifiers(boolean addConst, boolean addVolatile,
-                                    boolean addRestrict) {
+    public final FunctionType addQualifiers(boolean addConst, boolean addVolatile,
+                                            boolean addRestrict) {
         return this;
+    }
+
+    @Override
+    public final FunctionType removeQualifiers(boolean removeConst, boolean removeVolatile,
+                                               boolean removeRestrict) {
+        return this;
+    }
+
+    @Override
+    public boolean isCompatibleWith(Type type) {
+        if (!super.isCompatibleWith(type)) {
+            return false;
+        }
+
+        // Return types
+        final FunctionType funType = (FunctionType) type;
+        if (!getReturnType().isCompatibleWith(funType.getReturnType())) {
+            return false;
+        }
+
+        // Parameters
+        final List<Optional<Type>> params = getArgumentsTypes(),
+                                   otherParams = funType.getArgumentsTypes();
+        if (params.size() != otherParams.size()) {
+            return false;
+        }
+        for (int i = 0; i < params.size(); ++i) {
+            final Optional<Type> param = params.get(i),
+                                 otherParam = otherParams.get(i);
+            if (param.isPresent() && otherParam.isPresent()
+                    && !param.get().isCompatibleWith(otherParam.get())) {
+                return false;
+            }
+        }
+
+        return getVariableArguments() == funType.getVariableArguments();
     }
 
     @Override
