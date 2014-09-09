@@ -97,6 +97,16 @@ public final class FunctionType extends DerivedType {
     }
 
     @Override
+    public final boolean isObjectType() {
+        return false;
+    }
+
+    @Override
+    public final boolean isFunctionType() {
+        return true;
+    }
+
+    @Override
     public final FunctionType addQualifiers(boolean addConst, boolean addVolatile,
                                             boolean addRestrict) {
         return this;
@@ -136,6 +146,13 @@ public final class FunctionType extends DerivedType {
         }
 
         return getVariableArguments() == funType.getVariableArguments();
+    }
+
+    @Override
+    public final boolean isComplete() {
+        /* The value returned here should not affect anything because the
+           completeness of a type makes sense only for object types. */
+        return false;
     }
 
     @Override

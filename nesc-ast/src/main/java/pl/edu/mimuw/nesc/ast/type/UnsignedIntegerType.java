@@ -18,6 +18,11 @@ public abstract class UnsignedIntegerType extends IntegerType {
         return true;
     }
 
+    @Override
+    public final boolean isComplete() {
+        return true;
+    }
+
     /**
      * @return Newly created object that represents the corresponding signed
      *         integer type with the same type qualifiers.

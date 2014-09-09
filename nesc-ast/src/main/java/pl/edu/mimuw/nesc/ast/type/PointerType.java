@@ -69,6 +69,16 @@ public final class PointerType extends DerivedType {
     }
 
     @Override
+    public final boolean isObjectType() {
+        return true;
+    }
+
+    @Override
+    public final boolean isFunctionType() {
+        return false;
+    }
+
+    @Override
     public final PointerType addQualifiers(boolean addConst, boolean addVolatile,
                                            boolean addRestrict) {
         return new PointerType(addConstQualifier(addConst), addVolatileQualifier(addVolatile),
@@ -94,6 +104,11 @@ public final class PointerType extends DerivedType {
 
         final PointerType otherPtrType = (PointerType) otherType;
         return getReferencedType().isCompatibleWith(otherPtrType.getReferencedType());
+    }
+
+    @Override
+    public final boolean isComplete() {
+        return true;
     }
 
     @Override

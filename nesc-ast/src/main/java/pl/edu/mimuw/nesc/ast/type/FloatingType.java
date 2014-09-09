@@ -37,4 +37,9 @@ public abstract class FloatingType extends ArithmeticType {
     public final FloatingType promote() {
         return this;
     }
+
+    @Override
+    public final boolean isComplete() {
+        return true;
+    }
 }

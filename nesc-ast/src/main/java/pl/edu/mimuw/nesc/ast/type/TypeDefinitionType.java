@@ -92,6 +92,16 @@ public final class TypeDefinitionType implements Type {
     }
 
     @Override
+    public final boolean isObjectType() {
+        return false;
+    }
+
+    @Override
+    public final boolean isFunctionType() {
+        return false;
+    }
+
+    @Override
     public final Type addQualifiers(boolean constQualified,
             boolean volatileQualified, boolean restrictQualified) {
         throw new UnsupportedOperationException("adding qualifiers to an artificial type");
@@ -125,6 +135,11 @@ public final class TypeDefinitionType implements Type {
 
     @Override
     public final boolean isVolatileQualified() {
+        return false;
+    }
+
+    @Override
+    public final boolean isComplete() {
         return false;
     }
 

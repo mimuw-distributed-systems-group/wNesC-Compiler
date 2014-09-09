@@ -9,7 +9,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public abstract class FieldTagType<D extends FieldTagDeclaration> extends DerivedType {
+public abstract class FieldTagType<D extends FieldTagDeclaration<?>> extends DerivedType {
     /**
      * Object that actually represents the type. It is contained in a symbol
      * table if and only if it is named.
@@ -43,6 +43,16 @@ public abstract class FieldTagType<D extends FieldTagDeclaration> extends Derive
     }
 
     @Override
+    public final boolean isObjectType() {
+        return true;
+    }
+
+    @Override
+    public final boolean isFunctionType() {
+        return false;
+    }
+
+    @Override
     public boolean isCompatibleWith(Type type) {
         if (!super.isCompatibleWith(type)) {
             return false;
@@ -51,5 +61,11 @@ public abstract class FieldTagType<D extends FieldTagDeclaration> extends Derive
         final FieldTagType<? extends FieldTagDeclaration> fieldTagType =
                 (FieldTagType<? extends FieldTagDeclaration>) type;
         return getDeclaration() == fieldTagType.getDeclaration();
+    }
+
+    @Override
+    public final boolean isComplete() {
+        return fieldTagDeclaration.getDefinitionLink().isPresent()
+                || fieldTagDeclaration.isDefined();
     }
 }

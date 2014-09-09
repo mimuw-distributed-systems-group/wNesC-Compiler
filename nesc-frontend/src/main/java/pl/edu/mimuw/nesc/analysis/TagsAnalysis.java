@@ -381,7 +381,9 @@ public final class TagsAnalysis {
 
             final String name = tagDeclaration.getName().get();
             final TagPredicate predicate = new TagPredicate(tagDeclaration.getClass(), true);
-            final boolean result = environment.getTags().addOrOverwriteIf(name, tagDeclaration, predicate);
+            final SymbolTable<TagDeclaration> tagsTable = environment.getTags();
+            final Optional<? extends TagDeclaration> oldDecl = tagsTable.get(name, true);
+            final boolean result = tagsTable.addOrOverwriteIf(name, tagDeclaration, predicate);
 
             if (!result) {
                 if (!predicate.sameClass) {
@@ -392,6 +394,10 @@ public final class TagsAnalysis {
                             format("'%s' has been already defined", name));
                 } else {
                     throw new RuntimeException("unexpected symbol table result during a tag definition");
+                }
+            } else {
+                if (oldDecl.isPresent()) {
+                    oldDecl.get().setDefinitionLink(tagDeclaration);
                 }
             }
         }

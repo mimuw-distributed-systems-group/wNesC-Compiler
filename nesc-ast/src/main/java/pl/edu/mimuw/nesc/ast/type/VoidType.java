@@ -75,6 +75,16 @@ public final class VoidType extends AbstractType {
     }
 
     @Override
+    public final boolean isObjectType() {
+        return true;
+    }
+
+    @Override
+    public final boolean isFunctionType() {
+        return false;
+    }
+
+    @Override
     public final VoidType addQualifiers(boolean addConst, boolean addVolatile,
                                         boolean addRestrict) {
         return new VoidType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
@@ -89,6 +99,11 @@ public final class VoidType extends AbstractType {
     @Override
     public final Type promote() {
         return this;
+    }
+
+    @Override
+    public final boolean isComplete() {
+        return false;
     }
 
     @Override

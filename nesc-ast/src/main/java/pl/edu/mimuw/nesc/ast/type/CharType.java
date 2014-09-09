@@ -50,6 +50,11 @@ public final class CharType extends IntegerType {
     }
 
     @Override
+    public final boolean isComplete() {
+        return true;
+    }
+
+    @Override
     public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
     }

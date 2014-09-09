@@ -39,5 +39,15 @@ public abstract class ArithmeticType extends AbstractType {
     }
 
     @Override
+    public final boolean isObjectType() {
+        return true;
+    }
+
+    @Override
+    public final boolean isFunctionType() {
+        return false;
+    }
+
+    @Override
     public abstract ArithmeticType promote();
 }

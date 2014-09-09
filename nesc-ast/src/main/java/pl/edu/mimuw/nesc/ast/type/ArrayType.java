@@ -80,6 +80,16 @@ public final class ArrayType extends DerivedType {
     }
 
     @Override
+    public final boolean isObjectType() {
+        return true;
+    }
+
+    @Override
+    public final boolean isFunctionType() {
+        return false;
+    }
+
+    @Override
     public boolean isCompatibleWith(Type type) {
         if (!super.isCompatibleWith(type)) {
             return false;
@@ -87,6 +97,11 @@ public final class ArrayType extends DerivedType {
 
         final ArrayType arrayType = (ArrayType) type;
         return getElementType().isCompatibleWith(arrayType.getElementType());
+    }
+
+    @Override
+    public final boolean isComplete() {
+        return isOfKnownSize();
     }
 
     @Override

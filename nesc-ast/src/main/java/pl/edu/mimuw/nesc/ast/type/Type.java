@@ -117,6 +117,17 @@ public interface Type {
     boolean isPointerType();
 
     /**
+     * @return <code>true</code> if and only if this type is an object type.
+     *         Artificial types are not considered object types.
+     */
+    boolean isObjectType();
+
+    /**
+     * @return <code>true</code> if and only if this type is a function type.
+     */
+    boolean isFunctionType();
+
+    /**
      * @return <code>true</code> if and only if this type is const-qualified,
      *         e.g. <code>const int</code>.
      */
@@ -127,6 +138,14 @@ public interface Type {
      *         e.g. <code>volatile unsigned int</code>.
      */
     boolean isVolatileQualified();
+
+    /**
+     * Checks if a type is complete as defined in the ISO C standard.
+     *
+     * @return <code>true</code> if and only if this type is not an artificial
+     *         type and is complete at the current moment of the processing.
+     */
+    boolean isComplete();
 
     /**
      * @return Newly created object that represents the same type as this object
