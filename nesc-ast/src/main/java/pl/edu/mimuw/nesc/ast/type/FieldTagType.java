@@ -1,6 +1,8 @@
 package pl.edu.mimuw.nesc.ast.type;
 
 import pl.edu.mimuw.nesc.declaration.tag.FieldTagDeclaration;
+import pl.edu.mimuw.nesc.declaration.tag.fieldtree.BlockElement.BlockType;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -16,15 +18,30 @@ public abstract class FieldTagType<D extends FieldTagDeclaration<?>> extends Der
      */
     private final D fieldTagDeclaration;
 
+    /**
+     * Type of the block that this field tag type is associated.
+     */
+    private final BlockType blockType;
+
     protected FieldTagType(boolean constQualified, boolean volatileQualified,
-                           D tagDeclaration) {
+                           D tagDeclaration, BlockType blockType) {
         super(constQualified, volatileQualified);
         checkNotNull(tagDeclaration, "the maybe external tag declaration object cannot be null");
+        checkNotNull(blockType, "the block type cannot be null");
         this.fieldTagDeclaration = tagDeclaration;
+        this.blockType = blockType;
     }
 
     public final D getDeclaration() {
         return fieldTagDeclaration;
+    }
+
+    /**
+     * @return The type of the block associated with this field tag type. Never
+     *         null.
+     */
+    public final BlockType getBlockType() {
+        return blockType;
     }
 
     @Override

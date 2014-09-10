@@ -5,6 +5,7 @@ import pl.edu.mimuw.nesc.ast.gen.StructRef;
 import pl.edu.mimuw.nesc.ast.type.ExternalStructureType;
 import pl.edu.mimuw.nesc.ast.type.StructureType;
 import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.declaration.tag.fieldtree.TreeElement;
 
 import com.google.common.base.Optional;
 import java.util.List;
@@ -21,8 +22,8 @@ public class StructDeclaration extends FieldTagDeclaration<StructRef> {
      */
     public StructDeclaration(String name, Location location, StructRef astStructRef,
                              boolean isExternal) {
-        super(Optional.of(name), location, false, astStructRef, isExternal,
-              Optional.<List<FieldDeclaration>>absent());
+        super(Optional.of(name), location, astStructRef, isExternal,
+              Optional.<List<TreeElement>>absent());
     }
 
     /**
@@ -32,9 +33,8 @@ public class StructDeclaration extends FieldTagDeclaration<StructRef> {
      *                              is null.
      */
     public StructDeclaration(Optional<String> name, Location location, StructRef astStructRef,
-                             boolean isExternal, List<FieldDeclaration> fields) {
-        super(name, location, true, astStructRef, isExternal,
-              Optional.of(fields));
+                             boolean isExternal, List<TreeElement> structure) {
+        super(name, location, astStructRef, isExternal, Optional.of(structure));
     }
 
     @Override

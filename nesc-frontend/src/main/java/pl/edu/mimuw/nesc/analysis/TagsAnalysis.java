@@ -1,14 +1,15 @@
 package pl.edu.mimuw.nesc.analysis;
 
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.ast.type.FieldTagType;
+import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.*;
+import pl.edu.mimuw.nesc.declaration.tag.fieldtree.*;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 import pl.edu.mimuw.nesc.symboltable.SymbolTable;
-import pl.edu.mimuw.nesc.ast.type.FieldTagType;
-import pl.edu.mimuw.nesc.ast.type.Type;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -116,7 +117,7 @@ public final class TagsAnalysis {
      * <code>makeStructDeclaration</code> and <code>makeUnionDeclaration</code>
      * methods should be used instead.
      */
-    private static FieldTagDeclaration makeFieldTagDeclaration(ErrorHelper errorHelper,
+    private static FieldTagDeclaration<?> makeFieldTagDeclaration(ErrorHelper errorHelper,
             final TagRef tagRef) {
         checkNotNull(errorHelper, "error helper cannot be null");
         checkNotNull(tagRef, "tag reference cannot be null");
@@ -143,13 +144,17 @@ public final class TagsAnalysis {
             declaration.accept(visitor, null);
         }
 
+        FieldTagDeclaration<?> result;
         if (tagRef instanceof StructRef) {
-            return new StructDeclaration(getTagName(tagRef), tagRef.getLocation(),
-                    (StructRef) tagRef, isExternal, visitor.fields);
+            result = new StructDeclaration(getTagName(tagRef), tagRef.getLocation(),
+                     (StructRef) tagRef, isExternal, visitor.elements);
         } else {
-            return new UnionDeclaration(getTagName(tagRef), tagRef.getLocation(),
-                    (UnionRef) tagRef, isExternal, visitor.fields);
+            result = new UnionDeclaration(getTagName(tagRef), tagRef.getLocation(),
+                     (UnionRef) tagRef, isExternal, visitor.elements);
         }
+        checkTagDefinition(result, errorHelper);
+
+        return result;
     }
 
     /**
@@ -188,6 +193,25 @@ public final class TagsAnalysis {
                             ? tagRef.getName().getName()
                             : null;
         return Optional.fromNullable(name);
+    }
+
+    private static void checkTagDefinition(FieldTagDeclaration<?> tagDeclaration,
+                                           ErrorHelper errorHelper) {
+        final Optional<List<TreeElement>> maybeStructure = tagDeclaration.getStructure();
+        if (!maybeStructure.isPresent()) {
+            return;
+        }
+
+        final List<TreeElement> structure = maybeStructure.get();
+        final int size = structure.size();
+        final boolean flexibleMemberConditions =
+                size > 1 && tagDeclaration instanceof StructDeclaration;
+        final FieldValidityVisitor visitor = new FieldValidityVisitor(errorHelper);
+
+        for (int i = 0; i < size; ++i) {
+            final boolean canBeFlexibleMember = flexibleMemberConditions && i == size - 1;
+            structure.get(i).accept(visitor, canBeFlexibleMember);
+        }
     }
 
     /**
@@ -287,7 +311,8 @@ public final class TagsAnalysis {
 
             // Create the object that represents the attribute and define it
             final AttributeDeclaration attrDeclaration = new AttributeDeclaration(attrRef.getName().getName(),
-                    attrRef.getLocation(), attrRef, visitor.fields);
+                    attrRef.getLocation(), attrRef, visitor.elements);
+            checkTagDefinition(attrDeclaration, errorHelper);
             define(attrDeclaration, attrRef);
 
             return null;
@@ -447,14 +472,14 @@ public final class TagsAnalysis {
         private final ErrorHelper errorHelper;
 
         /**
-         * Set with names of fields that has been already acknowledged.
+         * Set with names of fields that have been already acknowledged.
          */
         private final Set<String> fieldsNames = new HashSet<>();
 
         /**
-         * Consecutive fields of the analyzed field tag.
+         * Consecutive elements of the analyzed field tag.
          */
-        private final List<FieldDeclaration> fields = new ArrayList<>();
+        private final List<TreeElement> elements = new ArrayList<>();
 
         private FieldTagDefinitionVisitor(ErrorHelper errorHelper) {
             this.errorHelper = errorHelper;
@@ -484,11 +509,9 @@ public final class TagsAnalysis {
                         final FieldTagDeclaration fieldDecl = fieldTagType.getDeclaration();
 
                         if (!fieldDecl.getName().isPresent()) {
-                            final Optional<List<FieldDeclaration>> maybeAllFields = fieldDecl.getAllFields();
-                            final List<FieldDeclaration> allFields = maybeAllFields.get();
-
-                            for (FieldDeclaration field : allFields) {
-                                appendField(field);
+                            final Optional<List<TreeElement>> maybeStructure = fieldDecl.getStructure();
+                            if (maybeStructure.isPresent()) {
+                                appendElement(new BlockElement(maybeStructure.get(), fieldTagType.getBlockType()));
                             }
                         }
                     }
@@ -503,7 +526,7 @@ public final class TagsAnalysis {
             final FieldDeclaration fieldDeclaration = fieldDecl.getDeclaration();
             checkState(fieldDeclaration != null, "a FieldDecl object is not " +
                        "associated with its FieldDeclaration object");
-            appendField(fieldDeclaration);
+            appendElement(new FieldElement(fieldDeclaration));
             return null;
         }
 
@@ -518,22 +541,106 @@ public final class TagsAnalysis {
             return null;
         }
 
-        private void appendField(FieldDeclaration field) {
-            // Check if there has not been any fields with the name
-            final Optional<String> maybeName = field.getName();
+        private void appendElement(BlockElement element) {
+            // Process all new fields
+            final Set<String> newNestedNames = new HashSet<>();
+
+            for (FieldDeclaration field : element) {
+                final Optional<String> maybeName = field.getName();
+
+                if (maybeName.isPresent()) {
+                    final String name = maybeName.get();
+
+                    if (fieldsNames.contains(name) && !newNestedNames.contains(name)) {
+                        errorHelper.error(
+                                field.getLocation(),
+                                field.getEndLocation(),
+                                format(FMT_ERR_FIELD_REDECLARATION, name)
+                        );
+                    }
+
+                    newNestedNames.add(name);
+                }
+            }
+
+            // Acknowledge the element
+            fieldsNames.addAll(newNestedNames);
+            elements.add(element);
+        }
+
+        private void appendElement(FieldElement element) {
+            final FieldDeclaration fieldDeclaration = element.getFieldDeclaration();
+            final Optional<String> maybeName = fieldDeclaration.getName();
+
             if (maybeName.isPresent()) {
                 final String name = maybeName.get();
 
                 if (fieldsNames.contains(name)) {
-                    errorHelper.error(field.getLocation(), field.getEndLocation(),
-                                      format(FMT_ERR_FIELD_REDECLARATION, name));
+                    errorHelper.error(
+                            fieldDeclaration.getLocation(),
+                            fieldDeclaration.getEndLocation(),
+                            format(FMT_ERR_FIELD_REDECLARATION, name)
+                    );
                 }
 
                 fieldsNames.add(name);
             }
 
-            // Add the field
-            fields.add(field);
+            elements.add(element);
         }
     }
+
+    /**
+     * Visitor that checks if a field is valid.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class FieldValidityVisitor implements TreeElement.Visitor<Void, Boolean> {
+        /**
+         * Various constants used by this visitor.
+         */
+        private static final String FMT_ERR_FIELD_FUNCTION = "Cannot declare a field of a function type '%s'";
+        private static final String FMT_ERR_FIELD_INCOMPLETE = "Cannot declare a field of an incomplete type '%s'";
+
+        /**
+         * Object that will be notified about detected errors and warnings.
+         */
+        private final ErrorHelper errorHelper;
+
+        private FieldValidityVisitor(ErrorHelper errorHelper) {
+            checkNotNull(errorHelper, "error helper cannot be null");
+            this.errorHelper = errorHelper;
+        }
+
+        @Override
+        public Void visit(FieldElement element, Boolean canBeFlexibleMember) {
+            final FieldDeclaration field = element.getFieldDeclaration();
+            final Optional<Type> maybeType = field.getType();
+            if (!maybeType.isPresent()) {
+                return null;
+            }
+            final Type type = maybeType.get();
+
+            // Check if the field is the flexible member
+            if (canBeFlexibleMember && !type.isComplete() && type.isArrayType()) {
+                return null;
+            }
+
+            if (type.isFunctionType()) {
+                errorHelper.error(field.getLocation(), field.getEndLocation(),
+                        format(FMT_ERR_FIELD_FUNCTION, type.toString()));
+            }
+            if (!type.isComplete()) {
+                errorHelper.error(field.getLocation(), field.getEndLocation(),
+                        format(FMT_ERR_FIELD_INCOMPLETE, type.toString()));
+            }
+
+            return null;
+        }
+
+        @Override
+        public Void visit(BlockElement blockElement, Boolean canBeFlexibleMember) {
+            return null;
+        }
+    };
 }

@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.ast.type;
 
 import pl.edu.mimuw.nesc.declaration.tag.UnionDeclaration;
+import pl.edu.mimuw.nesc.declaration.tag.fieldtree.BlockElement.BlockType;
 import static com.google.common.base.Preconditions.checkArgument;
 
 /**
@@ -20,7 +21,7 @@ public final class UnionType extends FieldTagType<UnionDeclaration> {
      */
     public UnionType(boolean constQualified, boolean volatileQualified,
                      UnionDeclaration unionDecl) {
-        super(constQualified, volatileQualified, unionDecl);
+        super(constQualified, volatileQualified, unionDecl, BlockType.UNION);
         checkArgument(!unionDecl.isExternal(), "the union type cannot be external");
     }
 

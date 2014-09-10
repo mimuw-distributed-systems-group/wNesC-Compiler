@@ -1058,7 +1058,7 @@ public final class TypesAnalysis {
         private void emitError(String msg, Interval interval) {
             errorHelper.error(
                     interval.startLocation,
-                    Optional.of(interval.endLocation),
+                    Optional.fromNullable(interval.endLocation),
                     msg
             );
         }

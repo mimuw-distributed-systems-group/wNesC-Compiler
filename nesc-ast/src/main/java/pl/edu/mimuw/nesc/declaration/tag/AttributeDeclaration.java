@@ -5,6 +5,7 @@ import java.util.List;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.AttributeRef;
 import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.declaration.tag.fieldtree.TreeElement;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -17,8 +18,8 @@ public class AttributeDeclaration extends FieldTagDeclaration<AttributeRef> {
      * are not definitions are forbidden.
      */
     public AttributeDeclaration(String name, Location location, AttributeRef astRef,
-            List<FieldDeclaration> fields) {
-        super(Optional.of(name), location, true, astRef, false, Optional.of(fields));
+            List<TreeElement> structure) {
+        super(Optional.of(name), location, astRef, false, Optional.of(structure));
     }
 
     @Override

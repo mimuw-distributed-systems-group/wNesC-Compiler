@@ -1,6 +1,8 @@
 package pl.edu.mimuw.nesc.ast.type;
 
 import pl.edu.mimuw.nesc.declaration.tag.StructDeclaration;
+import pl.edu.mimuw.nesc.declaration.tag.fieldtree.BlockElement.BlockType;
+
 import static com.google.common.base.Preconditions.checkArgument;
 
 /**
@@ -21,7 +23,7 @@ public final class ExternalStructureType extends FieldTagType<StructDeclaration>
      */
     public ExternalStructureType(boolean constQualified, boolean volatileQualified,
                                  StructDeclaration structDecl) {
-        super(constQualified, volatileQualified, structDecl);
+        super(constQualified, volatileQualified, structDecl, BlockType.EXTERNAL_STRUCTURE);
         checkArgument(structDecl.isExternal(), "the structure declaration must be external");
     }
 
