@@ -38,6 +38,11 @@ public abstract class FieldTagType<D extends FieldTagDeclaration<?>> extends Der
     }
 
     @Override
+    public final boolean isArrayType() {
+        return false;
+    }
+
+    @Override
     public final boolean isFieldTagType() {
         return true;
     }

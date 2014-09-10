@@ -39,6 +39,11 @@ public abstract class ArithmeticType extends AbstractType {
     }
 
     @Override
+    public final boolean isArrayType() {
+        return false;
+    }
+
+    @Override
     public final boolean isObjectType() {
         return true;
     }

@@ -80,6 +80,11 @@ public final class ArrayType extends DerivedType {
     }
 
     @Override
+    public final boolean isArrayType() {
+        return true;
+    }
+
+    @Override
     public final boolean isObjectType() {
         return true;
     }

@@ -75,6 +75,11 @@ public final class VoidType extends AbstractType {
     }
 
     @Override
+    public final boolean isArrayType() {
+        return false;
+    }
+
+    @Override
     public final boolean isObjectType() {
         return true;
     }

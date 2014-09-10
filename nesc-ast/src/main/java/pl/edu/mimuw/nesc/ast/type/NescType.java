@@ -72,6 +72,11 @@ public abstract class NescType implements Type {
     }
 
     @Override
+    public final boolean isArrayType() {
+        return false;
+    }
+
+    @Override
     public final boolean isObjectType() {
         return false;
     }

@@ -117,6 +117,12 @@ public interface Type {
     boolean isPointerType();
 
     /**
+     * @return <code>true</code> if and only if this type is an array type. If
+     *         so, it can be casted to a proper class without error.
+     */
+    boolean isArrayType();
+
+    /**
      * @return <code>true</code> if and only if this type is an object type.
      *         Artificial types are not considered object types.
      */

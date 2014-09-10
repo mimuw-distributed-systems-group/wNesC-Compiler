@@ -69,6 +69,11 @@ public final class PointerType extends DerivedType {
     }
 
     @Override
+    public final boolean isArrayType() {
+        return false;
+    }
+
+    @Override
     public final boolean isObjectType() {
         return true;
     }

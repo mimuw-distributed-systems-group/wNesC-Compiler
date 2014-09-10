@@ -97,6 +97,11 @@ public final class FunctionType extends DerivedType {
     }
 
     @Override
+    public final boolean isArrayType() {
+        return false;
+    }
+
+    @Override
     public final boolean isObjectType() {
         return false;
     }
@@ -152,7 +157,7 @@ public final class FunctionType extends DerivedType {
     public final boolean isComplete() {
         /* The value returned here should not affect anything because the
            completeness of a type makes sense only for object types. */
-        return false;
+        return true;
     }
 
     @Override

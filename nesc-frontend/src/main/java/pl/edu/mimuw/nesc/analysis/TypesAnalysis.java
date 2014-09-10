@@ -1,6 +1,5 @@
 package pl.edu.mimuw.nesc.analysis;
 
-import com.google.common.base.Function;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.EnumDeclaration;
@@ -14,6 +13,7 @@ import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.EnumMultiset;
 import com.google.common.collect.ImmutableMultiset;
@@ -694,21 +694,6 @@ public final class TypesAnalysis {
                 );
             }
         }
-
-        /**
-         * A simple helper class to carry information about a restrict qualifier.
-         *
-         * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-         */
-        private static class Interval {
-            private final Location startLocation;
-            private final Location endLocation;
-
-            private Interval(Location startLoc, Location endLoc) {
-                this.startLocation = startLoc;
-                this.endLocation = endLoc;
-            }
-        }
     }
 
     /**
@@ -732,6 +717,11 @@ public final class TypesAnalysis {
         private final ErrorHelper errorHelper;
 
         /**
+         * Object that will check created types for validity.
+         */
+        private final TypeValidityVisitor validityVisitor;
+
+        /**
          * <code>true</code> if and only if the declarators are not valid and
          * thus the type cannot be determined.
          */
@@ -746,6 +736,7 @@ public final class TypesAnalysis {
         private DeclaratorTypeVisitor(Type baseType, ErrorHelper errorHelper) {
             this.accumulatedType = baseType;
             this.errorHelper = errorHelper;
+            this.validityVisitor = new TypeValidityVisitor(errorHelper);
         }
 
         /**
@@ -773,6 +764,7 @@ public final class TypesAnalysis {
         @Override
         public Void visitArrayDeclarator(ArrayDeclarator declarator, Void v) {
             accumulatedType = new ArrayType(accumulatedType, declarator.getSize().isPresent());
+            checkType(declarator);
             jump(ignoreQualifiers(declarator.getDeclarator()));
             return null;
         }
@@ -783,6 +775,7 @@ public final class TypesAnalysis {
             accumulatedType = new PointerType(qualifiers.constQualified,
                     qualifiers.volatileQualified, qualifiers.restrictQualified,
                     accumulatedType);
+            checkType(declarator);
             jump(qualifiers.nextDeclarator);
             return null;
         }
@@ -801,6 +794,7 @@ public final class TypesAnalysis {
             typeError = typeError || paramsVisitor.typeError;
             accumulatedType = new FunctionType(accumulatedType, paramsVisitor.types,
                     paramsVisitor.variableArguments);
+            checkType(declarator);
             jump(ignoreQualifiers(declarator.getDeclarator()));
             return null;
         }
@@ -879,6 +873,11 @@ public final class TypesAnalysis {
             }
 
             return declarator;
+        }
+
+        private void checkType(Declarator declarator) {
+            accumulatedType.accept(validityVisitor, new Interval(declarator.getLocation(),
+                    declarator.getEndLocation()));
         }
 
         /**
@@ -984,6 +983,100 @@ public final class TypesAnalysis {
             // TODO add support for old-style parameters
             typeError = true;
             return null;
+        }
+    }
+
+    /**
+     * Visitor that visits types and checks if they are valid. Every detected
+     * error and warning is passed to an error helper object.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class TypeValidityVisitor extends NullTypeVisitor<Void, Interval> {
+        /**
+         * Various constants used in this class.
+         */
+        private static final String FMT_ERR_ARRAY_INCOMPLETE = "Cannot use an array type with an incomplete element type '%s'";
+        private static final String FMT_ERR_ARRAY_FUNCTION = "Cannot use an array type with a function element type '%s'";
+        private static final String FMT_ERR_FUNCTION_ARRAY = "A function cannot return a value of an array type '%s'";
+        private static final String FMT_ERR_FUNCTION_FUNCTION = "A function cannot return a value of a function type '%s'";
+
+        /**
+         * Error helper that will be notified about detected errors and
+         * warnings.
+         */
+        private final ErrorHelper errorHelper;
+
+        /**
+         * Remember the types of errors that have been emitted not to report too
+         * many similar errors for one declaration.
+         */
+        private boolean incompleteElementType = false;
+        private boolean functionElementType = false;
+        private boolean arrayReturnType = false;
+        private boolean functionReturnType = false;
+
+        private TypeValidityVisitor(ErrorHelper errorHelper) {
+            checkNotNull(errorHelper, "error helper cannot be null");
+            this.errorHelper = errorHelper;
+        }
+
+        @Override
+        public Void visit(ArrayType arrayType, Interval interval) {
+            final Type elementType = arrayType.getElementType();
+
+            if (!incompleteElementType && !elementType.isComplete()) {
+                emitError(format(FMT_ERR_ARRAY_INCOMPLETE, elementType.toString()), interval);
+                incompleteElementType = true;
+            }
+
+            if (!functionElementType && elementType.isFunctionType()) {
+                emitError(format(FMT_ERR_ARRAY_FUNCTION, elementType.toString()), interval);
+                functionElementType = true;
+            }
+
+            return null;
+        }
+
+        @Override
+        public Void visit(FunctionType funType, Interval interval) {
+            final Type returnType = funType.getReturnType();
+
+            if (!functionReturnType && returnType.isFunctionType()) {
+                emitError(format(FMT_ERR_FUNCTION_FUNCTION, returnType.toString()), interval);
+                functionReturnType = true;
+            }
+
+            if (!arrayReturnType && returnType.isArrayType()) {
+                emitError(format(FMT_ERR_FUNCTION_ARRAY, returnType.toString()), interval);
+                arrayReturnType = true;
+            }
+
+            return null;
+        }
+
+        private void emitError(String msg, Interval interval) {
+            errorHelper.error(
+                    interval.startLocation,
+                    Optional.of(interval.endLocation),
+                    msg
+            );
+        }
+    }
+
+    /**
+     * A simple helper class to carry information about the start location and
+     * the end location of a language syntax element.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class Interval {
+        private final Location startLocation;
+        private final Location endLocation;
+
+        private Interval(Location startLoc, Location endLoc) {
+            this.startLocation = startLoc;
+            this.endLocation = endLoc;
         }
     }
 }
