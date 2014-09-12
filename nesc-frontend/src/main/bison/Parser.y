@@ -88,6 +88,7 @@ import static java.lang.String.format;
  */
 %token <Symbol> INTEGER_LITERAL "integer literal"
 %token <Symbol> FLOATING_POINT_LITERAL "float literal"
+%token <Symbol> INVALID_NUMBER_LITERAL "invalid number literal"
 %token <Symbol> CHARACTER_LITERAL "character literal"
 %token <Symbol> STRING_LITERAL "string literal"
 
@@ -1601,6 +1602,12 @@ primary:
         $$ = cst;
     }
     | FLOATING_POINT_LITERAL
+    {
+        final LexicalCst cst = new LexicalCst($1.getLocation(), $1.getValue());
+        cst.setEndLocation($1.getEndLocation());
+        $$ = cst;
+    }
+    | INVALID_NUMBER_LITERAL
     {
         final LexicalCst cst = new LexicalCst($1.getLocation(), $1.getValue());
         cst.setEndLocation($1.getEndLocation());

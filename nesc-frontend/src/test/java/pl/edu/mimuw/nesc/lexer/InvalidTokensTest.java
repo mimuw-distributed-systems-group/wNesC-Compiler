@@ -64,7 +64,7 @@ public class InvalidTokensTest extends LexerTestBase {
         assertThat(listener.getErrorList()).isNotEmpty();
 
         final Symbol expectedToken = Symbol.builder()
-                .symbolCode(Parser.Lexer.FLOATING_POINT_LITERAL)
+                .symbolCode(Parser.Lexer.INVALID_NUMBER_LITERAL)
                 .file("")   // not important
                 .line(3).column(21)
                 .endLine(3).endColumn(28)

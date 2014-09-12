@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.lexer;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import org.anarres.cpp.*;
 import org.apache.log4j.Logger;
@@ -26,6 +27,13 @@ import static pl.edu.mimuw.nesc.parser.Parser.Lexer.*;
 public final class NescLexer extends AbstractLexer {
 
     private static final Logger LOG = Logger.getLogger(NescLexer.class);
+
+    @VisibleForTesting
+    public static final String INTEGER_REGEX =
+            "(([1-9][0-9]*)|([0-7]+)|(0[xX][0-9a-fA-F]+))((([uU][lL]?)|([uU](ll|LL))|([lL][uU]?)|((ll|LL)[uU]?))?)";
+    @VisibleForTesting
+    public static final String FLOAT_REGEX =
+            "(((([0-9]*\\.[0-9]+)|([0-9]+\\.))([eE][+-]?[0-9]+)?)|([0-9]+[eE][+-]?[0-9]+)|((0[xX]([0-9a-fA-F]*\\.[0-9a-fA-F]+|[0-9a-fA-F]+\\.|[0-9a-fA-F]+))[pP][+-]?[0-9]+))[fFlL]?";
 
     private final Preprocessor preprocessor;
     /**
@@ -328,13 +336,18 @@ public final class NescLexer extends AbstractLexer {
 
     private void lexNumber(Token token, Symbol.Builder builder, boolean invalid) {
         final String numeric = token.getText();
-        /*
-         * FIXME: how to distinguish between int and float?
-         * Simple heuristic is to check if value contains non-numerical
-         * characters.
-         */
-        builder.symbolCode(numeric.matches("[0-9]+") ? INTEGER_LITERAL : FLOATING_POINT_LITERAL)
-                .value(numeric)
+        final int symbolCode;
+        if (invalid) {
+            symbolCode = INVALID_NUMBER_LITERAL;
+        } else if (numeric.matches(INTEGER_REGEX)) {
+            symbolCode = INTEGER_LITERAL;
+        } else if (numeric.matches(FLOAT_REGEX)) {
+            symbolCode = FLOATING_POINT_LITERAL;
+        } else {
+            symbolCode = INVALID_NUMBER_LITERAL;
+        }
+        builder.value(numeric)
+                .symbolCode(symbolCode)
                 .endLine(token.getLine())
                 .endColumn(token.getColumn() + token.getText().length())
                 .invalid(invalid);
