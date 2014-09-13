@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.declaration.tag;
 
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.TagRef;
 import pl.edu.mimuw.nesc.declaration.tag.fieldtree.TreeElement;
 
@@ -42,22 +43,15 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
     private final Optional<List<TreeElement>> structure;
 
     /**
-     * <code>true</code> if and only if this declaration corresponds to an
-     * external tag declaration.
-     */
-    private final boolean isExternal;
-
-    /**
      * AST node that corresponds to this declaration.
      */
     private final T astTagRef;
 
     protected FieldTagDeclaration(Optional<String> maybeName, Location location,
-                                  T astNode, boolean isExternal,
+                                  StructKind kind, T astNode,
                                   Optional<List<TreeElement>> maybeStructure) {
-        super(maybeName, location, maybeStructure.isPresent());
+        super(maybeName, location, maybeStructure.isPresent(), kind);
         checkNotNull(astNode, "AST node for a tag declaration cannot be null");
-        this.isExternal = isExternal;
         this.astTagRef = astNode;
 
         if (maybeStructure.isPresent()) {
@@ -86,12 +80,9 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
         return allFields;
     }
 
+    @Override
     public final T getAstNode() {
         return astTagRef;
-    }
-
-    public final boolean isExternal() {
-        return isExternal;
     }
 
     private static FieldsInformation processFields(List<TreeElement> fields) {

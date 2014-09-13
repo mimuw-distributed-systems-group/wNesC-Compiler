@@ -2928,27 +2928,48 @@ structuse:
  */
 
 structdef:
-      structkind tag nesc_attributes LBRACE component_decl_list RBRACE maybe_attribute
+      structkind tag nesc_attributes LBRACE
     {
-        final Location endLocation = AstUtils.getEndLocation($6.getEndLocation(), $7);
-        $$ = declarations.makeStruct($1.getLocation(), endLocation, $1.getKind(), Optional.of($2), $5,
-                Lists.<Attribute>chain($3, $7));
+        $<TagRef>$ = declarations.startNamedStruct(environment, $structkind.getLocation(), $tag.getEndLocation(),
+                $structkind.getKind(), $tag);
     }
-    | STRUCT AT tag nesc_attributes LBRACE component_decl_list RBRACE maybe_attribute
+      [tagRef] component_decl_list RBRACE maybe_attribute
     {
-        final Location endLocation = AstUtils.getEndLocation($7.getEndLocation(), $8);
-        $$ = declarations.makeStruct($1.getLocation(), endLocation, StructKind.ATTRIBUTE, Optional.of($3), $6,
-                Lists.<Attribute>chain($4, $8));
+        final TagRef tagRef = $<TagRef>tagRef;
+        final Location endLocation = AstUtils.getEndLocation($RBRACE.getEndLocation(), $maybe_attribute);
+        declarations.finishNamedTagDefinition(tagRef, environment, endLocation, $component_decl_list,
+                Lists.<Attribute>chain($nesc_attributes, $maybe_attribute));
+        $$ = tagRef;
+    }
+    | STRUCT AT tag nesc_attributes LBRACE
+    {
+        $<TagRef>$ = declarations.startNamedStruct(environment, $STRUCT.getLocation(), $tag.getEndLocation(),
+                StructKind.ATTRIBUTE, $tag);
+    }
+      [tagRef] component_decl_list RBRACE maybe_attribute
+    {
+        final TagRef tagRef = $<TagRef>tagRef;
+        final Location endLocation = AstUtils.getEndLocation($RBRACE.getEndLocation(), $maybe_attribute);
+        declarations.finishNamedTagDefinition(tagRef, environment, endLocation, $component_decl_list,
+                Lists.<Attribute>chain($nesc_attributes, $maybe_attribute));
+        $$ = tagRef;
     }
     | structkind LBRACE component_decl_list RBRACE maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($4.getEndLocation(), $5);
         $$ = declarations.makeStruct($1.getLocation(), endLocation, $1.getKind(), Optional.<Word>absent(), $3, $5);
     }
-    | ENUM tag nesc_attributes LBRACE enumlist maybecomma_warn RBRACE maybe_attribute
+    | ENUM tag nesc_attributes LBRACE
     {
-        final Location endLocation = AstUtils.getEndLocation($7.getEndLocation(), $8);
-        $$ = declarations.makeEnum($1.getLocation(), endLocation, Optional.of($2), $5, Lists.<Attribute>chain($3, $8));
+        $<TagRef>$ = declarations.startNamedEnum(environment, $ENUM.getLocation(), $tag.getEndLocation(), $tag);
+    }
+      [tagRef] enumlist maybecomma_warn RBRACE maybe_attribute
+    {
+        final TagRef tagRef = $<TagRef>tagRef;
+        final Location endLocation = AstUtils.getEndLocation($RBRACE.getEndLocation(), $maybe_attribute);
+        declarations.finishNamedTagDefinition(tagRef, environment, endLocation, $enumlist,
+                Lists.<Attribute>chain($nesc_attributes, $maybe_attribute));
+        $$ = tagRef;
     }
     | ENUM LBRACE enumlist maybecomma_warn RBRACE maybe_attribute
     {

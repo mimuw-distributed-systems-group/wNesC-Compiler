@@ -4,6 +4,8 @@ import com.google.common.base.Optional;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.EnumRef;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
@@ -36,7 +38,7 @@ public class EnumDeclaration extends TagDeclaration {
      * C standard).
      */
     public EnumDeclaration(String name, Location location, EnumRef astRef) {
-        super(Optional.of(name), location, false);
+        super(Optional.of(name), location, false, StructKind.ENUM);
         checkNotNull(astRef, "AST node cannot be null");
         this.enumerators = Optional.absent();
         this.astEnumRef = astRef;
@@ -47,13 +49,18 @@ public class EnumDeclaration extends TagDeclaration {
      */
     public EnumDeclaration(Optional<String> name, Location location,
                            List<ConstantDeclaration> enumerators, EnumRef astRef) {
-        super(name, location, true);
+        super(name, location, true, StructKind.ENUM);
 
         checkNotNull(enumerators, "enumerators list cannot be null");
         checkNotNull(astRef, "AST node cannot be null");
 
         this.enumerators = Optional.of(Collections.unmodifiableList(new ArrayList<>(enumerators)));
         this.astEnumRef = astRef;
+    }
+
+    @Override
+    public EnumRef getAstNode() {
+        return astEnumRef;
     }
 
     @Override

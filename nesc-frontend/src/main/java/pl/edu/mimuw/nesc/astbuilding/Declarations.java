@@ -6,6 +6,7 @@ import pl.edu.mimuw.nesc.ast.AstUtils;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.StructKind;
+import pl.edu.mimuw.nesc.ast.TagRefSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.TypeDefinitionType;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
@@ -26,6 +27,7 @@ import java.util.Set;
 
 import static java.lang.String.format;
 import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.makeFieldDeclaration;
+import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.processTagReference;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveType;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
@@ -273,15 +275,44 @@ public final class Declarations extends AstBuildingBase {
         return decl;
     }
 
+    public TagRef startNamedStruct(Environment environment, Location startLocation,
+                                   Location endLocation, StructKind kind, Word tag) {
+        return startNamedTagDefinition(environment, startLocation, endLocation, kind, tag);
+    }
+
+    public TagRef startNamedEnum(Environment environment, Location startLocation,
+                                 Location endLocation, Word tag) {
+        return startNamedTagDefinition(environment, startLocation, endLocation, StructKind.ENUM, tag);
+    }
+
+    private TagRef startNamedTagDefinition(Environment environment, Location startLocation,
+                                           Location endLocation, StructKind kind, Word tag) {
+        final TagRef result = makeTagRef(startLocation, endLocation, kind, Optional.of(tag),
+                Lists.<Declaration>newList(), Lists.<Attribute>newList(),
+                TagRefSemantics.PREDEFINITION);
+        processTagReference(result, environment, true, errorHelper);
+        return result;
+    }
+
+    public void finishNamedTagDefinition(TagRef tagRef, Environment environment, Location endLocation,
+                                         LinkedList<Declaration> fields, LinkedList<Attribute> attributes) {
+        tagRef.setFields(fields);
+        tagRef.setAttributes(attributes);
+        tagRef.setEndLocation(endLocation);
+        tagRef.setSemantics(TagRefSemantics.DEFINITION);
+        processTagReference(tagRef, environment, true, errorHelper);
+    }
+
     public TagRef makeStruct(Location startLocation, Location endLocation, StructKind kind, Optional<Word> tag,
                              LinkedList<Declaration> fields, LinkedList<Attribute> attributes) {
-        return makeTagRef(startLocation, endLocation, kind, tag, fields, attributes, true);
+        return makeTagRef(startLocation, endLocation, kind, tag, fields, attributes,
+                          TagRefSemantics.DEFINITION);
     }
 
     public TagRef makeEnum(Location startLocation, Location endLocation, Optional<Word> tag,
                            LinkedList<Declaration> fields, LinkedList<Attribute> attributes) {
         return makeTagRef(startLocation, endLocation, StructKind.ENUM, tag, fields,
-                          attributes, true);
+                          attributes, TagRefSemantics.DEFINITION);
     }
 
     /**
@@ -398,36 +429,38 @@ public final class Declarations extends AstBuildingBase {
                               Optional<Word> tag) {
         final LinkedList<Attribute> attributes = Lists.newList();
         final LinkedList<Declaration> declarations = Lists.newList();
-        return makeTagRef(startLocation, endLocation, structKind, tag, declarations, attributes, false);
+        return makeTagRef(startLocation, endLocation, structKind, tag, declarations, attributes,
+                          TagRefSemantics.OTHER);
     }
 
     private TagRef makeTagRef(Location startLocation, Location endLocation, StructKind structKind,
                               Optional<Word> tag, LinkedList<Declaration> declarations,
-                              LinkedList<Attribute> attributes, boolean isDefined) {
+                              LinkedList<Attribute> attributes, TagRefSemantics semantics) {
         final TagRef tagRef;
         switch (structKind) {
             case STRUCT:
-                tagRef = new StructRef(startLocation, attributes, declarations, isDefined, tag.orNull());
+                tagRef = new StructRef(startLocation, attributes, declarations, tag.orNull(), semantics);
                 break;
             case UNION:
-                tagRef = new UnionRef(startLocation, attributes, declarations, isDefined, tag.orNull());
+                tagRef = new UnionRef(startLocation, attributes, declarations, tag.orNull(), semantics);
                 break;
             case NX_STRUCT:
-                tagRef = new NxStructRef(startLocation, attributes, declarations, isDefined, tag.orNull());
+                tagRef = new NxStructRef(startLocation, attributes, declarations, tag.orNull(), semantics);
                 break;
             case NX_UNION:
-                tagRef = new NxUnionRef(startLocation, attributes, declarations, isDefined, tag.orNull());
+                tagRef = new NxUnionRef(startLocation, attributes, declarations, tag.orNull(), semantics);
                 break;
             case ENUM:
-                tagRef = new EnumRef(startLocation, attributes, declarations, isDefined, tag.orNull());
+                tagRef = new EnumRef(startLocation, attributes, declarations, tag.orNull(), semantics);
                 break;
             case ATTRIBUTE:
-                tagRef = new AttributeRef(startLocation, attributes, declarations, isDefined, tag.orNull());
+                tagRef = new AttributeRef(startLocation, attributes, declarations, tag.orNull(), semantics);
                 break;
             default:
                 throw new IllegalArgumentException("Unexpected argument " + structKind);
         }
         tagRef.setEndLocation(endLocation);
+        tagRef.setIsInvalid(false);
         return tagRef;
     }
 

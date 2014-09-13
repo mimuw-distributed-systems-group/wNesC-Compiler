@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.analysis;
 
+import pl.edu.mimuw.nesc.ast.StructKind;
+import pl.edu.mimuw.nesc.ast.TagRefSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.FieldTagType;
 import pl.edu.mimuw.nesc.ast.type.Type;
@@ -48,7 +50,7 @@ public final class TagsAnalysis {
      * @throws NullPointerException One of the arguments is null
      *                              (except <code>isStandalone</code>).
      */
-    static void processTagReference(TagRef tagReference, Environment environment,
+    public static void processTagReference(TagRef tagReference, Environment environment,
             boolean isStandalone, ErrorHelper errorHelper) {
         // Validate arguments
         checkNotNull(tagReference, "tag reference cannot be null");
@@ -128,7 +130,7 @@ public final class TagsAnalysis {
                 || tagRef instanceof NxUnionRef;
 
         // Declaration but not definition
-        if (!tagRef.getIsDefined()) {
+        if (tagRef.getSemantics() != TagRefSemantics.DEFINITION) {
             if (tagRef instanceof StructRef) {
                 return new StructDeclaration(tagRef.getName().getName(), tagRef.getLocation(),
                         (StructRef) tagRef, isExternal);
@@ -168,7 +170,7 @@ public final class TagsAnalysis {
     static EnumDeclaration makeEnumDeclaration(EnumRef enumRef) {
         checkNotNull(enumRef, "enum reference cannot be null");
 
-        if (!enumRef.getIsDefined()) {
+        if (enumRef.getSemantics() != TagRefSemantics.DEFINITION) {
             return new EnumDeclaration(enumRef.getName().getName(), enumRef.getLocation(),
                                        enumRef);
         }
@@ -222,6 +224,16 @@ public final class TagsAnalysis {
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     private static class TagRefVisitor extends ExceptionVisitor<Void, Void> {
+        /**
+         * Various constants used by this class.
+         */
+        private static final String FMT_ERR_TAG_DIFFERENT_KIND = "'%s' has been previously declared as a tag of another type";
+        private static final String FMT_ERR_ENUM_UNDEFINED_USE = "'%s' is undefined; cannot use an enumeration type with no visible definition";
+        private static final String FMT_ERR_ENUM_FORWARD = "Invalid declaration; forward declarations of enumeration types are forbidden in the ISO C standard";
+        private static final String FMT_ERR_TAG_REDEFINITION = "Tag '%s' has been already defined";
+        private static final String FMT_ERR_TAG_NESTED_DEFINITION = "Beginning of nested definition of tag '%s'";
+        private static final String FMT_ERR_ATTRIBUTE_USAGE_AS_TYPE = "Cannot use an attribute definition as a type";
+
         /**
          * Object that will be informed about each encountered error.
          */
@@ -295,25 +307,32 @@ public final class TagsAnalysis {
 
         @Override
         public Void visitAttributeRef(AttributeRef attrRef, Void v) {
-            checkState(attrRef.getIsDefined(), "attribute reference that is not definition of an attribute");
+            checkState(attrRef.getSemantics() != TagRefSemantics.OTHER, "attribute reference that is not definition of an attribute");
             checkState(attrRef.getName() != null, "name of an attribute in its definition is null");
 
             if (!isStandalone) {
                 errorHelper.error(attrRef.getLocation(), attrRef.getEndLocation(),
-                        "Cannot use an attribute definition as a type");
+                                  FMT_ERR_ATTRIBUTE_USAGE_AS_TYPE);
             }
 
-            // Get fields of the attribute definition
-            FieldTagDefinitionVisitor visitor = new FieldTagDefinitionVisitor(errorHelper);
-            for (Declaration declaration : attrRef.getFields()) {
-                declaration.accept(visitor, null);
-            }
+            if (attrRef.getSemantics() == TagRefSemantics.DEFINITION) {
+                // Get fields of the attribute definition
+                FieldTagDefinitionVisitor visitor = new FieldTagDefinitionVisitor(errorHelper);
+                for (Declaration declaration : attrRef.getFields()) {
+                    declaration.accept(visitor, null);
+                }
 
-            // Create the object that represents the attribute and define it
-            final AttributeDeclaration attrDeclaration = new AttributeDeclaration(attrRef.getName().getName(),
-                    attrRef.getLocation(), attrRef, visitor.elements);
-            checkTagDefinition(attrDeclaration, errorHelper);
-            define(attrDeclaration, attrRef);
+                // Create the object that represents the attribute and define it
+                final AttributeDeclaration attrDeclaration = new AttributeDeclaration(attrRef.getName().getName(),
+                        attrRef.getLocation(), attrRef, visitor.elements);
+                checkTagDefinition(attrDeclaration, errorHelper);
+                define(attrDeclaration, attrRef);
+            } else if (attrRef.getSemantics() == TagRefSemantics.PREDEFINITION) {
+                define(new AttributeDeclaration(attrRef.getName().getName(),
+                       attrRef.getLocation(), attrRef), attrRef);
+            } else {
+                throw new IllegalStateException("unexpected semantics of an attribute reference");
+            }
 
             return null;
         }
@@ -341,7 +360,7 @@ public final class TagsAnalysis {
             }
 
             final T declaration = supplier.get();
-            if (!tagRef.getIsDefined()) {
+            if (tagRef.getSemantics() == TagRefSemantics.OTHER) {
                 declare(declaration, tagRef);
             } else {
                 define(declaration, tagRef);
@@ -357,43 +376,30 @@ public final class TagsAnalysis {
 
             final String name = tagDeclaration.getName().get();
             final SymbolTable<TagDeclaration> tagsTable = environment.getTags();
-            final TagPredicate predicate = new TagPredicate(tagDeclaration.getClass(), false);
-
-            // Check if it is actually a declaration
-            if (!isStandalone && tagsTable.contains(name)) {
-                final Optional<Boolean> sameTag = tagsTable.test(name, predicate);
-                if (!sameTag.isPresent()) {
-                    throw new RuntimeException("unexpected test result in the tags table");
-                } else if (!sameTag.get()) {
-                    errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(),
-                            format("'%s' has been earlier declared as a tag of an another type",
-                                    name));
-                }
-                return;
-            }
-
-            final Optional<Boolean> sameTag = tagsTable.test(name, predicate, true);
+            final TagPredicate predicate = new TagPredicate(tagDeclaration.getKind(), false);
+            final boolean onlyCurrentScope = isStandalone || !tagsTable.contains(name);
+            final Optional<Boolean> sameTag = tagsTable.test(name, predicate, onlyCurrentScope);
+            assert onlyCurrentScope || sameTag.isPresent() : "unexpected result of a test on a tag in the symbol table during a declaration";
 
             if (!sameTag.isPresent()) {
                 environment.getTags().add(name, tagDeclaration);
             } else if (!sameTag.get()) {
+                tagRef.setIsInvalid(true);
                 errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(),
-                        format("'%s' has been previously declared as a tag of an another "
-                                + "type", name));
+                                  format(FMT_ERR_TAG_DIFFERENT_KIND, name));
             }
 
             // Check the correctness of an enumeration tag declaration
-            if (tagRef instanceof EnumRef) {
+            if (tagDeclaration.getKind() == StructKind.ENUM) {
                 String errMsg = null;
                 if (!isStandalone && (!predicate.isDefined || !sameTag.isPresent())) {
-                    errMsg = format("'%s' is undefined; cannot use an enumeration type "
-                            + "with no visible definition", name);
+                    errMsg = format(FMT_ERR_ENUM_UNDEFINED_USE, name);
                 } else if (isStandalone) {
-                    errMsg = "Invalid declaration; forward declarations of enumeration types "
-                            + "are forbidden in the ISO C standard";
+                    errMsg = FMT_ERR_ENUM_FORWARD;
                 }
 
                 if (errMsg != null) {
+                    tagRef.setIsInvalid(true);
                     errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(), errMsg);
                 }
             }
@@ -405,22 +411,27 @@ public final class TagsAnalysis {
             }
 
             final String name = tagDeclaration.getName().get();
-            final TagPredicate predicate = new TagPredicate(tagDeclaration.getClass(), true);
+            final TagPredicate predicate = new TagPredicate(tagDeclaration.getKind(), true);
             final SymbolTable<TagDeclaration> tagsTable = environment.getTags();
             final Optional<? extends TagDeclaration> oldDecl = tagsTable.get(name, true);
             final boolean result = tagsTable.addOrOverwriteIf(name, tagDeclaration, predicate);
+            tagRef.setIsInvalid(!result);
 
-            if (!result) {
-                if (!predicate.sameClass) {
+            // Report errors only while processing the predefinition
+            if (!result && !tagDeclaration.isDefined()) {
+                if (!predicate.sameKind) {
                     errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(),
-                            format("'%s' has been previously declared as a tag of an another type", name));
+                                      format(FMT_ERR_TAG_DIFFERENT_KIND, name));
                 } else if (predicate.isDefined) {
                     errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(),
-                            format("'%s' has been already defined", name));
+                                      format(FMT_ERR_TAG_REDEFINITION, name));
+                } else if (predicate.insideDefinition) {
+                    errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(),
+                                      format(FMT_ERR_TAG_NESTED_DEFINITION, name));
                 } else {
                     throw new RuntimeException("unexpected symbol table result during a tag definition");
                 }
-            } else {
+            } else if (result && tagDeclaration.isDefined()) {
                 if (oldDecl.isPresent()) {
                     oldDecl.get().setDefinitionLink(tagDeclaration);
                 }
@@ -434,21 +445,24 @@ public final class TagsAnalysis {
          * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
          */
         private class TagPredicate implements Predicate<TagDeclaration> {
+            private boolean sameKind;
             private boolean isDefined;
-            private boolean sameClass;
+            private boolean insideDefinition;
+            private final StructKind expectedKind;
             private final boolean mustBeUndefined;
-            private final Class<?> expectedClass;
 
-            private TagPredicate(Class<?> expectedClass, boolean mustBeUndefined) {
-                this.expectedClass = expectedClass;
+            private TagPredicate(StructKind expectedKind, boolean mustBeUndefined) {
+                checkNotNull(expectedKind, "expected kind in a tag predicate cannot be null");
+                this.expectedKind = expectedKind;
                 this.mustBeUndefined = mustBeUndefined;
             }
 
             @Override
             public boolean apply(TagDeclaration decl) {
-                sameClass = decl.getClass().equals(expectedClass);
+                sameKind = decl.getKind() == expectedKind;
                 isDefined = decl.isDefined();
-                return sameClass && (!mustBeUndefined || !isDefined);
+                insideDefinition = decl.getAstNode().getSemantics() == TagRefSemantics.PREDEFINITION;
+                return sameKind && (!mustBeUndefined || !isDefined && !insideDefinition);
             }
         }
     }

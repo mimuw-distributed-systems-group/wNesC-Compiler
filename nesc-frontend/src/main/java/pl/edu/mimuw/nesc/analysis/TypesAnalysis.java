@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.analysis;
 
+import pl.edu.mimuw.nesc.ast.TagRefSemantics;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.EnumDeclaration;
@@ -217,21 +218,6 @@ public final class TypesAnalysis {
         ));
 
         /**
-         * Keys are classes that represent tag type specifiers and values are
-         * classes expected for them in the symbol table.
-         */
-        private static final Map<Class<? extends TagRef>, Class<? extends TagDeclaration>> TAG_REF_MAP;
-        static {
-            final Map<Class<? extends TagRef>, Class<? extends TagDeclaration>> tagRefMap = new HashMap<>();
-            tagRefMap.put(EnumRef.class, EnumDeclaration.class);
-            tagRefMap.put(StructRef.class, StructDeclaration.class);
-            tagRefMap.put(NxStructRef.class, StructDeclaration.class);
-            tagRefMap.put(UnionRef.class, UnionDeclaration.class);
-            tagRefMap.put(NxUnionRef.class, UnionDeclaration.class);
-            TAG_REF_MAP = Collections.unmodifiableMap(tagRefMap);
-        }
-
-        /**
          * Set with all specifiers that affect the type.
          */
         private static final Set<RID> TYPE_SPECIFIERS = Collections.unmodifiableSet(EnumSet.of(
@@ -390,6 +376,11 @@ public final class TypesAnalysis {
         }
 
         private Optional<TagDeclaration> finishNamedTagType(String name) {
+            if (tagReference.getIsInvalid()) {
+                typeError = true;
+                return Optional.absent();
+            }
+
             final Optional<? extends TagDeclaration> maybeTagDeclaration = environment.getTags().get(name);
             if (!maybeTagDeclaration.isPresent()) {
                 typeError = true;
@@ -397,16 +388,6 @@ public final class TypesAnalysis {
             }
 
             final TagDeclaration tagDeclaration = maybeTagDeclaration.get();
-            final Class<? extends TagDeclaration> expectedClass = TAG_REF_MAP.get(tagReference.getClass());
-            assert expectedClass != null : "unexpected tag reference class '"
-                    + tagReference.getClass().getCanonicalName() + "'";
-            if (!tagDeclaration.getClass().equals(expectedClass)) {
-                /* This error should have been already emitted because of the
-                   earlier processing of tags declarations. */
-                typeError = true;
-                return Optional.absent();
-            }
-
             return Optional.of(tagDeclaration);
         }
 
@@ -627,7 +608,9 @@ public final class TypesAnalysis {
                 return;
             }
 
-            processTagReference(tagRef, environment, isStandalone, errorHelper);
+            if (tagRef.getSemantics() == TagRefSemantics.OTHER) {
+                processTagReference(tagRef, environment, isStandalone, errorHelper);
+            }
             tagReference = tagRef;
         }
 

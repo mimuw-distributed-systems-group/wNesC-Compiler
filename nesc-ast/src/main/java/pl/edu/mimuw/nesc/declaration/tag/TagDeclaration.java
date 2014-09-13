@@ -3,6 +3,8 @@ package pl.edu.mimuw.nesc.declaration.tag;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.StructKind;
+import pl.edu.mimuw.nesc.ast.gen.TagRef;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 import pl.edu.mimuw.nesc.ast.type.Type;
 
@@ -28,16 +30,24 @@ public abstract class TagDeclaration extends Declaration {
     private final boolean isDefined;
 
     /**
+     * Kind of the tag this object reflects. Never null.
+     */
+    private final StructKind kind;
+
+    /**
      * If this object represents a declaration but not definition, then this
      * field can contain a reference to the object representing definition.
      * Otherwise, it shall be absent.
      */
     private Optional<TagDeclaration> definitionLink = Optional.absent();
 
-    protected TagDeclaration(Optional<String> name, Location location, boolean isDefined) {
+    protected TagDeclaration(Optional<String> name, Location location, boolean isDefined,
+                             StructKind kind) {
         super(location);
+        checkNotNull(kind, "the structure kind cannot be null");
         this.name = name;
         this.isDefined = isDefined;
+        this.kind = kind;
     }
 
     public Optional<String> getName() {
@@ -46,6 +56,14 @@ public abstract class TagDeclaration extends Declaration {
 
     public boolean isDefined() {
         return isDefined;
+    }
+
+    public StructKind getKind() {
+        return kind;
+    }
+
+    public boolean isExternal() {
+        return getKind().isExternal();
     }
 
     /**
@@ -73,6 +91,11 @@ public abstract class TagDeclaration extends Declaration {
 
         definitionLink = Optional.of(tagDefinition);
     }
+
+    /**
+     * @return AST node that this object reflects.
+     */
+    public abstract TagRef getAstNode();
 
     /**
      * @return If this object represents a declaration but not definition,

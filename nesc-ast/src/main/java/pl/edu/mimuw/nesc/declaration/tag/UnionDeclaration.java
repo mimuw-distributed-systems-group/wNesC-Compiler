@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.declaration.tag;
 
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.UnionRef;
 import pl.edu.mimuw.nesc.ast.type.ExternalUnionType;
 import pl.edu.mimuw.nesc.ast.type.Type;
@@ -22,7 +23,7 @@ public class UnionDeclaration extends FieldTagDeclaration<UnionRef> {
      */
     public UnionDeclaration(String name, Location location, UnionRef astUnionRef,
                             boolean isExternal) {
-        super(Optional.of(name), location, astUnionRef, isExternal,
+        super(Optional.of(name), location, determineKind(isExternal), astUnionRef,
               Optional.<List<TreeElement>>absent());
     }
 
@@ -31,7 +32,8 @@ public class UnionDeclaration extends FieldTagDeclaration<UnionRef> {
      */
     public UnionDeclaration(Optional<String> name, Location location, UnionRef astUnionRef,
                             boolean isExternal, List<TreeElement> structure) {
-        super(name, location, astUnionRef, isExternal, Optional.of(structure));
+        super(name, location, determineKind(isExternal), astUnionRef,
+              Optional.of(structure));
     }
 
     @Override
@@ -39,6 +41,12 @@ public class UnionDeclaration extends FieldTagDeclaration<UnionRef> {
         return   isExternal()
                ? new ExternalUnionType(constQualified, volatileQualified, this)
                : new UnionType(constQualified, volatileQualified, this);
+    }
+
+    private static StructKind determineKind(boolean isExternal) {
+        return   isExternal
+               ? StructKind.NX_UNION
+               : StructKind.UNION;
     }
 
     @Override

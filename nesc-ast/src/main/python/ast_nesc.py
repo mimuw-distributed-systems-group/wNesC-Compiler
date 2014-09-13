@@ -330,14 +330,19 @@ class Qualifier(BasicASTNode):
 class TagRef(BasicASTNode):
     """
     <p>A reference to a tag in a declaration.</p>
-    <p><code>isDefined</code> is <code>true</code> if this declaration defines the struct/union/enum.
-    If <code>isDefined</code> if <code>false</code>, then the list of fields is absent.</p>
+    <p>The meaning of individual values in <code>semantics</code> field is given in the definition
+    of <code>TagRefSemantics</code> enumeration type. In particular, one can check if this object
+    represents a definition by reading the value of the field.</p>
+    <p><code>isInvalid</code> field is meaningful only after semantic analysis of a tag
+    reference. When the analysis is done, <code>isInvalid</code> is <code>true</code> if and only if
+    the tag reference is invalid semantically, e.g. it conflicts with a previous declaration.</p>
     """
     superclass = TypeElement
     name = ReferenceField("Word")   # FIXME optional!
     attributes = ReferenceListField("Attribute")
     fields = ReferenceListField("Declaration")  # FIXME optional!
-    isDefined = BoolField(visitable=False)
+    semantics = ReferenceField("TagRefSemantics")
+    isInvalid = BoolField(constructor_variable=False)
 
 
 # A struct
