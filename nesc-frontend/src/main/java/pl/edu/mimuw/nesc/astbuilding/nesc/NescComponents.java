@@ -24,6 +24,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static java.lang.String.format;
+import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.checkInstanceParametersSpecifiers;
 import static pl.edu.mimuw.nesc.ast.AstUtils.makeWord;
 
 /**
@@ -133,6 +134,8 @@ public final class NescComponents extends AstBuildingBase {
     public void declareInterfaceRef(Environment environment, InterfaceRef ifaceRef,
                                     Optional<LinkedList<Declaration>> genericParameters,
                                     LinkedList<Attribute> attributes) {
+        checkInstanceParametersSpecifiers(genericParameters, errorHelper);
+
         ifaceRef.setGenericParameters(genericParameters);
         ifaceRef.setAttributes(attributes);
 

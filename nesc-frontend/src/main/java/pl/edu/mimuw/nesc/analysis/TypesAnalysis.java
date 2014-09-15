@@ -1,12 +1,10 @@
 package pl.edu.mimuw.nesc.analysis;
 
+import pl.edu.mimuw.nesc.ast.Interval;
 import pl.edu.mimuw.nesc.ast.TagRefSemantics;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
-import pl.edu.mimuw.nesc.declaration.tag.EnumDeclaration;
-import pl.edu.mimuw.nesc.declaration.tag.StructDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.TagDeclaration;
-import pl.edu.mimuw.nesc.declaration.tag.UnionDeclaration;
 import pl.edu.mimuw.nesc.ast.type.*;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
@@ -24,9 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.*;
@@ -671,8 +667,8 @@ public final class TypesAnalysis {
         private void emitRestrictWarning() {
             if (restrictQualifier.isPresent()) {
                 errorHelper.warning(
-                    restrictQualifier.get().startLocation,
-                    Optional.of(restrictQualifier.get().endLocation),
+                    restrictQualifier.get().getLocation(),
+                    Optional.of(restrictQualifier.get().getEndLocation()),
                     FMT_WARN_RESTRICT
                 );
             }
@@ -1040,26 +1036,10 @@ public final class TypesAnalysis {
 
         private void emitError(String msg, Interval interval) {
             errorHelper.error(
-                    interval.startLocation,
-                    Optional.fromNullable(interval.endLocation),
+                    interval.getLocation(),
+                    Optional.fromNullable(interval.getEndLocation()),
                     msg
             );
-        }
-    }
-
-    /**
-     * A simple helper class to carry information about the start location and
-     * the end location of a language syntax element.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    private static class Interval {
-        private final Location startLocation;
-        private final Location endLocation;
-
-        private Interval(Location startLoc, Location endLoc) {
-            this.startLocation = startLoc;
-            this.endLocation = endLoc;
         }
     }
 }

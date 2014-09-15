@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.astbuilding.nesc;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
+import pl.edu.mimuw.nesc.ast.Interval;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.Type;
@@ -23,6 +24,7 @@ import pl.edu.mimuw.nesc.token.Token;
 import java.util.LinkedList;
 
 import static java.lang.String.format;
+import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.*;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveType;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
@@ -121,8 +123,14 @@ public final class NescDeclarations extends AstBuildingBase {
         variableDecl.setInitializer(Optional.<Expression>absent());
         variableDecl.setEndLocation(endLocation);
 
+        // Check the non-type specifiers and emit errors and warnings
+        final SpecifiersSet specifiers = new SpecifiersSet(elements, errorHelper);
+        checkGenericParameterSpecifiers(specifiers, elements.size(),
+                new Interval(getStartLocation(elements).get(), endLocation),
+                errorHelper);
+
         if (declarator.isPresent()) {
-            final boolean isTypedef = TypeElementUtils.isTypedef(elements);
+            final boolean isTypedef = specifiers.contains(NonTypeSpecifier.TYPEDEF);
             final String name = DeclaratorUtils.getDeclaratorName(declarator.get());
             final ObjectDeclaration declaration;
             if (isTypedef) {

@@ -51,23 +51,6 @@ public final class Declarations extends AstBuildingBase {
         ERROR_DECLARATION.setEndLocation(Location.getDummyLocation());
     }
 
-    /**
-     * A set with scopes that can contain standalone declarations of tags, i.e.
-     * declarations that have no declarators and end with a semicolon, e.g.:
-     *     struct S;
-     *     union U;
-     */
-    private static final Set<ScopeType> STANDALONE_TAGS_SCOPES = Collections.unmodifiableSet(
-        new HashSet<>(Arrays.asList(
-            ScopeType.GLOBAL,
-            ScopeType.INTERFACE,
-            ScopeType.SPECIFICATION,
-            ScopeType.MODULE_IMPLEMENTATION,
-            ScopeType.CONFIGURATION_IMPLEMENTATION,
-            ScopeType.COMPOUND
-        ))
-    );
-
     public Declarations(NescEntityEnvironment nescEnvironment,
                         ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
                         ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder) {

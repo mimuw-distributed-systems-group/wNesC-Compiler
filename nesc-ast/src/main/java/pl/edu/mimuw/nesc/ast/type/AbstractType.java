@@ -83,7 +83,7 @@ public abstract class AbstractType implements Type {
     public boolean isCompatibleWith(Type type) {
         checkNotNull(type, "type checked for compatibility cannot be null");
 
-        return getClass().equals(type.getClass())
+        return getClass() == type.getClass()
                && isConstQualified() == type.isConstQualified()
                && isVolatileQualified() == type.isVolatileQualified();
     }
