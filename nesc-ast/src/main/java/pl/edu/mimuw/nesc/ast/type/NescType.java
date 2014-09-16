@@ -114,6 +114,11 @@ public abstract class NescType implements Type {
     }
 
     @Override
+    public final Type decay() {
+        throw new UnsupportedOperationException("decaying an artificial type");
+    }
+
+    @Override
     public final boolean isConstQualified() {
         return false;
     }

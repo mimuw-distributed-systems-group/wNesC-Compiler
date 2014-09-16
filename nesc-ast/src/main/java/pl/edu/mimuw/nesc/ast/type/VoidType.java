@@ -107,6 +107,11 @@ public final class VoidType extends AbstractType {
     }
 
     @Override
+    public final Type decay() {
+        return this;
+    }
+
+    @Override
     public final boolean isComplete() {
         return false;
     }

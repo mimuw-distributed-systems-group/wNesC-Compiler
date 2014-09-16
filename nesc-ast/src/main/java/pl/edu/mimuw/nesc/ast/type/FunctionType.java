@@ -124,6 +124,11 @@ public final class FunctionType extends DerivedType {
     }
 
     @Override
+    public final PointerType decay() {
+        return new PointerType(this);
+    }
+
+    @Override
     public boolean isCompatibleWith(Type type) {
         if (!super.isCompatibleWith(type)) {
             return false;

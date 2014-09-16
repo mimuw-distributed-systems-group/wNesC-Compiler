@@ -90,4 +90,9 @@ public abstract class FieldTagType<D extends FieldTagDeclaration<?>> extends Der
         return fieldTagDeclaration.getDefinitionLink().isPresent()
                 || fieldTagDeclaration.isDefined();
     }
+
+    @Override
+    public final Type decay() {
+        return this;
+    }
 }

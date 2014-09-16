@@ -129,6 +129,11 @@ public final class TypeDefinitionType implements Type {
     }
 
     @Override
+    public final Type decay() {
+        throw new UnsupportedOperationException("decaying an artificial type");
+    }
+
+    @Override
     public final boolean isCompatibleWith(Type type) {
         throw new UnsupportedOperationException("checking the compatibility with an artificial type");
     }

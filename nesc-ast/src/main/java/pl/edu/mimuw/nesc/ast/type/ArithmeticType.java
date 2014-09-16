@@ -55,4 +55,9 @@ public abstract class ArithmeticType extends AbstractType {
 
     @Override
     public abstract ArithmeticType promote();
+
+    @Override
+    public final Type decay() {
+        return this;
+    }
 }

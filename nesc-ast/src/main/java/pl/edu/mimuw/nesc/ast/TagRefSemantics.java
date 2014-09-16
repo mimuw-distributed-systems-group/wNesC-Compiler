@@ -7,7 +7,7 @@ package pl.edu.mimuw.nesc.ast;
  */
 public enum TagRefSemantics {
     /**
-     * This tag reference represents the definition but none of its fields have
+     * The tag reference represents the definition but none of its fields have
      * been already parsed. The object does not contain information about fields
      * but contains about attributes.
      */

@@ -75,6 +75,11 @@ public final class ArrayType extends DerivedType {
     }
 
     @Override
+    public final PointerType decay() {
+        return new PointerType(getElementType());
+    }
+
+    @Override
     public final boolean isPointerType() {
         return false;
     }

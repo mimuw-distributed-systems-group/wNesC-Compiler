@@ -8,26 +8,23 @@ import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.TagRefSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.ast.type.FunctionType;
 import pl.edu.mimuw.nesc.ast.type.TypeDefinitionType;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
-import pl.edu.mimuw.nesc.environment.ScopeType;
 import pl.edu.mimuw.nesc.parser.TypeElementsAssociation;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.token.Token;
 import pl.edu.mimuw.nesc.ast.type.Type;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.Set;
 
 import static java.lang.String.format;
 import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.makeFieldDeclaration;
 import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.processTagReference;
+import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.checkFunctionParametersTypes;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveType;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
@@ -482,6 +479,15 @@ public final class Declarations extends AstBuildingBase {
         public Void visitFunctionDeclarator(FunctionDeclarator funDeclarator, Void arg) {
             final Location startLocation = funDeclarator.getLocation();
             final Declarator innerDeclarator = funDeclarator.getDeclarator().get();
+
+            // Check types of parameters
+            if (maybeType.isPresent()) {
+                final Type type = maybeType.get();
+                assert type.isFunctionType() : "unexpected type of a function in its definition '" + type.getClass().getCanonicalName() + "'";
+                final FunctionType funType = (FunctionType) type;
+                checkFunctionParametersTypes(funType.getArgumentsTypes(), funDeclarator.getParameters(),
+                                             errorHelper);
+            }
 
             /* C function/task */
             if (innerDeclarator instanceof IdentifierDeclarator) {

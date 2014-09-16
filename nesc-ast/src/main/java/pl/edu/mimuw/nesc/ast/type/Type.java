@@ -198,6 +198,19 @@ public interface Type {
     Type promote();
 
     /**
+     * Decays this type. If this type is not a function type or an array type
+     * and not an artificial type, <code>this</code> is returned. If this type
+     * is a function type, a pointer type that refers to this type is returned.
+     * If this type is an array type, a pointer type with the referenced type
+     * being the element type of the array type is returned.
+     *
+     * @return An object representing this type after decaying it.
+     * @throws UnsupportedOperationException Method invoked on an artificial
+     *                                       type.
+     */
+    Type decay();
+
+    /**
      * @return <code>true</code> if and only if this type is compatible with the
      *         given type as defined in the ISO C standard.
      * @throws UnsupportedOperationException Method invoked on an object that

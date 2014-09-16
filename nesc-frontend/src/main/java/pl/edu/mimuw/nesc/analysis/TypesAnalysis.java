@@ -22,10 +22,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
 import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.*;
+import static pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils.getDeclaratorName;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -40,6 +44,88 @@ public final class TypesAnalysis {
      * Constants used throughout the whole class.
      */
     private static final String FMT_WARN_QUALIFIER = "'%s' type qualifier ignored because it has been already specified; remove it";
+    private static final String FMT_ERR_PARAMETER_INCOMPLETE_TYPE = "Parameter in function definition has incomplete type '%s'";
+    private static final String FMT_ERR_PARAMETER_INCOMPLETE_TYPE_N = "Parameter '%s' in function definition has incomplete type '%s'";
+
+    /**
+     * Checks the correctness of types used as function parameters and reports
+     * all detected errors to the given error helper. This method should only be
+     * invoked to check the parameters of a function <u>definition</u>.
+     *
+     * @param parametersTypes List with types of function parameters (in proper
+     *                        order).
+     * @param parametersDeclarations List with declarations of the parameters
+     *                               (in proper order) used for retrieving
+     *                               locations.
+     * @param errorHelper Object that will be notified about detected errors.
+     * @throws NullPointerException A value of a parameter is null (except
+     *                              <code>isDefinition</code>).
+     * @throws IllegalArgumentException Size of the declarations list is lesser
+     *                                  than the size of types list.
+     */
+    public static void checkFunctionParametersTypes(List<Optional<Type>> parametersTypes,
+            List<Declaration> parametersDeclarations, ErrorHelper errorHelper) {
+        // Validate arguments
+        checkNotNull(parametersTypes, "parameters types cannot be null");
+        checkNotNull(parametersDeclarations, "declarations of parameters cannot be null");
+        checkNotNull(errorHelper, "the error helper cannot be null");
+        checkArgument(parametersTypes.size() <= parametersDeclarations.size(),
+                "the size of the parameters declarations list is lesser than the size of list of types");
+
+        // Check the types
+        final Iterator<Optional<Type>> typesIt = parametersTypes.iterator();
+        final Iterator<Declaration> declIt = parametersDeclarations.iterator();
+        while (typesIt.hasNext()) {
+            final Optional<Type> maybeParamType = typesIt.next();
+            final Declaration declaration = declIt.next();
+            if (!maybeParamType.isPresent()) {
+                continue;
+            }
+
+            checkFunctionParameterType(maybeParamType.get(), declaration, errorHelper);
+        }
+    }
+
+    private static void checkFunctionParameterType(Type paramType, Declaration declaration,
+                                                   ErrorHelper errorHelper) {
+        final Type decayedType = paramType.decay();
+        if (!decayedType.isComplete()) {
+            final Optional<String> maybeName = getParameterName(declaration);
+            final String errMsg =
+                      maybeName.isPresent()
+                    ? format(FMT_ERR_PARAMETER_INCOMPLETE_TYPE_N, maybeName.get(), paramType.toString())
+                    : format(FMT_ERR_PARAMETER_INCOMPLETE_TYPE, paramType.toString());
+
+            errorHelper.error(
+                    declaration.getLocation(),
+                    declaration.getEndLocation(),
+                    errMsg
+            );
+        }
+    }
+
+    private static Optional<String> getParameterName(Declaration declaration) {
+        if (!(declaration instanceof DataDecl)) {
+            return Optional.absent();
+        }
+
+        final DataDecl decl = (DataDecl) declaration;
+        if (decl.getDeclarations().isEmpty()) {
+            return Optional.absent();
+        }
+
+        final Declaration firstDecl = decl.getDeclarations().getFirst();
+        if (!(firstDecl instanceof VariableDecl)) {
+            return Optional.absent();
+        }
+
+        final VariableDecl varDecl = (VariableDecl) firstDecl;
+        if (!varDecl.getDeclarator().isPresent()) {
+            return Optional.absent();
+        }
+
+        return Optional.fromNullable(getDeclaratorName(varDecl.getDeclarator().get()));
+    }
 
     /**
      * Shortcut that combines functionality of <code>resolveBaseType</code>
@@ -766,8 +852,10 @@ public final class TypesAnalysis {
                     errorHelper
             );
 
-            for (Declaration paramDecl : declarator.getParameters()) {
-                paramDecl.accept(paramsVisitor, null);
+            if (hasParameters(declarator)) {
+                for (Declaration paramDecl : declarator.getParameters()) {
+                    paramDecl.accept(paramsVisitor, null);
+                }
             }
 
             typeError = typeError || paramsVisitor.typeError;
@@ -776,6 +864,51 @@ public final class TypesAnalysis {
             checkType(declarator);
             jump(ignoreQualifiers(declarator.getDeclarator()));
             return null;
+        }
+
+        /**
+         * @return <code>true</code> if and only if the function indicated by
+         *         given declarator takes some arguments. The special case of the
+         *         <code>void</code> keyword is included.
+         */
+        private static boolean hasParameters(FunctionDeclarator declarator) {
+            // Check the usual case
+            final LinkedList<Declaration> params = declarator.getParameters();
+            if (params.isEmpty()) {
+                return false;
+            }
+            if (params.size() != 1) {
+                return true;
+            }
+
+            // Check the case of 'void' keyword
+            final Declaration onlyParam = params.getFirst();
+            if (!(onlyParam instanceof DataDecl)) {
+                return true;
+            }
+            final DataDecl dataDecl = (DataDecl) onlyParam;
+            final LinkedList<Declaration> paramDecls = dataDecl.getDeclarations();
+            assert paramDecls.size() == 1 : "a parameter with multiple declarations";
+            final Declaration onlyParamDecl = paramDecls.getFirst();
+            assert onlyParamDecl instanceof VariableDecl :
+                    format("unexpected variable parameter declaration of class '%s'",
+                            onlyParamDecl.getClass().getCanonicalName());
+            final VariableDecl paramDecl = (VariableDecl) onlyParamDecl;
+
+            if (paramDecl.getDeclarator().isPresent() || dataDecl.getModifiers().size() != 1) {
+                return true;
+            }
+
+            final TypeElement onlyModifier = dataDecl.getModifiers().getFirst();
+            RID modifier;
+            if (onlyModifier instanceof Rid) {
+                modifier = ((Rid) onlyModifier).getId();
+            } else if (onlyModifier instanceof Qualifier) {
+                modifier = ((Qualifier) onlyModifier).getId();
+            } else {
+                return true;
+            }
+            return modifier != RID.VOID;
         }
 
         private void jump(Optional<Declarator> next) {
@@ -924,8 +1057,6 @@ public final class TypesAnalysis {
 
         @Override
         public Void visitDataDecl(DataDecl dataDecl, Void v) {
-            // TODO support for 'void' that indicate no parameters
-
             checkState(dataDecl.getDeclarations().size() == 1, "expecting exactly one declaration for a parameter");
             dataDecl.getDeclarations().getFirst().accept(this, null);
 

@@ -102,6 +102,11 @@ public final class PointerType extends DerivedType {
     }
 
     @Override
+    public final Type decay() {
+        return this;
+    }
+
+    @Override
     public boolean isCompatibleWith(Type otherType) {
         if (!super.isCompatibleWith(otherType)) {
             return false;
