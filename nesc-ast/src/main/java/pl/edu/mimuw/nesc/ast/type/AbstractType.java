@@ -70,6 +70,11 @@ public abstract class AbstractType implements Type {
     }
 
     @Override
+    public final boolean isArtificialType() {
+        return false;
+    }
+
+    @Override
     public final boolean isConstQualified() {
         return constQualified;
     }

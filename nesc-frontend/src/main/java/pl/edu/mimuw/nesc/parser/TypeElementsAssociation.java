@@ -11,6 +11,8 @@ import com.google.common.base.Optional;
 import java.util.LinkedList;
 import java.util.List;
 
+import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.NonTypeSpecifier;
+import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.SpecifiersSet;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveBaseType;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveDeclaratorType;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -29,6 +31,12 @@ public final class TypeElementsAssociation {
      * if it is invalid. It is null if and only if it has not been yet resolved.
      */
     private Optional<Type> type = null;
+
+    /**
+     * Data about main specifiers.
+     */
+    private Optional<Boolean> isMainSpecifierValid = Optional.absent();
+    private Optional<NonTypeSpecifier> mainSpecifier = Optional.absent();
 
     public TypeElementsAssociation(List<TypeElement> typeElements) {
         checkNotNull(typeElements, "type elements cannot be null");
@@ -65,5 +73,35 @@ public final class TypeElementsAssociation {
         return   maybeType.isPresent() && maybeDeclarator.isPresent()
                ? resolveDeclaratorType(maybeDeclarator.get(), errorHelper, maybeType.get())
                : maybeType;
+    }
+
+    public boolean containsMainSpecifier(ErrorHelper errorHelper) {
+        analyzeSpecifiers(errorHelper);
+        return isMainSpecifierValid.get();
+    }
+
+    /**
+     * Analyzes the specifiers and determines the main one if it has not been
+     * done yet.
+     *
+     * @param errorHelper Object that will be notified about detected errors.
+     * @return The main specifier is if is present and correctly specified.
+     *         Otherwise, the value is absent.
+     */
+    public Optional<NonTypeSpecifier> getMainSpecifier(ErrorHelper errorHelper) {
+        analyzeSpecifiers(errorHelper);
+        return mainSpecifier;
+    }
+
+    private void analyzeSpecifiers(ErrorHelper errorHelper) {
+        if (isMainSpecifierValid.isPresent()) {
+            return;
+        }
+
+        final SpecifiersSet specifiers = new SpecifiersSet(typeElements, errorHelper);
+        isMainSpecifierValid = Optional.of(specifiers.validateMainSpecifiers());
+        if (isMainSpecifierValid.get()) {
+            mainSpecifier = specifiers.firstMainSpecifier();
+        }
     }
 }

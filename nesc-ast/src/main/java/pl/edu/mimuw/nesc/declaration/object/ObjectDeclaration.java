@@ -2,9 +2,11 @@ package pl.edu.mimuw.nesc.declaration.object;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
-import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.declaration.Declaration;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * <p>Object namespace is defined both in C and nesc standard.
@@ -35,10 +37,19 @@ public abstract class ObjectDeclaration extends Declaration {
      */
     protected final Optional<Type> type;
 
-    protected ObjectDeclaration(String name, Location location, Optional<Type> type) {
-        super(location);
-        this.name = name;
-        this.type = type;
+    /**
+     * Linkage of this object. May be absent if it couldn't have been
+     * determined.
+     *
+     * @see Linkage
+     */
+    protected final Optional<Linkage> linkage;
+
+    protected ObjectDeclaration(Builder<? extends ObjectDeclaration> builder) {
+        super(builder);
+        this.name = builder.name;
+        this.type = builder.type;
+        this.linkage = builder.linkage;
     }
 
     public String getName() {
@@ -47,6 +58,10 @@ public abstract class ObjectDeclaration extends Declaration {
 
     public Optional<Type> getType() {
         return type;
+    }
+
+    public Optional<Linkage> getLinkage() {
+        return linkage;
     }
 
     @Override
@@ -82,4 +97,122 @@ public abstract class ObjectDeclaration extends Declaration {
         R visit(VariableDeclaration variable, A arg);
     }
 
+    /**
+     * Builder that does not allow to set the type and linkage with public
+     * methods.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     * @see ExtendedBuilder ExtendedBuilder
+     */
+    public static abstract class Builder<T extends ObjectDeclaration> extends Declaration.Builder<T> {
+        /**
+         * Data needed for building the declaration object.
+         */
+        private String name;
+        private Optional<Type> type = Optional.absent();
+        private Optional<Linkage> linkage = Optional.absent();
+
+        /**
+         * Remember if the optional fields have been set.
+         */
+        private boolean typeAssigned = false;
+        private boolean linkageAssigned = false;
+
+        protected Builder() {
+        }
+
+        /**
+         * Set the name of the object that will be represented by a declaration
+         * class instance.
+         *
+         * @param name Name of the object to set.
+         * @return <code>this</code>
+         */
+        public Builder<T> name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        /**
+         * Set the type of the object represented by the declaration. This
+         * method should be called in a <code>beforeBuild</code> override.
+         *
+         * @param type Type to set.
+         * @throws IllegalStateException The type has been already set.
+         */
+        protected void setType(Optional<Type> type) {
+            checkState(!typeAssigned, "the type can be set exactly once");
+            this.type = type;
+            this.typeAssigned = true;
+        }
+
+        /**
+         * Set the linkage of the object represented by the created declaration.
+         * This method should be called in a <code>beforeBuild</code> override.
+         *
+         * @param linkage Linkage to set.
+         * @throws IllegalStateException The linkage has been already set.
+         */
+        protected void setLinkage(Optional<Linkage> linkage) {
+            checkState(!linkageAssigned, "the linkage can be set exactly once");
+            this.linkage = linkage;
+            this.linkageAssigned = true;
+        }
+
+        @Override
+        protected void validate() {
+            super.validate();
+            checkNotNull(name, "the name cannot be null");
+            checkNotNull(type, "the type cannot be null");
+            checkNotNull(linkage, "the linkage cannot be null");
+        }
+    }
+
+    /**
+     * Builder that allows setting the type and linkage with public methods.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     * @see Builder Builder
+     */
+    public static abstract class ExtendedBuilder<T extends ObjectDeclaration> extends Builder<T> {
+        /**
+         * Type and linkage that must be saved before passing them to the
+         * superclass.
+         */
+        private Optional<Type> type = Optional.absent();
+        private Optional<Linkage> linkage = Optional.absent();
+
+        protected ExtendedBuilder() {
+        }
+
+        /**
+         * Set the type with a nullable reference.
+         *
+         * @param type The type to set. It can be null if no type is to be set.
+         * @return <code>this</code>
+         */
+        public ExtendedBuilder<T> type(Type type) {
+            this.type = Optional.fromNullable(type);
+            return this;
+        }
+
+        /**
+         * Set the linkage using a nullable reference.
+         *
+         * @param linkage Linkage to set. If it is null, then no linkage will be
+         *                set.
+         * @return <code>this</code>
+         */
+        public ExtendedBuilder<T> linkage(Linkage linkage) {
+            this.linkage = Optional.fromNullable(linkage);
+            return this;
+        }
+
+        @Override
+        protected void beforeBuild() {
+            super.beforeBuild();
+            setType(type);
+            setLinkage(linkage);
+        }
+    }
 }

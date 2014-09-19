@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.analysis;
 
 import pl.edu.mimuw.nesc.ast.Interval;
 import pl.edu.mimuw.nesc.ast.TagRefSemantics;
+import pl.edu.mimuw.nesc.declaration.object.Linkage;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.TagDeclaration;
@@ -46,6 +47,57 @@ public final class TypesAnalysis {
     private static final String FMT_WARN_QUALIFIER = "'%s' type qualifier ignored because it has been already specified; remove it";
     private static final String FMT_ERR_PARAMETER_INCOMPLETE_TYPE = "Parameter in function definition has incomplete type '%s'";
     private static final String FMT_ERR_PARAMETER_INCOMPLETE_TYPE_N = "Parameter '%s' in function definition has incomplete type '%s'";
+    private static final String FMT_ERR_VARAIBLE_INCOMPLETE_TYPE = "Variable has incomplete type '%s'";
+    private static final String FMT_ERR_VARIABLE_INCOMPLETE_TYPE_N = "Variable '%s' has incomplete type '%s'";
+
+    /**
+     * Checks the type of an identifier in a standard declaration
+     * <code>type</code> and <code>linkage</code> parameters are of
+     * <code>Optional</code> class only for convenience - if any of these values
+     * is absent, this method does nothing.
+     *
+     * @param type Type of the identifier to check.
+     * @param linkage Linkage of the identifier to check.
+     * @param identifier String with the identifier that will be checked.
+     * @param interval Position of the identifier that will be checked.
+     * @param errorHelper Object that will be notified about detected errors.
+     * @throws NullPointerException One of the arguments is null.
+     */
+    public static void checkVariableType(Optional<Type> type, Optional<Linkage> linkage,
+            Optional<String> identifier, Interval interval, ErrorHelper errorHelper) {
+        // Check arguments
+        checkNotNull(type, "the type cannot be null");
+        checkNotNull(linkage, "the linkage cannot be null");
+        checkNotNull(identifier, "the identifier cannot be null");
+        checkNotNull(interval, "the interval cannot be null");
+        checkNotNull(errorHelper, "the error helper cannot be null");
+
+        // Return if there is not enough data
+        if (!type.isPresent() || !linkage.isPresent()) {
+            return;
+        }
+
+        // Prepare
+        final Type unwrappedType = type.get();
+        final Linkage unwrappedLinkage = linkage.get();
+        if (unwrappedLinkage != Linkage.NONE || !unwrappedType.isObjectType()) {
+            return;
+        }
+
+        // Check type
+        if (!unwrappedType.isComplete()) {
+            final String errMsg =
+                       identifier.isPresent()
+                     ? format(FMT_ERR_VARIABLE_INCOMPLETE_TYPE_N, identifier.get(), unwrappedType.toString())
+                     : format(FMT_ERR_VARAIBLE_INCOMPLETE_TYPE, unwrappedType.toString());
+
+            errorHelper.error(
+                    interval.getLocation(),
+                    interval.getEndLocation(),
+                    errMsg
+            );
+        }
+    }
 
     /**
      * Checks the correctness of types used as function parameters and reports
@@ -643,7 +695,7 @@ public final class TypesAnalysis {
                     if (restrictQualifier.isPresent()) {
                         warnMsg = Optional.of(format(FMT_WARN_QUALIFIER, rid.getName()));
                     } else {
-                        restrictQualifier = Optional.of(new Interval(startLoc, endLoc));
+                        restrictQualifier = Optional.of(Interval.of(startLoc, endLoc));
                     }
                     break;
                 default:
@@ -988,7 +1040,7 @@ public final class TypesAnalysis {
         }
 
         private void checkType(Declarator declarator) {
-            accumulatedType.accept(validityVisitor, new Interval(declarator.getLocation(),
+            accumulatedType.accept(validityVisitor, Interval.of(declarator.getLocation(),
                     declarator.getEndLocation()));
         }
 

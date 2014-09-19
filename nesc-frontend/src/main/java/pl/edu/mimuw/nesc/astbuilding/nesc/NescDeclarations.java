@@ -13,6 +13,7 @@ import pl.edu.mimuw.nesc.astbuilding.TypeElementUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.nesc.NescDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.Linkage;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.VariableDeclaration;
@@ -54,7 +55,11 @@ public final class NescDeclarations extends AstBuildingBase {
         final TypeParmDecl decl = new TypeParmDecl(startLocation, name, attributes);
         decl.setEndLocation(endLocation);
 
-        final TypenameDeclaration symbol = new TypenameDeclaration(name, startLocation, Optional.<Type>absent());
+        final TypenameDeclaration symbol = TypenameDeclaration.builder()
+                .name(name)
+                .startLocation(startLocation)
+                .build();
+
         if (!environment.getObjects().add(name, symbol)) {
             errorHelper.error(startLocation, Optional.of(endLocation),
                     format("duplicate parameter name '%s' in parameter list", name));
@@ -84,9 +89,13 @@ public final class NescDeclarations extends AstBuildingBase {
         // TODO: check if this is not an interface!
         final String refName = alias.isPresent() ? alias.get() : componentRef.getName().getName();
 
-        final ComponentRefDeclaration symbol = new ComponentRefDeclaration(refName, componentName, startLocation);
-        symbol.setAstComponentRef(componentRef);
-        symbol.setComponentDeclaration(component);
+        final ComponentRefDeclaration symbol = ComponentRefDeclaration.builder()
+                .componentName(componentName)
+                .astNode(componentRef)
+                .nescDeclaration(component)
+                .name(refName)
+                .startLocation(startLocation)
+                .build();
 
         if (!environment.getObjects().add(refName, symbol)) {
             errorHelper.error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", refName));
@@ -126,23 +135,30 @@ public final class NescDeclarations extends AstBuildingBase {
         // Check the non-type specifiers and emit errors and warnings
         final SpecifiersSet specifiers = new SpecifiersSet(elements, errorHelper);
         checkGenericParameterSpecifiers(specifiers, elements.size(),
-                new Interval(getStartLocation(elements).get(), endLocation),
+                Interval.of(getStartLocation(elements).get(), endLocation),
                 errorHelper);
 
         if (declarator.isPresent()) {
             final boolean isTypedef = specifiers.contains(NonTypeSpecifier.TYPEDEF);
             final String name = DeclaratorUtils.getDeclaratorName(declarator.get());
-            final ObjectDeclaration declaration;
+            final ObjectDeclaration.Builder<? extends ObjectDeclaration> builder;
+
             if (isTypedef) {
-                /* FIXME replace Optional.absent() with an object that reflects
+                /* FIXME set the denoted type to an object that reflects
                    the type with regards to information from attributes */
-                declaration = new TypenameDeclaration(name, startLocation, Optional.<Type>absent());
+                builder = TypenameDeclaration.builder();
                 variableDecl.setType(Optional.<Type>of(TypeDefinitionType.getInstance()));
             } else {
                 variableDecl.setType(resolveType(environment, elements, declarator,
                         errorHelper, startLocation, endLocation));
-                declaration = new VariableDeclaration(name, startLocation, variableDecl.getType());
+                builder = VariableDeclaration.builder().type(variableDecl.getType().orNull());
             }
+
+            final ObjectDeclaration declaration = builder
+                    .name(name)
+                    .startLocation(startLocation)
+                    .build();
+
             if (!environment.getObjects().add(name, declaration)) {
                 errorHelper.error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", name));
             }

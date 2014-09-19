@@ -45,7 +45,7 @@ public final class TagsAnalysis {
      * @param isStandalone <code>true</code> if and only if the given tag
      *                     reference is standalone (the meaning of standalone
      *                     definition is written in the definition of
-     *                     <code>TagRefVisitor</code> class).
+     *                     {@link TagRefVisitor#isStandalone TagRefVisitor} class).
      * @param errorHelper Object that will be notified about detected errors.
      * @throws NullPointerException One of the arguments is null
      *                              (except <code>isStandalone</code>).
@@ -245,11 +245,15 @@ public final class TagsAnalysis {
         private final Environment environment;
 
         /**
-         * <code>true</code> if and only if the tag that will be encountered by
-         * this Visitor has been declared exactly in one of the following ways
-         * (where 'S' and 'U' are arbitrary identifiers):
-         *    struct S;
-         *    union U;
+         * <p><code>true</code> if and only if the tag that will be encountered
+         * by this Visitor has been declared in a declaration that contains no
+         * declarators, e.g.:</p>
+         * <ul>
+         *    <li><code>struct S;</code></li>
+         *    <li><code>union U;</code></li>
+         *    <li><code>nx_struct S;</code></li>
+         *    <li><code>nx_union U;</code></li>
+         * </ul>
          */
         private final boolean isStandalone;
 
@@ -656,5 +660,5 @@ public final class TagsAnalysis {
         public Void visit(BlockElement blockElement, Boolean canBeFlexibleMember) {
             return null;
         }
-    };
+    }
 }

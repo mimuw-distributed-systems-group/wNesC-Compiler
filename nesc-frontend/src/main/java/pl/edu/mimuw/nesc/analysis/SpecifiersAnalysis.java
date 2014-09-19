@@ -1,24 +1,37 @@
 package pl.edu.mimuw.nesc.analysis;
 
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import pl.edu.mimuw.nesc.ast.Interval;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.LocationsPin;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.declaration.object.Linkage;
+import pl.edu.mimuw.nesc.environment.Environment;
+import pl.edu.mimuw.nesc.environment.ScopeType;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.concat;
 import static java.lang.String.format;
 
 /**
@@ -35,7 +48,7 @@ public class SpecifiersAnalysis {
     private static final String FMT_ERR_GENERIC_PARAM_TYPEDEF_OTHER = "Cannot combine 'typedef' with other specifiers in a generic parameter declaration";
     private static final String FMT_ERR_GENERIC_PARAM_NORACE_OTHER = "Cannot use non-type specifiers other than 'norace' in a non-type generic parameter declaration";
     private static final String FMT_ERR_INSTANCE_PARAM_NORACE_OTHER = "Cannot use non-type specifiers other than 'norace' in an instance parameter declaration";
-
+    private static final String FMT_ERR_SPECIFIER_MAIN_TOO_MANY = "'%s' specifier cannot be combined with '%s' used earlier";
 
     /**
      * Mapping between values of non-type specifiers from <code>RID</code> type
@@ -58,6 +71,35 @@ public class SpecifiersAnalysis {
         builder.put(RID.DEFAULT, NonTypeSpecifier.DEFAULT);
         RID_MAP = builder.build();
     }
+
+    /**
+     * Set with all main specifiers.
+     * @see SpecifiersSet#firstMainSpecifier()
+     */
+    private static final ImmutableSet<NonTypeSpecifier> MAIN_SPECIFIERS = ImmutableSet.of(
+        NonTypeSpecifier.TYPEDEF,
+        NonTypeSpecifier.EXTERN,
+        NonTypeSpecifier.STATIC,
+        NonTypeSpecifier.REGISTER,
+        NonTypeSpecifier.AUTO,
+        NonTypeSpecifier.COMMAND,
+        NonTypeSpecifier.EVENT,
+        NonTypeSpecifier.TASK
+    );
+
+    /**
+     * Function that transforms a specifiers map entry to an equivalent object
+     * of class <code>LocationsPin</code>.
+     */
+    private static final Function<Map.Entry<NonTypeSpecifier, Interval>, LocationsPin<NonTypeSpecifier>>
+            ENTRY_TO_PIN_FUNCTION = new Function<Map.Entry<NonTypeSpecifier, Interval>, LocationsPin<NonTypeSpecifier>>() {
+        @Override
+        public LocationsPin<NonTypeSpecifier> apply(Map.Entry<NonTypeSpecifier, Interval> entry) {
+            checkNotNull(entry, "the entry cannot be null");
+            final Interval interval = entry.getValue();
+            return LocationsPin.of(entry.getKey(), interval.getLocation(), interval.getEndLocation());
+        }
+    };
 
     /**
      * Assumes that given specifiers occurred in a generic parameter declaration
@@ -92,12 +134,9 @@ public class SpecifiersAnalysis {
             );
         } else if (isTypedef && specifiers.sizeWithRepetitions() > 1) {
             specifiers.emitRepetitionWarnings();
-        } else if (!isTypedef && isNorace && specifiers.size() > 1) {
-            errorHelper.error(
-                    specifiersInterval.getLocation(),
-                    specifiersInterval.getEndLocation(),
-                    FMT_ERR_GENERIC_PARAM_NORACE_OTHER
-            );
+        } else if (!isTypedef && isNorace && specifiers.size() > 1
+                   || !isTypedef && !isNorace && !specifiers.isEmpty()) {
+            specifiers.emitError(FMT_ERR_GENERIC_PARAM_NORACE_OTHER);
         } else if (!isTypedef && isNorace && specifiers.sizeWithRepetitions() > 1) {
             specifiers.emitRepetitionWarnings();
         }
@@ -144,21 +183,40 @@ public class SpecifiersAnalysis {
     }
 
     /**
-     * Simple utility method for determining minimum.
+     * Determines the linkage of the given identifier. The environment shouldn't
+     * have acknowledged the declaration of the identifier that the linkage
+     * is determined for.
+     *
+     * @param identifier Identifier that the linkage will be determined for.
+     * @param environment Current environment.
+     * @param mainSpecifier Main specifier from the declaration of the
+     *                      identifier (an absent value means lack of the main
+     *                      specifier in the declaration).
+     * @param type Type of the identifier.
+     * @return The linkage of the identifier if it can be determined. Otherwise,
+     *         absent value.
+     * @throws NullPointerException One of the arguments is null.
      */
-    private static <T extends Comparable<T>> T min(T value1, T value2) {
-        return   value1.compareTo(value2) < 0
-                ? value1
-                : value2;
-    }
+    public static Optional<Linkage> determineLinkage(String identifier, Environment environment,
+            Optional<NonTypeSpecifier> mainSpecifier, Type type) {
+        // Check parameters
+        checkNotNull(identifier, "the identifier cannot be null");
+        checkNotNull(environment, "the environment cannot be null");
+        checkNotNull(mainSpecifier, "the main specifier cannot be null");
+        checkNotNull(type, "the type cannot be null");
 
-    /**
-     * Simple method for finding maximum.
-     */
-    private static <T extends Comparable<T>> T max(T value1, T value2) {
-        return   value1.compareTo(value2) > 0
-               ? value1
-               : value2;
+        final ScopeType scopeType = environment.getScopeType();
+
+        // No linkage
+        if (scopeType == ScopeType.COMPOUND && (!mainSpecifier.isPresent()
+                        || mainSpecifier.get() != NonTypeSpecifier.EXTERN)
+                || !type.isObjectType() && !type.isFunctionType()
+                || scopeType.isParameterScope()) {
+            return Optional.of(Linkage.NONE);
+        }
+
+        // FIXME implement other cases
+        return Optional.absent();
     }
 
     /**
@@ -169,6 +227,19 @@ public class SpecifiersAnalysis {
      */
     public static class SpecifiersSet {
         /**
+         * Predicate that allows testing if a non-type specifier is a main
+         * specifier.
+         */
+        private static final Predicate<LocationsPin<NonTypeSpecifier>> mainSpecifierPredicate =
+                new Predicate<LocationsPin<NonTypeSpecifier>> () {
+            @Override
+            public boolean apply(LocationsPin<NonTypeSpecifier> specifier) {
+                checkNotNull(specifier, "the specifier cannot be null");
+                return MAIN_SPECIFIERS.contains(specifier.get());
+            }
+        };
+
+        /**
          * Object that will be notified about detected errors.
          */
         private final ErrorHelper errorHelper;
@@ -176,9 +247,23 @@ public class SpecifiersAnalysis {
         /**
          * Fields with actual data about specifiers.
          */
-        private final ImmutableMap<NonTypeSpecifier, Interval> specifiers;
+        private final ImmutableMap<NonTypeSpecifier, Interval> firstSpecifiers;
+        private final ImmutableMap<NonTypeSpecifier, Interval> mainSpecifiers;
         private final ImmutableList<LocationsPin<NonTypeSpecifier>> repeatedSpecifiers;
+        private final Optional<NonTypeSpecifier> firstMainSpecifier;
         private final Optional<Interval> maybeInterval;
+
+        /**
+         * Predicate for comparing a specifier with the main one.
+         */
+        private final Predicate<LocationsPin<NonTypeSpecifier>> otherThanMainPredicate =
+                new Predicate<LocationsPin<NonTypeSpecifier>>() {
+            @Override
+            public boolean apply(LocationsPin<NonTypeSpecifier> specifier) {
+                checkNotNull(specifier, "the specifier cannot be null");
+                return specifier.get() != firstMainSpecifier.orNull();
+            }
+        };
 
         /**
          * Collects the information about specifiers from given list. Does not
@@ -189,15 +274,20 @@ public class SpecifiersAnalysis {
             checkNotNull(typeElements, "type elements cannot be null");
             checkNotNull(errorHelper, "error helper cannot be null");
 
+            // Visit all specifiers in order of their appearance
             final SpecifiersVisitor visitor = new SpecifiersVisitor();
             for (TypeElement typeElement : typeElements) {
                 typeElement.accept(visitor, null);
             }
 
+            // Build this object
+            final Builder builder = new Builder(visitor);
+            this.firstSpecifiers = builder.buildFirstSpecifiers();
+            this.mainSpecifiers = builder.buildMainSpecifiers();
+            this.repeatedSpecifiers = builder.buildRepeatedSpecifiers();
+            this.firstMainSpecifier = builder.buildFirstMainSpecifier();
+            this.maybeInterval = builder.buildInterval();
             this.errorHelper = errorHelper;
-            this.specifiers = visitor.getSpecifiers();
-            this.repeatedSpecifiers = visitor.getRepeatedSpecifiers();
-            this.maybeInterval = visitor.getInterval();
         }
 
         /**
@@ -209,30 +299,25 @@ public class SpecifiersAnalysis {
         }
 
         /**
-         * @return <code>true</code> if and only if given object is not null and
-         *         it is of class <code>NonTypeSpecifier</code> and is contained
+         * @return <code>true</code> if and only if given object is contained
          *         in this set.
          */
         public boolean contains(Object object) {
-            if (object == null || NonTypeSpecifier.class != object.getClass()) {
-                return false;
-            }
-
-            return specifiers.containsKey(object);
+            return firstSpecifiers.containsKey(object);
         }
 
         /**
          * @return Count of unique specifiers contained in this set.
          */
         public int size() {
-            return specifiers.size();
+            return firstSpecifiers.size();
         }
 
         /**
          * @return Count of all non-type specifiers that were processed.
          */
         public int sizeWithRepetitions() {
-            return specifiers.size() + repeatedSpecifiers.size();
+            return firstSpecifiers.size() + repeatedSpecifiers.size();
         }
 
         /**
@@ -240,7 +325,7 @@ public class SpecifiersAnalysis {
          *         specifiers.
          */
         public boolean isEmpty() {
-            return specifiers.isEmpty();
+            return firstSpecifiers.isEmpty();
         }
 
         /**
@@ -248,7 +333,22 @@ public class SpecifiersAnalysis {
          * given at the construction.
          */
         public void emitRepetitionWarnings() {
+            emitRepetitionWarnings(Optional.<Set<NonTypeSpecifier>>absent());
+        }
+
+        /**
+         * Emits warnings for repetitions of specifiers from a set.
+         *
+         * @param warnFor The set of specifiers that the warnings about
+         *                repetitions will be emitted for. If absent, warnings
+         *                will be emitted for all repeated specifiers.
+         */
+        public void emitRepetitionWarnings(Optional<Set<NonTypeSpecifier>> warnFor) {
             for (LocationsPin<NonTypeSpecifier> repetition : repeatedSpecifiers) {
+                if (warnFor.isPresent() && !warnFor.get().contains(repetition.get())) {
+                    continue;
+                }
+
                 errorHelper.warning(
                         repetition.getLocation(),
                         Optional.of(repetition.getEndLocation()),
@@ -275,11 +375,113 @@ public class SpecifiersAnalysis {
                     errMsg
             );
         }
+
+        /**
+         * Validates main specifiers and emits errors if the validation fails.
+         *
+         * @return <code>true</code> if and only if the main specifiers are
+         *         correctly used.
+         */
+        public boolean validateMainSpecifiers() {
+            // Handle the correct cases
+            emitRepetitionWarnings(Optional.of(firstMainSpecifier.asSet()));
+            if (mainSpecifiers.size() <= 1) {
+                return true;
+            }
+
+            // Handle the invalid case
+            checkState(firstMainSpecifier.isPresent(), "the main specifier unexpectedly absent");
+            final FluentIterable<LocationsPin<NonTypeSpecifier>> mainSpecsIt =
+                    FluentIterable.from(mainSpecifiers.entrySet())
+                                  .transform(ENTRY_TO_PIN_FUNCTION);
+            final FluentIterable<LocationsPin<NonTypeSpecifier>> invalidSpecs =
+                    FluentIterable.from(concat(mainSpecsIt, repeatedSpecifiers))
+                                  .filter(otherThanMainPredicate)
+                                  .filter(mainSpecifierPredicate);
+
+            // Emit errors
+            for (LocationsPin<NonTypeSpecifier> invalidSpec : invalidSpecs) {
+                errorHelper.error(
+                        invalidSpec.getLocation(),
+                        invalidSpec.getEndLocation(),
+                        format(FMT_ERR_SPECIFIER_MAIN_TOO_MANY,
+                               invalidSpec.get().getRid().getName(),
+                               firstMainSpecifier.get().getRid().getName())
+                );
+            }
+
+            return false;
+        }
+
+        /**
+         * <p>A main specifier is a storage-class specifier that can appear
+         * only once in a declaration. It is one of the following specifiers:
+         * </p>
+         * <ul>
+         *     <li><code>typedef</code></li>
+         *     <li><code>static</code></li>
+         *     <li><code>extern</code></li>
+         *     <li><code>register</code></li>
+         *     <li><code>auto</code></li>
+         *     <li><code>command</code></li>
+         *     <li><code>event</code></li>
+         *     <li><code>task</code></li>
+         * </ul>
+         *
+         * @return The main specifier from this set with the smallest start
+         *         location. If it does not contain any main specifiers, then
+         *         the value is absent.
+         */
+        public Optional<NonTypeSpecifier> firstMainSpecifier() {
+            return firstMainSpecifier;
+        }
+
+        /**
+         * A class that is responsible for constructing individual elements of
+         * a specifiers set.
+         *
+         * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+         */
+        private static class Builder {
+            private final SpecifiersVisitor visitor;
+            private final ImmutableMap<NonTypeSpecifier, Interval> firstSpecifiers;
+
+            private Builder(SpecifiersVisitor visitor) {
+                checkNotNull(visitor, "the visitor cannot be null");
+
+                this.firstSpecifiers = visitor.getSpecifiers();
+                this.visitor = visitor;
+            }
+
+            private ImmutableMap<NonTypeSpecifier, Interval> buildFirstSpecifiers() {
+                return firstSpecifiers;
+            }
+
+            private ImmutableList<LocationsPin<NonTypeSpecifier>> buildRepeatedSpecifiers() {
+                return visitor.getRepeatedSpecifiers();
+            }
+
+            private ImmutableMap<NonTypeSpecifier, Interval> buildMainSpecifiers() {
+                return ImmutableMap.copyOf(Maps.filterKeys(firstSpecifiers,
+                                           Predicates.in(MAIN_SPECIFIERS)));
+            }
+
+            private Optional<NonTypeSpecifier> buildFirstMainSpecifier() {
+                return FluentIterable.from(firstSpecifiers.keySet())
+                        .firstMatch(Predicates.in(MAIN_SPECIFIERS));
+            }
+
+            private Optional<Interval> buildInterval() {
+                return visitor.getInterval();
+            }
+        }
     }
 
     /**
      * Visitor that collects information about encountered non-type specifiers.
      * It expects only objects that are subclasses of <code>TypeElement</code>.
+     * This visitor shall visit the elements in order they appear in the
+     * program.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
@@ -287,23 +489,21 @@ public class SpecifiersAnalysis {
         /**
          * Variables that will contain the information from specifiers.
          */
-        private final Map<NonTypeSpecifier, Interval> specifiers = new HashMap<>();
-        private final List<LocationsPin<NonTypeSpecifier>> repeatedSpecifiers = new ArrayList<>();
-        private Optional<Location> startLocation = Optional.absent();
-        private Optional<Location> endLocation = Optional.absent();
+        private final Set<NonTypeSpecifier> visitedSpecifiers = EnumSet.noneOf(NonTypeSpecifier.class);
+        private final ImmutableMap.Builder<NonTypeSpecifier, Interval> specifiersBuilder = ImmutableMap.builder();
+        private final ImmutableList.Builder<LocationsPin<NonTypeSpecifier>> repeatedSpecifiersBuilder = ImmutableList.builder();
+        private final Interval.Builder intervalBuilder = Interval.builder();
 
         private ImmutableMap<NonTypeSpecifier, Interval> getSpecifiers() {
-            return ImmutableMap.copyOf(specifiers);
+            return specifiersBuilder.build();
         }
 
         private ImmutableList<LocationsPin<NonTypeSpecifier>> getRepeatedSpecifiers() {
-            return ImmutableList.copyOf(repeatedSpecifiers);
+            return repeatedSpecifiersBuilder.build();
         }
 
         private Optional<Interval> getInterval() {
-            return   startLocation.isPresent() && endLocation.isPresent()
-                   ? Optional.of(new Interval(startLocation.get(), endLocation.get()))
-                   : Optional.<Interval>absent();
+            return intervalBuilder.tryBuild();
         }
 
         @Override
@@ -406,19 +606,16 @@ public class SpecifiersAnalysis {
             }
 
             // Add the new specifier
-            if (specifiers.containsKey(specifier)) {
-                repeatedSpecifiers.add(new LocationsPin<>(specifier, startLoc, endLoc));
+            if (visitedSpecifiers.contains(specifier)) {
+                repeatedSpecifiersBuilder.add(LocationsPin.of(specifier, startLoc, endLoc));
             } else {
-                specifiers.put(specifier, new Interval(startLoc, endLoc));
+                specifiersBuilder.put(specifier, Interval.of(startLoc, endLoc));
+                visitedSpecifiers.add(specifier);
             }
 
             // Update locations
-            startLocation =   startLocation.isPresent()
-                            ? Optional.of(min(startLocation.get(), startLoc))
-                            : Optional.of(startLoc);
-            endLocation =   endLocation.isPresent()
-                          ? Optional.of(max(endLocation.get(), endLoc))
-                          : Optional.of(endLoc);
+            intervalBuilder.initStartLocation(startLoc)
+                    .endLocation(endLoc);
         }
     }
 

@@ -1,9 +1,9 @@
 package pl.edu.mimuw.nesc.declaration.object;
 
 import com.google.common.base.Optional;
-import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDeclarator;
-import pl.edu.mimuw.nesc.ast.type.Type;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -30,14 +30,14 @@ public class FunctionDeclaration extends ObjectDeclaration {
      */
     private boolean isDefined;
 
-    public FunctionDeclaration(String functionName, Location location, Optional<Type> type) {
-        this(functionName, location, null, type);
+    public static Builder builder() {
+        return new Builder();
     }
 
-    public FunctionDeclaration(String name, Location location, String ifaceName, Optional<Type> type) {
-        super(name, location, type);
-        this.ifaceName = Optional.fromNullable(ifaceName);
-        this.isDefined = false;
+    protected FunctionDeclaration(Builder builder) {
+        super(builder);
+        this.ifaceName = builder.interfaceName;
+        this.isDefined = builder.isDefined;
     }
 
     @Override
@@ -83,5 +83,44 @@ public class FunctionDeclaration extends ObjectDeclaration {
 
     public void setDefined(boolean isDefined) {
         this.isDefined = isDefined;
+    }
+
+    /**
+     * Builder for a function declaration.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    public static class Builder extends ExtendedBuilder<FunctionDeclaration> {
+        /**
+         * Data needed to build a function declaration.
+         */
+        private Optional<String> interfaceName = Optional.absent();
+        private boolean isDefined = false;
+
+        protected Builder() {
+        }
+
+        /**
+         * Set the interface name that the function depicted by the declaration
+         * object comes from.
+         *
+         * @param interfaceName Name of the interface to set.
+         * @return <code>this</code>
+         */
+        public Builder interfaceName(String interfaceName) {
+            this.interfaceName = Optional.fromNullable(interfaceName);
+            return this;
+        }
+
+        @Override
+        protected void validate() {
+            super.validate();
+            checkNotNull(interfaceName, "the interface name cannot be null");
+        }
+
+        @Override
+        protected FunctionDeclaration create() {
+            return new FunctionDeclaration(this);
+        }
     }
 }

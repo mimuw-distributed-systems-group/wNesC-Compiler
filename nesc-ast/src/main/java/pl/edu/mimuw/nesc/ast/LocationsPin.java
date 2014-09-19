@@ -32,12 +32,31 @@ public class LocationsPin<T> {
     private final T object;
 
     /**
-     * Initializes this object to store the given object and dummy locations.
+     * Creates an object that stores the given parameter and dummy locations.
      *
+     * @param object Object that will be stored by the returned instance.
+     * @return Newly created pin object that stores the given object and has
+     *         locations set to the dummy location.
      * @throws NullPointerException Given argument is null.
      */
-    public LocationsPin(T object) {
-        this(object, Location.getDummyLocation(), Location.getDummyLocation());
+    public static <T> LocationsPin<T> withDummyLocations(T object) {
+        return new LocationsPin<>(object, Location.getDummyLocation(),
+                                  Location.getDummyLocation());
+    }
+
+    /**
+     * Creates an object that carries data from given parameters.
+     *
+     * @param object Object that will be stored in the returned instance.
+     * @param startLocation Start location that will be stored in the returned
+     *                      instance.
+     * @param endLocation End location that will be stored in the returned
+     *                    instance.
+     * @return Newly created pin object that stores data from arguments.
+     * @throws NullPointerException One of the arguments is null.
+     */
+    public static <T> LocationsPin<T> of(T object, Location startLocation, Location endLocation) {
+        return new LocationsPin<>(object, startLocation, endLocation);
     }
 
     /**
@@ -45,7 +64,7 @@ public class LocationsPin<T> {
      *
      * @throws NullPointerException One of the arguments is null.
      */
-    public LocationsPin(T object, Location startLocation, Location endLocation) {
+    private LocationsPin(T object, Location startLocation, Location endLocation) {
         checkNotNull(object, "the object cannot be null");
         checkNotNull(startLocation, "the start location cannot be null");
         checkNotNull(endLocation, "the end location cannot be null");

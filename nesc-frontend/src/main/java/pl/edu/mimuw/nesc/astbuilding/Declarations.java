@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.astbuilding;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.ast.AstUtils;
+import pl.edu.mimuw.nesc.ast.Interval;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.StructKind;
@@ -22,13 +23,17 @@ import pl.edu.mimuw.nesc.ast.type.Type;
 import java.util.LinkedList;
 
 import static java.lang.String.format;
+import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.determineLinkage;
+import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.NonTypeSpecifier;
 import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.makeFieldDeclaration;
 import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.processTagReference;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.checkFunctionParametersTypes;
+import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.checkVariableType;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveType;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
 import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
 import static pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils.getDeclaratorName;
+import static pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils.getIdentifierInterval;
 
 /**
  * <p>
@@ -70,6 +75,7 @@ public final class Declarations extends AstBuildingBase {
         final VariableDecl variableDecl = new VariableDecl(declarator.getLocation(), Optional.of(declarator),
                 attributes, asmStmt);
 
+        final Optional<String> identifier = Optional.fromNullable(DeclaratorUtils.getDeclaratorName(declarator));
         if (!initialised) {
             final Location endLocation = AstUtils.getEndLocation(
                     asmStmt.isPresent() ? asmStmt.get().getEndLocation() : declarator.getEndLocation(),
@@ -79,12 +85,27 @@ public final class Declarations extends AstBuildingBase {
         }
 
         // Resolve and save type
-        variableDecl.setType(association.resolveType(Optional.of(declarator),
+        final Optional<Type> type = association.resolveType(Optional.of(declarator),
                 environment, errorHelper, variableDecl.getLocation(),
-                variableDecl.getLocation()));
+                variableDecl.getLocation());
+        variableDecl.setType(type);
+
+        // Determine linkage
+        Optional<Linkage> linkage = Optional.absent();
+        if (association.containsMainSpecifier(errorHelper)) {
+            final Optional<NonTypeSpecifier> mainSpecifier = association.getMainSpecifier(errorHelper);
+            if (identifier.isPresent() && type.isPresent()) {
+                linkage = determineLinkage(identifier.get(), environment, mainSpecifier, type.get());
+            }
+        }
+
+        // Check the type
+        final Interval markerArea = getIdentifierInterval(declarator)
+                .or(Interval.of(declarator.getLocation(), declarator.getEndLocation()));
+        checkVariableType(type, linkage, identifier, markerArea, errorHelper);
 
         final StartDeclarationVisitor declarationVisitor = new StartDeclarationVisitor(environment, variableDecl,
-                declarator, asmStmt, association.getTypeElements(), attributes);
+                declarator, asmStmt, association.getTypeElements(), attributes, linkage);
         declarator.accept(declarationVisitor, null);
         return variableDecl;
     }
@@ -102,6 +123,7 @@ public final class Declarations extends AstBuildingBase {
                                  TypeElementsAssociation association, LinkedList<Declaration> decls) {
         // Process potential tag declarations from the type specifiers
         final Optional<Type> type = association.getType(environment, decls.isEmpty(), errorHelper, startLocation, startLocation);
+        association.containsMainSpecifier(errorHelper);
 
         final DataDecl result = new DataDecl(startLocation, association.getTypeElements(), decls);
         result.setEndLocation(endLocation);
@@ -221,8 +243,12 @@ public final class Declarations extends AstBuildingBase {
         if (declarator.isPresent()) {
             final String name = getDeclaratorName(declarator.get());
             if (name != null) {
-                final VariableDeclaration symbol = new VariableDeclaration(name, declarator.get().getLocation(),
-                        variableDecl.getType());
+                final VariableDeclaration symbol = VariableDeclaration.builder()
+                        .type(variableDecl.getType().orNull())
+                        .linkage(Linkage.NONE)
+                        .name(name)
+                        .startLocation(declarator.get().getLocation())
+                        .build();
                 if (!environment.getObjects().add(name, symbol)) {
                     errorHelper.error(declarator.get().getLocation(), Optional.of(declarator.get().getEndLocation()),
                             format("redeclaration of '%s'", name));
@@ -343,7 +369,11 @@ public final class Declarations extends AstBuildingBase {
         final Enumerator enumerator = new Enumerator(startLocation, id, value.orNull());
         enumerator.setEndLocation(endLocation);
 
-        final ConstantDeclaration symbol = new ConstantDeclaration(id, startLocation);
+        final ConstantDeclaration symbol = ConstantDeclaration.builder()
+                .name(id)
+                .startLocation(startLocation)
+                .build();
+
         if (!environment.getObjects().add(id, symbol)) {
             errorHelper.error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", id));
         }
@@ -506,11 +536,15 @@ public final class Declarations extends AstBuildingBase {
                                           Location startLocation) {
             final String name = identifierDeclarator.getName();
             final FunctionDeclaration functionDeclaration;
+            final FunctionDeclaration.Builder builder = FunctionDeclaration.builder();
+            builder.type(maybeType.orNull())
+                    .name(name)
+                    .startLocation(startLocation);
 
             /* Check previous declaration. */
             final Optional<? extends ObjectDeclaration> previousDeclarationOpt = environment.getObjects().get(name);
             if (!previousDeclarationOpt.isPresent()) {
-                functionDeclaration = new FunctionDeclaration(name, startLocation, maybeType);
+                functionDeclaration = builder.build();
                 define(functionDeclaration, funDeclarator);
             } else {
                 final ObjectDeclaration previousDeclaration = previousDeclarationOpt.get();
@@ -521,7 +555,7 @@ public final class Declarations extends AstBuildingBase {
 
                     /* Nevertheless, create declaration, put it into ast node
                      * but not into environment. */
-                    functionDeclaration = new FunctionDeclaration(name, startLocation, maybeType);
+                    functionDeclaration = builder.build();
                 }
                 /* Previous declaration is a function declaration or
                  * definition. */
@@ -535,7 +569,7 @@ public final class Declarations extends AstBuildingBase {
                         /* Function redefinition is forbidden. */
                         Declarations.this.errorHelper.error(funDeclarator.getLocation(), funDeclarator.getEndLocation(),
                                 format("redefinition of '%s'", name));
-                        functionDeclaration = new FunctionDeclaration(name, startLocation, maybeType);
+                        functionDeclaration = builder.build();
                     }
 
                     // TODO: check if types match in declarations
@@ -556,8 +590,12 @@ public final class Declarations extends AstBuildingBase {
             if (innerDeclarator instanceof IdentifierDeclarator) {
                 final IdentifierDeclarator idDeclarator = (IdentifierDeclarator) innerDeclarator;
                 final String callableName = idDeclarator.getName();
-                final FunctionDeclaration declaration = new FunctionDeclaration(callableName,
-                        startLocation, ifaceName, maybeType);
+                final FunctionDeclaration declaration = FunctionDeclaration.builder()
+                        .interfaceName(ifaceName)
+                        .type(maybeType.orNull())
+                        .name(callableName)
+                        .startLocation(startLocation)
+                        .build();
                 declaration.setAstFunctionDeclarator(funDeclarator);
                 define(declaration, funDeclarator);
                 declaration.setDefined(true);
@@ -582,14 +620,16 @@ public final class Declarations extends AstBuildingBase {
         private final Environment environment;
         private final VariableDecl variableDecl;
         private final LinkedList<TypeElement> elements;
+        private final Optional<Linkage> linkage;
 
         @SuppressWarnings("UnusedParameters")
         StartDeclarationVisitor(Environment environment, VariableDecl variableDecl, Declarator declarator,
                                 Optional<AsmStmt> asmStmt, LinkedList<TypeElement> elements,
-                                LinkedList<Attribute> attributes) {
+                                LinkedList<Attribute> attributes, Optional<Linkage> linkage) {
             this.environment = environment;
             this.variableDecl = variableDecl;
             this.elements = elements;
+            this.linkage = linkage;
         }
 
         @Override
@@ -608,9 +648,14 @@ public final class Declarations extends AstBuildingBase {
              * Check previous declarations.
              */
             final Optional<? extends ObjectDeclaration> previousDeclarationOpt = environment.getObjects().get(name);
+            final FunctionDeclaration.Builder builder = FunctionDeclaration.builder();
+            builder.type(variableDecl.getType().orNull())
+                    .linkage(linkage.orNull())
+                    .name(name)
+                    .startLocation(funDeclarator.getLocation());
+
             if (!previousDeclarationOpt.isPresent()) {
-                functionDeclaration = new FunctionDeclaration(name, funDeclarator.getLocation(),
-                        variableDecl.getType());
+                functionDeclaration = builder.build();
                 declare(functionDeclaration, funDeclarator);
             } else {
                 final ObjectDeclaration previousDeclaration = previousDeclarationOpt.get();
@@ -621,8 +666,7 @@ public final class Declarations extends AstBuildingBase {
 
                     /* Nevertheless, create declaration, put it into ast node
                      * but not into environment. */
-                    functionDeclaration = new FunctionDeclaration(name, funDeclarator.getLocation(),
-                            variableDecl.getType());
+                    functionDeclaration = builder.build();
                 }
                 /* Previous declaration is a function declaration or
                  * definition. */
@@ -669,13 +713,22 @@ public final class Declarations extends AstBuildingBase {
             final String name = declarator.getName();
             final Location startLocation = declarator.getLocation();
             final boolean isTypedef = TypeElementUtils.isTypedef(elements);
-            final ObjectDeclaration declaration;
+            final ObjectDeclaration.Builder<? extends ObjectDeclaration> builder;
+
             if (isTypedef) {
-                declaration = new TypenameDeclaration(name, startLocation, variableDecl.getType());
-                variableDecl.setType(Optional.of((Type) TypeDefinitionType.getInstance()));
+                builder = TypenameDeclaration.builder()
+                        .denotedType(variableDecl.getType().orNull());
+                variableDecl.setType(Optional.<Type>of(TypeDefinitionType.getInstance()));
             } else {
-                declaration = new VariableDeclaration(name, startLocation, variableDecl.getType());
+                builder = VariableDeclaration.builder()
+                        .type(variableDecl.getType().orNull())
+                        .linkage(linkage.orNull());
             }
+
+            final ObjectDeclaration declaration = builder.name(name)
+                    .startLocation(startLocation)
+                    .build();
+
             declare(declaration, declarator);
             variableDecl.setDeclaration(declaration);
             return null;

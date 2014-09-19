@@ -29,8 +29,14 @@ public class DefaultSymbolTableTest {
     @Before
     public void setUp() throws Exception {
         objectTable = new DefaultSymbolTable<>();
-        variableA = new VariableDeclaration(VAR_A, LOCATION_10_15, Optional.<Type>absent());
-        variableB = new VariableDeclaration(VAR_B, LOCATION_11_12, Optional.<Type>absent());
+        variableA = VariableDeclaration.builder()
+                .name(VAR_A)
+                .startLocation(LOCATION_10_15)
+                .build();
+        variableB = VariableDeclaration.builder()
+                .name(VAR_B)
+                .startLocation(LOCATION_11_12)
+                .build();
     }
 
     @Test
@@ -55,7 +61,10 @@ public class DefaultSymbolTableTest {
     @Test
     public void tryToRedeclare() {
         assertThat(objectTable.add(VAR_A, variableA)).isTrue();
-        final ObjectDeclaration newVariableA = new VariableDeclaration(VAR_A, LOCATION_11_12, Optional.<Type>absent());
+        final ObjectDeclaration newVariableA = VariableDeclaration.builder()
+                .name(VAR_A)
+                .startLocation(LOCATION_11_12)
+                .build();
         assertThat(objectTable.add(VAR_A, newVariableA)).isFalse();
     }
 
@@ -63,7 +72,10 @@ public class DefaultSymbolTableTest {
     public void shadow() {
         assertThat(objectTable.add(VAR_A, variableA)).isTrue();
         final SymbolTable<ObjectDeclaration> enclosedObjectTable = new DefaultSymbolTable<>(Optional.of(objectTable));
-        final ObjectDeclaration newVariableA = new VariableDeclaration(VAR_A, LOCATION_11_12, Optional.<Type>absent());
+        final ObjectDeclaration newVariableA = VariableDeclaration.builder()
+                .name(VAR_A)
+                .startLocation(LOCATION_11_12)
+                .build();
 
         assertThat(enclosedObjectTable.add(VAR_A, newVariableA)).isTrue();
         assertThat(enclosedObjectTable.contains(VAR_A)).isTrue();

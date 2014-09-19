@@ -129,6 +129,13 @@ public interface Type {
     boolean isObjectType();
 
     /**
+     * @return <code>true</code> if and only if this type is an artificial type.
+     *         If so, it can be casted to a proper class without error.
+     * @see ArtificialType
+     */
+    boolean isArtificialType();
+
+    /**
      * @return <code>true</code> if and only if this type is a function type.
      */
     boolean isFunctionType();

@@ -165,9 +165,13 @@ public final class NescComponents extends AstBuildingBase {
         }
         final Optional<List<Optional<Type>>> maybeParams = Optional.fromNullable(resolvedParams);
 
-        final InterfaceRefDeclaration declaration = new InterfaceRefDeclaration(refName,
-                ifaceName, refLocation, maybeParams);
-        declaration.setAstInterfaceRef(ifaceRef);
+        final InterfaceRefDeclaration declaration = InterfaceRefDeclaration.builder()
+                .interfaceName(ifaceName)
+                .typeArguments(maybeParams)
+                .astNode(ifaceRef)
+                .name(refName)
+                .startLocation(refLocation)
+                .build();
         if (!environment.getObjects().add(refName, declaration)) {
             errorHelper.error(refLocation, Optional.of(refEndLocation), format("redefinition of '%s'", refName));
         }
