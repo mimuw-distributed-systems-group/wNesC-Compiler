@@ -1,6 +1,6 @@
 package pl.edu.mimuw.nesc.analysis;
 
-import pl.edu.mimuw.nesc.ast.Interval;
+import pl.edu.mimuw.nesc.ast.util.Interval;
 import pl.edu.mimuw.nesc.ast.TagRefSemantics;
 import pl.edu.mimuw.nesc.declaration.object.Linkage;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
@@ -12,6 +12,7 @@ import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
+import pl.edu.mimuw.nesc.problem.issue.*;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -30,6 +31,7 @@ import java.util.Set;
 
 import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.*;
 import static pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils.getDeclaratorName;
+import static pl.edu.mimuw.nesc.problem.issue.InvalidTypeSpecifiersMixError.InvalidCombinationType.*;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -41,15 +43,6 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class TypesAnalysis {
-    /**
-     * Constants used throughout the whole class.
-     */
-    private static final String FMT_WARN_QUALIFIER = "'%s' type qualifier ignored because it has been already specified; remove it";
-    private static final String FMT_ERR_PARAMETER_INCOMPLETE_TYPE = "Parameter in function definition has incomplete type '%s'";
-    private static final String FMT_ERR_PARAMETER_INCOMPLETE_TYPE_N = "Parameter '%s' in function definition has incomplete type '%s'";
-    private static final String FMT_ERR_VARAIBLE_INCOMPLETE_TYPE = "Variable has incomplete type '%s'";
-    private static final String FMT_ERR_VARIABLE_INCOMPLETE_TYPE_N = "Variable '%s' has incomplete type '%s'";
-
     /**
      * Checks the type of an identifier in a standard declaration
      * <code>type</code> and <code>linkage</code> parameters are of
@@ -86,16 +79,8 @@ public final class TypesAnalysis {
 
         // Check type
         if (!unwrappedType.isComplete()) {
-            final String errMsg =
-                       identifier.isPresent()
-                     ? format(FMT_ERR_VARIABLE_INCOMPLETE_TYPE_N, identifier.get(), unwrappedType.toString())
-                     : format(FMT_ERR_VARAIBLE_INCOMPLETE_TYPE, unwrappedType.toString());
-
-            errorHelper.error(
-                    interval.getLocation(),
-                    interval.getEndLocation(),
-                    errMsg
-            );
+            errorHelper.error(interval.getLocation(), interval.getEndLocation(),
+                    new IncompleteVariableTypeError(identifier, unwrappedType));
         }
     }
 
@@ -143,16 +128,8 @@ public final class TypesAnalysis {
         final Type decayedType = paramType.decay();
         if (!decayedType.isComplete()) {
             final Optional<String> maybeName = getParameterName(declaration);
-            final String errMsg =
-                      maybeName.isPresent()
-                    ? format(FMT_ERR_PARAMETER_INCOMPLETE_TYPE_N, maybeName.get(), paramType.toString())
-                    : format(FMT_ERR_PARAMETER_INCOMPLETE_TYPE, paramType.toString());
-
-            errorHelper.error(
-                    declaration.getLocation(),
-                    declaration.getEndLocation(),
-                    errMsg
-            );
+            errorHelper.error(declaration.getLocation(), declaration.getEndLocation(),
+                              new IncompleteParameterTypeError(maybeName, paramType));
         }
     }
 
@@ -270,23 +247,6 @@ public final class TypesAnalysis {
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     private static class BaseTypeVisitor extends ExceptionVisitor<Void, Void> {
-        /**
-         * Constants with error format strings.
-         */
-        private static final String FMT_WARN_RESTRICT = "'restrict' type qualifier ignored because it cannot be applied to a non-pointer type; remove it";
-        private static final String FMT_ERR_SPECIFIER = "Cannot use '%s' type specifier because it has been already specified";
-        private static final String FMT_ERR_LONG = "Cannot use '%s' type specifier because it has been already specified twice";
-        private static final String FMT_ERR_TAG = "Cannot combine '%s' type specifier with a tag type specifier";
-        private static final String FMT_ERR_TYPENAME = "Cannot combine '%s' type specifier with a typename type specifier";
-        private static final String FMT_ERR_MULTIPLE_TAGS = "Cannot combine a tag type specifier with an another tag type specifier";
-        private static final String FMT_ERR_TAG_CONFLICT = "Cannot combine a tag type specifier with previously used type specifiers";
-        private static final String FMT_ERR_INVALID_COMBINATION = "Invalid combination of type specifiers";
-        private static final String FMT_ERR_NO_TYPE_SPECIFIERS = "Expecting a type specifier";
-        private static final String FMT_ERR_TYPENAME_CONFLICT = "Cannot combine '%s' type specifier with previously used type specifiers";
-        private static final String FMT_ERR_UNDECLARED_IDENTIFIER = "Usage of undeclared identifier '%s'";
-        private static final String FMT_ERR_IDENTIFIER_WRONG_TYPE_UNKNOWN = "Expected a type name but identifier '%s' does not denote a type";
-        private static final String FMT_ERR_IDENTIFIER_WRONG_TYPE = "Expected a type name but identifier '%s' has type '%s'";
-
         /**
          * Type specifiers that build each fundamental type.
          */
@@ -446,7 +406,7 @@ public final class TypesAnalysis {
                 return finishTypename();
             } else {
                 typeError = true;
-                errorHelper.error(startFuzzy, endFuzzy, FMT_ERR_NO_TYPE_SPECIFIERS);
+                errorHelper.error(startFuzzy, endFuzzy, new NoTypeSpecifiersError());
                 return Optional.absent();
             }
         }
@@ -486,8 +446,11 @@ public final class TypesAnalysis {
                 result = new LongDoubleType(isConstQualified, isVolatileQualified);
             } else {
                 typeError = true;
-                errorHelper.error(startTypeSpecifiers, endTypeSpecifiers,
-                                  FMT_ERR_INVALID_COMBINATION);
+                errorHelper.error(
+                        startTypeSpecifiers,
+                        endTypeSpecifiers,
+                        new InvalidTypeSpecifiersMixError(SIMPLE_WITH_SIMPLE, Optional.<String>absent())
+                );
             }
 
             return Optional.fromNullable(result);
@@ -550,17 +513,17 @@ public final class TypesAnalysis {
 
             // Resolve the typename
             final String typenameStr = typename.getName();
-            Optional<String> errMsg = Optional.absent();
+            Optional<? extends ErroneousIssue> error;
             final Optional<? extends ObjectDeclaration> maybeDecl = environment.getObjects().get(typenameStr);
             if (!maybeDecl.isPresent()) {
-                errMsg = Optional.of(format(FMT_ERR_UNDECLARED_IDENTIFIER, typenameStr));
+                error = Optional.of(new UndeclaredIdentifierError(typenameStr));
             } else if (!maybeDecl.get().getType().isPresent()) {
-                errMsg = Optional.of(format(FMT_ERR_IDENTIFIER_WRONG_TYPE_UNKNOWN, typenameStr));
+                return Optional.absent();
             } else {
                 final Type type = maybeDecl.get().getType().get();
                 if (!type.isTypeDefinition()) {
-                    errMsg = Optional.of(format(FMT_ERR_IDENTIFIER_WRONG_TYPE,
-                                                typenameStr, type.toString()));
+                    error = Optional.of(new InvalidIdentifierTypeError(typenameStr, type,
+                                        TypeDefinitionType.getInstance()));
                 } else {
                     final TypenameDeclaration declaration = (TypenameDeclaration) maybeDecl.get();
                     final Optional<Type> denotedType = declaration.getDenotedType();
@@ -580,7 +543,7 @@ public final class TypesAnalysis {
                 }
             }
 
-            errorHelper.error(typename.getLocation(), typename.getEndLocation(), errMsg.get());
+            errorHelper.error(typename.getLocation(), typename.getEndLocation(), error.get());
             return Optional.absent();
         }
 
@@ -675,26 +638,21 @@ public final class TypesAnalysis {
         }
 
         private void processRID(RID rid, Location startLoc, Location endLoc) {
-            Optional<String> warnMsg = Optional.absent();
-            Optional<String> errMsg = Optional.absent();
+            boolean typeQualifierRepeated = false;
+            Optional<? extends ErroneousIssue> error = Optional.absent();
 
             switch (rid) {
                 case CONST:
-                    if (isConstQualified) {
-                        warnMsg = Optional.of(format(FMT_WARN_QUALIFIER, rid.getName()));
-                    }
+                    typeQualifierRepeated = isConstQualified;
                     isConstQualified = true;
                     break;
                 case VOLATILE:
-                    if (isVolatileQualified) {
-                        warnMsg = Optional.of(format(FMT_WARN_QUALIFIER, rid.getName()));
-                    }
+                    typeQualifierRepeated = isVolatileQualified;
                     isVolatileQualified = true;
                     break;
                 case RESTRICT:
-                    if (restrictQualifier.isPresent()) {
-                        warnMsg = Optional.of(format(FMT_WARN_QUALIFIER, rid.getName()));
-                    } else {
+                    typeQualifierRepeated = restrictQualifier.isPresent();
+                    if (!restrictQualifier.isPresent()) {
                         restrictQualifier = Optional.of(Interval.of(startLoc, endLoc));
                     }
                     break;
@@ -704,41 +662,43 @@ public final class TypesAnalysis {
                     }
                     updateLocations(startLoc, endLoc);
                     if (tagAccepted()) {
-                        errMsg = Optional.of(format(FMT_ERR_TAG, rid.getName()));
+                        error = Optional.of(new InvalidTypeSpecifiersMixError(SIMPLE_WITH_TAG,
+                                            Optional.of(rid.getName())));
                     } else if (typenameAccepted()) {
-                        errMsg = Optional.of(format(FMT_ERR_TYPENAME, rid.getName()));
+                        error = Optional.of(new InvalidTypeSpecifiersMixError(SIMPLE_WITH_TYPENAME,
+                                            Optional.of(rid.getName())));
                     } else if (rid != RID.LONG && typeSpecifiers.contains(rid)) {
-                        errMsg = Optional.of(format(FMT_ERR_SPECIFIER, rid.getName()));
+                        error = Optional.of(TypeSpecifierRepetitionError.ridRepetition(rid, 1));
                     } else if (rid == RID.LONG && typeSpecifiers.count(rid) >= MAX_LONG_COUNT) {
-                        errMsg = Optional.of(format(FMT_ERR_LONG, rid.getName()));
+                        error = Optional.of(TypeSpecifierRepetitionError.ridRepetition(rid, MAX_LONG_COUNT));
                     } else {
                         typeSpecifiers.add(rid);
                     }
                     break;
             }
 
-            if (errMsg.isPresent()) {
+            if (error.isPresent()) {
                 typeError = true;
-                errorHelper.error(startLoc, endLoc, errMsg.get());
+                errorHelper.error(startLoc, endLoc, error.get());
             }
-            if (warnMsg.isPresent()) {
-                errorHelper.warning(startLoc, Optional.of(endLoc), warnMsg.get());
+            if (typeQualifierRepeated) {
+                errorHelper.warning(startLoc, endLoc, new TypeQualifierRepetitionWarning(rid));
             }
         }
 
         private void acceptTag(TagRef tagRef) {
             updateLocations(tagRef.getLocation(), tagRef.getEndLocation());
-            Optional<String> errMsg = Optional.absent();
+            Optional<? extends ErroneousIssue> error = Optional.absent();
 
             if (tagAccepted()) {
-                errMsg = Optional.of(FMT_ERR_MULTIPLE_TAGS);
+                error = Optional.of(TypeSpecifierRepetitionError.tagRefRepetition(1));
             } else if (!typeSpecifiers.isEmpty() || typenameAccepted()) {
-                errMsg = Optional.of(FMT_ERR_TAG_CONFLICT);
+                error = Optional.of(new InvalidTypeSpecifiersMixError(TAG_WITH_OTHER, Optional.<String>absent()));
             }
 
-            if (errMsg.isPresent()) {
+            if (error.isPresent()) {
                 typeError = true;
-                errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(), errMsg.get());
+                errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(), error.get());
                 return;
             }
 
@@ -754,7 +714,8 @@ public final class TypesAnalysis {
             if (tagAccepted() || !typeSpecifiers.isEmpty()) {
                 typeError = true;
                 errorHelper.error(typename.getLocation(), typename.getEndLocation(),
-                                  format(FMT_ERR_TYPENAME_CONFLICT, typename.getName()));
+                        new InvalidTypeSpecifiersMixError(TYPENAME_WITH_OTHER,
+                            Optional.of(typename.getName())));
                 return;
             }
 
@@ -806,8 +767,8 @@ public final class TypesAnalysis {
             if (restrictQualifier.isPresent()) {
                 errorHelper.warning(
                     restrictQualifier.get().getLocation(),
-                    Optional.of(restrictQualifier.get().getEndLocation()),
-                    FMT_WARN_RESTRICT
+                    restrictQualifier.get().getEndLocation(),
+                    new InvalidRestrictUsageWarning()
                 );
             }
         }
@@ -822,12 +783,6 @@ public final class TypesAnalysis {
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     private static class DeclaratorTypeVisitor extends ExceptionVisitor<Void, Void> {
-        /**
-         * Constants with error and warning messages.
-         */
-        private static final String FMT_ERR_INVALID_SPECIFIER = "Unexpected declaration specifier '%s'";
-        private static final String FMT_WARN_QUALIFIERS_IGNORED = "Type qualifiers ignored because they cannot be used in this context; remove them";
-
         /**
          * Object that will be notified about detected errors.
          */
@@ -882,7 +837,7 @@ public final class TypesAnalysis {
         public Void visitArrayDeclarator(ArrayDeclarator declarator, Void v) {
             accumulatedType = new ArrayType(accumulatedType, declarator.getSize().isPresent());
             checkType(declarator);
-            jump(ignoreQualifiers(declarator.getDeclarator()));
+            jump(declarator.getDeclarator());
             return null;
         }
 
@@ -914,7 +869,7 @@ public final class TypesAnalysis {
             accumulatedType = new FunctionType(accumulatedType, paramsVisitor.types,
                     paramsVisitor.variableArguments);
             checkType(declarator);
-            jump(ignoreQualifiers(declarator.getDeclarator()));
+            jump(declarator.getDeclarator());
             return null;
         }
 
@@ -963,6 +918,21 @@ public final class TypesAnalysis {
             return modifier != RID.VOID;
         }
 
+        @Override
+        public Void visitQualifiedDeclarator(QualifiedDeclarator declarator, Void arg) {
+            final LinkedList<TypeElement> specifiers = declarator.getModifiers();
+            if (!specifiers.isEmpty()) {
+                errorHelper.warning(
+                        specifiers.getFirst().getLocation(),
+                        specifiers.getLast().getEndLocation(),
+                        new SuperfluousSpecifiersWarning()
+                );
+            }
+
+            jump(declarator.getDeclarator());
+            return null;
+        }
+
         private void jump(Optional<Declarator> next) {
             if (next.isPresent()) {
                 next.get().accept(this, null);
@@ -1002,15 +972,13 @@ public final class TypesAnalysis {
                             isRestrictQualified = true;
                             break;
                         default:
-                            typeError = true;
-                            errorHelper.error(qualifier.getLocation(), qualifier.getEndLocation(),
-                                    format(FMT_ERR_INVALID_SPECIFIER, qualifier.getId().getName()));
-                            break;
+                            throw new RuntimeException(format("unexpected specifier '%s' in a pointer declarator",
+                                                       qualifier.getId().getName()));
                     }
 
                     if (repetition) {
-                        errorHelper.warning(qualifier.getLocation(), Optional.of(qualifier.getEndLocation()),
-                                format(FMT_WARN_QUALIFIER, qualifier.getId().getName()));
+                        errorHelper.warning(qualifier.getLocation(), qualifier.getEndLocation(),
+                                new TypeQualifierRepetitionWarning(qualifier.getId()));
                     }
                 }
 
@@ -1019,24 +987,6 @@ public final class TypesAnalysis {
 
             return new PointerTypeQualifiers(isConstQualified, isVolatileQualified,
                     isRestrictQualified, nextDeclarator);
-        }
-
-        private Optional<Declarator> ignoreQualifiers(Optional<Declarator> declarator) {
-            while (declarator.isPresent() && declarator.get() instanceof QualifiedDeclarator) {
-                final QualifiedDeclarator qualified = (QualifiedDeclarator) declarator.get();
-
-                if (!qualified.getModifiers().isEmpty()) {
-                    errorHelper.warning(
-                            qualified.getLocation(),
-                            Optional.of(qualified.getEndLocation()),
-                            FMT_WARN_QUALIFIERS_IGNORED
-                    );
-                }
-
-                declarator = qualified.getDeclarator();
-            }
-
-            return declarator;
         }
 
         private void checkType(Declarator declarator) {
@@ -1156,14 +1106,6 @@ public final class TypesAnalysis {
      */
     private static class TypeValidityVisitor extends NullTypeVisitor<Void, Interval> {
         /**
-         * Various constants used in this class.
-         */
-        private static final String FMT_ERR_ARRAY_INCOMPLETE = "Cannot use an array type with an incomplete element type '%s'";
-        private static final String FMT_ERR_ARRAY_FUNCTION = "Cannot use an array type with a function element type '%s'";
-        private static final String FMT_ERR_FUNCTION_ARRAY = "A function cannot return a value of an array type '%s'";
-        private static final String FMT_ERR_FUNCTION_FUNCTION = "A function cannot return a value of a function type '%s'";
-
-        /**
          * Error helper that will be notified about detected errors and
          * warnings.
          */
@@ -1186,15 +1128,18 @@ public final class TypesAnalysis {
         @Override
         public Void visit(ArrayType arrayType, Interval interval) {
             final Type elementType = arrayType.getElementType();
+            boolean error = false;
 
             if (!incompleteElementType && !elementType.isComplete()) {
-                emitError(format(FMT_ERR_ARRAY_INCOMPLETE, elementType.toString()), interval);
-                incompleteElementType = true;
+                incompleteElementType = error = true;
             }
 
             if (!functionElementType && elementType.isFunctionType()) {
-                emitError(format(FMT_ERR_ARRAY_FUNCTION, elementType.toString()), interval);
-                functionElementType = true;
+                functionElementType = error = true;
+            }
+
+            if (error) {
+                emitError(interval, new InvalidArrayElementTypeError(elementType));
             }
 
             return null;
@@ -1203,25 +1148,28 @@ public final class TypesAnalysis {
         @Override
         public Void visit(FunctionType funType, Interval interval) {
             final Type returnType = funType.getReturnType();
+            boolean error = false;
 
             if (!functionReturnType && returnType.isFunctionType()) {
-                emitError(format(FMT_ERR_FUNCTION_FUNCTION, returnType.toString()), interval);
-                functionReturnType = true;
+                functionReturnType = error = true;
             }
 
             if (!arrayReturnType && returnType.isArrayType()) {
-                emitError(format(FMT_ERR_FUNCTION_ARRAY, returnType.toString()), interval);
-                arrayReturnType = true;
+                arrayReturnType = error = true;
+            }
+
+            if (error) {
+                emitError(interval, new InvalidFunctionReturnTypeError(returnType));
             }
 
             return null;
         }
 
-        private void emitError(String msg, Interval interval) {
+        private void emitError(Interval interval, ErroneousIssue error) {
             errorHelper.error(
                     interval.getLocation(),
-                    Optional.fromNullable(interval.getEndLocation()),
-                    msg
+                    interval.getEndLocation(),
+                    error
             );
         }
     }

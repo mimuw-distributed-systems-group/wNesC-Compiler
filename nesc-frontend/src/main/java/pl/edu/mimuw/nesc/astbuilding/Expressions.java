@@ -4,6 +4,7 @@ import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.ast.util.AstUtils;
 
 import java.util.LinkedList;
 

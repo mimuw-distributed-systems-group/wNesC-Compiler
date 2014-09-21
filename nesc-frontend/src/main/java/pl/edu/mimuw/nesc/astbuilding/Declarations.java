@@ -2,8 +2,8 @@ package pl.edu.mimuw.nesc.astbuilding;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
-import pl.edu.mimuw.nesc.ast.AstUtils;
-import pl.edu.mimuw.nesc.ast.Interval;
+import pl.edu.mimuw.nesc.ast.util.AstUtils;
+import pl.edu.mimuw.nesc.ast.util.Interval;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.StructKind;
@@ -30,8 +30,8 @@ import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.processTagReference;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.checkFunctionParametersTypes;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.checkVariableType;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveType;
-import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
-import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
+import static pl.edu.mimuw.nesc.ast.util.AstUtils.getEndLocation;
+import static pl.edu.mimuw.nesc.ast.util.AstUtils.getStartLocation;
 import static pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils.getDeclaratorName;
 import static pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils.getIdentifierInterval;
 

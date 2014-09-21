@@ -2,18 +2,16 @@ package pl.edu.mimuw.nesc.astbuilding.nesc;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
-import pl.edu.mimuw.nesc.ast.Interval;
+import pl.edu.mimuw.nesc.ast.util.Interval;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.ast.type.TypeDefinitionType;
 import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
 import pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils;
-import pl.edu.mimuw.nesc.astbuilding.TypeElementUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.nesc.NescDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
-import pl.edu.mimuw.nesc.declaration.object.Linkage;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.VariableDeclaration;
@@ -27,8 +25,8 @@ import java.util.LinkedList;
 import static java.lang.String.format;
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.*;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveType;
-import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
-import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
+import static pl.edu.mimuw.nesc.ast.util.AstUtils.getEndLocation;
+import static pl.edu.mimuw.nesc.ast.util.AstUtils.getStartLocation;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>

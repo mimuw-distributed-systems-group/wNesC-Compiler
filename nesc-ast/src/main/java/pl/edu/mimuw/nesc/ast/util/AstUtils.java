@@ -1,6 +1,7 @@
-package pl.edu.mimuw.nesc.ast;
+package pl.edu.mimuw.nesc.ast.util;
 
 import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.ast.gen.Word;
 import pl.edu.mimuw.nesc.common.util.list.Lists;

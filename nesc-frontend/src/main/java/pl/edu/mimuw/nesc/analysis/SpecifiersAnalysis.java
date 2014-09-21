@@ -9,8 +9,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -18,9 +16,9 @@ import java.util.Set;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import pl.edu.mimuw.nesc.ast.Interval;
+import pl.edu.mimuw.nesc.ast.util.Interval;
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.LocationsPin;
+import pl.edu.mimuw.nesc.ast.util.LocationsPin;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.Type;

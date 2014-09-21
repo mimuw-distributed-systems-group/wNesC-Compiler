@@ -8,8 +8,8 @@ import pl.edu.mimuw.nesc.ast.gen.Word;
 
 import java.util.LinkedList;
 
-import static pl.edu.mimuw.nesc.ast.AstUtils.getEndLocation;
-import static pl.edu.mimuw.nesc.ast.AstUtils.getStartLocation;
+import static pl.edu.mimuw.nesc.ast.util.AstUtils.getEndLocation;
+import static pl.edu.mimuw.nesc.ast.util.AstUtils.getStartLocation;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>

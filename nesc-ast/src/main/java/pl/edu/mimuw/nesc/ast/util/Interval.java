@@ -1,6 +1,7 @@
-package pl.edu.mimuw.nesc.ast;
+package pl.edu.mimuw.nesc.ast.util;
 
 import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.ast.Location;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 

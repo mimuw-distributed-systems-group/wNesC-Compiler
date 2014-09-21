@@ -25,7 +25,7 @@ import java.util.List;
 
 import static java.lang.String.format;
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.checkInstanceParametersSpecifiers;
-import static pl.edu.mimuw.nesc.ast.AstUtils.makeWord;
+import static pl.edu.mimuw.nesc.ast.util.AstUtils.makeWord;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>

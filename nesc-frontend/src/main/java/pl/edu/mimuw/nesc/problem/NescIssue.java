@@ -10,6 +10,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * Base class for issues reported by compiler such as errors or warnings.
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @see pl.edu.mimuw.nesc.problem.issue.Issue Issue
  */
 public abstract class NescIssue {
 

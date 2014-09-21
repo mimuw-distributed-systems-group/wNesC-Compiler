@@ -1,7 +1,7 @@
 package pl.edu.mimuw.nesc.astbuilding;
 
 import com.google.common.base.Optional;
-import pl.edu.mimuw.nesc.ast.Interval;
+import pl.edu.mimuw.nesc.ast.util.Interval;
 import pl.edu.mimuw.nesc.ast.gen.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
