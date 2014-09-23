@@ -372,6 +372,7 @@ public final class TypesAnalysis {
         private final Multiset<RID> typeSpecifiers = EnumMultiset.create(RID.class);
         private TagRef tagReference;
         private Typename typename;
+        private AttributeRef attributeDefinition;
 
         private BaseTypeVisitor(Environment environment, ErrorHelper errorHelper,
                                 boolean isStandalone, Location startFuzzy, Location endFuzzy) {
@@ -396,9 +397,9 @@ public final class TypesAnalysis {
                 emitRestrictWarning();
             }
 
-            if (tagReference instanceof AttributeRef) {
+            if (attributeAccepted()) {
                 return Optional.absent();
-            } else if (!typeSpecifiers.isEmpty()) {
+            } else if (simpleAccepted()) {
                 return finishFundamentalType();
             } else if (tagAccepted()) {
                 return finishTagType();
@@ -549,13 +550,13 @@ public final class TypesAnalysis {
 
         @Override
         public Void visitRid(Rid rid, Void v) {
-            processRID(rid.getId(), rid.getLocation(), rid.getEndLocation());
+            acceptSimple(rid.getId(), rid.getLocation(), rid.getEndLocation());
             return null;
         }
 
         @Override
         public Void visitQualifier(Qualifier qualifier, Void v) {
-            processRID(qualifier.getId(), qualifier.getLocation(), qualifier.getEndLocation());
+            acceptSimple(qualifier.getId(), qualifier.getLocation(), qualifier.getEndLocation());
             return null;
         }
 
@@ -603,7 +604,7 @@ public final class TypesAnalysis {
 
         @Override
         public Void visitAttributeRef(AttributeRef attrRef, Void v) {
-            acceptTag(attrRef);
+            acceptAttribute(attrRef);
             return null;
         }
 
@@ -637,7 +638,7 @@ public final class TypesAnalysis {
             return null;
         }
 
-        private void processRID(RID rid, Location startLoc, Location endLoc) {
+        private void acceptSimple(RID rid, Location startLoc, Location endLoc) {
             boolean typeQualifierRepeated = false;
             Optional<? extends ErroneousIssue> error = Optional.absent();
 
@@ -661,7 +662,10 @@ public final class TypesAnalysis {
                         return;
                     }
                     updateLocations(startLoc, endLoc);
-                    if (tagAccepted()) {
+                    if (attributeAccepted()) {
+                        error = Optional.of(new InvalidTypeSpecifiersMixError(SIMPLE_WITH_ATTRIBUTE,
+                                            Optional.of(rid.getName())));
+                    } else if (tagAccepted()) {
                         error = Optional.of(new InvalidTypeSpecifiersMixError(SIMPLE_WITH_TAG,
                                             Optional.of(rid.getName())));
                     } else if (typenameAccepted()) {
@@ -690,9 +694,11 @@ public final class TypesAnalysis {
             updateLocations(tagRef.getLocation(), tagRef.getEndLocation());
             Optional<? extends ErroneousIssue> error = Optional.absent();
 
-            if (tagAccepted()) {
+            if (attributeAccepted()) {
+                error = Optional.of(new InvalidTypeSpecifiersMixError(TAG_WITH_ATTRIBUTE, Optional.<String>absent()));
+            } else if (tagAccepted()) {
                 error = Optional.of(TypeSpecifierRepetitionError.tagRefRepetition(1));
-            } else if (!typeSpecifiers.isEmpty() || typenameAccepted()) {
+            } else if (simpleAccepted() || typenameAccepted()) {
                 error = Optional.of(new InvalidTypeSpecifiersMixError(TAG_WITH_OTHER, Optional.<String>absent()));
             }
 
@@ -710,16 +716,60 @@ public final class TypesAnalysis {
 
         private void acceptTypename(Typename typename) {
             updateLocations(typename.getLocation(), typename.getEndLocation());
+            Optional<? extends ErroneousIssue> error = Optional.absent();
 
-            if (tagAccepted() || !typeSpecifiers.isEmpty()) {
+            if (attributeAccepted()) {
+                error = Optional.of(new InvalidTypeSpecifiersMixError(TYPENAME_WITH_ATTRIBUTE,
+                                    Optional.of(typename.getName())));
+            } else if (tagAccepted() || simpleAccepted()) {
+                error = Optional.of(new InvalidTypeSpecifiersMixError(TYPENAME_WITH_OTHER,
+                                    Optional.of(typename.getName())));
+            }
+
+            if (error.isPresent()) {
                 typeError = true;
-                errorHelper.error(typename.getLocation(), typename.getEndLocation(),
-                        new InvalidTypeSpecifiersMixError(TYPENAME_WITH_OTHER,
-                            Optional.of(typename.getName())));
+                errorHelper.error(typename.getLocation(), typename.getEndLocation(), error.get());
                 return;
             }
 
             this.typename = typename;
+        }
+
+        private void acceptAttribute(AttributeRef attributeDef) {
+            updateLocations(attributeDef.getLocation(), attributeDef.getEndLocation());
+            Optional<? extends ErroneousIssue> error = Optional.absent();
+
+            if (attributeAccepted()) {
+                error = Optional.of(new InvalidTypeSpecifiersMixError(ATTRIBUTE_WITH_ATTRIBUTE,
+                                    Optional.<String>absent()));
+            } else if (tagAccepted() || typenameAccepted() || simpleAccepted()) {
+                error = Optional.of(new InvalidTypeSpecifiersMixError(ATTRIBUTE_WITH_OTHER,
+                                    Optional.<String>absent()));
+            }
+
+            if (!error.isPresent()) {
+                this.attributeDefinition = attributeDef;
+
+                if (!isStandalone) {
+                    error = Optional.of(new AttributeUsageAsTypeError());
+                }
+            }
+
+            if (error.isPresent()) {
+                typeError = true;
+                errorHelper.error(attributeDef.getLocation(), attributeDef.getEndLocation(), error.get());
+            }
+        }
+
+        /**
+         * A simple type specifier is a RID type specifier, e.g.
+         * <code>int</code> or <code>long</code>.
+         *
+         * @return <code>true</code> if and only if a simple type specifier has
+         *         been accepted as a type specifier by this object.
+         */
+        private boolean simpleAccepted() {
+            return !typeSpecifiers.isEmpty();
         }
 
         /**
@@ -736,6 +786,14 @@ public final class TypesAnalysis {
          */
         private boolean typenameAccepted() {
             return typename != null;
+        }
+
+        /**
+         * @return <code>true</code> if and only if an attribute definition has
+         *         been accepted as the specifier by this object.
+         */
+        private boolean attributeAccepted() {
+            return attributeDefinition != null;
         }
 
         /**
@@ -957,7 +1015,7 @@ public final class TypesAnalysis {
                     }
                     final Qualifier qualifier = (Qualifier) typeElement;
 
-                    boolean repetition = false;
+                    boolean repetition;
                     switch (qualifier.getId()) {
                         case CONST:
                             repetition = isConstQualified;

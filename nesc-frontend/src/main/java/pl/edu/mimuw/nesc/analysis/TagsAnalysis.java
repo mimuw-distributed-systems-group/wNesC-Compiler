@@ -11,6 +11,7 @@ import pl.edu.mimuw.nesc.declaration.tag.*;
 import pl.edu.mimuw.nesc.declaration.tag.fieldtree.*;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
+import pl.edu.mimuw.nesc.problem.issue.*;
 import pl.edu.mimuw.nesc.symboltable.SymbolTable;
 
 import com.google.common.base.Optional;
@@ -224,15 +225,6 @@ public final class TagsAnalysis {
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     private static class TagRefVisitor extends ExceptionVisitor<Void, Void> {
-        /**
-         * Various constants used by this class.
-         */
-        private static final String FMT_ERR_TAG_DIFFERENT_KIND = "'%s' has been previously declared as a tag of another type";
-        private static final String FMT_ERR_ENUM_UNDEFINED_USE = "'%s' is undefined; cannot use an enumeration type with no visible definition";
-        private static final String FMT_ERR_ENUM_FORWARD = "Invalid declaration; forward declarations of enumeration types are forbidden in the ISO C standard";
-        private static final String FMT_ERR_TAG_REDEFINITION = "Tag '%s' has been already defined";
-        private static final String FMT_ERR_TAG_NESTED_DEFINITION = "Beginning of nested definition of tag '%s'";
-        private static final String FMT_ERR_ATTRIBUTE_USAGE_AS_TYPE = "Cannot use an attribute definition as a type";
 
         /**
          * Object that will be informed about each encountered error.
@@ -314,11 +306,6 @@ public final class TagsAnalysis {
             checkState(attrRef.getSemantics() != TagRefSemantics.OTHER, "attribute reference that is not definition of an attribute");
             checkState(attrRef.getName() != null, "name of an attribute in its definition is null");
 
-            if (!isStandalone) {
-                errorHelper.error(attrRef.getLocation(), attrRef.getEndLocation(),
-                                  FMT_ERR_ATTRIBUTE_USAGE_AS_TYPE);
-            }
-
             if (attrRef.getSemantics() == TagRefSemantics.DEFINITION) {
                 // Get fields of the attribute definition
                 FieldTagDefinitionVisitor visitor = new FieldTagDefinitionVisitor(errorHelper);
@@ -390,21 +377,21 @@ public final class TagsAnalysis {
             } else if (!sameTag.get()) {
                 tagRef.setIsInvalid(true);
                 errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(),
-                                  format(FMT_ERR_TAG_DIFFERENT_KIND, name));
+                                  new ConflictingTagKindError(name));
             }
 
             // Check the correctness of an enumeration tag declaration
             if (tagDeclaration.getKind() == StructKind.ENUM) {
-                String errMsg = null;
+                Optional<? extends ErroneousIssue> error = Optional.absent();
                 if (!isStandalone && (!predicate.isDefined || !sameTag.isPresent())) {
-                    errMsg = format(FMT_ERR_ENUM_UNDEFINED_USE, name);
+                    error = Optional.of(new UndefinedEnumUsageError(name));
                 } else if (isStandalone) {
-                    errMsg = FMT_ERR_ENUM_FORWARD;
+                    error = Optional.of(new EnumForwardDeclarationError());
                 }
 
-                if (errMsg != null) {
+                if (error.isPresent()) {
                     tagRef.setIsInvalid(true);
-                    errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(), errMsg);
+                    errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(), error.get());
                 }
             }
         }
@@ -423,17 +410,20 @@ public final class TagsAnalysis {
 
             // Report errors only while processing the predefinition
             if (!result && !tagDeclaration.isDefined()) {
+                Optional<? extends ErroneousIssue> error;
+
                 if (!predicate.sameKind) {
-                    errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(),
-                                      format(FMT_ERR_TAG_DIFFERENT_KIND, name));
+                    error = Optional.of(new ConflictingTagKindError(name));
                 } else if (predicate.isDefined) {
-                    errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(),
-                                      format(FMT_ERR_TAG_REDEFINITION, name));
+                    error = Optional.of(new TagRedefinitionError(name, false));
                 } else if (predicate.insideDefinition) {
-                    errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(),
-                                      format(FMT_ERR_TAG_NESTED_DEFINITION, name));
+                    error = Optional.of(new TagRedefinitionError(name, true));
                 } else {
                     throw new RuntimeException("unexpected symbol table result during a tag definition");
+                }
+
+                if (error.isPresent()) {
+                    errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(), error.get());
                 }
             } else if (result && tagDeclaration.isDefined()) {
                 if (oldDecl.isPresent()) {

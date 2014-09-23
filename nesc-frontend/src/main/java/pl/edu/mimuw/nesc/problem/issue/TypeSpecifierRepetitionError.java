@@ -35,10 +35,10 @@ public final class TypeSpecifierRepetitionError extends ErroneousIssue {
     @Override
     public String generateDescription() {
         if (repeatedRid.isPresent()) {
-            return format("Cannot use '%s' type specifier because it has been already specified %d time(s)",
+            return format("Cannot use '%s' type specifier because it has been already used %d time(s)",
                           repeatedRid.get().getName(), exceededRepetitionsCount);
         } else {
-            return format("Cannot use a tag type specifier because such specifier has been already specified %d time(s)",
+            return format("Cannot use a tag type specifier because such specifier has been already used %d time(s)",
                           exceededRepetitionsCount);
         }
     }

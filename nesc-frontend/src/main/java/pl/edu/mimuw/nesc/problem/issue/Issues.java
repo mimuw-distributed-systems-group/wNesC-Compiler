@@ -27,7 +27,12 @@ public final class Issues {
         TYPE_SPECIFIER_REPETITION(6),
         TYPE_SPECIFIERS_MIX_ERROR(7),
         UNDECLARED_IDENTIFIER(8),
-        INVALID_IDENTIFIER_TYPE(9);
+        INVALID_IDENTIFIER_TYPE(9),
+        TAG_REDEFINITION(10),
+        CONFLICTING_TAG_KIND(11),
+        ENUM_FORWARD_DECLARATION(12),
+        UNDEFINED_ENUM_USAGE(13),
+        ATTRIBUTE_USAGE_AS_TYPE(14);
 
         private final int codeNumber;
 
