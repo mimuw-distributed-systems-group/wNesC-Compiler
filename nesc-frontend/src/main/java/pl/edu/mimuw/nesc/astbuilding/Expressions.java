@@ -1,12 +1,18 @@
 package pl.edu.mimuw.nesc.astbuilding;
 
 import com.google.common.base.Optional;
+import java.math.BigInteger;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.ast.util.AstUtils;
 
-import java.util.LinkedList;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * <p>
@@ -25,6 +31,19 @@ public final class Expressions {
         ERROR_EXPRESSION = new ErrorExpr(errorLocation);
         ERROR_EXPRESSION.setEndLocation(errorLocation);
     }
+
+    /**
+     * Value of the maximum integer literal that is allowed.
+     */
+    private static final BigInteger MAX_INTEGER_CST_VALUE = BigInteger
+            .valueOf(2L).pow(64).subtract(BigInteger.ONE);
+
+    /**
+     * Maximum number of characters that is needed to write the maximum integer
+     * literal (after truncating unnecessary leading zeroes). It occurs in the
+     * octal base: 01777777777777777777777.
+     */
+    private static final int MAX_INTEGER_CST_CHARS_COUNT = 23;
 
     public static ErrorExpr makeErrorExpr() {
         return ERROR_EXPRESSION;
@@ -472,6 +491,126 @@ public final class Expressions {
         final BitxorAssign result = new BitxorAssign(leftExpression.getLocation(), leftExpression, rightExpression);
         result.setEndLocation(rightExpression.getEndLocation());
         return result;
+    }
+
+    public static IntegerCst makeIntegerCst(String value, Location startLocation, Location endLocation) {
+        final String withoutRedundantZeroes = removeRedundantLeadingZeros(value);
+        final IntegerLiteralDecomposition decomposition = new IntegerLiteralDecomposition(withoutRedundantZeroes);
+        final IntegerCstKind kind = determineIntegerCstKind(decomposition.core);
+        final IntegerCstSuffix suffix = determineIntegerCstSuffix(decomposition.suffix);
+
+        // Check and determine the value of the constant
+        Optional<BigInteger> intValue = Optional.absent();
+        if (decomposition.core.length() <= MAX_INTEGER_CST_CHARS_COUNT) {
+            final String forParsing =   kind == IntegerCstKind.HEXADECIMAL
+                                      ? decomposition.core.substring(2)
+                                      : decomposition.core;
+            final BigInteger parsed = new BigInteger(forParsing, kind.getRadix());
+            if (parsed.compareTo(MAX_INTEGER_CST_VALUE) <= 0) {
+                intValue = Optional.of(parsed);
+            }
+        }
+
+        // Prepare and return the result
+        final IntegerCst result = new IntegerCst(startLocation, withoutRedundantZeroes,
+                intValue, kind, suffix);
+        result.setEndLocation(endLocation);
+        return result;
+    }
+
+    /**
+     * Compress all leading zeroes in the given string to exactly one for an
+     * octal or decimal literal. For a hexadecimal literal all the leading
+     * zeroes after the prefix "0x" or "0X" are compressed.
+     *
+     * @param value String to transform.
+     * @return Given integer literal with all redundant zeroes removed.
+     */
+    private static String removeRedundantLeadingZeros(String value) {
+        // Check if the constant is hexadecimal
+        final StringBuilder result = new StringBuilder();
+        final Matcher hexMatcher = Pattern.compile("^(0x|0X)(.*)$")
+                .matcher(value);
+        if (hexMatcher.matches()) {
+            result.append(hexMatcher.group(1));
+            value = hexMatcher.group(2);
+        }
+
+        // Remove redundant zeroes
+        int firstIndex = 0;
+        for (int i = 0; i < value.length(); ++i) {
+            if (value.charAt(i) != '0') {
+                if (i > 0) {
+                    firstIndex = i - 1;
+                }
+                break;
+            }
+        }
+        result.append(value.substring(firstIndex));
+
+        return result.toString();
+    }
+
+    private static IntegerCstKind determineIntegerCstKind(String withoutRedundantZeroes) {
+        if (withoutRedundantZeroes.startsWith("0x") || withoutRedundantZeroes.startsWith("0X")) {
+            return IntegerCstKind.HEXADECIMAL;
+        } else if (withoutRedundantZeroes.startsWith("0")) {
+            return IntegerCstKind.OCTAL;
+        } else {
+            return IntegerCstKind.DECIMAL;
+        }
+    }
+
+    private static IntegerCstSuffix determineIntegerCstSuffix(String suffix) {
+        // Sort the characters from the suffix
+        final char[] characters = suffix.toUpperCase().toCharArray();
+        Arrays.sort(characters);
+        final String forCheck = String.copyValueOf(characters);
+
+        // Check the suffix
+        switch (forCheck) {
+            case "LLU":
+                return IntegerCstSuffix.SUFFIX_ULL;
+            case "LU":
+                return IntegerCstSuffix.SUFFIX_UL;
+            case "LL":
+                return IntegerCstSuffix.SUFFIX_LL;
+            case "L":
+                return IntegerCstSuffix.SUFFIX_L;
+            case "U":
+                return IntegerCstSuffix.SUFFIX_U;
+            case "":
+                return IntegerCstSuffix.NO_SUFFIX;
+            default:
+                throw new RuntimeException("unexpected integer literal suffix '" + suffix + "'");
+        }
+    }
+
+    /**
+     * Class whose objects are responsible for decomposing an integer literal to
+     * its core and suffix. The part of the literal before its suffix is
+     * considered its core.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class IntegerLiteralDecomposition {
+        private final String core;
+        private final String suffix;
+
+        private IntegerLiteralDecomposition(String literal) {
+            checkNotNull(literal, "literal cannot be null");
+
+            /* We assume that the given literal is correct - it has been
+               previously checked by the lexer. */
+            final Matcher literalMatcher = Pattern
+                    .compile("^(?<core>(0x|0X)?[0-9A-Fa-f]+)(?<suffix>.*)$")
+                    .matcher(literal);
+            final boolean matchSuccessful = literalMatcher.matches();
+            checkArgument(matchSuccessful, "invalid integer literal '%s'", literal);
+
+            this.core = literalMatcher.group("core");
+            this.suffix = literalMatcher.group("suffix");
+        }
     }
 
     private Expressions() {

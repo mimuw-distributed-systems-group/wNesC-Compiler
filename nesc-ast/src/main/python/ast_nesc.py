@@ -1007,6 +1007,29 @@ class LexicalCst(BasicASTNode):
     string = StringField()
 
 
+class IntegerCst(BasicASTNode):
+    """
+    <p>An integer constant.</p>
+    <p>The value is present if and only if it belongs to the following set:</p>
+    <pre>{ 0, &hellip;, 2<sup>64</sup> - 1 }</span>
+    """
+    superclass = LexicalCst
+    value = ReferenceField("BigInteger", optional=True)
+    kind = ReferenceField("IntegerCstKind")
+    suffix = ReferenceField("IntegerCstSuffix")
+
+
+class FloatingCst(BasicASTNode):
+    """ A floating constant. """
+    superclass = LexicalCst
+
+
+class CharacterCst(BasicASTNode):
+    """ A character constant. """
+    superclass = LexicalCst
+    value = ReferenceField("Character")
+
+
 class StringCst(BasicASTNode):
     """ A single lexical string. """
     superclass = LexicalCst

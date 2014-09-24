@@ -1598,25 +1598,22 @@ primary:
     }
     | INTEGER_LITERAL
     {
-        final LexicalCst cst = new LexicalCst($1.getLocation(), $1.getValue());
-        cst.setEndLocation($1.getEndLocation());
-        $$ = cst;
+        $$ = Expressions.makeIntegerCst($1.getValue(), $1.getLocation(), $1.getEndLocation());
     }
     | FLOATING_POINT_LITERAL
     {
-        final LexicalCst cst = new LexicalCst($1.getLocation(), $1.getValue());
+        final FloatingCst cst = new FloatingCst($1.getLocation(), $1.getValue());
         cst.setEndLocation($1.getEndLocation());
         $$ = cst;
     }
     | INVALID_NUMBER_LITERAL
     {
-        final LexicalCst cst = new LexicalCst($1.getLocation(), $1.getValue());
-        cst.setEndLocation($1.getEndLocation());
-        $$ = cst;
+        $$ = Expressions.makeErrorExpr();
     }
     | CHARACTER_LITERAL
     {
-        final LexicalCst cst = new LexicalCst($1.getLocation(), $1.getValue());
+        final String value = $1.getValue();
+        final CharacterCst cst = new CharacterCst($1.getLocation(), value, value.charAt(0));
         cst.setEndLocation($1.getEndLocation());
         $$ = cst;
     }

@@ -237,6 +237,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             # There is no need to explicitly import classes from the same
             # package. The same with java.lang.String.
             res = "package pl.edu.mimuw.nesc.ast.gen;\n\n"
+            res += "import java.math.BigInteger;\n"
             res += "import java.util.LinkedList;\n"
             res += "import com.google.common.base.Optional;\n"
             res += "import pl.edu.mimuw.nesc.ast.*;\n"
