@@ -512,8 +512,8 @@ public final class Expressions {
         }
 
         // Prepare and return the result
-        final IntegerCst result = new IntegerCst(startLocation, withoutRedundantZeroes,
-                intValue, kind, suffix);
+        final IntegerCst result = new IntegerCst(startLocation, value, intValue,
+                kind, suffix);
         result.setEndLocation(endLocation);
         return result;
     }

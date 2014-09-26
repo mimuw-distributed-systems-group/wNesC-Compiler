@@ -17,6 +17,7 @@ import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
 import pl.edu.mimuw.nesc.parser.TypeElementsAssociation;
 import pl.edu.mimuw.nesc.problem.NescIssue;
+import pl.edu.mimuw.nesc.problem.issue.*;
 import pl.edu.mimuw.nesc.token.Token;
 import pl.edu.mimuw.nesc.ast.type.Type;
 
@@ -34,6 +35,8 @@ import static pl.edu.mimuw.nesc.ast.util.AstUtils.getEndLocation;
 import static pl.edu.mimuw.nesc.ast.util.AstUtils.getStartLocation;
 import static pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils.getDeclaratorName;
 import static pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils.getIdentifierInterval;
+import static pl.edu.mimuw.nesc.problem.issue.RedeclarationError.RedeclarationKind;
+import static pl.edu.mimuw.nesc.problem.issue.RedefinitionError.RedefinitionKind;
 
 /**
  * <p>
@@ -551,7 +554,7 @@ public final class Declarations extends AstBuildingBase {
                 /* Trying to redeclare non-function declaration. */
                 if (!(previousDeclaration instanceof FunctionDeclaration)) {
                     Declarations.this.errorHelper.error(funDeclarator.getLocation(), funDeclarator.getEndLocation(),
-                            format("redeclaration of '%s'", name));
+                            new RedeclarationError(name, RedeclarationKind.OTHER));
 
                     /* Nevertheless, create declaration, put it into ast node
                      * but not into environment. */
@@ -568,7 +571,7 @@ public final class Declarations extends AstBuildingBase {
                     } else {
                         /* Function redefinition is forbidden. */
                         Declarations.this.errorHelper.error(funDeclarator.getLocation(), funDeclarator.getEndLocation(),
-                                format("redefinition of '%s'", name));
+                                new RedefinitionError(name, RedefinitionKind.FUNCTION));
                         functionDeclaration = builder.build();
                     }
 
@@ -607,8 +610,8 @@ public final class Declarations extends AstBuildingBase {
 
         private void define(ObjectDeclaration declaration, Declarator declarator) {
             if (!environment.getObjects().add(declaration.getName(), declaration)) {
-                Declarations.this.errorHelper.error(declarator.getLocation(), Optional.of(declarator.getEndLocation()),
-                        format("redefinition of '%s'", declaration.getName()));
+                Declarations.this.errorHelper.error(declarator.getLocation(), declarator.getEndLocation(),
+                        new RedefinitionError(declaration.getName(), RedefinitionKind.FUNCTION));
             }
         }
 
@@ -662,7 +665,7 @@ public final class Declarations extends AstBuildingBase {
                 /* Trying to redeclare non-function declaration. */
                 if (!(previousDeclaration instanceof FunctionDeclaration)) {
                     Declarations.this.errorHelper.error(funDeclarator.getLocation(), funDeclarator.getEndLocation(),
-                            format("redeclaration of '%s'", name));
+                            new RedeclarationError(name, RedeclarationKind.OTHER));
 
                     /* Nevertheless, create declaration, put it into ast node
                      * but not into environment. */
@@ -744,8 +747,8 @@ public final class Declarations extends AstBuildingBase {
         private void declare(ObjectDeclaration declaration, Declarator declarator) {
             if (!environment.getObjects().add(declaration.getName(), declaration)) {
                 Declarations.this.errorHelper.error(declarator.getLocation(),
-                        Optional.of(declarator.getEndLocation()),
-                        format("redeclaration of '%s'", declaration.getName()));
+                        declarator.getEndLocation(),
+                        new RedeclarationError(declaration.getName(), RedeclarationKind.OTHER));
             }
         }
 

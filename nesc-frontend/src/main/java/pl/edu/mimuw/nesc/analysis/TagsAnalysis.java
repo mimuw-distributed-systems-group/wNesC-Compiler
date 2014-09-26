@@ -25,10 +25,11 @@ import java.util.List;
 import java.util.Set;
 
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveDeclaratorType;
+import static pl.edu.mimuw.nesc.problem.issue.RedefinitionError.RedefinitionKind;
+import static pl.edu.mimuw.nesc.problem.issue.RedeclarationError.RedeclarationKind;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.String.format;
 
 /**
  * Class that contains code responsible for the semantic analysis.
@@ -225,7 +226,6 @@ public final class TagsAnalysis {
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     private static class TagRefVisitor extends ExceptionVisitor<Void, Void> {
-
         /**
          * Object that will be informed about each encountered error.
          */
@@ -415,9 +415,9 @@ public final class TagsAnalysis {
                 if (!predicate.sameKind) {
                     error = Optional.of(new ConflictingTagKindError(name));
                 } else if (predicate.isDefined) {
-                    error = Optional.of(new TagRedefinitionError(name, false));
+                    error = Optional.of(new RedefinitionError(name, RedefinitionKind.TAG));
                 } else if (predicate.insideDefinition) {
-                    error = Optional.of(new TagRedefinitionError(name, true));
+                    error = Optional.of(new RedefinitionError(name, RedefinitionKind.NESTED_TAG));
                 } else {
                     throw new RuntimeException("unexpected symbol table result during a tag definition");
                 }
@@ -469,11 +469,6 @@ public final class TagsAnalysis {
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     private static class FieldTagDefinitionVisitor extends ExceptionVisitor<Void, Void> {
-        /**
-         * Constants used by this visitor.
-         */
-        private static final String FMT_ERR_FIELD_REDECLARATION = "Redeclaration of field '%s'";
-
         /**
          * Object that will be notified about detected errors and warnings.
          */
@@ -563,7 +558,7 @@ public final class TagsAnalysis {
                         errorHelper.error(
                                 field.getLocation(),
                                 field.getEndLocation(),
-                                format(FMT_ERR_FIELD_REDECLARATION, name)
+                                new RedeclarationError(name, RedeclarationKind.FIELD)
                         );
                     }
 
@@ -587,7 +582,7 @@ public final class TagsAnalysis {
                     errorHelper.error(
                             fieldDeclaration.getLocation(),
                             fieldDeclaration.getEndLocation(),
-                            format(FMT_ERR_FIELD_REDECLARATION, name)
+                            new RedeclarationError(name, RedeclarationKind.FIELD)
                     );
                 }
 
@@ -604,12 +599,6 @@ public final class TagsAnalysis {
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     private static class FieldValidityVisitor implements TreeElement.Visitor<Void, Boolean> {
-        /**
-         * Various constants used by this visitor.
-         */
-        private static final String FMT_ERR_FIELD_FUNCTION = "Cannot declare a field of a function type '%s'";
-        private static final String FMT_ERR_FIELD_INCOMPLETE = "Cannot declare a field of an incomplete type '%s'";
-
         /**
          * Object that will be notified about detected errors and warnings.
          */
@@ -634,13 +623,12 @@ public final class TagsAnalysis {
                 return null;
             }
 
-            if (type.isFunctionType()) {
-                errorHelper.error(field.getLocation(), field.getEndLocation(),
-                        format(FMT_ERR_FIELD_FUNCTION, type.toString()));
-            }
-            if (!type.isComplete()) {
-                errorHelper.error(field.getLocation(), field.getEndLocation(),
-                        format(FMT_ERR_FIELD_INCOMPLETE, type.toString()));
+            if (type.isFunctionType() || !type.isComplete()) {
+                errorHelper.error(
+                        field.getLocation(),
+                        field.getEndLocation(),
+                        new InvalidFieldTypeError(type)
+                );
             }
 
             return null;

@@ -26,11 +26,12 @@ import pl.edu.mimuw.nesc.declaration.object.Linkage;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.environment.ScopeType;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
+import pl.edu.mimuw.nesc.problem.issue.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
-import static java.lang.String.format;
+import static pl.edu.mimuw.nesc.problem.issue.InvalidGenericParamSpecifiersError.InvalidCombinationType.*;
 
 /**
  * A class with definitions that are intended to perform the analysis of
@@ -39,15 +40,6 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public class SpecifiersAnalysis {
-    /**
-     * Various constants used in this class.
-     */
-    private static final String FMT_ERR_SPECIFIER_REPEATED = "'%s' specifier ignored because it has been already specified; remove it";
-    private static final String FMT_ERR_GENERIC_PARAM_TYPEDEF_OTHER = "Cannot combine 'typedef' with other specifiers in a generic parameter declaration";
-    private static final String FMT_ERR_GENERIC_PARAM_NORACE_OTHER = "Cannot use non-type specifiers other than 'norace' in a non-type generic parameter declaration";
-    private static final String FMT_ERR_INSTANCE_PARAM_NORACE_OTHER = "Cannot use non-type specifiers other than 'norace' in an instance parameter declaration";
-    private static final String FMT_ERR_SPECIFIER_MAIN_TOO_MANY = "'%s' specifier cannot be combined with '%s' used earlier";
-
     /**
      * Mapping between values of non-type specifiers from <code>RID</code> type
      * to corresponding values from <code>NonTypeSpecifier</code> type.
@@ -128,13 +120,13 @@ public class SpecifiersAnalysis {
             errorHelper.error(
                     specifiersInterval.getLocation(),
                     specifiersInterval.getEndLocation(),
-                    FMT_ERR_GENERIC_PARAM_TYPEDEF_OTHER
+                    new InvalidGenericParamSpecifiersError(TYPEDEF_WITH_OTHER)
             );
         } else if (isTypedef && specifiers.sizeWithRepetitions() > 1) {
             specifiers.emitRepetitionWarnings();
         } else if (!isTypedef && isNorace && specifiers.size() > 1
                    || !isTypedef && !isNorace && !specifiers.isEmpty()) {
-            specifiers.emitError(FMT_ERR_GENERIC_PARAM_NORACE_OTHER);
+            specifiers.emitError(new InvalidGenericParamSpecifiersError(NORACE_WITH_OTHER));
         } else if (!isTypedef && isNorace && specifiers.sizeWithRepetitions() > 1) {
             specifiers.emitRepetitionWarnings();
         }
@@ -174,7 +166,7 @@ public class SpecifiersAnalysis {
         final boolean isNorace = specifiers.contains(NonTypeSpecifier.NORACE);
 
         if (isNorace && specifiers.size() > 1 || !isNorace && !specifiers.isEmpty()) {
-            specifiers.emitError(FMT_ERR_INSTANCE_PARAM_NORACE_OTHER);
+            specifiers.emitError(new InvalidInstanceParamSpecifiersError());
         } else if (isNorace && specifiers.sizeWithRepetitions() > 1) {
             specifiers.emitRepetitionWarnings();
         }
@@ -349,28 +341,28 @@ public class SpecifiersAnalysis {
 
                 errorHelper.warning(
                         repetition.getLocation(),
-                        Optional.of(repetition.getEndLocation()),
-                        format(FMT_ERR_SPECIFIER_REPEATED, repetition.get().getRid().getName())
+                        repetition.getEndLocation(),
+                        new NonTypeSpecifierRepetitionWarning(repetition.get().getRid())
                 );
             }
         }
 
         /**
-         * Emits the given error message to the error helper given at
-         * construction. The whole interval of specifiers is marked as invalid.
+         * Emits the given error to the error helper given at construction. The
+         * whole interval of specifiers is marked as invalid.
          *
          * @throws NullPointerException Given argument is null.
          * @throws IllegalStateException The interval is not present.
          */
-        public void emitError(String errMsg) {
-            checkNotNull(errMsg, "the error message cannot be null");
+        public void emitError(ErroneousIssue error) {
+            checkNotNull(error, "the error cannot be null");
             checkState(maybeInterval.isPresent(), "the specifiers interval is absent");
 
             final Interval interval = maybeInterval.get();
             errorHelper.error(
                     interval.getLocation(),
                     interval.getEndLocation(),
-                    errMsg
+                    error
             );
         }
 
@@ -402,9 +394,8 @@ public class SpecifiersAnalysis {
                 errorHelper.error(
                         invalidSpec.getLocation(),
                         invalidSpec.getEndLocation(),
-                        format(FMT_ERR_SPECIFIER_MAIN_TOO_MANY,
-                               invalidSpec.get().getRid().getName(),
-                               firstMainSpecifier.get().getRid().getName())
+                        new ConflictingStorageSpecifierError(invalidSpec.get().getRid(),
+                                firstMainSpecifier.get().getRid())
                 );
             }
 
@@ -412,8 +403,9 @@ public class SpecifiersAnalysis {
         }
 
         /**
-         * <p>A main specifier is a storage-class specifier that can appear
-         * only once in a declaration. It is one of the following specifiers:
+         * <p>A main specifier is the storage-class specifier used in
+         * a declaration. It makes sense because only one storage-class
+         * specifier can be used. It is one of the following specifiers:
          * </p>
          * <ul>
          *     <li><code>typedef</code></li>
@@ -686,5 +678,11 @@ public class SpecifiersAnalysis {
         public RID getRid() {
             return rid;
         }
+    }
+
+    /**
+     * Prevent this class from being instantiated.
+     */
+    private SpecifiersAnalysis() {
     }
 }
