@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
+import com.google.common.base.Objects;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -67,6 +68,13 @@ public abstract class AbstractIssue implements Issue {
         @Override
         public final int getCodeNumber() {
             return codeNumber;
+        }
+
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this)
+                    .add("number", codeNumber)
+                    .toString();
         }
     }
 }

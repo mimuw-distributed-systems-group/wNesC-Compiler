@@ -15,10 +15,11 @@ public abstract class ErroneousIssue extends AbstractIssue {
     /**
      * Initialize this issue.
      *
-     * @param errorType Type of this error.
+     * @param code The code for this error obtained by using
+     *             {@link ErrorCode#onlyInstance} method.
      */
-    protected ErroneousIssue(ErrorType errorType) {
-        super(new ErrorCode(errorType.getCodeNumber()), Kind.ERROR);
+    protected ErroneousIssue(ErrorCode code) {
+        super(code, Kind.ERROR);
     }
 
     /**
@@ -26,7 +27,23 @@ public abstract class ErroneousIssue extends AbstractIssue {
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
-    private static class ErrorCode extends AbstractCode {
+    protected static class ErrorCode extends AbstractCode {
+        /**
+         * Factory for error codes.
+         */
+        private static final ErrorCodeFactory factory = new ErrorCodeFactory();
+
+        /**
+         * Get the instance of this class.
+         *
+         * @param errorType Error type that the instance will be returned for.
+         * @return The unique and only instance of this class for the given
+         *         error type.
+         */
+        protected static ErrorCode onlyInstance(ErrorType errorType) {
+            return factory.getInstance(errorType);
+        }
+
         /**
          * Initializes this error code with given number.
          *
@@ -39,6 +56,23 @@ public abstract class ErroneousIssue extends AbstractIssue {
         @Override
         public String asString() {
             return "E" + getCodeNumber();
+        }
+    }
+
+    /**
+     * Factory for error codes.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class ErrorCodeFactory extends CodeFactory<ErrorCode, ErrorType> {
+
+        private ErrorCodeFactory() {
+            super(ErrorType.class);
+        }
+
+        @Override
+        protected ErrorCode newCode(int codeNumber) {
+            return new ErrorCode(codeNumber);
         }
     }
 }

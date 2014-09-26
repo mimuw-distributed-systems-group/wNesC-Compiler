@@ -8,10 +8,13 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class NonTypeSpecifierRepetitionWarning extends CautionaryIssue {
+    private static final WarningCode _CODE = WarningCode.onlyInstance(Issues.WarningType.NON_TYPE_SPECIFIER_REPETITION);
+    public static final Code CODE = _CODE;
+
     private final RID repeatedSpecifier;
 
     public NonTypeSpecifierRepetitionWarning(RID repeatedSpecifier) {
-        super(Issues.WarningType.NON_TYPE_SPECIFIER_REPETITION);
+        super(_CODE);
         checkNotNull(repeatedSpecifier, "repeated specifier cannot be null");
         this.repeatedSpecifier = repeatedSpecifier;
     }

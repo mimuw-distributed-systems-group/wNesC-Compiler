@@ -8,11 +8,14 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class RedeclarationError extends ErroneousIssue {
+    private static final ErrorCode _CODE = ErrorCode.onlyInstance(Issues.ErrorType.REDECLARATION);
+    public static final Code CODE = _CODE;
+
     private final String name;
     private final RedeclarationKind kind;
 
     public RedeclarationError(String name, RedeclarationKind kind) {
-        super(Issues.ErrorType.REDECLARATION);
+        super(_CODE);
 
         checkNotNull(name, "name cannot be null");
         checkNotNull(kind, "redeclared object kind cannot be null");

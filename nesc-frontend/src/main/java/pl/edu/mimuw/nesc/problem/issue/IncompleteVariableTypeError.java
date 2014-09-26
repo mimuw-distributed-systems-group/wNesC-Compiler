@@ -10,11 +10,14 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class IncompleteVariableTypeError extends ErroneousIssue {
+    private static final ErrorCode _CODE = ErrorCode.onlyInstance(Issues.ErrorType.INCOMPLETE_VARIABLE_TYPE);
+    public static final Code CODE = _CODE;
+
     private final Optional<String> variableName;
     private final Type actualType;
 
     public IncompleteVariableTypeError(Optional<String> variableName, Type actualType) {
-        super(Issues.ErrorType.INCOMPLETE_VARIABLE_TYPE);
+        super(_CODE);
 
         checkNotNull(variableName, "variable name cannot be null");
         checkNotNull(actualType, "actual type cannot be null");

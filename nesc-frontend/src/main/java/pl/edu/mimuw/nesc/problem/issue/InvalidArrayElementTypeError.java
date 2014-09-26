@@ -8,10 +8,13 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class InvalidArrayElementTypeError extends ErroneousIssue {
+    private static final ErrorCode _CODE = ErrorCode.onlyInstance(Issues.ErrorType.INVALID_ARRAY_ELEMENT_TYPE);
+    public static final Code CODE = _CODE;
+
     private final Type arrayElementType;
 
     public InvalidArrayElementTypeError(Type arrayElementType) {
-        super(Issues.ErrorType.INVALID_ARRAY_ELEMENT_TYPE);
+        super(_CODE);
         checkNotNull(arrayElementType, "array element type cannot be null");
         this.arrayElementType = arrayElementType;
     }

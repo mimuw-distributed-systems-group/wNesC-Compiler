@@ -8,12 +8,15 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class InvalidTypeSpecifiersMixError extends ErroneousIssue {
+    private static final ErrorCode _CODE = ErrorCode.onlyInstance(Issues.ErrorType.TYPE_SPECIFIERS_MIX_ERROR);
+    public static final Code CODE = _CODE;
+
     private final InvalidCombinationType combinationType;
     private final Optional<String> specifierText;
 
     public InvalidTypeSpecifiersMixError(InvalidCombinationType combinationType,
                                          Optional<String> specifierText) {
-        super(Issues.ErrorType.TYPE_SPECIFIERS_MIX_ERROR);
+        super(_CODE);
 
         checkNotNull(combinationType, "invalid combination type cannot be null");
         checkNotNull(specifierText, "specifier text cannot be null");

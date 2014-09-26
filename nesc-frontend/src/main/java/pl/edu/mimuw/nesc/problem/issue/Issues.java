@@ -14,11 +14,21 @@ public final class Issues {
     }
 
     /**
+     * Simple interface for getting the code from an enumeration value that
+     * represents an issue.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    interface EnumCode {
+        int getCodeNumber();
+    }
+
+    /**
      * Enumeration type with all errors.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
-    public enum ErrorType {
+    public enum ErrorType implements EnumCode {
         INCOMPLETE_PARAMETER_TYPE(1),
         INCOMPLETE_VARIABLE_TYPE(2),
         INVALID_ARRAY_ELEMENT_TYPE(3),
@@ -45,6 +55,7 @@ public final class Issues {
             this.codeNumber = codeNumber;
         }
 
+        @Override
         public int getCodeNumber() {
             return codeNumber;
         }
@@ -55,7 +66,7 @@ public final class Issues {
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
-    public enum WarningType {
+    public enum WarningType implements EnumCode {
         TYPE_QUALIFIER_REPETITION(1),
         INVALID_RESTRICT_USAGE(2),
         SUPERFLUOUS_SPECIFIERS(3),
@@ -67,6 +78,7 @@ public final class Issues {
             this.codeNumber = codeNumber;
         }
 
+        @Override
         public int getCodeNumber() {
             return codeNumber;
         }

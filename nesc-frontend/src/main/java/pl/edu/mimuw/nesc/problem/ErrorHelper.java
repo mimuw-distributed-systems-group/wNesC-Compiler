@@ -31,7 +31,7 @@ public final class ErrorHelper {
 
     private void _warning(Location startLocation, Optional<Location> endLocation,
                          Optional<Issue.Code> code, String message) {
-        final NescWarning warning = new NescWarning(startLocation, endLocation, message);
+        final NescWarning warning = new NescWarning(startLocation, endLocation, code, message);
         this.issuesMultimapBuilder.put(startLocation.getLine(), warning);
         LOG.info(format("warning%s: %s in %s at line: %d, column: %d.", getCodeString(code),
                 message, startLocation.getFilePath(), startLocation.getLine(),
@@ -54,7 +54,7 @@ public final class ErrorHelper {
 
     private void _error(Location startLocation, Optional<Location> endLocation,
                         Optional<Issue.Code> code, String message) {
-        final NescError error = new NescError(startLocation, endLocation, message);
+        final NescError error = new NescError(startLocation, endLocation, code, message);
         this.issuesMultimapBuilder.put(startLocation.getLine(), error);
         LOG.info(format("error%s: %s in %s at line: %d, column: %d.", getCodeString(code),
                 message, startLocation.getFilePath(), startLocation.getLine(),

@@ -4,8 +4,11 @@ package pl.edu.mimuw.nesc.problem.issue;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class InvalidRestrictUsageWarning extends CautionaryIssue {
+    private static final WarningCode _CODE = WarningCode.onlyInstance(Issues.WarningType.INVALID_RESTRICT_USAGE);
+    public static final Code CODE = _CODE;
+
     public InvalidRestrictUsageWarning() {
-        super(Issues.WarningType.INVALID_RESTRICT_USAGE);
+        super(_CODE);
     }
 
     @Override

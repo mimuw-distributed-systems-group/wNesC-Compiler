@@ -11,6 +11,9 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class TypeSpecifierRepetitionError extends ErroneousIssue {
+    private static final ErrorCode _CODE = ErrorCode.onlyInstance(Issues.ErrorType.TYPE_SPECIFIER_REPETITION);
+    public static final Code CODE = _CODE;
+
     private final Optional<RID> repeatedRid;
     private final int exceededRepetitionsCount;
 
@@ -27,7 +30,7 @@ public final class TypeSpecifierRepetitionError extends ErroneousIssue {
     }
 
     private TypeSpecifierRepetitionError(Optional<RID> repeatedRid, int exceededRepetitionsCount) {
-        super(Issues.ErrorType.TYPE_SPECIFIER_REPETITION);
+        super(_CODE);
         this.repeatedRid = repeatedRid;
         this.exceededRepetitionsCount = exceededRepetitionsCount;
     }

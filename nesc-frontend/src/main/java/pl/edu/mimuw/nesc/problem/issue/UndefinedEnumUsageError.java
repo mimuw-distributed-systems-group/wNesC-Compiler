@@ -8,10 +8,13 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class UndefinedEnumUsageError extends ErroneousIssue {
+    private static final ErrorCode _CODE = ErrorCode.onlyInstance(Issues.ErrorType.UNDEFINED_ENUM_USAGE);
+    public static final Code CODE = _CODE;
+
     private final String tag;
 
     public UndefinedEnumUsageError(String tag) {
-        super(Issues.ErrorType.UNDEFINED_ENUM_USAGE);
+        super(_CODE);
 
         checkNotNull(tag, "tag cannot be null");
         checkArgument(!tag.isEmpty(), "tag cannot be an empty string");

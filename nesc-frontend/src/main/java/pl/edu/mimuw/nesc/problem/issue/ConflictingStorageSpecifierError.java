@@ -8,11 +8,14 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class ConflictingStorageSpecifierError extends ErroneousIssue {
+    private static final ErrorCode _CODE = ErrorCode.onlyInstance(Issues.ErrorType.CONFLICTING_STORAGE_SPECIFIER);
+    public static final Code CODE = _CODE;
+
     private final RID conflictingSpecifier;
     private final RID firstSpecifier;
 
     public ConflictingStorageSpecifierError(RID conflictingSpecifier, RID firstSpecifier) {
-        super(Issues.ErrorType.CONFLICTING_STORAGE_SPECIFIER);
+        super(_CODE);
 
         checkNotNull(conflictingSpecifier, "conflicting specifier cannot be null");
         checkNotNull(firstSpecifier, "first specifier cannot be null");

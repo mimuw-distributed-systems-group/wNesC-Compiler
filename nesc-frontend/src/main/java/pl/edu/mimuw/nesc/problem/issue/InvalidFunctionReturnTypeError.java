@@ -8,10 +8,13 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class InvalidFunctionReturnTypeError extends ErroneousIssue {
+    private static final ErrorCode _CODE = ErrorCode.onlyInstance(Issues.ErrorType.INVALID_FUNCTION_RETURN_TYPE);
+    public static final Code CODE = _CODE;
+
     private final Type functionReturnType;
 
     public InvalidFunctionReturnTypeError(Type functionReturnType) {
-        super(Issues.ErrorType.INVALID_FUNCTION_RETURN_TYPE);
+        super(_CODE);
         checkNotNull(functionReturnType, "function return type cannot be null");
         this.functionReturnType = functionReturnType;
     }

@@ -8,11 +8,14 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class RedefinitionError extends ErroneousIssue {
+    private static final ErrorCode _CODE = ErrorCode.onlyInstance(Issues.ErrorType.REDEFINITION);
+    public static final Code CODE = _CODE;
+
     private final String name;
     private final RedefinitionKind kind;
 
     public RedefinitionError(String name, RedefinitionKind kind) {
-        super(Issues.ErrorType.REDEFINITION);
+        super(_CODE);
 
         checkNotNull(name, "name cannot be null");
         checkNotNull(kind, "redefinition kind cannot be null");

@@ -4,8 +4,11 @@ package pl.edu.mimuw.nesc.problem.issue;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class SuperfluousSpecifiersWarning extends CautionaryIssue {
+    private static final WarningCode _CODE = WarningCode.onlyInstance(Issues.WarningType.SUPERFLUOUS_SPECIFIERS);
+    public static final Code CODE = _CODE;
+
     public SuperfluousSpecifiersWarning() {
-        super(Issues.WarningType.SUPERFLUOUS_SPECIFIERS);
+        super(_CODE);
     }
 
     @Override

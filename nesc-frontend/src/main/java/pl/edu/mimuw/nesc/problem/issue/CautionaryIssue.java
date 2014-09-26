@@ -14,10 +14,12 @@ public abstract class CautionaryIssue extends AbstractIssue {
     /**
      * Initializes this warning issue.
      *
-     * @param warningType Type of this warning.
+     * @param code Code for this warning obtained by invoking method
+     *             {@link WarningCode#onlyInstance}.
+     * @throws NullPointerException Given argument is null.
      */
-    protected CautionaryIssue(WarningType warningType) {
-        super(new WarningCode(warningType.getCodeNumber()), Kind.WARNING);
+    protected CautionaryIssue(WarningCode code) {
+        super(code, Kind.WARNING);
     }
 
     /**
@@ -25,7 +27,24 @@ public abstract class CautionaryIssue extends AbstractIssue {
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
-    private static class WarningCode extends AbstractCode {
+    protected static class WarningCode extends AbstractCode {
+        /**
+         * Factory that creates the bijection between warning code objects and
+         * elements of WarningType enumeration.
+         */
+        private static final WarningCodeFactory factory = new WarningCodeFactory();
+
+        /**
+         * Get the one and only instance for the given warning type.
+         *
+         * @param warningType Type of the warning that the code is to be
+         *                    obtained for.
+         * @return The one and only instance of the code for given warning type.
+         */
+        protected static WarningCode onlyInstance(WarningType warningType) {
+            return factory.getInstance(warningType);
+        }
+
         /**
          * Initialize this warning code with given number.
          *
@@ -38,6 +57,23 @@ public abstract class CautionaryIssue extends AbstractIssue {
         @Override
         public String asString() {
             return "W" + getCodeNumber();
+        }
+    }
+
+    /**
+     * Factory for warning codes.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class WarningCodeFactory extends CodeFactory<WarningCode, WarningType> {
+
+        private WarningCodeFactory() {
+            super(WarningType.class);
+        }
+
+        @Override
+        protected WarningCode newCode(int codeNumber) {
+            return new WarningCode(codeNumber);
         }
     }
 }

@@ -10,11 +10,14 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class IncompleteParameterTypeError extends ErroneousIssue {
+    private static final ErrorCode _CODE = ErrorCode.onlyInstance(Issues.ErrorType.INCOMPLETE_PARAMETER_TYPE);
+    public static final Code CODE = _CODE;
+
     private final Optional<String> parameterName;
     private final Type actualType;
 
     public IncompleteParameterTypeError(Optional<String> parameterName, Type actualType) {
-        super(Issues.ErrorType.INCOMPLETE_PARAMETER_TYPE);
+        super(_CODE);
 
         checkNotNull(parameterName, "parameter name cannot be null");
         checkNotNull(actualType, "actual type cannot be null");

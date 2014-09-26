@@ -6,10 +6,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class InvalidGenericParamSpecifiersError extends ErroneousIssue {
+    private static final ErrorCode _CODE = ErrorCode.onlyInstance(Issues.ErrorType.INVALID_GENERIC_PARAM_SPECIFIERS);
+    public static final Code CODE = _CODE;
+
     private final InvalidCombinationType combinationType;
 
     public InvalidGenericParamSpecifiersError(InvalidCombinationType combinationType) {
-        super(Issues.ErrorType.INVALID_GENERIC_PARAM_SPECIFIERS);
+        super(_CODE);
         checkNotNull(combinationType, "invalid combination type cannot be null");
         this.combinationType = combinationType;
     }

@@ -4,8 +4,11 @@ package pl.edu.mimuw.nesc.problem.issue;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class AttributeUsageAsTypeError extends ErroneousIssue {
+    private static final ErrorCode _CODE = ErrorCode.onlyInstance(Issues.ErrorType.ATTRIBUTE_USAGE_AS_TYPE);
+    public static final Code CODE = _CODE;
+
     public AttributeUsageAsTypeError() {
-        super(Issues.ErrorType.ATTRIBUTE_USAGE_AS_TYPE);
+        super(_CODE);
     }
 
     @Override

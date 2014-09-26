@@ -10,12 +10,15 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class InvalidIdentifierTypeError extends ErroneousIssue {
+    private static final ErrorCode _CODE = ErrorCode.onlyInstance(Issues.ErrorType.INVALID_IDENTIFIER_TYPE);
+    public static final Code CODE = _CODE;
+
     private final String identifier;
     private final Type actualType;
     private final Type expectedType;
 
     public InvalidIdentifierTypeError(String identifier, Type actualType, Type expectedType) {
-        super(Issues.ErrorType.INVALID_IDENTIFIER_TYPE);
+        super(_CODE);
 
         checkNotNull(identifier, "identifier cannot be null");
         checkNotNull(actualType, "actual type cannot be null");
