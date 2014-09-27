@@ -76,9 +76,13 @@ class Statement(BasicASTNode):
 class Expression(BasicASTNode):
     """
     <p>A common superclass of all expressions.</p>
+    <p><code>parenthesesCount</code> is the number of parentheses that surround the
+    expression directly. If no parentheses surround it, it is <code>null</code> or zero.
+    This field is relevant when generating error messages.</p>
     """
     superclass = Node
     type = ReferenceField("Type", optional=True, constructor_variable=False)
+    parenthesesCount = IntField(constructor_variable=False)
     # FIXME: the fields below are borrowed from ncc, but they are propably not required in our implementation.
     # LVALUE is true if this expression can be used in a context requiring an
     # lvalue.

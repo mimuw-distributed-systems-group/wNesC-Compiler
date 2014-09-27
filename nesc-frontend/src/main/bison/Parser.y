@@ -1623,7 +1623,9 @@ primary:
     }
     | LPAREN expr RPAREN
     {
-        $$ = $2;
+        final int parenthesesCount = Optional.fromNullable($expr.getParenthesesCount()).or(0) + 1;
+        $expr.setParenthesesCount(parenthesesCount);
+        $$ = $expr;
     }
     | LPAREN error RPAREN
     {
@@ -2455,20 +2457,33 @@ target_attribute:
 restricted_expr:
       INTEGER_LITERAL
     {
-        $$ = new LexicalCst($1.getLocation(), $1.getValue());
+        $$ = Expressions.makeIntegerCst($1.getValue(), $1.getLocation(), $1.getEndLocation());
     }
     | FLOATING_POINT_LITERAL
     {
-        $$ = new LexicalCst($1.getLocation(), $1.getValue());
+        final FloatingCst cst = new FloatingCst($1.getLocation(), $1.getValue());
+        cst.setEndLocation($1.getEndLocation());
+        $$ = cst;
     }
     | CHARACTER_LITERAL
     {
-        $$ = new LexicalCst($1.getLocation(), $1.getValue());
+        final String value = $1.getValue();
+        final CharacterCst cst = new CharacterCst($1.getLocation(), value, value.charAt(0));
+        cst.setEndLocation($1.getEndLocation());
+        $$ = cst;
+    }
+    | INVALID_NUMBER_LITERAL
+    {
+        $$ = Expressions.makeErrorExpr();
+    }
+    | LPAREN expr RPAREN
+    {
+        final int parenthesesCount = Optional.fromNullable($expr.getParenthesesCount()).or(0) + 1;
+        $expr.setParenthesesCount(parenthesesCount);
+        $$ = $expr;
     }
     | string
     { $$ = $1; }
-    | LPAREN expr RPAREN
-    { $$ = $2; }
     ;
 
 attribute_list:
