@@ -1,15 +1,21 @@
 package pl.edu.mimuw.nesc.astbuilding;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableListMultimap;
+import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.environment.Environment;
+import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
+import pl.edu.mimuw.nesc.problem.NescIssue;
+import pl.edu.mimuw.nesc.token.Token;
 
 import java.util.LinkedList;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public final class Statements {
+public final class Statements extends AstBuildingBase {
 
     private static final ErrorStmt ERROR_STMT;
 
@@ -18,17 +24,25 @@ public final class Statements {
         ERROR_STMT.setEndLocation(Location.getDummyLocation());
     }
 
-    public static ErrorStmt makeErrorStmt() {
+    public Statements(NescEntityEnvironment nescEnvironment,
+                      ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
+                      ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder) {
+        super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder);
+    }
+
+    public ErrorStmt makeErrorStmt() {
         return ERROR_STMT;
     }
 
-    public static ReturnStmt makeReturn(Location startLocation, Location endLocation, Expression expression) {
+    public ReturnStmt makeReturn(Environment environment, Location startLocation, Location endLocation,
+            Expression expression) {
+        ExpressionsAnalysis.analyze(expression, environment, errorHelper);
         final ReturnStmt returnStmt = new ReturnStmt(startLocation, Optional.of(expression));
         returnStmt.setEndLocation(endLocation);
         return returnStmt;
     }
 
-    public static ReturnStmt makeVoidReturn(Location startLocation, Location endLocation) {
+    public ReturnStmt makeVoidReturn(Location startLocation, Location endLocation) {
         final ReturnStmt returnStmt = new ReturnStmt(startLocation, Optional.<Expression>absent());
         returnStmt.setEndLocation(endLocation);
         return returnStmt;
@@ -43,7 +57,7 @@ public final class Statements {
      * @param l2 right-hand side list
      * @return merged lists with fixed unfinished labels in <code>l1</code>
      */
-    public static LinkedList<Statement> chainWithLabels(LinkedList<Statement> l1, LinkedList<Statement> l2) {
+    public LinkedList<Statement> chainWithLabels(LinkedList<Statement> l1, LinkedList<Statement> l2) {
         assert l1 != null;
         assert l2 != null;
 
@@ -55,8 +69,5 @@ public final class Statements {
             return l1;
         l1.addAll(l2);
         return l1;
-    }
-
-    private Statements() {
     }
 }

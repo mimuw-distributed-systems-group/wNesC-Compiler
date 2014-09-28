@@ -7,6 +7,7 @@ import com.google.common.io.Files;
 import org.apache.log4j.Logger;
 
 import pl.edu.mimuw.nesc.*;
+import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.util.AstUtils;
@@ -1019,6 +1020,7 @@ generic_arglist:
 generic_arg:
       expr_no_commas
     {
+        analyzeExpression(Optional.of($expr_no_commas));
         Expressions.defaultConversionForAssignment($1);
         $$ = $1;
     }
@@ -1153,6 +1155,7 @@ extdef:
     | ASM_KEYWORD LPAREN expr RPAREN SEMICOLON
     {
         // FIXME
+        analyzeExpression(Optional.of($expr));
         AsmStmt asmStmt = new AsmStmt(null, $3, Lists.<AsmOperand>newList(),
                 Lists.<AsmOperand>newList(), Lists.<StringAst>newList(),
                 Lists.<TypeElement>newList());
@@ -2355,14 +2358,14 @@ initdcl:
       init
     {
           final VariableDecl decl = $<VariableDecl>5;
-          $$ = declarations.finishDecl(decl, Optional.of($init));
+          $$ = declarations.finishDecl(decl, environment, Optional.of($init));
     }
 /* Note how the declaration of the variable is in effect while its init is parsed! */
     | declarator maybeasm[asm] maybe_attribute[attrs]
     {
         final VariableDecl decl = declarations.startDecl(environment, $declarator, Optional.fromNullable($asm),
                 pstate.declspecs, prefixAttr($attrs), false);
-        $$ = declarations.finishDecl(decl, Optional.<Expression>absent());
+        $$ = declarations.finishDecl(decl, environment, Optional.<Expression>absent());
     }
     ;
 
@@ -2376,14 +2379,14 @@ notype_initdcl:
       init
     {
           final VariableDecl decl = $<VariableDecl>5;
-          $$ = declarations.finishDecl(decl, Optional.of($init));
+          $$ = declarations.finishDecl(decl, environment, Optional.of($init));
     }
 /* Note how the declaration of the variable is in effect while its init is parsed! */
     | notype_declarator[declarator] maybeasm[asm] maybe_attribute[attrs]
     {
         VariableDecl decl = declarations.startDecl(environment, $declarator, Optional.fromNullable($asm),
                 pstate.declspecs, prefixAttr($attrs), false);
-        $$ = declarations.finishDecl(decl, Optional.<Expression>absent());
+        $$ = declarations.finishDecl(decl, environment, Optional.<Expression>absent());
     }
     ;
 
@@ -3331,7 +3334,7 @@ stmts:
             final Statement lastLabel = $1.getStatements().getLast();
             final EmptyStmt empty = new EmptyStmt(lastLabel.getLocation());
             empty.setEndLocation(lastLabel.getEndLocation());
-            Statements.chainWithLabels($1.getStatements(), Lists.<Statement>newList(lastLabel));
+            statements.chainWithLabels($1.getStatements(), Lists.<Statement>newList(lastLabel));
         }
         $$ = $1.getStatements();
     }
@@ -3345,14 +3348,14 @@ stmt_or_labels:
     | stmt_or_labels stmt_or_label
     {
         $$ = new ValueStatements(
-                Statements.chainWithLabels($1.getStatements(), Lists.<Statement>newList($2.getStatement())),
+                statements.chainWithLabels($1.getStatements(), Lists.<Statement>newList($2.getStatement())),
                 $2.getCounter());
     }
     | stmt_or_labels errstmt
     {
         final LinkedList<Statement> stmts = $1.getStatements();
-        stmts.add(Statements.makeErrorStmt());
-        $$ = new ValueStatements(Lists.chain(stmts, Statements.makeErrorStmt()), 0);
+        stmts.add(statements.makeErrorStmt());
+        $$ = new ValueStatements(Lists.chain(stmts, statements.makeErrorStmt()), 0);
     }
     ;
 
@@ -3455,7 +3458,7 @@ compstmt:
         environment.setEndLocation($5.getEndLocation());
         popLevel();
 
-        $$ = Statements.makeErrorStmt();
+        $$ = statements.makeErrorStmt();
     }
     | compstmt_start pushlevel maybe_label_decls stmts RBRACE
     {
@@ -3482,13 +3485,14 @@ simple_if:
     }
     | if_prefix error
     {
-        $$ = new ValueStatement(Statements.makeErrorStmt(), $1.getCounter());
+        $$ = new ValueStatement(statements.makeErrorStmt(), $1.getCounter());
     }
     ;
 
 if_prefix:
       IF LPAREN expr RPAREN
     {
+        analyzeExpression(Optional.of($expr));
         $$ = new ValueExpression($1.getLocation(), $4.getEndLocation(), $3, pstate.stmtCount);
     }
     ;
@@ -3547,7 +3551,7 @@ stmt_or_error:
       stmt
     { $$ = $1; }
     | error
-    { $$ = Statements.makeErrorStmt(); }
+    { $$ = statements.makeErrorStmt(); }
     ;
 
 /*
@@ -3561,6 +3565,7 @@ stmt:
     }
     | expr SEMICOLON
     {
+        analyzeExpression(Optional.of($expr));
         pstate.stmtCount++;
         final ExpressionStmt stmt = new ExpressionStmt($1.getLocation(), $1);
         stmt.setEndLocation($2.getEndLocation());
@@ -3602,7 +3607,7 @@ stmt:
     }
     | simple_if ELSE error
     {
-        $$ = Statements.makeErrorStmt();
+        $$ = statements.makeErrorStmt();
     }
     | WHILE
     {
@@ -3610,26 +3615,31 @@ stmt:
     }
       LPAREN expr RPAREN labeled_stmt
     {
+        analyzeExpression(Optional.of($expr));
         final WhileStmt stmt = new WhileStmt($1.getLocation(), $4, $6);
         stmt.setEndLocation($6.getEndLocation());
         $$ = stmt;
     }
     | do_stmt_start LPAREN expr RPAREN SEMICOLON
     {
+        analyzeExpression(Optional.of($expr));
         $1.setCondition($3);
         $$ = $1;
     }
     | do_stmt_start error
     {
-        $$ = Statements.makeErrorStmt();
+        $$ = statements.makeErrorStmt();
     }
     | FOR LPAREN xexpr[einit] SEMICOLON
     {
+        analyzeExpression(Optional.fromNullable($einit));
         pstate.stmtCount++;
     }
       xexpr[econdition] SEMICOLON xexpr[eincrement] RPAREN labeled_stmt
     {
         /* NOTICE: xexpr may be null. */
+        analyzeExpression(Optional.fromNullable($econdition));
+        analyzeExpression(Optional.fromNullable($eincrement));
         final ForStmt stmt = new ForStmt($1.getLocation(), Optional.fromNullable($einit),
                 Optional.fromNullable($econdition), Optional.fromNullable($eincrement), $labeled_stmt);
         stmt.setEndLocation($10.getEndLocation());
@@ -3637,6 +3647,7 @@ stmt:
     }
     | SWITCH LPAREN expr RPAREN
     {
+        analyzeExpression(Optional.of($expr));
         pstate.stmtCount++;
     }
       labeled_stmt
@@ -3662,16 +3673,17 @@ stmt:
     | RETURN SEMICOLON
     {
         pstate.stmtCount++;
-        $$ = Statements.makeVoidReturn($1.getLocation(), $2.getEndLocation());
+        $$ = statements.makeVoidReturn($1.getLocation(), $2.getEndLocation());
     }
     | RETURN expr SEMICOLON
     {
         pstate.stmtCount++;
-        $$ = Statements.makeReturn($1.getLocation(), $3.getEndLocation(), $2);
+        $$ = statements.makeReturn(environment, $1.getLocation(), $3.getEndLocation(), $2);
     }
     | ASM_KEYWORD[asm] maybe_type_qual[quals] LPAREN expr RPAREN SEMICOLON[semi]
     {
         /* NOTICE: maybe_type_qual may be null */
+        analyzeExpression(Optional.of($expr));
         pstate.stmtCount++;
         final AsmStmt asmStmt = new AsmStmt($asm.getLocation(), $expr, Lists.<AsmOperand>newList(),
                 Lists.<AsmOperand>newList(), Lists.<StringAst>newList(),
@@ -3683,6 +3695,7 @@ stmt:
     | ASM_KEYWORD[asm] maybe_type_qual[quals] LPAREN expr COLON asm_operands[operands] RPAREN SEMICOLON[semi]
     {
         /* NOTE: maybe_type_qual may be null */
+        analyzeExpression(Optional.of($expr));
         pstate.stmtCount++;
         final AsmStmt asmStmt = new AsmStmt($asm.getLocation(), $expr, $operands, Lists.<AsmOperand>newList(),
                 Lists.<StringAst>newList(),
@@ -3694,6 +3707,7 @@ stmt:
     | ASM_KEYWORD[asm] maybe_type_qual[quals] LPAREN expr COLON asm_operands[operands1] COLON asm_operands[operands2] RPAREN SEMICOLON[semi]
     {
         /* NOTE: maybe_type_qual may be null */
+        analyzeExpression(Optional.of($expr));
         pstate.stmtCount++;
         final AsmStmt asmStmt = new AsmStmt($asm.getLocation(), $expr, $operands1, $operands2, Lists.<StringAst>newList(),
                 Lists.<TypeElement>newListEmptyOnNull($quals));
@@ -3704,6 +3718,7 @@ stmt:
     | ASM_KEYWORD[asm] maybe_type_qual[quals] LPAREN expr COLON asm_operands[operands1] COLON asm_operands[operands2] COLON asm_clobbers[clobbers] RPAREN SEMICOLON[semi]
     {
         /* NOTE: maybe_type_qual may be null */
+        analyzeExpression(Optional.of($expr));
         pstate.stmtCount++;
         final AsmStmt asmStmt = new AsmStmt($asm.getLocation(), $expr, $operands1, $operands2, $clobbers,
                 Lists.<TypeElement>newListEmptyOnNull($quals));
@@ -3719,6 +3734,7 @@ stmt:
     }
     | GOTO STAR expr SEMICOLON
     {
+        analyzeExpression(Optional.of($expr));
         pstate.stmtCount++;
         final ComputedGotoStmt stmt = new ComputedGotoStmt($1.getLocation(), $3);
         stmt.setEndLocation($4.getEndLocation());
@@ -3745,12 +3761,15 @@ stmt:
 label:
       CASE expr_no_commas COLON
     {
+        analyzeExpression(Optional.of($expr_no_commas));
         final CaseLabel label = new CaseLabel($1.getLocation(), $2, null);
         label.setEndLocation($3.getEndLocation());
         $$ = label;
     }
-    | CASE expr_no_commas ELLIPSIS expr_no_commas COLON
+    | CASE expr_no_commas[leftexpr] ELLIPSIS expr_no_commas[rightexpr] COLON
     {
+        analyzeExpression(Optional.of($leftexpr));
+        analyzeExpression(Optional.of($rightexpr));
         final CaseLabel label = new CaseLabel($1.getLocation(), $2, $4);
         label.setEndLocation($5.getEndLocation());
         $$ = label;
@@ -4193,6 +4212,7 @@ string_chain:
     private ErrorHelper errorHelper;
 
     private Declarations declarations;
+    private Statements statements;
     private NescDeclarations nescDeclarations;
     private NescComponents nescComponents;
 
@@ -4243,6 +4263,8 @@ string_chain:
         this.errorHelper = new ErrorHelper(this.issuesMultimapBuilder);
 
         this.declarations = new Declarations(this.nescEnvironment, this.issuesMultimapBuilder,
+                this.tokensMultimapBuilder);
+        this.statements = new Statements(this.nescEnvironment, this.issuesMultimapBuilder,
                 this.tokensMultimapBuilder);
         this.nescDeclarations = new NescDeclarations(this.nescEnvironment, this.issuesMultimapBuilder,
                 this.tokensMultimapBuilder);
@@ -4404,6 +4426,12 @@ string_chain:
 
     private void error(Location startLocation, Optional<Location> endLocation, String message) {
         this.errorHelper.error(startLocation, endLocation, message);
+    }
+
+    private void analyzeExpression(Optional<Expression> expr) {
+        if (expr.isPresent()) {
+            ExpressionsAnalysis.analyze(expr.get(), environment, errorHelper);
+        }
     }
 
     /**

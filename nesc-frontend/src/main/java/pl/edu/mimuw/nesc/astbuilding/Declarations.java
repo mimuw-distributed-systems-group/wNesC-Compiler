@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.astbuilding;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
+import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
 import pl.edu.mimuw.nesc.ast.util.AstUtils;
 import pl.edu.mimuw.nesc.ast.util.Interval;
 import pl.edu.mimuw.nesc.ast.Location;
@@ -113,8 +114,10 @@ public final class Declarations extends AstBuildingBase {
         return variableDecl;
     }
 
-    public VariableDecl finishDecl(VariableDecl declaration, Optional<Expression> initializer) {
+    public VariableDecl finishDecl(VariableDecl declaration, Environment environment,
+                                   Optional<Expression> initializer) {
         if (initializer.isPresent()) {
+            ExpressionsAnalysis.analyze(initializer.get(), environment, errorHelper);
             final Location endLocation = initializer.get().getEndLocation();
             declaration.setEndLocation(endLocation);
         }
