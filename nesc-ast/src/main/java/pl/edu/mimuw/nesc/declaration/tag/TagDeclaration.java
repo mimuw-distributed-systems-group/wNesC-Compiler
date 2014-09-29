@@ -24,44 +24,48 @@ public abstract class TagDeclaration extends Declaration {
     private final Optional<String> name;
 
     /**
-     * <code>true</code> if and only if this object represents a tag that has
-     * been already defined and contains information from its definition.
-     */
-    private final boolean isDefined;
-
-    /**
      * Kind of the tag this object reflects. Never null.
      */
     private final StructKind kind;
 
-    /**
-     * If this object represents a declaration but not definition, then this
-     * field can contain a reference to the object representing definition.
-     * Otherwise, it shall be absent.
-     */
-    private Optional<TagDeclaration> definitionLink = Optional.absent();
-
-    protected TagDeclaration(Optional<String> name, Location location, boolean isDefined,
-                             StructKind kind) {
-        super(location);
-        checkNotNull(kind, "the structure kind cannot be null");
-        this.name = name;
-        this.isDefined = isDefined;
-        this.kind = kind;
+    protected TagDeclaration(Builder<? extends TagDeclaration> builder) {
+        super(builder);
+        this.name = builder.name;
+        this.kind = builder.kind;
     }
 
+    /**
+     * Get the name of the tag this object reflects.
+     *
+     * @return Name of the tag.
+     */
     public Optional<String> getName() {
         return name;
     }
 
-    public boolean isDefined() {
-        return isDefined;
-    }
+    /**
+     * Check if this tag declaration corresponds to a defined tag.
+     *
+     * @return <code>true</code> if and only if this tag declaration corresponds
+     *         to a defined tag and it has information from its definition.
+     */
+    public abstract boolean isDefined();
 
+    /**
+     * Get the kind of the tag this declaration corresponds to.
+     *
+     * @return Kind of the tag.
+     */
     public StructKind getKind() {
         return kind;
     }
 
+    /**
+     * Check if this declaration corresponds to an external tag.
+     *
+     * @return <code>true</code> if and only if this tag corresponds to an
+     *         external type.
+     */
     public boolean isExternal() {
         return getKind().isExternal();
     }
@@ -73,38 +77,9 @@ public abstract class TagDeclaration extends Declaration {
     public abstract Type getType(boolean constQualified, boolean volatileQualified);
 
     /**
-     * Sets the definition link to the given argument.
-     *
-     * @param tagDefinition Tag declaration to be set as the definition link.
-     * @throws NullPointerException Given argument is null.
-     * @throws IllegalStateException The definition link has been already set.
-     *                               This object represents the definition.
-     *                               The given object does not represents the
-     *                               definition.
-     */
-    public final void setDefinitionLink(TagDeclaration tagDefinition) {
-        checkNotNull(tagDefinition, "tag definition cannot be null");
-        checkArgument(getClass().equals(tagDefinition.getClass()), "cannot set a tag declaration of a different class as the definition link");
-        checkState(!isDefined(), "cannot check the definition link on an object that represents the definition");
-        checkState(!getDefinitionLink().isPresent(), "the definition link can be set exactly once");
-        checkState(tagDefinition.isDefined(), "cannot set a declaration but not definition as the definition link");
-
-        definitionLink = Optional.of(tagDefinition);
-    }
-
-    /**
      * @return AST node that this object reflects.
      */
     public abstract TagRef getAstNode();
-
-    /**
-     * @return If this object represents a declaration but not definition,
-     *         reference to the object that represents the definition if it has
-     *         been already reached. Otherwise, the value is absent.
-     */
-    public final Optional<TagDeclaration> getDefinitionLink() {
-        return definitionLink;
-    }
 
     @Override
     public int hashCode() {
@@ -136,5 +111,65 @@ public abstract class TagDeclaration extends Declaration {
         R visit(StructDeclaration struct, A arg);
 
         R visit(UnionDeclaration union, A arg);
+    }
+
+    /**
+     * Builder for a tag declaration.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    public abstract static class Builder<T extends TagDeclaration> extends Declaration.Builder<T> {
+        /**
+         * Variables to allow control of the building process.
+         */
+        private boolean kindSet;
+
+        /**
+         * Data needed to build a tag declaration.
+         */
+        private Optional<String> name = Optional.absent();
+        private StructKind kind;
+
+        protected Builder() {
+        }
+
+        /**
+         * Set the name of a tag. It may be null and then no name will be used.
+         *
+         * @param name Name of a tag to set.
+         * @return <code>this</code>
+         */
+        public Builder<T> name(String name) {
+            this.name = Optional.fromNullable(name);
+            return this;
+        }
+
+        /**
+         * Set the kind of the tag.
+         *
+         * @param kind Kind to set.
+         * @throws IllegalStateException The tag has been already set.
+         */
+        protected void setKind(StructKind kind) {
+            checkState(!kindSet, "the tag kind can be set exactly once");
+            this.kind = kind;
+            this.kindSet = true;
+        }
+
+        /**
+         * Get the name of the tag that has been set (or not).
+         *
+         * @return Name of the tag that has been set.
+         */
+        protected Optional<String> getName() {
+            return name;
+        }
+
+        @Override
+        protected void validate() {
+            super.validate();
+            checkNotNull(name, "tag name cannot be null");
+            checkNotNull(kind, "tag kind must not be null");
+        }
     }
 }

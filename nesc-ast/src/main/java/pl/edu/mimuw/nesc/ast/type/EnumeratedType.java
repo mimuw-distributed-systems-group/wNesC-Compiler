@@ -87,7 +87,7 @@ public final class EnumeratedType extends IntegerType {
 
     @Override
     public final boolean isComplete() {
-        return enumType.isDefined() || enumType.getDefinitionLink().isPresent();
+        return enumType.isDefined();
     }
 
     @Override

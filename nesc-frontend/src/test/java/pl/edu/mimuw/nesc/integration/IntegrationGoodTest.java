@@ -40,7 +40,7 @@ public class IntegrationGoodTest extends IntegrationTestBase {
     private static final String TESTDIR_REGEX = "^good.+$";
     private final String absolutePath;
 
-    @Parameters
+    @Parameters(name = "{0}")
     public static List<String[]> testData() {
         final String[] directories = getResourceDirectoryContents("integration/programs/good",
                 Optional.of(TESTDIR_REGEX));

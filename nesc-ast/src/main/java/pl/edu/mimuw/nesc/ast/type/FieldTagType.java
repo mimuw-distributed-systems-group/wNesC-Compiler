@@ -87,8 +87,7 @@ public abstract class FieldTagType<D extends FieldTagDeclaration<?>> extends Der
 
     @Override
     public final boolean isComplete() {
-        return fieldTagDeclaration.getDefinitionLink().isPresent()
-                || fieldTagDeclaration.isDefined();
+        return fieldTagDeclaration.isDefined();
     }
 
     @Override

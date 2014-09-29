@@ -1,17 +1,10 @@
 package pl.edu.mimuw.nesc.declaration.tag;
 
-import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.StructRef;
 import pl.edu.mimuw.nesc.ast.type.ExternalStructureType;
 import pl.edu.mimuw.nesc.ast.type.StructureType;
 import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.declaration.tag.fieldtree.TreeElement;
-
-import com.google.common.base.Optional;
-import java.util.List;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -19,24 +12,33 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public class StructDeclaration extends FieldTagDeclaration<StructRef> {
     /**
-     * Constructor for declarations of structure tags that are not definitions.
+     * Get the builder for declarations of structure tags that are not
+     * definitions.
+     *
+     * @return Newly created builder that will build an object that corresponds
+     *         to a declaration of a structure type that is not definition.
      */
-    public StructDeclaration(String name, Location location, StructRef astStructRef,
-                             boolean isExternal) {
-        super(Optional.of(name), location, determineKind(isExternal), astStructRef,
-              Optional.<List<TreeElement>>absent());
+    public static Builder declarationBuilder() {
+        return new Builder(false);
     }
 
     /**
-     * Constructor for definitions of structure tags.
+     * Get the builder for a definition of a structure tag.
      *
-     * @throws NullPointerException <code>astStructRef</code> or <code>fields</code>
-     *                              is null.
+     * @return Newly created builder that will build an object that corresponds
+     *         to a definition of a structure type.
      */
-    public StructDeclaration(Optional<String> name, Location location, StructRef astStructRef,
-                             boolean isExternal, List<TreeElement> structure) {
-        super(name, location, determineKind(isExternal), astStructRef,
-              Optional.of(structure));
+    public static Builder definitionBuilder() {
+        return new Builder(true);
+    }
+
+    /**
+     * Initialize this structure declaration.
+     *
+     * @param builder Builder with necessary information.
+     */
+    private StructDeclaration(Builder builder) {
+        super(builder);
     }
 
     @Override
@@ -46,14 +48,31 @@ public class StructDeclaration extends FieldTagDeclaration<StructRef> {
                : new StructureType(constQualified, volatileQualified, this);
     }
 
-    private static StructKind determineKind(boolean isExternal) {
-        return   isExternal
-               ? StructKind.NX_STRUCT
-               : StructKind.STRUCT;
-    }
-
     @Override
     public <R, A> R visit(Visitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
+    }
+
+    /**
+     * Builder for a struct declaration.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    public static final class Builder extends FieldTagDeclaration.ExtendedBuilder<StructRef, StructDeclaration> {
+
+        private Builder(boolean definitionBuilder) {
+            super(definitionBuilder);
+        }
+
+        @Override
+        protected void beforeBuild() {
+            super.beforeBuild();
+            setKind(isExternal ? StructKind.NX_STRUCT : StructKind.STRUCT);
+        }
+
+        @Override
+        protected StructDeclaration create() {
+            return new StructDeclaration(this);
+        }
     }
 }

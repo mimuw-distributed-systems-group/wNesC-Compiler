@@ -59,7 +59,7 @@ public class IntegrationBadTest extends IntegrationTestBase {
      */
     private final Issue.Code expectedIssue;
 
-    @Parameters
+    @Parameters(name = "{0}")
     public static List<Object[]> testData() {
         final List<Object[]> result = new ArrayList<>();
 
@@ -74,6 +74,8 @@ public class IntegrationBadTest extends IntegrationTestBase {
         result.add(new Object[] { "bad08", "C.nc", RedefinitionError.CODE });
         result.add(new Object[] { "bad09", "C.nc", InvalidTypeSpecifiersMixError.CODE });
         result.add(new Object[] { "bad10", "C.nc", ConflictingStorageSpecifierError.CODE });
+        result.add(new Object[] { "bad11", "C.nc", RedefinitionError.CODE });
+        result.add(new Object[] { "bad12", "C.nc", IncompleteVariableTypeError.CODE });
 
         // Make the directory absolute
         final String testsDir = getResourceDirectory("integration/programs/bad");

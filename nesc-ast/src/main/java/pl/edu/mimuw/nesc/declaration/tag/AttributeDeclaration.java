@@ -12,26 +12,33 @@ import pl.edu.mimuw.nesc.declaration.tag.fieldtree.TreeElement;
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public class AttributeDeclaration extends FieldTagDeclaration<AttributeRef> {
-
+public final class AttributeDeclaration extends FieldTagDeclaration<AttributeRef> {
     /**
-     * Constructor for an object that represents the definition of an attribute
-     * when its fields have not yet been parsed. It is stored in the symbol
-     * table only during the operation of parsing its fields.
+     * Get a builder for a pre-definition of an attribute.
+     *
+     * @return Newly created builder.
      */
-    public AttributeDeclaration(String name, Location location, AttributeRef astRef) {
-        super(Optional.of(name), location, StructKind.ATTRIBUTE, astRef,
-              Optional.<List<TreeElement>>absent());
+    public static Builder preDefinitionBuilder() {
+        return new Builder(false);
     }
 
     /**
-     * Constructor for an attribute definition. Declarations of attributes that
-     * are not definitions are forbidden.
+     * Get a builder for a definition of an attribute.
+     *
+     * @return Newly created builder that will build an object that represents
+     *         a definition of an attribute.
      */
-    public AttributeDeclaration(String name, Location location, AttributeRef astRef,
-            List<TreeElement> structure) {
-        super(Optional.of(name), location, StructKind.ATTRIBUTE, astRef,
-              Optional.of(structure));
+    public static Builder definitionBuilder() {
+        return new Builder(true);
+    }
+
+    /**
+     * Initialize this object.
+     *
+     * @param builder Builder with information necessary to initialize.
+     */
+    private AttributeDeclaration(Builder builder) {
+        super(builder);
     }
 
     @Override
@@ -43,5 +50,28 @@ public class AttributeDeclaration extends FieldTagDeclaration<AttributeRef> {
     @Override
     public <R, A> R visit(Visitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
+    }
+
+    /**
+     * Builder for an attribute declaration.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    public static final class Builder extends FieldTagDeclaration.Builder<AttributeRef, AttributeDeclaration> {
+
+        private Builder(boolean definitionBuilder) {
+            super(definitionBuilder);
+        }
+
+        @Override
+        protected void beforeBuild() {
+            super.beforeBuild();
+            setKind(StructKind.ATTRIBUTE);
+        }
+
+        @Override
+        protected AttributeDeclaration create() {
+            return new AttributeDeclaration(this);
+        }
     }
 }

@@ -490,20 +490,7 @@ public final class TypesAnalysis {
         }
 
         private Optional<TagDeclaration> finishUnnamedTagType() {
-            TagDeclaration tagDeclaration = null;
-
-            if (tagReference instanceof StructRef) {
-                tagDeclaration = makeStructDeclaration(errorHelper, (StructRef) tagReference);
-            } else if (tagReference instanceof UnionRef) {
-                tagDeclaration = makeUnionDeclaration(errorHelper, (UnionRef) tagReference);
-            } else if (tagReference instanceof EnumRef) {
-                tagDeclaration = makeEnumDeclaration((EnumRef) tagReference);
-            } else {
-                assert false : "unexpected tag reference class '"
-                        + tagReference.getClass() + "'";
-            }
-
-            return Optional.of(tagDeclaration);
+            return Optional.of(TagDeclarationFactory.getInstance(tagReference, errorHelper));
         }
 
         private Optional<Type> finishTypename() {

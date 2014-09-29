@@ -16,15 +16,14 @@ import pl.edu.mimuw.nesc.symboltable.SymbolTable;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
-import com.google.common.base.Supplier;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveDeclaratorType;
+import static pl.edu.mimuw.nesc.astbuilding.TypeElementUtils.getStructKind;
 import static pl.edu.mimuw.nesc.problem.issue.RedefinitionError.RedefinitionKind;
 import static pl.edu.mimuw.nesc.problem.issue.RedeclarationError.RedeclarationKind;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -65,30 +64,6 @@ public final class TagsAnalysis {
     }
 
     /**
-     * Unconditionally creates a <code>StructDeclaration</code> object that
-     * reflects the given structure reference.
-     *
-     * @return Newly created declaration that reflects the given structure
-     *         reference.
-     * @throws NullPointerException One of the arguments is null.
-     */
-    static StructDeclaration makeStructDeclaration(ErrorHelper errorHelper, StructRef structRef) {
-        return (StructDeclaration) makeFieldTagDeclaration(errorHelper, structRef);
-    }
-
-    /**
-     * Unconditionally creates a <code>UnionDeclaration</code> object that
-     * reflects the given union reference.
-     *
-     * @return Newly created declaration object that reflects the given union
-     *         reference.
-     * @throws NullPointerException One of the arguments is null.
-     */
-    static UnionDeclaration makeUnionDeclaration(ErrorHelper errorHelper, UnionRef unionRef) {
-        return (UnionDeclaration) makeFieldTagDeclaration(errorHelper, unionRef);
-    }
-
-    /**
      * Creates a new <code>FieldDeclaration</code> object that corresponds to
      * the given field. The given field is associated with the created object
      * and is available with its <code>getDeclaration</code> method.
@@ -116,106 +91,66 @@ public final class TagsAnalysis {
         fieldDecl.setDeclaration(newField);
     }
 
-    /**
-     * This method is created only not to duplicate code.
-     * <code>makeStructDeclaration</code> and <code>makeUnionDeclaration</code>
-     * methods should be used instead.
-     */
-    private static FieldTagDeclaration<?> makeFieldTagDeclaration(ErrorHelper errorHelper,
-            final TagRef tagRef) {
-        checkNotNull(errorHelper, "error helper cannot be null");
-        checkNotNull(tagRef, "tag reference cannot be null");
-        checkArgument(tagRef instanceof StructRef || tagRef instanceof UnionRef,
-                "unexpected class of the given tag reference");
+    private static List<ConstantDeclaration> getEnumerators(EnumRef enumRef) {
+        checkNotNull(enumRef, "enum reference cannot be null");
+        checkArgument(enumRef.getSemantics() == TagRefSemantics.DEFINITION,
+                "enumeration type must be defined");
 
-        final boolean isExternal = tagRef instanceof NxStructRef
-                || tagRef instanceof NxUnionRef;
+        final List<ConstantDeclaration> result = new ArrayList<>();
 
-        // Declaration but not definition
-        if (tagRef.getSemantics() != TagRefSemantics.DEFINITION) {
-            if (tagRef instanceof StructRef) {
-                return new StructDeclaration(tagRef.getName().getName(), tagRef.getLocation(),
-                        (StructRef) tagRef, isExternal);
-            } else {
-                return new UnionDeclaration(tagRef.getName().getName(), tagRef.getLocation(),
-                        (UnionRef) tagRef, isExternal);
+        for (Declaration declaration : enumRef.getFields()) {
+            if (!(declaration instanceof Enumerator)) {
+                throw new RuntimeException("an enumerator is of class '"
+                        + declaration.getClass().getCanonicalName() + "'");
             }
-        }
 
-        // Definition
-        final FieldTagDefinitionVisitor visitor = new FieldTagDefinitionVisitor(errorHelper);
-        for (Declaration declaration : tagRef.getFields()) {
-            declaration.accept(visitor, null);
+            final Enumerator enumerator = (Enumerator) declaration;
+            result.add(enumerator.getDeclaration());
         }
-
-        FieldTagDeclaration<?> result;
-        if (tagRef instanceof StructRef) {
-            result = new StructDeclaration(getTagName(tagRef), tagRef.getLocation(),
-                     (StructRef) tagRef, isExternal, visitor.elements);
-        } else {
-            result = new UnionDeclaration(getTagName(tagRef), tagRef.getLocation(),
-                     (UnionRef) tagRef, isExternal, visitor.elements);
-        }
-        checkTagDefinition(result, errorHelper);
 
         return result;
     }
 
     /**
-     * Unconditionally creates an <code>EnumDeclaration</code> object that
-     * reflects the given <code>EnumRef</code> object.
+     * Unconditionally traverse the fields of the given tag reference and build
+     * its structure. However, it makes sense only for the definition of a tag.
+     * The definition is checked afterwards and all detected errors are
+     * reported.
      *
-     * @return Newly created declaration object that reflects the given
-     *         enumeration reference.
-     * @throws NullPointerException Given argument is null.
+     * @param tagRef Tag reference with fields to flick through.
+     * @return Structure of fields of the given tag reference.
      */
-    static EnumDeclaration makeEnumDeclaration(EnumRef enumRef) {
-        checkNotNull(enumRef, "enum reference cannot be null");
-
-        if (enumRef.getSemantics() != TagRefSemantics.DEFINITION) {
-            return new EnumDeclaration(enumRef.getName().getName(), enumRef.getLocation(),
-                                       enumRef);
+    private static List<TreeElement> getFieldTagStructure(TagRef tagRef, ErrorHelper errorHelper) {
+        final FieldTagDefinitionVisitor visitor = new FieldTagDefinitionVisitor(errorHelper);
+        for (Declaration declaration : tagRef.getFields()) {
+            declaration.accept(visitor, null);
         }
 
-        final List<ConstantDeclaration> enumerators = new LinkedList<>();
-        for (Declaration declaration : enumRef.getFields()) {
-            if (!(declaration instanceof Enumerator)) {
-                throw new RuntimeException("an enumerator has class '"
-                        + declaration.getClass().getCanonicalName() + "'");
-            }
+        final List<TreeElement> result = visitor.elements;
+        checkTagDefinition(result, getStructKind(tagRef), errorHelper);
 
-            final Enumerator enumerator = (Enumerator) declaration;
-            enumerators.add(enumerator.getDeclaration());
-        }
-
-        return new EnumDeclaration(getTagName(enumRef), enumRef.getLocation(),
-                                   enumerators, enumRef);
+        return result;
     }
 
-    private static Optional<String> getTagName(TagRef tagRef) {
-        final String name =   tagRef.getName() != null
-                            ? tagRef.getName().getName()
-                            : null;
-        return Optional.fromNullable(name);
-    }
+    private static void checkTagDefinition(List<TreeElement> fieldsStructure, StructKind kind,
+            ErrorHelper errorHelper) {
+        // Validate arguments
+        checkNotNull(fieldsStructure, "fields structure cannot be null");
+        checkNotNull(kind, "kind of the tag cannot be null");
+        checkNotNull(errorHelper, "error helper cannot be null");
 
-    private static void checkTagDefinition(FieldTagDeclaration<?> tagDeclaration,
-                                           ErrorHelper errorHelper) {
-        final Optional<List<TreeElement>> maybeStructure = tagDeclaration.getStructure();
-        if (!maybeStructure.isPresent()) {
-            return;
-        }
-
-        final List<TreeElement> structure = maybeStructure.get();
-        final int size = structure.size();
+        // Prepare
+        final int size = fieldsStructure.size();
         final boolean flexibleMemberConditions =
-                size > 1 && tagDeclaration instanceof StructDeclaration;
-        final FieldValidityVisitor visitor = new FieldValidityVisitor(errorHelper);
+                size > 1 && (kind == StructKind.STRUCT || kind == StructKind.NX_STRUCT);
 
+        // Check the structure
+        final FieldValidityVisitor visitor = new FieldValidityVisitor(errorHelper);
         for (int i = 0; i < size; ++i) {
             final boolean canBeFlexibleMember = flexibleMemberConditions && i == size - 1;
-            structure.get(i).accept(visitor, canBeFlexibleMember);
+            fieldsStructure.get(i).accept(visitor, canBeFlexibleMember);
         }
+
     }
 
     /**
@@ -256,48 +191,26 @@ public final class TagsAnalysis {
         }
 
         @Override
-        public Void visitStructRef(final StructRef structRef, Void v) {
-            final Supplier<StructDeclaration> supplier = new Supplier<StructDeclaration>() {
-                @Override
-                public StructDeclaration get() {
-                    return makeStructDeclaration(errorHelper, structRef);
-                }
-            };
-
-            final Optional<StructDeclaration> declaration = processTagRef(structRef, supplier);
-            if (declaration.isPresent()) {
-                structRef.setDeclaration(declaration.get());
-            }
-
+        public Void visitStructRef(StructRef structRef, Void v) {
+            processTagRef(structRef);
             return null;
         }
 
         @Override
-        public Void visitUnionRef(final UnionRef unionRef, Void v) {
-            final Supplier<UnionDeclaration> supplier = new Supplier<UnionDeclaration>() {
-                @Override
-                public UnionDeclaration get() {
-                    return makeUnionDeclaration(errorHelper, unionRef);
-                }
-            };
-
-            final Optional<UnionDeclaration> declaration = processTagRef(unionRef, supplier);
-            if (declaration.isPresent()) {
-                unionRef.setDeclaration(declaration.get());
-            }
-
+        public Void visitUnionRef(UnionRef unionRef, Void v) {
+            processTagRef(unionRef);
             return null;
         }
 
         @Override
         public Void visitNxStructRef(NxStructRef nxStructRef, Void v) {
-            visitStructRef(nxStructRef, v);
+            processTagRef(nxStructRef);
             return null;
         }
 
         @Override
         public Void visitNxUnionRef(NxUnionRef nxUnionRef, Void v) {
-            visitUnionRef(nxUnionRef, v);
+            processTagRef(nxUnionRef);
             return null;
         }
 
@@ -305,75 +218,40 @@ public final class TagsAnalysis {
         public Void visitAttributeRef(AttributeRef attrRef, Void v) {
             checkState(attrRef.getSemantics() != TagRefSemantics.OTHER, "attribute reference that is not definition of an attribute");
             checkState(attrRef.getName() != null, "name of an attribute in its definition is null");
-
-            if (attrRef.getSemantics() == TagRefSemantics.DEFINITION) {
-                // Get fields of the attribute definition
-                FieldTagDefinitionVisitor visitor = new FieldTagDefinitionVisitor(errorHelper);
-                for (Declaration declaration : attrRef.getFields()) {
-                    declaration.accept(visitor, null);
-                }
-
-                // Create the object that represents the attribute and define it
-                final AttributeDeclaration attrDeclaration = new AttributeDeclaration(attrRef.getName().getName(),
-                        attrRef.getLocation(), attrRef, visitor.elements);
-                checkTagDefinition(attrDeclaration, errorHelper);
-                define(attrDeclaration, attrRef);
-            } else if (attrRef.getSemantics() == TagRefSemantics.PREDEFINITION) {
-                define(new AttributeDeclaration(attrRef.getName().getName(),
-                       attrRef.getLocation(), attrRef), attrRef);
-            } else {
-                throw new IllegalStateException("unexpected semantics of an attribute reference");
-            }
-
+            processTagRef(attrRef);
             return null;
         }
 
         @Override
-        public Void visitEnumRef(final EnumRef enumRef, Void v) {
-            final Supplier<EnumDeclaration> supplier = new Supplier<EnumDeclaration>() {
-                @Override
-                public EnumDeclaration get() {
-                    return makeEnumDeclaration(enumRef);
-                }
-            };
-
-            final Optional<EnumDeclaration> declaration = processTagRef(enumRef, supplier);
-            if (declaration.isPresent()) {
-                enumRef.setDeclaration(declaration.get());
-            }
-
+        public Void visitEnumRef(EnumRef enumRef, Void v) {
+            processTagRef(enumRef);
             return null;
         }
 
-        private <T extends TagDeclaration> Optional<T> processTagRef(TagRef tagRef, Supplier<T> supplier) {
+        private void processTagRef(TagRef tagRef) {
             if (tagRef.getName() == null) {
-                return Optional.absent();
-            }
-
-            final T declaration = supplier.get();
-            if (tagRef.getSemantics() == TagRefSemantics.OTHER) {
-                declare(declaration, tagRef);
-            } else {
-                define(declaration, tagRef);
-            }
-
-            return Optional.of(declaration);
-        }
-
-        private void declare(TagDeclaration tagDeclaration, TagRef tagRef) {
-            if (!tagDeclaration.getName().isPresent()) {
                 return;
             }
 
-            final String name = tagDeclaration.getName().get();
+            if (tagRef.getSemantics() == TagRefSemantics.OTHER) {
+                declare(tagRef);
+            } else {
+                define(tagRef);
+            }
+        }
+
+        private void declare(TagRef tagRef) {
+
+            final String name = tagRef.getName().getName();
+            final StructKind kind = getStructKind(tagRef);
             final SymbolTable<TagDeclaration> tagsTable = environment.getTags();
-            final TagPredicate predicate = new TagPredicate(tagDeclaration.getKind(), false);
+            final TagPredicate predicate = new TagPredicate(kind, false);
             final boolean onlyCurrentScope = isStandalone || !tagsTable.contains(name);
             final Optional<Boolean> sameTag = tagsTable.test(name, predicate, onlyCurrentScope);
             assert onlyCurrentScope || sameTag.isPresent() : "unexpected result of a test on a tag in the symbol table during a declaration";
 
             if (!sameTag.isPresent()) {
-                environment.getTags().add(name, tagDeclaration);
+                environment.getTags().add(name, TagDeclarationFactory.getInstance(tagRef, errorHelper));
             } else if (!sameTag.get()) {
                 tagRef.setIsInvalid(true);
                 errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(),
@@ -381,7 +259,7 @@ public final class TagsAnalysis {
             }
 
             // Check the correctness of an enumeration tag declaration
-            if (tagDeclaration.getKind() == StructKind.ENUM) {
+            if (kind == StructKind.ENUM) {
                 Optional<? extends ErroneousIssue> error = Optional.absent();
                 if (!isStandalone && (!predicate.isDefined || !sameTag.isPresent())) {
                     error = Optional.of(new UndefinedEnumUsageError(name));
@@ -396,38 +274,47 @@ public final class TagsAnalysis {
             }
         }
 
-        private void define(TagDeclaration tagDeclaration, TagRef tagRef) {
-            if (!tagDeclaration.getName().isPresent()) {
-                return;
-            }
-
-            final String name = tagDeclaration.getName().get();
-            final TagPredicate predicate = new TagPredicate(tagDeclaration.getKind(), true);
+        private void define(TagRef tagRef) {
+            // Prepare variables
+            final String name = tagRef.getName().getName();
+            final StructKind kind = getStructKind(tagRef);
             final SymbolTable<TagDeclaration> tagsTable = environment.getTags();
             final Optional<? extends TagDeclaration> oldDecl = tagsTable.get(name, true);
-            final boolean result = tagsTable.addOrOverwriteIf(name, tagDeclaration, predicate);
-            tagRef.setIsInvalid(!result);
 
-            // Report errors only while processing the predefinition
-            if (!result && !tagDeclaration.isDefined()) {
-                Optional<? extends ErroneousIssue> error;
+            if (!oldDecl.isPresent()) {
+                tagsTable.add(name, TagDeclarationFactory.getInstance(tagRef, errorHelper));
+            } else {
+                /* A tag declaration is present in the current scope with the
+                   same name. */
+                final TagDeclaration oldDeclPure = oldDecl.get();
 
-                if (!predicate.sameKind) {
+                // Check the correctness of the definition
+                Optional<? extends ErroneousIssue> error = Optional.absent();
+                if (oldDeclPure.getKind() != kind) {
                     error = Optional.of(new ConflictingTagKindError(name));
-                } else if (predicate.isDefined) {
+                } else if (oldDeclPure.isDefined()) {
                     error = Optional.of(new RedefinitionError(name, RedefinitionKind.TAG));
-                } else if (predicate.insideDefinition) {
+                } else if (oldDeclPure.getAstNode().getSemantics() == TagRefSemantics.PREDEFINITION) {
                     error = Optional.of(new RedefinitionError(name, RedefinitionKind.NESTED_TAG));
-                } else {
-                    throw new RuntimeException("unexpected symbol table result during a tag definition");
+                }
+                if (error.isPresent()) {
+                    tagRef.setIsInvalid(true);
+                    if (tagRef.getSemantics() == TagRefSemantics.PREDEFINITION) {
+                        errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(), error.get());
+                    }
+                    return;
                 }
 
-                if (error.isPresent()) {
-                    errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(), error.get());
-                }
-            } else if (result && tagDeclaration.isDefined()) {
-                if (oldDecl.isPresent()) {
-                    oldDecl.get().setDefinitionLink(tagDeclaration);
+                // Update the declaration in the symbol table
+                switch (tagRef.getSemantics()) {
+                    case DEFINITION:
+                        DefinitionTransition.transit(oldDeclPure, tagRef, errorHelper);
+                        break;
+                    case PREDEFINITION:
+                        PredefinitionNode.update(oldDeclPure, tagRef);
+                        break;
+                    default:
+                        throw new RuntimeException("unexpected tag reference semantics");
                 }
             }
         }
@@ -636,6 +523,281 @@ public final class TagsAnalysis {
 
         @Override
         public Void visit(BlockElement blockElement, Boolean canBeFlexibleMember) {
+            return null;
+        }
+    }
+
+    /**
+     * <p>An object responsible for creating concrete subclasses of
+     * <code>TagDeclaration</code>.</p>
+     * <p>Side effects of creation of a tag declaration object:</p>
+     * <ul>
+     *     <li>making the created tag declaration object point to the given tag
+     *     reference</li>
+     *     <li>making the given tag reference point to the created tag
+     *     declaration object</li>
+     *     <li>if the given tag reference represents a definition, checking the
+     *     definition and emitting found issues</li>
+     * </ul>
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    static class TagDeclarationFactory extends ExceptionVisitor<TagDeclaration, Void> {
+        private final ErrorHelper errorHelper;
+
+        public static TagDeclaration getInstance(TagRef tagRef, ErrorHelper errorHelper) {
+            checkNotNull(tagRef, "tag reference cannot be null");
+            checkNotNull(errorHelper, "error helper cannot be null");
+
+            final TagDeclarationFactory factory = new TagDeclarationFactory(errorHelper);
+            return tagRef.accept(factory, null);
+        }
+
+        private TagDeclarationFactory(ErrorHelper errorHelper) {
+            this.errorHelper = errorHelper;
+        }
+
+        @Override
+        public AttributeDeclaration visitAttributeRef(AttributeRef attrRef, Void arg) {
+            AttributeDeclaration.Builder builder;
+
+            if (attrRef.getSemantics() == TagRefSemantics.DEFINITION) {
+                builder = AttributeDeclaration.definitionBuilder();
+                builder.structure(getFieldTagStructure(attrRef, errorHelper));
+            } else {
+                builder = AttributeDeclaration.preDefinitionBuilder();
+            }
+
+            final AttributeDeclaration result = builder
+                    .astNode(attrRef)
+                    .name(attrRef.getName().getName())
+                    .startLocation(attrRef.getLocation())
+                    .build();
+
+            attrRef.setDeclaration(result);
+            return result;
+        }
+
+        @Override
+        public StructDeclaration visitStructRef(StructRef structRef, Void arg) {
+            return makeStructDeclaration(structRef, false);
+        }
+
+        @Override
+        public StructDeclaration visitNxStructRef(NxStructRef nxStructRef, Void arg) {
+            return makeStructDeclaration(nxStructRef, true);
+        }
+
+        @Override
+        public EnumDeclaration visitEnumRef(EnumRef enumRef, Void arg) {
+            EnumDeclaration.Builder builder;
+
+            if (enumRef.getSemantics() != TagRefSemantics.DEFINITION) {
+                builder = EnumDeclaration.declarationBuilder();
+            } else {
+                builder = EnumDeclaration.definitionBuilder()
+                            .addAllEnumerators(getEnumerators(enumRef));
+            }
+
+            final EnumDeclaration result = builder
+                    .astNode(enumRef)
+                    .name(getTagName(enumRef).orNull())
+                    .startLocation(enumRef.getLocation())
+                    .build();
+
+            enumRef.setDeclaration(result);
+            return result;
+        }
+
+        @Override
+        public UnionDeclaration visitUnionRef(UnionRef unionRef, Void arg) {
+            return makeUnionDeclaration(unionRef, false);
+        }
+
+        @Override
+        public UnionDeclaration visitNxUnionRef(NxUnionRef nxUnionRef, Void arg) {
+            return makeUnionDeclaration(nxUnionRef, true);
+        }
+
+        private StructDeclaration makeStructDeclaration(StructRef structRef, boolean isExternal) {
+            StructDeclaration.Builder builder;
+
+            if (structRef.getSemantics() == TagRefSemantics.DEFINITION) {
+                builder = StructDeclaration.definitionBuilder();
+                builder.structure(getFieldTagStructure(structRef, errorHelper));
+            } else {
+                builder = StructDeclaration.declarationBuilder();
+            }
+
+            final StructDeclaration result = builder
+                    .isExternal(isExternal)
+                    .astNode(structRef)
+                    .name(getTagName(structRef).orNull())
+                    .startLocation(structRef.getLocation())
+                    .build();
+
+            structRef.setDeclaration(result);
+            return result;
+        }
+
+        private UnionDeclaration makeUnionDeclaration(UnionRef unionRef, boolean isExternal) {
+            UnionDeclaration.Builder builder;
+
+            if (unionRef.getSemantics() == TagRefSemantics.DEFINITION) {
+                builder = UnionDeclaration.definitionBuilder();
+                builder.structure(getFieldTagStructure(unionRef, errorHelper));
+            } else {
+                builder = UnionDeclaration.declarationBuilder();
+            }
+
+            final UnionDeclaration result = builder
+                    .isExternal(isExternal)
+                    .astNode(unionRef)
+                    .name(getTagName(unionRef).orNull())
+                    .startLocation(unionRef.getLocation())
+                    .build();
+
+            unionRef.setDeclaration(result);
+            return result;
+        }
+
+        private Optional<String> getTagName(TagRef tagRef) {
+            final String name =   tagRef.getName() != null
+                                ? tagRef.getName().getName()
+                                : null;
+            return Optional.fromNullable(name);
+        }
+    }
+
+    /**
+     * <p>Class responsible for updating tag declarations by storing the
+     * definition data in them.</p>
+     * <p>Effects of a transition operation:</p>
+     * <ul>
+     *     <li>encapsulating information about definition of the given tag in
+     *     the given tag declaration object</li>
+     *     <li>making the given tag reference point to the given tag declaration
+     *     object</li>
+     *     <li>checking the definition of the tag and emitting found issues</li>
+     * </ul>
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class DefinitionTransition extends ExceptionVisitor<Void, Void> {
+        private final ErrorHelper errorHelper;
+        private final TagDeclaration tagDeclaration;
+
+        static void transit(TagDeclaration tagDeclaration, TagRef tagRef, ErrorHelper errorHelper) {
+            checkNotNull(tagDeclaration, "tag declaration cannot be null");
+            checkNotNull(tagRef, "tag reference cannot be null");
+            checkNotNull(errorHelper, "error helper cannot be null");
+            checkArgument(tagRef.getSemantics() == TagRefSemantics.DEFINITION,
+                    "expecting a tag reference with definition");
+            checkArgument(tagDeclaration.getAstNode() == tagRef,
+                    "updating a tag declaration not associated with given tag reference");
+
+            final DefinitionTransition visitor = new DefinitionTransition(tagDeclaration, errorHelper);
+            tagRef.accept(visitor, null);
+        }
+
+        private DefinitionTransition(TagDeclaration tagDeclaration, ErrorHelper errorHelper) {
+            this.tagDeclaration = tagDeclaration;
+            this.errorHelper = errorHelper;
+        }
+
+        @Override
+        public Void visitAttributeRef(AttributeRef attrRef, Void arg) {
+            final AttributeDeclaration attrDecl = (AttributeDeclaration) tagDeclaration;
+            attrDecl.define(getFieldTagStructure(attrRef, errorHelper));
+            attrRef.setDeclaration(attrDecl);
+            return null;
+        }
+
+        @Override
+        public Void visitStructRef(StructRef structRef, Void arg) {
+            updateStructDeclaration(structRef);
+            return null;
+        }
+
+        @Override
+        public Void visitNxStructRef(NxStructRef nxStructRef, Void arg) {
+            updateStructDeclaration(nxStructRef);
+            return null;
+        }
+
+        @Override
+        public Void visitUnionRef(UnionRef unionRef, Void arg) {
+            updateUnionDeclaration(unionRef);
+            return null;
+        }
+
+        @Override
+        public Void visitNxUnionRef(NxUnionRef nxUnionRef, Void arg) {
+            updateUnionDeclaration(nxUnionRef);
+            return null;
+        }
+
+        @Override
+        public Void visitEnumRef(EnumRef enumRef, Void arg) {
+            final EnumDeclaration enumDecl = (EnumDeclaration) tagDeclaration;
+            enumDecl.define(getEnumerators(enumRef));
+            enumRef.setDeclaration(enumDecl);
+            return null;
+        }
+
+        private void updateStructDeclaration(StructRef structRef) {
+            final StructDeclaration structDecl = (StructDeclaration) tagDeclaration;
+            structDecl.define(getFieldTagStructure(structRef, errorHelper));
+            structRef.setDeclaration(structDecl);
+        }
+
+        private void updateUnionDeclaration(UnionRef unionRef) {
+            final UnionDeclaration unionDecl = (UnionDeclaration) tagDeclaration;
+            unionDecl.define(getFieldTagStructure(unionRef, errorHelper));
+            unionRef.setDeclaration(unionDecl);
+        }
+    }
+
+    /**
+     * Visitor that sets the pre-definition node of a tag declaration. Its only
+     * effect is to update the pre-definition node in the given tag reference.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class PredefinitionNode implements TagDeclaration.Visitor<Void, Void> {
+        private final TagRef astNode;
+
+        static void update(TagDeclaration tagDecl, TagRef tagRef) {
+            checkNotNull(tagDecl, "tag declaration cannot be null");
+            checkNotNull(tagRef, "tag reference cannot be null");
+            tagDecl.visit(new PredefinitionNode(tagRef), null);
+        }
+
+        private PredefinitionNode(TagRef tagRef) {
+            this.astNode = tagRef;
+        }
+
+        @Override
+        public Void visit(AttributeDeclaration attrDecl, Void arg) {
+            attrDecl.setPredefinitionNode((AttributeRef) astNode);
+            return null;
+        }
+
+        @Override
+        public Void visit(StructDeclaration structDecl, Void arg) {
+            structDecl.setPredefinitionNode((StructRef) astNode);
+            return null;
+        }
+
+        @Override
+        public Void visit(UnionDeclaration unionDecl, Void arg) {
+            unionDecl.setPredefinitionNode((UnionRef) astNode);
+            return null;
+        }
+
+        @Override
+        public Void visit(EnumDeclaration enumDecl, Void arg) {
+            enumDecl.setPredefinitionNode((EnumRef) astNode);
             return null;
         }
     }

@@ -1,12 +1,14 @@
 package pl.edu.mimuw.nesc.astbuilding;
 
-import com.google.common.base.Preconditions;
 import pl.edu.mimuw.nesc.ast.RID;
+import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration.FunctionType;
 
 import java.util.LinkedList;
 import java.util.List;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Utilities for {@link TypeElement}.
@@ -16,6 +18,7 @@ import java.util.List;
 public final class TypeElementUtils {
 
     private static final IsTypedefVisitor IS_TYPEDEF_VISITOR = new IsTypedefVisitor();
+    private static final StructKindVisitor STRUCT_KIND_VISITOR = new StructKindVisitor();
 
     /**
      * Checks whether type elements contains <tt>TYPEDEF</tt> keyword.
@@ -24,7 +27,7 @@ public final class TypeElementUtils {
      * @return <code>true</code> if list contains <tt>TYPEDEF</tt>
      */
     public static boolean isTypedef(LinkedList<TypeElement> elements) {
-        Preconditions.checkNotNull(elements, "elements list cannot be null");
+        checkNotNull(elements, "elements list cannot be null");
         for (TypeElement element : elements) {
             if (element.accept(IS_TYPEDEF_VISITOR, null)) {
                 return true;
@@ -58,6 +61,11 @@ public final class TypeElementUtils {
             }
         }
         return FunctionType.NORMAL;
+    }
+
+    public static StructKind getStructKind(TagRef tagRef) {
+        checkNotNull(tagRef, "tag reference cannot be null");
+        return tagRef.accept(STRUCT_KIND_VISITOR, null);
     }
 
     private TypeElementUtils() {
@@ -133,6 +141,42 @@ public final class TypeElementUtils {
             return Boolean.FALSE;
         }
 
+    }
+
+    /**
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class StructKindVisitor extends ExceptionVisitor<StructKind, Void> {
+
+        @Override
+        public StructKind visitAttributeRef(AttributeRef tagRef, Void arg) {
+            return StructKind.ATTRIBUTE;
+        }
+
+        @Override
+        public StructKind visitStructRef(StructRef tagRef, Void arg) {
+            return StructKind.STRUCT;
+        }
+
+        @Override
+        public StructKind visitNxStructRef(NxStructRef tagRef, Void arg) {
+            return StructKind.NX_STRUCT;
+        }
+
+        @Override
+        public StructKind visitUnionRef(UnionRef tagRef, Void arg) {
+            return StructKind.UNION;
+        }
+
+        @Override
+        public StructKind visitNxUnionRef(NxUnionRef tagRef, Void arg) {
+            return StructKind.NX_UNION;
+        }
+
+        @Override
+        public StructKind visitEnumRef(EnumRef tagRef, Void arg) {
+            return StructKind.ENUM;
+        }
     }
 
 }
