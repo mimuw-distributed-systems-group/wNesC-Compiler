@@ -89,9 +89,12 @@ public final class Declarations extends AstBuildingBase {
         }
 
         // Resolve and save type
-        final Optional<Type> type = association.resolveType(Optional.of(declarator),
+        final Optional<Type> declaratorType = association.resolveType(Optional.of(declarator),
                 environment, errorHelper, variableDecl.getLocation(),
                 variableDecl.getLocation());
+        final Optional<Type> type = TypeElementUtils.isTypedef(association.getTypeElements())
+                ? Optional.<Type>of(TypeDefinitionType.getInstance())
+                : declaratorType;
         variableDecl.setType(type);
 
         // Determine linkage
@@ -109,7 +112,7 @@ public final class Declarations extends AstBuildingBase {
         checkVariableType(type, linkage, identifier, markerArea, errorHelper);
 
         final StartDeclarationVisitor declarationVisitor = new StartDeclarationVisitor(environment, variableDecl,
-                declarator, asmStmt, association.getTypeElements(), attributes, linkage);
+                declarator, asmStmt, association.getTypeElements(), attributes, linkage, declaratorType);
         declarator.accept(declarationVisitor, null);
         return variableDecl;
     }
@@ -626,16 +629,19 @@ public final class Declarations extends AstBuildingBase {
         private final Environment environment;
         private final VariableDecl variableDecl;
         private final LinkedList<TypeElement> elements;
+        private final Optional<Type> declaratorType;
         private final Optional<Linkage> linkage;
 
         @SuppressWarnings("UnusedParameters")
         StartDeclarationVisitor(Environment environment, VariableDecl variableDecl, Declarator declarator,
                                 Optional<AsmStmt> asmStmt, LinkedList<TypeElement> elements,
-                                LinkedList<Attribute> attributes, Optional<Linkage> linkage) {
+                                LinkedList<Attribute> attributes, Optional<Linkage> linkage,
+                                Optional<Type> declaratorType) {
             this.environment = environment;
             this.variableDecl = variableDecl;
             this.elements = elements;
             this.linkage = linkage;
+            this.declaratorType = declaratorType;
         }
 
         @Override
@@ -723,11 +729,10 @@ public final class Declarations extends AstBuildingBase {
 
             if (isTypedef) {
                 builder = TypenameDeclaration.builder()
-                        .denotedType(variableDecl.getType().orNull());
-                variableDecl.setType(Optional.<Type>of(TypeDefinitionType.getInstance()));
+                        .denotedType(declaratorType.orNull());
             } else {
                 builder = VariableDeclaration.builder()
-                        .type(variableDecl.getType().orNull())
+                        .type(declaratorType.orNull())
                         .linkage(linkage.orNull());
             }
 
