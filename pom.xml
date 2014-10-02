@@ -95,6 +95,22 @@
         </plugins>
     </build>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <!--
+                    Force not using versions of JUnit earlier than
+                    ${junit.version} that appear in transitive
+                    dependencies.
+                -->
+                <groupId>junit</groupId>
+                <artifactId>junit-dep</artifactId>
+                <version>${junit.version}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <!-- Third-party -->
         <dependency>
@@ -114,13 +130,6 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>${junit.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit-dep</artifactId>
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
