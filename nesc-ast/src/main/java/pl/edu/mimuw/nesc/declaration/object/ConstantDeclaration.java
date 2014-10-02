@@ -36,6 +36,7 @@ public class ConstantDeclaration extends ObjectDeclaration {
 
             setType(Optional.<Type>of(new IntType(true, false)));
             setLinkage(Optional.of(Linkage.NONE));
+            setKind(ObjectKind.CONSTANT);
         }
 
         @Override

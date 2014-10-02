@@ -113,6 +113,12 @@ public class FunctionDeclaration extends ObjectDeclaration {
         }
 
         @Override
+        protected void beforeBuild() {
+            super.beforeBuild();
+            setKind(ObjectKind.FUNCTION);
+        }
+
+        @Override
         protected void validate() {
             super.validate();
             checkNotNull(interfaceName, "the interface name cannot be null");

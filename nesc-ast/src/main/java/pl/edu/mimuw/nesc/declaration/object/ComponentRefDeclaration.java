@@ -118,6 +118,7 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
                 setType(Optional.<Type>of(new ComponentType(componentName.getName())));
             }
             setLinkage(Optional.of(Linkage.NONE));
+            setKind(ObjectKind.COMPONENT);
         }
 
         @Override

@@ -67,6 +67,7 @@ public class TypenameDeclaration extends ObjectDeclaration {
 
             setType(Optional.<Type>of(TypeDefinitionType.getInstance()));
             setLinkage(Optional.of(Linkage.NONE));
+            setKind(ObjectKind.TYPENAME);
         }
 
         @Override

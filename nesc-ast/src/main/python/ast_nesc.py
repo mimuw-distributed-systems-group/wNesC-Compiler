@@ -1029,9 +1029,13 @@ class FloatingCst(BasicASTNode):
 
 
 class CharacterCst(BasicASTNode):
-    """ A character constant. """
+    """
+    <p>A character constant.</p>
+    <p>The value is absent if and only if it is specified incorrectly, e.g. when
+    an invalid escape sequence is used.</p>
+    """
     superclass = LexicalCst
-    value = ReferenceField("Character")
+    value = ReferenceField("Character", optional=True)
 
 
 class StringCst(BasicASTNode):

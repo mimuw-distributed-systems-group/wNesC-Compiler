@@ -1,5 +1,8 @@
 package pl.edu.mimuw.nesc.ast.type;
 
+import com.google.common.collect.Range;
+import java.math.BigInteger;
+
 /**
  * Reflects the <code>char</code> type. It is unspecified if it is signed or
  * unsigned.
@@ -47,6 +50,21 @@ public final class CharType extends IntegerType {
     @Override
     public final int getIntegerRank() {
         return INTEGER_RANK;
+    }
+
+    @Override
+    public final BigInteger getMinimumValue() {
+        throw new UnsupportedOperationException("getting the minimum value is unsupported for type 'char'");
+    }
+
+    @Override
+    public final BigInteger getMaximumValue() {
+        throw new UnsupportedOperationException("getting the maximum value is unsupported for type 'char'");
+    }
+
+    @Override
+    public final Range<BigInteger> getRange() {
+        throw new UnsupportedOperationException("getting the range of values is unsupported for type 'char'");
     }
 
     @Override

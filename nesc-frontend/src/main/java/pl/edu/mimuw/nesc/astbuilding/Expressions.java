@@ -6,6 +6,8 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.google.common.collect.ImmutableMap;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.Type;
@@ -44,6 +46,39 @@ public final class Expressions {
      * octal base: 01777777777777777777777.
      */
     private static final int MAX_INTEGER_CST_CHARS_COUNT = 23;
+
+    /**
+     * Map with simple escape sequences as keys and characters associated with
+     * them as values.
+     */
+    private static final ImmutableMap<String, Character> SIMPLE_ESCAPE_SEQUENCES;
+    static {
+        ImmutableMap.Builder<String, Character> builder = ImmutableMap.builder();
+        builder.put("\\'", '\'');
+        builder.put("\\\"", '"');
+        builder.put("\\?", '?');
+        builder.put("\\\\", '\\');
+        builder.put("\\a", '\u0007');
+        builder.put("\\b", '\b');
+        builder.put("\\f", '\f');
+        builder.put("\\n", '\n');
+        builder.put("\\r", '\r');
+        builder.put("\\t", '\t');
+        builder.put("\\v", '\u000b');
+        SIMPLE_ESCAPE_SEQUENCES = builder.build();
+    }
+
+    /**
+     * Regular expression to detect an octal escape sequence in a character
+     * literal.
+     */
+    private static final String OCTAL_ESCAPE_SEQUENCE_REGEXP = "\\\\[0-7]{1,3}";
+
+    /**
+     * Regular expression to detect a hexadecimal escape sequence in a character
+     * literal.
+     */
+    private static final String HEXADECIMAL_ESCAPE_SEQUENCE_REGEXP = "\\\\x[0-9a-fA-F]+";
 
     public static ErrorExpr makeErrorExpr() {
         return ERROR_EXPRESSION;
@@ -490,6 +525,34 @@ public final class Expressions {
     public static BitxorAssign makeBitxorAssign(Expression leftExpression, Expression rightExpression) {
         final BitxorAssign result = new BitxorAssign(leftExpression.getLocation(), leftExpression, rightExpression);
         result.setEndLocation(rightExpression.getEndLocation());
+        return result;
+    }
+
+    public static CharacterCst makeCharacterCst(String literalStr, Location startLocation, Location endLocation) {
+        Optional<Character> value = Optional.absent();
+
+        if (SIMPLE_ESCAPE_SEQUENCES.containsKey(literalStr)) {
+            // Simple escape sequence
+            value = Optional.of(SIMPLE_ESCAPE_SEQUENCES.get(literalStr));
+        } else if (literalStr.matches(OCTAL_ESCAPE_SEQUENCE_REGEXP)) {
+            // Octal escape sequence
+            final int codePoint = Integer.parseInt(literalStr.substring(1), 8);
+            final char[] chars = Character.toChars(codePoint);
+            assert chars.length == 1 : "a character literal cannot be represented by a single char value";
+            value = Optional.of(chars[0]);
+        } else if (literalStr.matches(HEXADECIMAL_ESCAPE_SEQUENCE_REGEXP)) {
+            // Hexadecimal escape sequence
+            final int codePoint = Integer.parseInt(literalStr.substring(2), 16);
+            final char[] chars = Character.toChars(codePoint);
+            assert chars.length == 1 : "a character literal cannot be represented by a single char value";
+            value = Optional.of(chars[0]);
+        } else if (literalStr.length() == 1) {
+            value = Optional.of(literalStr.charAt(0));
+        }
+
+        // Prepare and return the result
+        final CharacterCst result = new CharacterCst(startLocation, literalStr, value);
+        result.setEndLocation(endLocation);
         return result;
     }
 

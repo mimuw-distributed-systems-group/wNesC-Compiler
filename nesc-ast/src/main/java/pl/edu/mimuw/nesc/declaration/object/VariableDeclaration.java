@@ -26,6 +26,12 @@ public class VariableDeclaration extends ObjectDeclaration {
      */
     public static class Builder extends ExtendedBuilder<VariableDeclaration> {
         @Override
+        protected void beforeBuild() {
+            super.beforeBuild();
+            setKind(ObjectKind.VARIABLE);
+        }
+
+        @Override
         protected VariableDeclaration create() {
             return new VariableDeclaration(this);
         }

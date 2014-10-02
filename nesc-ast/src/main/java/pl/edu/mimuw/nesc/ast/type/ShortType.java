@@ -1,5 +1,8 @@
 package pl.edu.mimuw.nesc.ast.type;
 
+import com.google.common.collect.Range;
+import java.math.BigInteger;
+
 /**
  * Reflects the <code>short int</code> type.
  *
@@ -7,6 +10,9 @@ package pl.edu.mimuw.nesc.ast.type;
  */
 public final class ShortType extends SignedIntegerType {
     public static final int INTEGER_RANK = 10;
+    public static final BigInteger MIN_VALUE = BigInteger.valueOf(-32767L);
+    public static final BigInteger MAX_VALUE = BigInteger.valueOf(32767L);
+    public static final Range<BigInteger> RANGE = Range.closed(MIN_VALUE, MAX_VALUE);
 
     public ShortType(boolean constQualified, boolean volatileQualified) {
         super(constQualified, volatileQualified);
@@ -36,6 +42,21 @@ public final class ShortType extends SignedIntegerType {
     @Override
     public final int getIntegerRank() {
         return INTEGER_RANK;
+    }
+
+    @Override
+    public final BigInteger getMinimumValue() {
+        return MIN_VALUE;
+    }
+
+    @Override
+    public final BigInteger getMaximumValue() {
+        return MAX_VALUE;
+    }
+
+    @Override
+    public final Range<BigInteger> getRange() {
+        return RANGE;
     }
 
     @Override

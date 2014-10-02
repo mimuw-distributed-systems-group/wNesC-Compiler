@@ -1,6 +1,9 @@
 package pl.edu.mimuw.nesc.ast.type;
 
+import com.google.common.collect.Range;
+import java.math.BigInteger;
 import pl.edu.mimuw.nesc.declaration.tag.EnumDeclaration;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -73,6 +76,21 @@ public final class EnumeratedType extends IntegerType {
     @Override
     public final int getIntegerRank() {
         return INTEGER_RANK;
+    }
+
+    @Override
+    public final BigInteger getMinimumValue() {
+        throw new UnsupportedOperationException("getting the minimum value is unsupported for an enumerated type");
+    }
+
+    @Override
+    public final BigInteger getMaximumValue() {
+        throw new UnsupportedOperationException("getting the maximum value is unsupported for an enumerated type");
+    }
+
+    @Override
+    public final Range<BigInteger> getRange() {
+        throw new UnsupportedOperationException("getting the range of values is unsupported for an enumerated type");
     }
 
     @Override

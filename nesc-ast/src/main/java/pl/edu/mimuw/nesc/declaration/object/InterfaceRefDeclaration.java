@@ -127,6 +127,7 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
                 setType(Optional.<Type>of(new InterfaceType(interfaceName, typeArguments)));
             }
             setLinkage(Optional.of(Linkage.NONE));
+            setKind(ObjectKind.INTERFACE);
         }
 
         @Override

@@ -93,13 +93,44 @@ public class ExprData {
     }
 
     /**
-     * Changes the type contained in this data object to the type that is the
-     * result of decaying it.
+     * <p>If this data object depicts an lvalue that does not have array type,
+     * the lvalue conversion is performed, equivalent to invoking
+     * {@link ExprData#lvalueConversion} method. Otherwise, the decaying
+     * procedure is done and it has the same effects as if
+     * {@link ExprData#decay} method was called.</p>
      *
      * @return <code>this</code>
      */
-    ExprData decayType() {
-        type = type.decay();
+    ExprData superDecay() {
+        if (isLvalue && !type.isArrayType()) {
+            lvalueConversion();
+        } else {
+            decay();
+        }
+
+        return this;
+    }
+
+    /**
+     * <p>Performs the operation of decaying an array object or a function
+     * designator.</p>
+     * <p>If the type contained in this data object is not an array type and is
+     * not a function type, this method does nothing. However, if it is, the
+     * following changes are made:</p>
+     * <ul>
+     *     <li>the type is changed to the type that is the result of decaying it
+     *     </li>
+     *     <li>lvalue flag is cleared</li>
+     * </ul>
+     *
+     * @return <code>this</code>
+     */
+    ExprData decay() {
+        if (type.isArrayType() || type.isFunctionType()) {
+            type = type.decay();
+            isLvalue = false;
+        }
+
         return this;
     }
 
@@ -112,7 +143,7 @@ public class ExprData {
      *     <li>the type is changed to the unqualified version of the same
      *     type</li>
      * </ul>
-     * <p>Otherwise, this method has no side effects.</p>
+     * <p>Otherwise, this method does nothing.</p>
      *
      * @return <code>this</code>
      */
@@ -122,6 +153,17 @@ public class ExprData {
             isLvalue = false;
         }
 
+        return this;
+    }
+
+    /**
+     * Changes the type contained in this data object to the type that is the
+     * result of promoting it.
+     *
+     * @return <code>this</code>
+     */
+    ExprData promoteType() {
+        type = type.promote();
         return this;
     }
 

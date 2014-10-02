@@ -45,15 +45,30 @@ public abstract class ObjectDeclaration extends Declaration {
      */
     protected final Optional<Linkage> linkage;
 
+    /**
+     * Kind of this object declaration.
+     */
+    protected final ObjectKind kind;
+
     protected ObjectDeclaration(Builder<? extends ObjectDeclaration> builder) {
         super(builder);
         this.name = builder.name;
+        this.kind = builder.kind;
         this.type = builder.type;
         this.linkage = builder.linkage;
     }
 
     public String getName() {
         return name;
+    }
+
+    /**
+     * Get the kind of this object declaration.
+     *
+     * @return Kind of this object declaration. Never null.
+     */
+    public ObjectKind getKind() {
+        return kind;
     }
 
     public Optional<Type> getType() {
@@ -109,12 +124,14 @@ public abstract class ObjectDeclaration extends Declaration {
          * Data needed for building the declaration object.
          */
         private String name;
+        private ObjectKind kind;
         private Optional<Type> type = Optional.absent();
         private Optional<Linkage> linkage = Optional.absent();
 
         /**
-         * Remember if the optional fields have been set.
+         * Remember if some fields have been set.
          */
+        private boolean kindAssigned = false;
         private boolean typeAssigned = false;
         private boolean linkageAssigned = false;
 
@@ -159,10 +176,24 @@ public abstract class ObjectDeclaration extends Declaration {
             this.linkageAssigned = true;
         }
 
+        /**
+         * Set the kind of the object declaration instance. This method should
+         * be called in a <code>beforeBuild</code> override.
+         *
+         * @param kind Kind to set.
+         * @throws IllegalStateException The kind has been already set.
+         */
+        protected void setKind(ObjectKind kind) {
+            checkState(!kindAssigned, "the kind can be set exactly once");
+            this.kind = kind;
+            this.kindAssigned = true;
+        }
+
         @Override
         protected void validate() {
             super.validate();
             checkNotNull(name, "the name cannot be null");
+            checkNotNull(kind, "the kind cannot be null");
             checkNotNull(type, "the type cannot be null");
             checkNotNull(linkage, "the linkage cannot be null");
         }

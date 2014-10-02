@@ -9,6 +9,9 @@ import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.Type;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static pl.edu.mimuw.nesc.ast.util.AstConstants.*;
+import static pl.edu.mimuw.nesc.ast.util.AstConstants.BinaryOp.*;
+import static pl.edu.mimuw.nesc.ast.util.AstConstants.UnaryOp.*;
 
 /**
  * A class that is responsible for printing certain NesC constructions as
@@ -20,60 +23,6 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
     /**
      * Constants used for printing.
      */
-    // Parentheses
-    private static final String LPAREN = "(";
-    private static final String RPAREN = ")";
-    private static final String LBRACK = "[";
-    private static final String RBRACK = "]";
-    // Binary operators
-    private static final String OP_PLUS = "+";
-    private static final String OP_MINUS = "-";
-    private static final String OP_TIMES = "*";
-    private static final String OP_DIVIDE = "/";
-    private static final String OP_MODULO = "%";
-    private static final String OP_LSHIFT = "<<";
-    private static final String OP_RSHIFT = ">>";
-    private static final String OP_LEQ = "<=";
-    private static final String OP_GEQ = ">=";
-    private static final String OP_LT = "<";
-    private static final String OP_GT = ">";
-    private static final String OP_EQ = "==";
-    private static final String OP_NE = "!=";
-    private static final String OP_BITAND = "&";
-    private static final String OP_BITOR = "|";
-    private static final String OP_BITXOR = "^";
-    private static final String OP_ANDAND = "&&";
-    private static final String OP_OROR = "||";
-    private static final String OP_ASSIGN = "=";
-    private static final String OP_ASSIGN_LSHIFT = "<<=";
-    private static final String OP_ASSIGN_PLUS = "+=";
-    private static final String OP_ASSIGN_BITXOR = "^=";
-    private static final String OP_ASSIGN_MINUS = "-=";
-    private static final String OP_ASSIGN_RSHIFT = ">>=";
-    private static final String OP_ASSIGN_TIMES = "*=";
-    private static final String OP_ASSIGN_BITAND = "&=";
-    private static final String OP_ASSIGN_DIVIDE = "/=";
-    private static final String OP_ASSIGN_BITOR = "|=";
-    private static final String OP_ASSIGN_MODULO = "%=";
-    // Unary operators
-    private static final String OP_DEREFERENCE = "*";
-    private static final String OP_ADDRESSOF = "&";
-    private static final String OP_BITNOT = "~";
-    private static final String OP_NOT = "!";
-    private static final String OP_DOT = ".";
-    private static final String OP_INCREMENT = "++";
-    private static final String OP_DECREMENT = "--";
-    private static final String OP_LABELADDRESS = "&&";
-    // Letter unary operators
-    private static final String OP_ALIGNOF = "_Alignof";
-    private static final String OP_SIZEOF = "sizeof";
-    private static final String OP_REALPART = "__real";
-    private static final String OP_IMAGPART = "__imag";
-    // Call kinds keywords
-    private static final String CALL_COMMAND = "call";
-    private static final String CALL_EVENT = "signal";
-    private static final String CALL_TASK = "post";
-    // Additional constants
     private static final String TEXT_ERROR = "<error>";
     private static final String TEXT_COMPOUND_EXPR = "<compound expr>";
     private static final String TEXT_INVALID_TYPE = "<invalid type>";
@@ -124,211 +73,211 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
 
     @Override
     public Void visitPlus(Plus expr, Void arg) {
-        printBinary(expr, OP_PLUS);
+        printBinary(expr, PLUS);
         return null;
     }
 
     @Override
     public Void visitMinus(Minus expr, Void arg) {
-        printBinary(expr, OP_MINUS);
+        printBinary(expr, MINUS);
         return null;
     }
 
     @Override
     public Void visitTimes(Times expr, Void arg) {
-        printBinary(expr, OP_TIMES);
+        printBinary(expr, TIMES);
         return null;
     }
 
     @Override
     public Void visitDivide(Divide expr, Void arg) {
-        printBinary(expr, OP_DIVIDE);
+        printBinary(expr, DIVIDE);
         return null;
     }
 
     @Override
     public Void visitModulo(Modulo expr, Void arg) {
-        printBinary(expr, OP_MODULO);
+        printBinary(expr, MODULO);
         return null;
     }
 
     @Override
     public Void visitLshift(Lshift expr, Void arg) {
-        printBinary(expr, OP_LSHIFT);
+        printBinary(expr, LSHIFT);
         return null;
     }
 
     @Override
     public Void visitRshift(Rshift expr, Void arg) {
-        printBinary(expr, OP_RSHIFT);
+        printBinary(expr, RSHIFT);
         return null;
     }
 
     @Override
     public Void visitLeq(Leq expr, Void arg) {
-        printBinary(expr, OP_LEQ);
+        printBinary(expr, LEQ);
         return null;
     }
 
     @Override
     public Void visitGeq(Geq expr, Void arg) {
-        printBinary(expr, OP_GEQ);
+        printBinary(expr, GEQ);
         return null;
     }
 
     @Override
     public Void visitLt(Lt expr, Void arg) {
-        printBinary(expr, OP_LT);
+        printBinary(expr, LT);
         return null;
     }
 
     @Override
     public Void visitGt(Gt expr, Void arg) {
-        printBinary(expr, OP_GT);
+        printBinary(expr, GT);
         return null;
     }
 
     @Override
     public Void visitEq(Eq expr, Void arg) {
-        printBinary(expr, OP_EQ);
+        printBinary(expr, EQ);
         return null;
     }
 
     @Override
     public Void visitNe(Ne expr, Void arg) {
-        printBinary(expr, OP_NE);
+        printBinary(expr, NE);
         return null;
     }
 
     @Override
     public Void visitBitand(Bitand expr, Void arg) {
-        printBinary(expr, OP_BITAND);
+        printBinary(expr, BITAND);
         return null;
     }
 
     @Override
     public Void visitBitor(Bitor expr, Void arg) {
-        printBinary(expr, OP_BITOR);
+        printBinary(expr, BITOR);
         return null;
     }
 
     @Override
     public Void visitBitxor(Bitxor expr, Void arg) {
-        printBinary(expr, OP_BITXOR);
+        printBinary(expr, BITXOR);
         return null;
     }
 
     @Override
     public Void visitAndand(Andand expr, Void arg) {
-        printBinary(expr, OP_ANDAND);
+        printBinary(expr, ANDAND);
         return null;
     }
 
     @Override
     public Void visitOror(Oror expr, Void arg) {
-        printBinary(expr, OP_OROR);
+        printBinary(expr, OROR);
         return null;
     }
 
     @Override
     public Void visitAssign(Assign expr, Void arg) {
-        printBinary(expr, OP_ASSIGN);
+        printBinary(expr, ASSIGN);
         return null;
     }
 
     @Override
     public Void visitPlusAssign(PlusAssign expr, Void arg) {
-        printBinary(expr, OP_ASSIGN_PLUS);
+        printBinary(expr, ASSIGN_PLUS);
         return null;
     }
 
     @Override
     public Void visitMinusAssign(MinusAssign expr, Void arg) {
-        printBinary(expr, OP_ASSIGN_MINUS);
+        printBinary(expr, ASSIGN_MINUS);
         return null;
     }
 
     @Override
     public Void visitTimesAssign(TimesAssign expr, Void arg) {
-        printBinary(expr, OP_ASSIGN_TIMES);
+        printBinary(expr, ASSIGN_TIMES);
         return null;
     }
 
     @Override
     public Void visitDivideAssign(DivideAssign expr, Void arg) {
-        printBinary(expr, OP_ASSIGN_DIVIDE);
+        printBinary(expr, ASSIGN_DIVIDE);
         return null;
     }
 
     @Override
     public Void visitModuloAssign(ModuloAssign expr, Void arg) {
-        printBinary(expr, OP_ASSIGN_MODULO);
+        printBinary(expr, ASSIGN_MODULO);
         return null;
     }
 
     @Override
     public Void visitLshiftAssign(LshiftAssign expr, Void arg) {
-        printBinary(expr, OP_ASSIGN_LSHIFT);
+        printBinary(expr, ASSIGN_LSHIFT);
         return null;
     }
 
     @Override
     public Void visitRshiftAssign(RshiftAssign expr, Void arg) {
-        printBinary(expr, OP_ASSIGN_RSHIFT);
+        printBinary(expr, ASSIGN_RSHIFT);
         return null;
     }
 
     @Override
     public Void visitBitandAssign(BitandAssign expr, Void arg) {
-        printBinary(expr, OP_ASSIGN_BITAND);
+        printBinary(expr, ASSIGN_BITAND);
         return null;
     }
 
     @Override
     public Void visitBitorAssign(BitorAssign expr, Void arg) {
-        printBinary(expr, OP_ASSIGN_BITOR);
+        printBinary(expr, ASSIGN_BITOR);
         return null;
     }
 
     @Override
     public Void visitBitxorAssign(BitxorAssign expr, Void arg) {
-        printBinary(expr, OP_ASSIGN_BITXOR);
+        printBinary(expr, ASSIGN_BITXOR);
         return null;
     }
 
     @Override
     public Void visitUnaryMinus(UnaryMinus expr, Void arg) {
-        printUnary(expr, OP_MINUS);
+        printUnary(expr, UNARY_MINUS);
         return null;
     }
 
     @Override
     public Void visitDereference(Dereference expr, Void arg) {
-        printUnary(expr, OP_DEREFERENCE);
+        printUnary(expr, DEREFERENCE);
         return null;
     }
 
     @Override
     public Void visitAddressOf(AddressOf expr, Void arg) {
-        printUnary(expr, OP_ADDRESSOF);
+        printUnary(expr, ADDRESSOF);
         return null;
     }
 
     @Override
     public Void visitUnaryPlus(UnaryPlus expr, Void arg) {
-        printUnary(expr, OP_PLUS);
+        printUnary(expr, UNARY_PLUS);
         return null;
     }
 
     @Override
     public Void visitBitnot(Bitnot expr, Void arg) {
-        printUnary(expr, OP_BITNOT);
+        printUnary(expr, BITNOT);
         return null;
     }
 
     @Override
     public Void visitNot(Not expr, Void arg) {
-        printUnary(expr, OP_NOT);
+        printUnary(expr, NOT);
         return null;
     }
 
@@ -401,7 +350,7 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
     public Void visitLabelAddress(LabelAddress expr, Void arg) {
         printLeftParentheses(expr);
 
-        strBuilder.append(OP_LABELADDRESS);
+        strBuilder.append(LABELADDRESS);
         strBuilder.append(expr.getIdLabel().getId());
 
         printRightParentheses(expr);
@@ -532,25 +481,25 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
 
     @Override
     public Void visitPreincrement(Preincrement expr, Void arg) {
-        printPreincrement(expr, OP_INCREMENT);
+        printPreincrement(expr, INCREMENT);
         return null;
     }
 
     @Override
     public Void visitPredecrement(Predecrement expr, Void arg) {
-        printPreincrement(expr, OP_DECREMENT);
+        printPreincrement(expr, DECREMENT);
         return null;
     }
 
     @Override
     public Void visitPostincrement(Postincrement expr, Void arg) {
-        printPostincrement(expr, OP_INCREMENT);
+        printPostincrement(expr, INCREMENT);
         return null;
     }
 
     @Override
     public Void visitPostdecrement(Postdecrement expr, Void arg) {
-        printPostincrement(expr, OP_DECREMENT);
+        printPostincrement(expr, DECREMENT);
         return null;
     }
 
@@ -621,7 +570,7 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
     }
 
 
-    private void printBinary(Binary binary, String op) {
+    private void printBinary(Binary binary, BinaryOp op) {
         printLeftParentheses(binary);
         binary.getLeftArgument().accept(this, null);
 
@@ -633,7 +582,7 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
         printRightParentheses(binary);
     }
 
-    private void printUnary(Unary unary, String op) {
+    private void printUnary(Unary unary, UnaryOp op) {
         printLeftParentheses(unary);
 
         strBuilder.append(op);
@@ -676,14 +625,14 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
         strBuilder.append(typeStr);
     }
 
-    private void printPreincrement(Unary unary, String op) {
+    private void printPreincrement(Unary unary, UnaryOp op) {
         printLeftParentheses(unary);
         strBuilder.append(op);
         unary.getArgument().accept(this, null);
         printRightParentheses(unary);
     }
 
-    private void printPostincrement(Unary unary, String op) {
+    private void printPostincrement(Unary unary, UnaryOp op) {
         printLeftParentheses(unary);
         unary.getArgument().accept(this, null);
         strBuilder.append(op);
@@ -706,7 +655,7 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
         printLeftParentheses(unary);
 
         unary.getArgument().accept(this, null);
-        strBuilder.append(OP_DOT);
+        strBuilder.append(DOT);
         strBuilder.append(fieldName);
 
         printRightParentheses(unary);

@@ -1615,10 +1615,7 @@ primary:
     }
     | CHARACTER_LITERAL
     {
-        final String value = $1.getValue();
-        final CharacterCst cst = new CharacterCst($1.getLocation(), value, value.charAt(0));
-        cst.setEndLocation($1.getEndLocation());
-        $$ = cst;
+        $$ = Expressions.makeCharacterCst($1.getValue(), $1.getLocation(), $1.getEndLocation());
     }
     | string
     {
@@ -2470,10 +2467,7 @@ restricted_expr:
     }
     | CHARACTER_LITERAL
     {
-        final String value = $1.getValue();
-        final CharacterCst cst = new CharacterCst($1.getLocation(), value, value.charAt(0));
-        cst.setEndLocation($1.getEndLocation());
-        $$ = cst;
+        $$ = Expressions.makeCharacterCst($1.getValue(), $1.getLocation(), $1.getEndLocation());
     }
     | INVALID_NUMBER_LITERAL
     {

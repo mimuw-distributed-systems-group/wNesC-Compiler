@@ -1,9 +1,16 @@
 package pl.edu.mimuw.nesc.ast.type;
 
+import com.google.common.collect.Range;
+import java.math.BigInteger;
+
 /**
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class UnsignedCharType extends UnsignedIntegerType {
+    public static final BigInteger MIN_VALUE = BigInteger.ZERO;
+    public static final BigInteger MAX_VALUE = BigInteger.valueOf(255L);
+    public static final Range<BigInteger> RANGE = Range.closed(MIN_VALUE, MAX_VALUE);
+
     public UnsignedCharType(boolean constQualified, boolean volatileQualified) {
         super(constQualified, volatileQualified);
     }
@@ -32,6 +39,21 @@ public final class UnsignedCharType extends UnsignedIntegerType {
     @Override
     public final int getIntegerRank() {
         return SignedCharType.INTEGER_RANK;
+    }
+
+    @Override
+    public final BigInteger getMinimumValue() {
+        return MIN_VALUE;
+    }
+
+    @Override
+    public final BigInteger getMaximumValue() {
+        return MAX_VALUE;
+    }
+
+    @Override
+    public final Range<BigInteger> getRange() {
+        return RANGE;
     }
 
     @Override

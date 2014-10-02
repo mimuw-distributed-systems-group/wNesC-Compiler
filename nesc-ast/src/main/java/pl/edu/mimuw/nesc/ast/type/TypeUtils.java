@@ -64,6 +64,12 @@ public final class TypeUtils {
     }
 
     /**
+     * Private constructor to prevent this class from being instantiated.
+     */
+    private TypeUtils() {
+    }
+
+    /**
      * Simple helper class that combines an signed integer type with an unsigned
      * integer type.
      *
