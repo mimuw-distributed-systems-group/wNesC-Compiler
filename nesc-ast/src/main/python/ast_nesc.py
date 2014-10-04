@@ -651,6 +651,13 @@ class SizeofType(BasicASTNode):
     asttype = ReferenceField("AstType")
 
 
+class Offsetof(BasicASTNode):
+    """ """
+    superclass = Expression
+    typename = ReferenceField("AstType")
+    fieldlist = ReferenceListField("Word")
+
+
 class AlignofType(BasicASTNode):
     """
     Allows to inquire about how an object is aligned, or the minimum alignment usually required by a type.

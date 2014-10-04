@@ -177,9 +177,11 @@ public final class Expressions {
     }
 
     public static Expression makeOffsetof(Location startLocation, Location endLocation, AstType type,
-                                          LinkedList<String> fields) {
-        // FIXME
-        return makeCast(startLocation, endLocation, type, null);
+                                          LinkedList<Word> fields) {
+        // TODO: check if type is struct or union
+        final Offsetof offsetof = new Offsetof(startLocation, type, fields);
+        offsetof.setEndLocation(endLocation);
+        return offsetof;
     }
 
     public static Cast makeCast(Location startLocation, Location endLocation, AstType type, Expression expression) {

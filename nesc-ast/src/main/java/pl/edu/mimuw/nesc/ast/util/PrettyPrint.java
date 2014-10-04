@@ -294,6 +294,20 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
     }
 
     @Override
+    public Void visitOffsetof(Offsetof expr, Void arg) {
+        printLeftParentheses(expr);
+
+        strBuilder.append("offsetof(");
+        strBuilder.append(expr.getTypename());
+        strBuilder.append(", ");
+        strBuilder.append(expr.getFieldlist());
+        strBuilder.append(RPAREN);
+
+        printRightParentheses(expr);
+        return null;
+    }
+
+    @Override
     public Void visitSizeofExpr(SizeofExpr expr, Void arg) {
         printLetterUnary(expr, OP_SIZEOF);
         return null;

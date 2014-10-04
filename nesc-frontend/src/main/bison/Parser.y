@@ -393,7 +393,7 @@ import static java.lang.String.format;
 %type <LinkedList<TypeElement>> maybe_type_quals_attrs fn_quals
 %type <AstType> typename
 %type <Word> idword any_word tag
-%type <LinkedList<Symbol>> fieldlist
+%type <LinkedList<Word>> fieldlist
 %type <ValueStructKind> structkind
 
 %type <ValueCallKind> callkind
@@ -1644,8 +1644,7 @@ primary:
     }
     | OFFSETOF LPAREN typename COMMA fieldlist RPAREN
     {
-        // FIXME: fieldlist
-        $$ = Expressions.makeOffsetof($1.getLocation(), $6.getEndLocation(), $3, Lists.<String>newList());
+        $$ = Expressions.makeOffsetof($1.getLocation(), $6.getEndLocation(), $3, $5);
     }
     | primary LBRACK nonnull_exprlist RBRACK
     {
@@ -1675,9 +1674,15 @@ primary:
 
 fieldlist:
       identifier
-    { $$ = Lists.<Symbol>newList($1); }
+    {
+        final Word w = new Word($1.getLocation(), $1.getValue());
+        $$ = Lists.<Word>newList(w);
+    }
     | fieldlist DOT identifier
-    { $$ = Lists.chain($1, $3); }
+    {
+        final Word w = new Word($3.getLocation(), $3.getValue());
+        $$ = Lists.chain($1, w);
+    }
     ;
 
 function_call:

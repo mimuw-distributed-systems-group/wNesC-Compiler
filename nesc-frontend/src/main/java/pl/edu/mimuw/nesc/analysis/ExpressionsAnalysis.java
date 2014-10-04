@@ -500,6 +500,12 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
     }
 
     @Override
+    public Optional<ExprData> visitOffsetof(Offsetof expr, Void arg) {
+        // FIXME
+        return Optional.absent();
+    }
+
+    @Override
     public Optional<ExprData> visitRealpart(Realpart expr, Void arg) {
         // FIXME
         return Optional.absent();
