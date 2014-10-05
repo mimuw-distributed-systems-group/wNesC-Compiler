@@ -339,7 +339,7 @@ import static java.lang.String.format;
 %type <Designator> designator
 %type <LinkedList<Designator>> designator_list
 %type <Expression> unary_expr xexpr
-%type <FunctionCall>function_call
+%type <FunctionCall> function_call nesc_call task_call
 %type <Expression> generic_type
 %type <LinkedList<Expression>> typelist
 %type <IdLabel> id_label
@@ -396,7 +396,7 @@ import static java.lang.String.format;
 %type <LinkedList<Word>> fieldlist
 %type <ValueStructKind> structkind
 
-%type <ValueCallKind> callkind
+%type <ValueCallKind> iface_callkind
 %type <LinkedList<Declaration>> datadef_list
 %type <LinkedList<Declaration>> parameters parameters1
 %type <Declaration> requires provides
@@ -1385,25 +1385,20 @@ nonnull_exprlist_:
     { $$ = Lists.chain($1, $3); }
     ;
 
-callkind:
+iface_callkind:
       CALL
     { $$ = new ValueCallKind($1.getLocation(), $1.getEndLocation(), NescCallKind.COMMAND_CALL); }
     | SIGNAL
     { $$ = new ValueCallKind($1.getLocation(), $1.getEndLocation(), NescCallKind.EVENT_SIGNAL); }
-    | POST
-    { $$ = new ValueCallKind($1.getLocation(), $1.getEndLocation(), NescCallKind.POST_TASK); }
     ;
 
 unary_expr:
       primary
     { $$ = $1; }
-    | callkind function_call
-    {
-        final FunctionCall call = $2;
-        call.setLocation($1.getLocation());
-        call.setCallKind($1.getCallKind());
-        $$ = $2;
-    }
+    | nesc_call
+    { $$ = $1; }
+    | task_call
+    { $$ = $1; }
     | STAR cast_expr
     {
         $$ = Expressions.makeDereference($1.getLocation(), $2);
@@ -1596,7 +1591,7 @@ expr_no_commas:
 primary:
       IDENTIFIER
     {
-        $$ = Expressions.makeIdentifier($1.getLocation(), $1.getEndLocation(), $1.getValue(), true);
+        $$ = Expressions.makeIdentifier($1.getLocation(), $1.getEndLocation(), $1.getValue());
     }
     | INTEGER_LITERAL
     {
@@ -1648,17 +1643,30 @@ primary:
     }
     | primary LBRACK nonnull_exprlist RBRACK
     {
-        // FIXME: ambiguity: array reference or generic call?
+        /* NOTICE: The ambiguity between array reference and generic call is
+         * resolved by introducing a new non-terminal nesc_call. */
         $$ = Expressions.makeArrayRef($1.getLocation(), $4.getEndLocation(), $1, $3);
     }
-    | primary DOT identifier
+    | primary[exp] DOT identifier[id]
     {
-        // FIXME: ambiguity: field reference, interface dereference, component dereference?
-        $$ = Expressions.makeFieldRef($1.getLocation(), $3.getEndLocation(), $1, $3.getValue());
+        // NOTICE: ambiguity: field reference or component dereference?
+        final boolean isComponentDeref;
+        if ($exp instanceof Identifier) {
+            final Identifier id = (Identifier) $exp;
+            final Optional<? extends ObjectDeclaration> symbol = environment.getObjects().get(id.getName());
+            isComponentDeref = symbol.isPresent() && (symbol.get() instanceof ComponentRefDeclaration);
+        } else {
+            isComponentDeref = false;
+        }
+        if (isComponentDeref) {
+            final Word fieldWord = makeWord($id.getLocation(), $id.getEndLocation(), $id.getValue());
+            $$ = NescExpressions.makeComponentDeref((Identifier) $exp, fieldWord);
+        } else {
+            $$ = Expressions.makeFieldRef($exp.getLocation(), $id.getEndLocation(), $exp, $id.getValue());
+        }
     }
     | primary ARROW identifier
     {
-        // FIXME: ambiguity: field reference, interface dereference, component dereference?
         Expression dereference = Expressions.makeDereference($1.getLocation(), $1);
         $$ = Expressions.makeFieldRef($1.getLocation(), $3.getEndLocation(), dereference, $3.getValue());
     }
@@ -1690,11 +1698,59 @@ function_call:
     { $$ = Expressions.makeFunctionCall($1.getLocation(), $4.getEndLocation(), $1, $3); }
     ;
 
+nesc_call:
+      /* bare command/event */
+      iface_callkind[kind] identifier[name] LPAREN exprlist[params] RPAREN[rparen]
+    {
+        final Identifier id = Expressions.makeIdentifier($name.getLocation(), $name.getEndLocation(), $name.getValue());
+        $$ = Expressions.makeFunctionCall($kind.getLocation(), $rparen.getEndLocation(), id, $params,
+                $kind.getCallKind());
+    }
+    /* bare command/event */
+    | iface_callkind[kind] identifier[name] LBRACK[lbrack] nonnull_exprlist[generic_params] RBRACK[rbrack] LPAREN exprlist[params] RPAREN[rparen]
+    {
+        final Identifier id = Expressions.makeIdentifier($name.getLocation(), $name.getEndLocation(), $name.getValue());
+        final GenericCall genericCall = NescExpressions.makeGenericCall($lbrack.getLocation(), $rbrack.getEndLocation(),
+                id, $generic_params);
+        $$ = Expressions.makeFunctionCall($kind.getLocation(), $rparen.getEndLocation(), genericCall, $params,
+                $kind.getCallKind());
+    }
+    | iface_callkind[kind] identifier[iface] DOT identifier[name] LPAREN exprlist[params] RPAREN[rparen]
+    {
+        final Identifier ifaceId = Expressions.makeIdentifier($iface.getLocation(), $iface.getEndLocation(),
+                $iface.getValue());
+        final Word methodWord = makeWord($name.getLocation(), $name.getEndLocation(), $name.getValue());
+        final InterfaceDeref ifaceDeref = NescExpressions.makeInterfaceDeref(ifaceId, methodWord);
+        $$ = Expressions.makeFunctionCall($kind.getLocation(), $rparen.getEndLocation(), ifaceDeref, $params,
+                $kind.getCallKind());
+    }
+    | iface_callkind[kind] identifier[iface] DOT identifier[name] LBRACK[lbrack] nonnull_exprlist[generic_params] RBRACK[rbrack] LPAREN exprlist[params] RPAREN[rparen]
+    {
+        final Identifier ifaceId = Expressions.makeIdentifier($iface.getLocation(), $iface.getEndLocation(),
+                $iface.getValue());
+        final Word methodWord = makeWord($name.getLocation(), $name.getEndLocation(), $name.getValue());
+        final InterfaceDeref ifaceDeref = NescExpressions.makeInterfaceDeref(ifaceId, methodWord);
+        final GenericCall genericCall = NescExpressions.makeGenericCall($lbrack.getLocation(), $rbrack.getEndLocation(),
+                ifaceDeref, $generic_params);
+        $$ = Expressions.makeFunctionCall($kind.getLocation(), $rparen.getEndLocation(), genericCall, $params,
+                $kind.getCallKind());
+    }
+    ;
+
+task_call:
+      POST[post] function_call[function]
+    {
+        $function.setLocation($post.getLocation());
+        $function.setCallKind(NescCallKind.POST_TASK);
+        $$ = $function;
+    }
+    ;
+
 string:
       string_chain
     { $$ = $1; }
     | MAGIC_STRING
-    { $$ = Expressions.makeIdentifier($1.getLocation(), $1.getEndLocation(), $1.getValue(), false); }
+    { $$ = Expressions.makeIdentifier($1.getLocation(), $1.getEndLocation(), $1.getValue()); }
   ;
 
 /*
@@ -4408,6 +4464,12 @@ string_chain:
         if (this.parserListener != null) {
             this.parserListener.extdefsFinished();
         }
+    }
+
+    private Word makeWord(Location location, Location endLocation, String name) {
+        final Word result = new Word(location, name);
+        result.setEndLocation(endLocation);
+        return result;
     }
 
     private void warning(Location startLocation, Optional<Location> endLocation, String message) {

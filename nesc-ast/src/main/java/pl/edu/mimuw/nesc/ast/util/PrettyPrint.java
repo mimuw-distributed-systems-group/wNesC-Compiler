@@ -679,6 +679,16 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
         printRightParentheses(unary);
     }
 
+    private void printFieldLikeExpr(Unary unary, Word fieldName) {
+        printLeftParentheses(unary);
+
+        unary.getArgument().accept(this, null);
+        strBuilder.append(DOT);
+        strBuilder.append(fieldName.getName());
+
+        printRightParentheses(unary);
+    }
+
     private void printCommaSepList(List<? extends Expression> expressions) {
         printSeparatedList(expressions, COMMA);
     }

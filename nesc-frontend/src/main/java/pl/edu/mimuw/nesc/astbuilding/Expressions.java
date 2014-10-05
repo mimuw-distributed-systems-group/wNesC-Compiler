@@ -126,8 +126,8 @@ public final class Expressions {
         return result;
     }
 
-    public static Identifier makeIdentifier(Location startLocation, Location endLocation, String id,
-                                            boolean maybeImplicit) {
+    public static Identifier makeIdentifier(Location startLocation, Location endLocation, String id) {
+        // FIXME: maybe implicit? is it necessary?
         final Identifier result = new Identifier(startLocation, id);
         result.setEndLocation(endLocation);
         return result;
@@ -141,7 +141,12 @@ public final class Expressions {
 
     public static FunctionCall makeFunctionCall(Location location, Location endLocation, Expression function,
                                                 LinkedList<Expression> args) {
-        final FunctionCall result = new FunctionCall(location, function, args, null, null);
+        return makeFunctionCall(location, endLocation, function, args, NescCallKind.NORMAL_CALL);
+    }
+
+    public static FunctionCall makeFunctionCall(Location location, Location endLocation, Expression function,
+                                                LinkedList<Expression> args, NescCallKind callKind) {
+        final FunctionCall result = new FunctionCall(location, function, args, callKind);
         result.setEndLocation(endLocation);
         return result;
     }
@@ -149,8 +154,9 @@ public final class Expressions {
     public static FunctionCall makeVaArg(Location startLocation, Location endLocation, LinkedList<Expression> args,
                                          AstType type) {
         // FIXME: second argument
-        final FunctionCall result = new FunctionCall(startLocation, null, args, type, NescCallKind.NORMAL_CALL);
+        final FunctionCall result = new FunctionCall(startLocation, null, args, NescCallKind.NORMAL_CALL);
         result.setEndLocation(endLocation);
+        result.setVaArgCall(type);
         return result;
     }
 

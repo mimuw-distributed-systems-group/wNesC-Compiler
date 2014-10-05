@@ -738,7 +738,7 @@ class FunctionCall(BasicASTNode):
     superclass = Expression
     function = ReferenceField("Expression")
     arguments = ReferenceListField("Expression")
-    vaArgCall = ReferenceField("AstType")
+    vaArgCall = ReferenceField("AstType", constructor_variable=False)
     callKind = ReferenceField("NescCallKind")
 
 
@@ -1324,7 +1324,7 @@ class InterfaceDeref(BasicASTNode):
     </pre>
     """
     superclass = Unary
-    methodName = StringField()
+    methodName = ReferenceField("Word")
     # FIXME: does it need declaration reference?
     #declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False)
 
@@ -1348,7 +1348,7 @@ class ComponentDeref(BasicASTNode):
     </pre>
     """
     superclass = Unary
-    fieldName = StringField()
+    fieldName = ReferenceField("Word")
     # FIXME: does it need declaration reference?
     #declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False)
 
