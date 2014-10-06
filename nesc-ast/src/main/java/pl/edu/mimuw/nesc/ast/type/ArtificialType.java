@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.ast.type;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * <p>A class that represents an artificial type. An artificial type is a type
  * that is not a type of an object in the C type system. Artificial types are as
@@ -89,12 +91,23 @@ public abstract class ArtificialType implements Type {
     }
 
     @Override
+    public final boolean isModifiable() {
+        return false;
+    }
+
+    @Override
     public final boolean isConstQualified() {
         return false;
     }
 
     @Override
     public final boolean isVolatileQualified() {
+        return false;
+    }
+
+    @Override
+    public final boolean hasAllQualifiers(Type otherType) {
+        checkNotNull(otherType, "the other type cannot be null");
         return false;
     }
 
@@ -111,6 +124,12 @@ public abstract class ArtificialType implements Type {
     @Override
     public final Type addQualifiers(boolean constQualified,
                                     boolean volatileQualified, boolean restrictQualified) {
+        throw new UnsupportedOperationException("adding qualifiers to an artificial type");
+    }
+
+    @Override
+    public final Type addQualifiers(Type otherType) {
+        checkNotNull(otherType, "the other type cannot be null");
         throw new UnsupportedOperationException("adding qualifiers to an artificial type");
     }
 

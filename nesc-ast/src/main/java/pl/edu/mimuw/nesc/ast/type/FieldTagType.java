@@ -1,5 +1,8 @@
 package pl.edu.mimuw.nesc.ast.type;
 
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import pl.edu.mimuw.nesc.declaration.tag.FieldDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.FieldTagDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.fieldtree.BlockElement.BlockType;
 
@@ -72,6 +75,32 @@ public abstract class FieldTagType<D extends FieldTagDeclaration<?>> extends Der
     @Override
     public final boolean isFunctionType() {
         return false;
+    }
+
+    @Override
+    public final boolean isModifiable() {
+        // If this type is incomplete, immediately return
+        if (!fieldTagDeclaration.getAllFields().isPresent()) {
+            return false;
+        }
+
+        // Handle the case if this type is const-qualified
+        if (isConstQualified()) {
+            return false;
+        }
+
+        final ImmutableList<FieldDeclaration> allFields =
+                fieldTagDeclaration.getAllFields().get();
+
+        for (FieldDeclaration fieldDecl : allFields) {
+            final Optional<Type> fieldType = fieldDecl.getType();
+
+            if (fieldType.isPresent() && !fieldType.get().isModifiable()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Override

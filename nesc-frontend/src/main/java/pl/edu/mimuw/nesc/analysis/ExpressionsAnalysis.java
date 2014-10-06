@@ -5,12 +5,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import java.math.BigInteger;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+
 import pl.edu.mimuw.nesc.ast.IntegerCstKind;
 import pl.edu.mimuw.nesc.ast.IntegerCstSuffix;
+import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.*;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectKind;
+import pl.edu.mimuw.nesc.declaration.tag.FieldDeclaration;
+import pl.edu.mimuw.nesc.declaration.tag.FieldTagDeclaration;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 import pl.edu.mimuw.nesc.problem.issue.*;
@@ -342,80 +349,151 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
     @Override
     public Optional<ExprData> visitAssign(Assign expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        final BinaryExprDataCarrier cr = analyzeSubexpressions(expr);
+        if (!cr.good) {
+            return Optional.absent();
+        }
+
+        cr.rightData.superDecay();
+        cr.leftData.decay();
+
+        Optional<? extends ErroneousIssue> error = Optional.absent();
+
+        if (!cr.leftData.isModifiableLvalue()) {
+            error = Optional.of(new NotModifiableLvalueError(cr.leftType(), expr.getLeftArgument(),
+                    cr.leftData.isLvalue()));
+        } else if (!checkAssignment(cr.leftType(), cr.rightType())) {
+            error = Optional.of(new InvalidSimpleAssignExprError(cr.leftType(),
+                    expr.getLeftArgument(), cr.rightType(), expr.getRightArgument()));
+        }
+
+        if (error.isPresent()) {
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), error.get());
+        } else if (cr.leftType().isPointerType() && cr.rightType().isIntegerType()
+                && !cr.rightData.isNullPointerConstant()) {
+
+            final CautionaryIssue warn = new InvalidPointerAssignmentWarning(cr.leftType(),
+                    expr.getLeftArgument(), cr.rightType(), expr.getRightArgument());
+            errorHelper.warning(expr.getLocation(), expr.getEndLocation(), warn);
+        }
+
+        final ExprData result = ExprData.builder()
+                .type(cr.leftType().removeQualifiers())
+                .isLvalue(false)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build();
+
+        return Optional.of(result);
     }
 
     @Override
     public Optional<ExprData> visitPlusAssign(PlusAssign expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        return analyzeAssignAdditiveExpr(expr, ASSIGN_PLUS);
     }
 
     @Override
     public Optional<ExprData> visitMinusAssign(MinusAssign expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        return analyzeAssignAdditiveExpr(expr, ASSIGN_MINUS);
     }
 
     @Override
     public Optional<ExprData> visitTimesAssign(TimesAssign expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        return analyzeCompoundAssignExpr(expr, ASSIGN_TIMES);
     }
 
     @Override
     public Optional<ExprData> visitDivideAssign(DivideAssign expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        return analyzeCompoundAssignExpr(expr, ASSIGN_DIVIDE);
     }
 
     @Override
     public Optional<ExprData> visitModuloAssign(ModuloAssign expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        return analyzeCompoundAssignExpr(expr, ASSIGN_MODULO);
     }
 
     @Override
     public Optional<ExprData> visitLshiftAssign(LshiftAssign expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        return analyzeCompoundAssignExpr(expr, ASSIGN_LSHIFT);
     }
 
     @Override
     public Optional<ExprData> visitRshiftAssign(RshiftAssign expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        return analyzeCompoundAssignExpr(expr, ASSIGN_RSHIFT);
     }
 
     @Override
     public Optional<ExprData> visitBitandAssign(BitandAssign expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        return analyzeCompoundAssignExpr(expr, ASSIGN_BITAND);
     }
 
     @Override
     public Optional<ExprData> visitBitorAssign(BitorAssign expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        return analyzeCompoundAssignExpr(expr, ASSIGN_BITOR);
     }
 
     @Override
     public Optional<ExprData> visitBitxorAssign(BitxorAssign expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        return analyzeCompoundAssignExpr(expr, ASSIGN_BITXOR);
     }
 
     @Override
     public Optional<ExprData> visitDereference(Dereference expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        final UnaryExprDataCarrier cr = analyzeSubexpressions(expr);
+        if (!cr.good) {
+            return Optional.absent();
+        }
+
+        cr.argData.superDecay();
+
+        if (!cr.argType().isPointerType()) {
+            final ErroneousIssue error = new InvalidDereferenceExprError(cr.argType(),
+                    expr.getArgument());
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), error);
+            return Optional.absent();
+        }
+
+        final PointerType argPtrType = (PointerType) cr.argType();
+        final Type argRefType = argPtrType.getReferencedType();
+
+        final ExprData result = ExprData.builder()
+                .type(argRefType)
+                .isLvalue(argRefType.isObjectType())
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build();
+
+        return Optional.of(result);
     }
 
     @Override
     public Optional<ExprData> visitAddressOf(AddressOf expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        final UnaryExprDataCarrier cr = analyzeSubexpressions(expr);
+        if (!cr.good) {
+            return Optional.absent();
+        }
+
+        // FIXME add checking if the lvalue has not 'register' specifier
+        final boolean correct = cr.argType().isFunctionType()
+                || cr.argData.isLvalue() && cr.argType().isObjectType()
+                        && !cr.argData.isBitField();
+
+        if (!correct) {
+            final ErroneousIssue error = new InvalidAddressOfExprError(cr.argType(),
+                    expr.getArgument(), cr.argData.isLvalue(), cr.argData.isBitField(),
+                    false);
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), error);
+            return Optional.absent();
+        }
+
+        final ExprData result = ExprData.builder()
+                .type(new PointerType(cr.argType()))
+                .isLvalue(false)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build();
+
+        return Optional.of(result);
     }
 
     @Override
@@ -519,20 +597,94 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
     @Override
     public Optional<ExprData> visitArrayRef(ArrayRef expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        // Analyze subexpressions
+        final Optional<ExprData> oArrayData = expr.getArray().accept(this, null);
+        Optional<ExprData> oIndexData = Optional.absent();
+        for (Expression indexExpr : expr.getIndex()) {
+            oIndexData = indexExpr.accept(this, null);
+        }
+
+        // End analysis if important subexpressions are invalid
+        if (!oArrayData.isPresent() || !oIndexData.isPresent()) {
+            return Optional.absent();
+        }
+
+        final ExprData arrayData = oArrayData.get(),
+                       indexData = oIndexData.get();
+
+        // Perform operations
+        arrayData.superDecay();
+        indexData.superDecay();
+
+        // Prepare for further analysis
+        final Type arrayType = arrayData.getType(),
+                   indexType = indexData.getType();
+        Optional<Type> resultType = Optional.absent();
+
+        // Check types and simultaneously determine the type of the result
+        if (arrayType.isPointerType() || indexType.isPointerType()) {
+            // Distinction between the array and index part is only symbolic
+            final PointerType ptrType = arrayType.isPointerType()
+                    ? (PointerType) arrayType
+                    : (PointerType) indexType;
+            final Type otherType = ptrType == arrayType
+                    ? indexType
+                    : arrayType;
+            final Type refType = ptrType.getReferencedType();
+
+            if (refType.isComplete() && refType.isObjectType() && otherType.isIntegerType()) {
+                resultType = Optional.of(refType);
+            }
+        }
+
+        // Report error if the types are invalid
+        if (!resultType.isPresent()) {
+            final Comma dummyComma = new Comma(expr.getIndex().getFirst().getLocation(), expr.getIndex());
+            final ErroneousIssue error = new InvalidArrayRefExprError(arrayType,
+                    expr.getArray(), indexType, dummyComma);
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), error);
+            return Optional.absent();
+        }
+
+        final ExprData result = ExprData.builder()
+                .type(resultType.get())
+                .isLvalue(true)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build();
+
+        return Optional.of(result);
     }
 
     @Override
     public Optional<ExprData> visitErrorExpr(ErrorExpr expr, Void arg) {
-        // FIXME
         return Optional.absent();
     }
 
     @Override
     public Optional<ExprData> visitComma(Comma expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        /* Analyze all subexpressions and simultaneously determine the data for
+           the last one. */
+        Optional<ExprData> oLastData = Optional.absent();
+        for (Expression subexpr : expr.getExpressions()) {
+            oLastData = subexpr.accept(this, null);
+        }
+
+        if (!oLastData.isPresent()) {
+            return Optional.absent();
+        }
+
+        final ExprData lastData = oLastData.get();
+        lastData.superDecay();
+
+        final ExprData result = ExprData.builder()
+                .type(lastData.getType())
+                .isLvalue(false)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build();
+
+        return Optional.of(result);
     }
 
     @Override
@@ -543,7 +695,110 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
     @Override
     public Optional<ExprData> visitConditional(Conditional expr, Void arg) {
-        // FIXME
+        // Analyze all three subexpressions
+        final Optional<ExprData> oCondData = expr.getCondition().accept(this, null);
+        final Optional<ExprData> oOnTrueData = expr.getOnTrueExp().isPresent()
+                ? expr.getOnTrueExp().get().accept(this, null)
+                : oCondData;
+        final Optional<ExprData> oOnFalseData = expr.getOnFalseExp().accept(this, null);
+
+        // End analysis if one of the expressions is not valid
+        if (!oCondData.isPresent() || !oOnTrueData.isPresent() || !oOnFalseData.isPresent()) {
+            return Optional.absent();
+        }
+
+        final ExprData condData = oCondData.get(),
+                       trueData = oOnTrueData.get(),
+                       falseData = oOnFalseData.get();
+
+        condData.superDecay();
+        trueData.superDecay();
+        falseData.superDecay();
+
+        final Optional<? extends Type> resultType = resolveTypeOfConditional(condData.getType(),
+                trueData.getType(), falseData.getType());
+
+        final boolean ptrWarn = trueData.getType().isPointerType() && falseData.getType().isIntegerType()
+                        && !falseData.isNullPointerConstant()
+                || trueData.getType().isIntegerType() && falseData.getType().isPointerType()
+                        && !trueData.isNullPointerConstant();
+
+        final Expression trueExpr = expr.getOnTrueExp().isPresent()
+                ? expr.getOnTrueExp().get()
+                : expr.getCondition();
+
+        // Report detected issues
+        if (!resultType.isPresent()) {
+            final ErroneousIssue error = new InvalidConditionalExprError(condData.getType(),
+                    expr.getCondition(), trueData.getType(), trueExpr, falseData.getType(),
+                    expr.getOnFalseExp());
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), error);
+            return Optional.absent();
+        } else if (ptrWarn) {
+            final CautionaryIssue warn = new InvalidPointerConditionalWarning(trueData.getType(),
+                    trueExpr, falseData.getType(), expr.getOnFalseExp());
+            errorHelper.warning(expr.getLocation(), expr.getEndLocation(), warn);
+        }
+
+        final ExprData result = ExprData.builder()
+                .type(resultType.get())
+                .isLvalue(false)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build();
+
+        return Optional.of(result);
+    }
+
+    /**
+     * Check types of a conditional expression and simultaneously determine the
+     * type of the result.
+     *
+     * @return Result type if types of subexpressions are correct. Otherwise,
+     *         the type is absent.
+     */
+    private Optional<? extends Type> resolveTypeOfConditional(Type condType, Type trueType,
+            Type falseType) {
+
+        if (!condType.isScalarType()) {
+            return Optional.absent();
+        } else if (trueType.isArithmetic() && falseType.isArithmetic()) {
+
+            return Optional.of(doUsualArithmeticConversions((ArithmeticType) trueType,
+                    (ArithmeticType) falseType));
+
+        } else if (trueType.isFieldTagType() && falseType.isFieldTagType()
+                && trueType.isCompatibleWith(falseType)) {
+
+            return Optional.of(trueType);
+
+        } else if (trueType.isVoid() && falseType.isVoid()) {
+
+            return Optional.of(trueType);
+
+        } else if (trueType.isPointerType() && falseType.isPointerType()) {
+
+            final PointerType truePtrType = (PointerType) trueType,
+                              falsePtrType = (PointerType) falseType;
+            final Type trueRefType = truePtrType.getReferencedType(),
+                       falseRefType = falsePtrType.getReferencedType();
+            final Type trueUnqualRefType = trueRefType.removeQualifiers(),
+                       falseUnqualRefType = falseRefType.removeQualifiers();
+
+            if (trueUnqualRefType.isCompatibleWith(falseUnqualRefType)) {
+                final Type newRefType = trueRefType.addQualifiers(falseRefType);
+                return Optional.of(new PointerType(newRefType));
+            } else if (trueRefType.isVoid() && falseRefType.isObjectType()) {
+                return Optional.of(trueRefType.addQualifiers(falseRefType));
+            } else if (trueRefType.isObjectType() && falseRefType.isVoid()) {
+                return Optional.of(falseRefType.addQualifiers(trueRefType));
+            }
+        } else if (trueType.isPointerType() && falseType.isIntegerType()) {
+            return Optional.of(trueType);
+        } else if (trueType.isIntegerType() && falseType.isPointerType()) {
+            return Optional.of(falseType);
+        }
+
         return Optional.absent();
     }
 
@@ -698,14 +953,188 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
     @Override
     public Optional<ExprData> visitFunctionCall(FunctionCall expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        // FIXME analysis of __builtin_va_arg(arguments, vaArgCall) and NesC calls
+        if (expr.getFunction() == null || expr.getCallKind() != NescCallKind.NORMAL_CALL) {
+            return Optional.absent();
+        }
+
+        // Analyze subexpressions
+        final Optional<ExprData> oFunData = expr.getFunction().accept(this, null);
+        final LinkedList<ExprData> argsData = new LinkedList<>();
+        for (Expression argExpr : expr.getArguments()) {
+            final Optional<ExprData> argData = argExpr.accept(this, null);
+            if (!argData.isPresent()) {
+                return Optional.absent();
+            }
+            argsData.add(argData.get());
+        }
+
+        // End analysis if the function expression is invalid
+        if (!oFunData.isPresent()) {
+            return Optional.absent();
+        }
+        final ExprData funData = oFunData.get();
+
+        // Perform operations
+        funData.superDecay();
+        for (ExprData argData : argsData) {
+            argData.superDecay();
+        }
+
+        final InvalidFunctionCallError.Builder errBuilder = InvalidFunctionCallError.builder()
+                .funExpr(funData.getType(), expr.getFunction());
+        final FunctionCallReport report = checkFunctionCall(funData.getType(), expr.getFunction(),
+                argsData, expr.getArguments(), errBuilder);
+
+        if (report.reportError) {
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), errBuilder.build());
+            return Optional.absent();
+        } else if (!report.returnType.isPresent()) {
+            return Optional.absent();
+        }
+
+        final ExprData result = ExprData.builder()
+                .type(report.returnType.get())
+                .isLvalue(false)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build();
+
+        return Optional.of(result);
+    }
+
+    /**
+     * Check types of expressions in a function call and simultaneously
+     * determine the type of the result.
+     */
+    private FunctionCallReport checkFunctionCall(Type funExprType, Expression funExpr,
+                List<ExprData> argsData, LinkedList<Expression> argsExprs,
+                InvalidFunctionCallError.Builder errBuilder) {
+
+        // Check type of the function expression
+        if (!funExprType.isPointerType()) {
+            return FunctionCallReport.errorWithoutType();
+        }
+        final PointerType funPtrType = (PointerType) funExprType;
+        final Type refType = funPtrType.getReferencedType();
+        if (!refType.isFunctionType()) {
+            return FunctionCallReport.errorWithoutType();
+        }
+
+        // Check the return type
+        final FunctionType funType = (FunctionType) refType;
+        final Type returnType = funType.getReturnType();
+        if ((!returnType.isObjectType() || !returnType.isComplete())
+                && !returnType.isVoid()) {
+            return FunctionCallReport.errorWithoutType();
+        }
+
+        // Check number of parameters
+        final boolean varArgs = funType.getVariableArguments();
+        final int expectedParamsCount = funType.getArgumentsTypes().size(),
+                  actualParamsCount = argsData.size();
+        errBuilder.expectedParamsCount(expectedParamsCount)
+                .actualParamsCount(actualParamsCount)
+                .variableArgumentsFunction(varArgs);
+        if ((!varArgs && expectedParamsCount != actualParamsCount)
+                || (varArgs && actualParamsCount < expectedParamsCount)) {
+            return FunctionCallReport.errorWithoutType();
+        }
+
+        if (checkParametersTypes(funExpr, funType.getArgumentsTypes().iterator(),
+                argsData.iterator(), argsExprs.iterator())) {
+            return FunctionCallReport.withType(funType.getReturnType());
+        }
+
+        return FunctionCallReport.empty();
+    }
+
+    /**
+     * Check is the types of parameters for a function are correct and
+     * simultaneously report detected errors.
+     *
+     * @return <code>true</code> if and only if all parameters are valid.
+     */
+    private boolean checkParametersTypes(Expression funExpr, Iterator<Optional<Type>> expectedTypeIt,
+            Iterator<ExprData> argDataIt, Iterator<Expression> argExprIt) {
+        boolean errorOccurred = false;
+        int paramNum = 0;
+
+        // Check parameters types
+        while (expectedTypeIt.hasNext()) {
+            ++paramNum;
+            final Optional<Type> expectedType = expectedTypeIt.next();
+            final ExprData argData = argDataIt.next();
+            final Expression argExpr = argExprIt.next();
+
+            if (!expectedType.isPresent()) {
+                continue;
+            }
+
+            if (!checkAssignment(expectedType.get().removeQualifiers(), argData.getType())) {
+                errorOccurred = true;
+                final ErroneousIssue error = new InvalidParameterTypeError(funExpr, paramNum, argExpr,
+                        expectedType.get().removeQualifiers(), argData.getType());
+                errorHelper.error(argExpr.getLocation(), argExpr.getEndLocation(), error);
+            }
+        }
+
+        return !errorOccurred;
     }
 
     @Override
     public Optional<ExprData> visitFieldRef(FieldRef expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        final UnaryExprDataCarrier cr = analyzeSubexpressions(expr);
+        if (!cr.good) {
+            return Optional.absent();
+        }
+
+        cr.argData.decay();
+
+        Optional<Type> resultType = Optional.absent();
+        boolean isTypeComplete = false, isFieldPresent = false;
+        boolean isBitField = false;
+
+        // Check type and simultaneously determine the type of the result
+        if (cr.argType().isFieldTagType()) {
+            final FieldTagType<?> tagType = (FieldTagType<?>) cr.argType();
+
+            if (tagType.isComplete()) {
+                isTypeComplete = true;
+                final FieldTagDeclaration<?> tagDecl = tagType.getDeclaration();
+                final Optional<FieldDeclaration> fieldDecl = tagDecl.findField(expr.getFieldName());
+
+                if (fieldDecl.isPresent()) {
+                    isFieldPresent = true;
+                    isBitField = fieldDecl.get().isBitField();
+                    final Optional<Type> fieldType = fieldDecl.get().getType();
+
+                    if (fieldType.isPresent()) {
+                        resultType = Optional.of(fieldType.get().addQualifiers(cr.argType()));
+                    } else {
+                        // End analysis if the type is specified incorrectly
+                        return Optional.absent();
+                    }
+                }
+            }
+        }
+
+        if (!resultType.isPresent()) {
+            final ErroneousIssue error = new InvalidFieldRefExprError(cr.argType(),
+                    expr.getArgument(), expr.getFieldName(), isTypeComplete,
+                    isFieldPresent);
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), error);
+            return Optional.absent();
+        }
+
+        final ExprData result = ExprData.builder()
+                .type(resultType.get())
+                .isLvalue(cr.argData.isLvalue())
+                .isBitField(isBitField)
+                .isNullPointerConstant(false)
+                .build();
+
+        return Optional.of(result);
     }
 
     @Override
@@ -722,32 +1151,54 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
     @Override
     public Optional<ExprData> visitPreincrement(Preincrement expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        return analyzeIncrementExpr(expr, INCREMENT);
     }
 
     @Override
     public Optional<ExprData> visitPredecrement(Predecrement expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        return analyzeIncrementExpr(expr, DECREMENT);
     }
 
     @Override
     public Optional<ExprData> visitPostincrement(Postincrement expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        return analyzeIncrementExpr(expr, INCREMENT);
     }
 
     @Override
     public Optional<ExprData> visitPostdecrement(Postdecrement expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        return analyzeIncrementExpr(expr, DECREMENT);
     }
 
     @Override
     public Optional<ExprData> visitCast(Cast expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        final UnaryExprDataCarrier cr = analyzeSubexpressions(expr);
+        if (!cr.good || !expr.getAsttype().getType().isPresent()) {
+            return Optional.absent();
+        }
+
+        final Type destType = expr.getAsttype().getType().get();
+        cr.argData.superDecay();
+
+        final boolean correct = (destType.isVoid() || destType.isScalarType())
+                && (!cr.argType().isFloatingType() || !destType.isPointerType())
+                && (!cr.argType().isPointerType() || !destType.isFloatingType())
+                && cr.argType().isScalarType();
+
+        if (!correct) {
+            final ErroneousIssue error = new InvalidCastExprError(destType, cr.argType(),
+                    expr.getArgument());
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), error);
+            return Optional.absent();
+        }
+
+        final ExprData result = ExprData.builder()
+                .type(destType)
+                .isLvalue(false)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build();
+
+        return Optional.of(result);
     }
 
     @Override
@@ -782,8 +1233,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
     @Override
     public Optional<ExprData> visitExtensionExpr(ExtensionExpr expr, Void arg) {
-        // FIXME
-        return Optional.absent();
+        return expr.getArgument().accept(this, null);
     }
 
     @Override
@@ -1113,6 +1563,145 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
     }
 
     /**
+     * Analysis for operators <code>+=</code> and <code>-=</code>.
+     */
+    private Optional<ExprData> analyzeAssignAdditiveExpr(Assignment expr, BinaryOp op) {
+        final BinaryExprDataCarrier cr = analyzeSubexpressions(expr);
+        if (!cr.good) {
+            return Optional.absent();
+        }
+
+        cr.rightData.superDecay();
+        cr.leftData.decay();
+
+        final boolean typesCorrect = cr.leftType().isArithmetic() && cr.rightType().isArithmetic()
+                || checkPointerAdvance(cr.leftType(), cr.rightType());
+
+        Optional<? extends ErroneousIssue> error = Optional.absent();
+        if (!cr.leftData.isModifiableLvalue()) {
+            error = Optional.of(new NotModifiableLvalueError(cr.leftType(), expr.getLeftArgument(),
+                    cr.leftData.isLvalue()));
+        } else if (!typesCorrect) {
+            error = Optional.of(new InvalidAssignAdditiveExprError(cr.leftType(),
+                    expr.getLeftArgument(), op, cr.rightType(), expr.getRightArgument()));
+        }
+
+        if (error.isPresent()) {
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), error.get());
+            return Optional.absent();
+        } else if (cr.leftType().isPointerType()) {
+            // Emit a warning if a pointer to void is changed
+            if (((PointerType) cr.leftType()).getReferencedType().isVoid()) {
+                errorHelper.warning(expr.getLocation(), expr.getEndLocation(),
+                        new VoidPointerAdvanceWarning(expr.getLeftArgument(), cr.leftType()));
+            }
+        }
+
+        final ExprData result = ExprData.builder()
+                .type(cr.leftType().removeQualifiers())
+                .isLvalue(false)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build();
+
+        return Optional.of(result);
+    }
+
+    /**
+     * Analysis for operators <code>*=</code>, <code>/=</code>, <code>%=</code>,
+     * <code>&lt;&lt;=</code>, <code>&gt;&gt;=</code>, <code>&=</code>,
+     * <code>|=</code>, <code>^=</code>.
+     */
+    private Optional<ExprData> analyzeCompoundAssignExpr(Assignment expr, BinaryOp op) {
+        final BinaryExprDataCarrier cr = analyzeSubexpressions(expr);
+        if (!cr.good) {
+            return Optional.absent();
+        }
+
+        cr.rightData.superDecay();
+        cr.leftData.decay();
+
+        Optional<? extends ErroneousIssue> error = Optional.absent();
+        if (!cr.leftData.isModifiableLvalue()) {
+            error = Optional.of(new NotModifiableLvalueError(cr.leftType(), expr.getLeftArgument(),
+                    cr.leftData.isLvalue()));
+        } else {
+            boolean correct;
+            if (op == ASSIGN_TIMES || op == ASSIGN_DIVIDE || op == ASSIGN_MODULO) {
+                correct = checkMultiplicativeOpsTypes(cr.leftType(), cr.rightType(), op);
+            } else if (op == ASSIGN_LSHIFT || op == ASSIGN_RSHIFT) {
+                correct = checkShiftOpsTypes(cr.leftType(), cr.rightType());
+            } else if (op == ASSIGN_BITAND || op == ASSIGN_BITOR || op == ASSIGN_BITXOR) {
+                correct = checkBinaryBitOpsTypes(cr.leftType(), cr.rightType());
+            } else {
+                throw new RuntimeException("invalid compound assignment operator '" + op + "'");
+            }
+
+            if (!correct) {
+                error = Optional.of(new InvalidCompoundAssignExprError(cr.leftType(),
+                        expr.getLeftArgument(), op, cr.rightType(), expr.getRightArgument()));
+            }
+        }
+
+        if (error.isPresent()) {
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), error.get());
+            return Optional.absent();
+        }
+
+        final ExprData result = ExprData.builder()
+                .type(cr.leftType().removeQualifiers())
+                .isLvalue(false)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build();
+
+        return Optional.of(result);
+    }
+
+    /**
+     * Analysis for operators <code>++</code> and <code>--</code> in both
+     * versions.
+     */
+    private Optional<ExprData> analyzeIncrementExpr(Increment expr, UnaryOp op) {
+        final UnaryExprDataCarrier cr = analyzeSubexpressions(expr);
+        if (!cr.good) {
+            return Optional.absent();
+        }
+
+        cr.argData.decay();
+
+        Optional<? extends ErroneousIssue> error = Optional.absent();
+
+        if (!cr.argData.isModifiableLvalue()) {
+            error = Optional.of(new NotModifiableLvalueError(cr.argType(), expr.getArgument(),
+                    cr.argData.isLvalue()));
+        } else if (!cr.argType().isRealType() && (!cr.argType().isPointerType()
+                || !checkPointerAdvance(cr.argType(), new IntType()))) {
+            error = Optional.of(new InvalidIncrementExprError(op, cr.argType(), expr.getArgument()));
+        }
+
+        if (error.isPresent()) {
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), error.get());
+            return Optional.absent();
+        } else if (cr.argType().isPointerType()) {
+            if (((PointerType) cr.argType()).getReferencedType().isVoid()) {
+                final VoidPointerAdvanceWarning warn = new VoidPointerAdvanceWarning(expr.getArgument(),
+                        cr.argType());
+                errorHelper.warning(expr.getLocation(), expr.getEndLocation(), warn);
+            }
+        }
+
+        final ExprData result = ExprData.builder()
+                .type(cr.argType().removeQualifiers())
+                .isLvalue(false)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build();
+
+        return Optional.of(result);
+    }
+
+    /**
      * @return <code>true</code> if and only if both types are correct for the
      *         operands of the given multiplicative operator.
      */
@@ -1120,9 +1709,12 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
         switch(op) {
             case TIMES:
             case DIVIDE:
+            case ASSIGN_TIMES:
+            case ASSIGN_DIVIDE:
                 return leftType.isArithmetic() && rightType.isArithmetic();
 
             case MODULO:
+            case ASSIGN_MODULO:
                 return leftType.isIntegerType() && rightType.isIntegerType();
 
             default:
@@ -1144,6 +1736,69 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
      */
     private boolean checkBinaryBitOpsTypes(Type leftType, Type rightType) {
         return leftType.isIntegerType() && rightType.isIntegerType();
+    }
+
+    /**
+     * <p>Check if an expression with <code>rightType</code> can be assigned to
+     * an expression of type <code>leftType</code> without violating any type
+     * requirements.</p>
+     * <p>However, one condition is relaxed. Left type can be a pointer type and
+     * right type can be an integer type and it is considered correct. Though in
+     * this case the right operand shall be a null pointer constant.</p>
+     *
+     * @return <code>true</code> if and only if operands depicted by given
+     *         arguments are correct for a simple assignment expression
+     *         (<code>=</code>).
+     */
+    private boolean checkAssignment(Type leftType, Type rightType) {
+        boolean correct = false;
+
+        if (leftType.isArithmetic() && rightType.isArithmetic()) {
+            correct = true;
+        } else if (leftType.isFieldTagType()) {
+            correct = leftType.removeQualifiers().isCompatibleWith(rightType.removeQualifiers());
+        } else if (leftType.isPointerType() && rightType.isPointerType()) {
+
+            final PointerType leftPtrType = (PointerType) leftType,
+                              rightPtrType = (PointerType) rightType;
+            final Type leftRefType = leftPtrType.getReferencedType(),
+                       rightRefType = rightPtrType.getReferencedType();
+            final Type leftUnqualRefType = leftRefType.removeQualifiers(),
+                       rightUnqualRefType = rightRefType.removeQualifiers();
+
+            correct = leftRefType.hasAllQualifiers(rightRefType)
+                    && (leftUnqualRefType.isCompatibleWith(rightUnqualRefType)
+                        || leftRefType.isObjectType() && rightRefType.isObjectType()
+                            && (leftRefType.isVoid() || rightRefType.isVoid()));
+        } else if (leftType.isPointerType() && rightType.isIntegerType()) {
+            correct = true;
+        }
+
+        return correct;
+    }
+
+    /**
+     * Check if the given types can be used for a correct pointing advancing.
+     * One condition is relaxed. Only pointers to complete types shall be
+     * advanced but advancing a pointer to <code>void</code> is considered
+     * correct.
+     *
+     * @return <code>true</code> if and only if the given types can be used for
+     *         a correct pointer advancing.
+     */
+    private boolean checkPointerAdvance(Type leftType, Type rightType) {
+        boolean correct = false;
+
+        if (leftType.isPointerType() && rightType.isIntegerType()) {
+
+            final PointerType ptrType = (PointerType) leftType;
+            final Type refType = ptrType.getReferencedType();
+
+            correct = (refType.isVoid() || refType.isComplete())
+                    && refType.isObjectType();
+        }
+
+        return correct;
     }
 
     /**
@@ -1231,6 +1886,34 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
         private Type argType() {
             return argData.getType();
+        }
+    }
+
+    /**
+     * Simple helper class for passing the results of analysis of a function
+     * call expression.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class FunctionCallReport {
+        private final Optional<Type> returnType;
+        private final boolean reportError;
+
+        private static FunctionCallReport errorWithoutType() {
+            return new FunctionCallReport(Optional.<Type>absent(), true);
+        }
+
+        private static FunctionCallReport withType(Type retType) {
+            return new FunctionCallReport(Optional.of(retType), false);
+        }
+
+        private static FunctionCallReport empty() {
+            return new FunctionCallReport(Optional.<Type>absent(), false);
+        }
+
+        private FunctionCallReport(Optional<Type> returnType, boolean reportError) {
+            this.reportError = reportError;
+            this.returnType = returnType;
         }
     }
 }

@@ -90,6 +90,11 @@ public final class VoidType extends AbstractType {
     }
 
     @Override
+    public final boolean isModifiable() {
+        return false;
+    }
+
+    @Override
     public final VoidType addQualifiers(boolean addConst, boolean addVolatile,
                                         boolean addRestrict) {
         return new VoidType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));

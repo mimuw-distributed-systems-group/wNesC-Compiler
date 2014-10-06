@@ -141,6 +141,22 @@ public interface Type {
     boolean isFunctionType();
 
     /**
+     * Check if an lvalue of this type could be entirely modified without
+     * violating <code>const</code> qualifiers applied to it or its parts if it
+     * is a derived type.
+     *
+     * @return <p><code>true</code> if and only if all of the following
+     *         conditions are fulfilled:</p>
+     *         <ul>
+     *             <li>this type is an object type</li>
+     *             <li>this type is complete</li>
+     *             <li>an lvalue of this type could be entirely modified without
+     *             violating any <code>const</code> qualifiers</li>
+     *         </ul>
+     */
+    boolean isModifiable();
+
+    /**
      * @return <code>true</code> if and only if this type is const-qualified,
      *         e.g. <code>const int</code>.
      */
@@ -151,6 +167,18 @@ public interface Type {
      *         e.g. <code>volatile unsigned int</code>.
      */
     boolean isVolatileQualified();
+
+    /**
+     * Check if this type has all type qualifiers of the given type. If this
+     * type is an artificial type, <code>false</code> is returned regardless of
+     * type from the argument.
+     *
+     * @param otherType Other type with qualifiers that this type should have.
+     * @return <code>true</code> if and only if this type has all type
+     *         qualifiers that the type from the argument has.
+     * @throws NullPointerException Given argument is null.
+     */
+    boolean hasAllQualifiers(Type otherType);
 
     /**
      * Checks if a type is complete as defined in the ISO C standard.
@@ -171,6 +199,22 @@ public interface Type {
      */
     Type addQualifiers(boolean addConstQualifier, boolean addVolatileQualifier,
                        boolean addRestrictQualifier);
+
+    /**
+     * Create a new instance of the same type with qualifiers added from the
+     * other type.
+     *
+     * @param otherType Another type.
+     * @return Newly created object that represents the same type as this but
+     *         with new qualifiers added if necessary. All qualifiers that the
+     *         given type has are added and those that are present in this type
+     *         are preserved. If a type does not use a qualifier, it is not
+     *         added.
+     * @throws UnsupportedOperationException Method invoked on an object that
+     *                                       represents an artificial type.
+     * @throws NullPointerException Given argument is null.
+     */
+    Type addQualifiers(Type otherType);
 
     /**
      * @return Newly created object that represents the same type as this object

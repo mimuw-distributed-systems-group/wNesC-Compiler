@@ -108,8 +108,39 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
         return namedFields;
     }
 
+    /**
+     * <p>Get an immutable list with information about all fields of this tag
+     * type. Unnamed members are contained in the list. Fields that are members
+     * of this tag type because of presence of an unnamed member of an anonymous
+     * tag type are also included.</p>
+     * <p>The object is present if and only if this tag type is defined.</p>
+     *
+     * @return Immutable list with all fields of this tag type if it is defined.
+     */
     public final Optional<ImmutableList<FieldDeclaration>> getAllFields() {
         return allFields;
+    }
+
+    /**
+     * Find a field with given name of the type this declaration represents.
+     *
+     * @param fieldName Name of the field to find.
+     * @return Field declaration object that is associated with field with given
+     *         name. If this type is not defined, then the object is absent. If
+     *         it is defined, but a field with given name does not exist, the
+     *         object is absent, too.
+     * @throws NullPointerException Given argument is null.
+     * @throws IllegalArgumentException Given field name is empty.
+     */
+    public final Optional<FieldDeclaration> findField(String fieldName) {
+        checkNotNull(fieldName, "name of the field to find cannot be null");
+        checkArgument(!fieldName.isEmpty(), "name of the field to find is empty");
+
+        if (!namedFields.isPresent()) {
+            return Optional.absent();
+        }
+
+        return Optional.fromNullable(namedFields.get().get(fieldName));
     }
 
     @Override

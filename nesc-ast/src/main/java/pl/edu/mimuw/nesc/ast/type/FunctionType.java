@@ -112,6 +112,11 @@ public final class FunctionType extends DerivedType {
     }
 
     @Override
+    public final boolean isModifiable() {
+        return false;
+    }
+
+    @Override
     public final FunctionType addQualifiers(boolean addConst, boolean addVolatile,
                                             boolean addRestrict) {
         return this;

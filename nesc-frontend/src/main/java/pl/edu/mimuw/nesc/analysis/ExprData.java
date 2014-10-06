@@ -93,6 +93,25 @@ public class ExprData {
     }
 
     /**
+     * <p>Check if this data object depicts a modifiable lvalue. A modifiable
+     * lvalue is an lvalue that fulfills all of the conditions:</p>
+     * <ul>
+     *     <li>does not have array type</li>
+     *     <li>does not have an incomplete type</li>
+     *     <li>does not have a const-qualified type</li>
+     *     <li>if it is a field tag type, does not have any member with
+     *     <code>const</code> qualifier (recursively including elements of
+     *     arrays and fields of other contained structures or unions)</li>
+     * </ul>
+     *
+     * @return <code>true</code> if and only if this object depicts a modifiable
+     *         lvalue.
+     */
+    public boolean isModifiableLvalue() {
+        return isLvalue && !type.isArrayType() && type.isModifiable();
+    }
+
+    /**
      * <p>If this data object depicts an lvalue that does not have array type,
      * the lvalue conversion is performed, equivalent to invoking
      * {@link ExprData#lvalueConversion} method. Otherwise, the decaying

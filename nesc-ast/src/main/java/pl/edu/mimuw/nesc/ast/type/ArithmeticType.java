@@ -54,6 +54,11 @@ public abstract class ArithmeticType extends AbstractType {
     }
 
     @Override
+    public final boolean isModifiable() {
+        return isComplete() && !isConstQualified();
+    }
+
+    @Override
     public abstract ArithmeticType promote();
 
     @Override

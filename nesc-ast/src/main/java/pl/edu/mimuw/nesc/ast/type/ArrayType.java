@@ -100,6 +100,11 @@ public final class ArrayType extends DerivedType {
     }
 
     @Override
+    public final boolean isModifiable() {
+        return getElementType().isModifiable();
+    }
+
+    @Override
     public boolean isCompatibleWith(Type type) {
         if (!super.isCompatibleWith(type)) {
             return false;

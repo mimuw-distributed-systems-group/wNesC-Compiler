@@ -84,10 +84,40 @@ public final class PointerType extends DerivedType {
     }
 
     @Override
+    public final boolean isModifiable() {
+        return !isConstQualified();
+    }
+
+    @Override
+    public final boolean hasAllQualifiers(Type otherType) {
+        checkNotNull(otherType, "the other type cannot be null");
+
+        boolean result = hasAllBasicQualifiers(otherType);
+
+        if (result && otherType.isPointerType()) {
+            final PointerType otherPtrType = (PointerType) otherType;
+            result = !otherPtrType.isRestrictQualified() || isRestrictQualified();
+        }
+
+        return result;
+    }
+
+    @Override
     public final PointerType addQualifiers(boolean addConst, boolean addVolatile,
                                            boolean addRestrict) {
         return new PointerType(addConstQualifier(addConst), addVolatileQualifier(addVolatile),
                 isRestrictQualified() || addRestrict, getReferencedType());
+    }
+
+    @Override
+    public final PointerType addQualifiers(Type otherType) {
+        checkNotNull(otherType, "other type cannot be null");
+
+        final boolean addRestrict = otherType.isPointerType()
+                && ((PointerType) otherType).isRestrictQualified();
+
+        return addQualifiers(otherType.isConstQualified(), otherType.isVolatileQualified(),
+                             addRestrict);
     }
 
     @Override
