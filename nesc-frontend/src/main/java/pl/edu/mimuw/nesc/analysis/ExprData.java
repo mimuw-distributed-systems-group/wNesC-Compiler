@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.analysis;
 
+import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -183,6 +185,25 @@ public class ExprData {
      */
     ExprData promoteType() {
         type = type.promote();
+        return this;
+    }
+
+    /**
+     * <p>Saves information from this data object to the given expression
+     * object. It is done only for information that can be saved to given
+     * object. Information that are saved:</p>
+     * <ul>
+     *     <li>type of the expression</li>
+     * </ul>
+     *
+     * @param expr Expression to store the information in.
+     * @return <code>this</code>
+     * @throws NullPointerException Given argument is null.
+     * @see pl.edu.mimuw.nesc.ast.gen.Expression Expression
+     */
+    ExprData spread(Expression expr) {
+        checkNotNull(expr, "expression cannot be null");
+        expr.setType(Optional.of(type));
         return this;
     }
 

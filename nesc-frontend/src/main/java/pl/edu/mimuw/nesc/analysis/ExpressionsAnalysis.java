@@ -204,7 +204,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isBitField(false)
                 .isNullPointerConstant(cr.leftData.isNullPointerConstant()
                         && cr.rightData.isNullPointerConstant())
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -262,7 +263,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isBitField(false)
                 .isNullPointerConstant(cr.leftData.isNullPointerConstant()
                                   && cr.rightData.isNullPointerConstant())
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -382,7 +384,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -461,7 +464,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(argRefType.isObjectType())
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -491,7 +495,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -526,7 +531,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -552,7 +558,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -651,7 +658,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(true)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -682,7 +690,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -745,7 +754,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -820,6 +830,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
         // Get necessary information from the declaration object
         final ObjectDeclaration pureObjDecl = objDecl.get();
+        expr.setDeclaration(pureObjDecl);
         final ObjectKind objKind = pureObjDecl.getKind();
         final Optional<Type> objType = pureObjDecl.getType();
 
@@ -835,7 +846,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
             final ExprData result = dataBuilder
                     .isLvalue(pureObjDecl.getKind() == ObjectKind.VARIABLE)
                     .type(objType.get())
-                    .build();
+                    .build()
+                    .spread(expr);
             return Optional.of(result);
         } else {
             return Optional.absent();
@@ -878,7 +890,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
         // Emit error if the constant has no type and return absent value
         if (type.isPresent()) {
-            return Optional.of(dataBuilder.type(type.get()).build());
+            return Optional.of(dataBuilder.type(type.get()).build().spread(expr));
         } else {
             errorHelper.error(expr.getLocation(), expr.getEndLocation(),
                     new IntegerConstantOverflowError(expr));
@@ -910,7 +922,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 break;
         }
 
-        return Optional.of(dataBuilder.build());
+        return Optional.of(dataBuilder.build().spread(expr));
     }
 
     @Override
@@ -922,7 +934,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(charValue.isPresent() && charValue.get() == '\0')
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -934,7 +947,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(true)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -946,7 +960,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(true)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -998,7 +1013,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -1132,7 +1148,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(cr.argData.isLvalue())
                 .isBitField(isBitField)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -1196,7 +1213,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -1269,7 +1287,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isBitField(false)
                 .isNullPointerConstant(cr.leftData.isNullPointerConstant()
                                   && cr.rightData.isNullPointerConstant())
-                .build();
+                .build()
+                .spread(shiftExpr);
 
         return Optional.of(result);
     }
@@ -1297,7 +1316,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(typeQueryExpr);
 
         return Optional.of(result);
     }
@@ -1326,7 +1346,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(unary);
 
         return Optional.of(result);
     }
@@ -1362,7 +1383,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(isNullPtrCst)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -1390,7 +1412,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(cr.argData.isNullPointerConstant())
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -1434,7 +1457,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -1491,7 +1515,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -1520,7 +1545,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -1557,7 +1583,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(isNullPtrCst)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -1602,7 +1629,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -1653,7 +1681,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
@@ -1696,7 +1725,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
-                .build();
+                .build()
+                .spread(expr);
 
         return Optional.of(result);
     }
