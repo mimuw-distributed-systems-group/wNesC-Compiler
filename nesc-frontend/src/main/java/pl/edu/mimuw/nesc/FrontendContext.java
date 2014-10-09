@@ -85,6 +85,7 @@ public final class FrontendContext {
         this.nescEntityEnvironment = new NescEntityEnvironment();
         this.environments = new HashMap<>();
         this.environment = new TranslationUnitEnvironment();
+        this.environment.addConstantFunctions();
 
         this.issues = new ArrayList<>();
 

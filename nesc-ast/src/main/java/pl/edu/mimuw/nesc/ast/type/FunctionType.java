@@ -1,9 +1,7 @@
 package pl.edu.mimuw.nesc.ast.type;
 
 import com.google.common.base.Optional;
-
-import java.util.ArrayList;
-import java.util.Collections;
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -25,7 +23,7 @@ public final class FunctionType extends DerivedType {
      * Types of arguments that a function of this function type must be given.
      * Never null and all of the elements of the array also never null.
      */
-    private final List<Optional<Type>> argumentsTypes;
+    private final ImmutableList<Optional<Type>> argumentsTypes;
 
     /**
      * <code>true</code> if and only if a function of this type takes variable
@@ -53,7 +51,38 @@ public final class FunctionType extends DerivedType {
 
         // Initialize this object
         this.returnType = returnType;
-        this.argumentsTypes = Collections.unmodifiableList(new ArrayList<>(argumentsTypes));
+        this.argumentsTypes = ImmutableList.copyOf(argumentsTypes);
+        this.variableArguments = variableArguments;
+    }
+
+    /**
+     * A convenient constructor for initializing a function type object. It
+     * features a usage of the Java array type which is being used less and
+     * less. However, it is used only for passing values.
+     *
+     * @throws NullPointerException One of the arguments is null
+     *                              (except <code>variableArguments</code>).
+     * @throws IllegalArgumentException One of the types in the array is null.
+     */
+    public FunctionType(Type returnType, Type[] argumentsTypes, boolean variableArguments) {
+        super(false, false);
+
+        // Validate arguments
+        checkNotNull(returnType, "return type cannot be null");
+        checkNotNull(argumentsTypes, "arguments types cannot be null");
+        for (Type type : argumentsTypes) {
+            checkArgument(type != null, "a type of an argument of a function type cannot be null");
+        }
+
+        // Create the list of arguments
+        final ImmutableList.Builder<Optional<Type>> argsTypesBuilder = ImmutableList.builder();
+        for (Type type : argumentsTypes) {
+            argsTypesBuilder.add(Optional.of(type));
+        }
+
+        // Initialize this object
+        this.returnType = returnType;
+        this.argumentsTypes = argsTypesBuilder.build();
         this.variableArguments = variableArguments;
     }
 
@@ -66,10 +95,10 @@ public final class FunctionType extends DerivedType {
     }
 
     /**
-     * @return Unmodifiable list with types of arguments that a function of this
+     * @return Immutable list with types of arguments that a function of this
      *         type takes.
      */
-    public final List<Optional<Type>> getArgumentsTypes() {
+    public final ImmutableList<Optional<Type>> getArgumentsTypes() {
         return argumentsTypes;
     }
 

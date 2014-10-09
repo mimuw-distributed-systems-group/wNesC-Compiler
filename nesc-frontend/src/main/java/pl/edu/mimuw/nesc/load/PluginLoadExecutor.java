@@ -64,6 +64,7 @@ class PluginLoadExecutor extends LoadFileExecutor {
         super.setUpEnvironments();
         if (isRoot) {
             this.environment = new TranslationUnitEnvironment();
+            this.environment.addConstantFunctions();
             collectParsedData(context.getDefaultSymbols(), false);
             context.setEnvironment(environment);
         } else {
