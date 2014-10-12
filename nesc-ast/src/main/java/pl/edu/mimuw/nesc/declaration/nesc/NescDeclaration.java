@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.declaration.nesc;
 import com.google.common.base.Objects;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.declaration.Declaration;
+import pl.edu.mimuw.nesc.environment.Environment;
 
 /**
  * Base class for nesc entity declarations.
@@ -21,6 +22,13 @@ public abstract class NescDeclaration extends Declaration {
     public String getName() {
         return name;
     }
+
+    /**
+     * Returns the parameter environment of the NesC entity.
+     *
+     * @return parameter environment
+     */
+    public abstract Environment getParameterEnvironment();
 
     @Override
     public int hashCode() {

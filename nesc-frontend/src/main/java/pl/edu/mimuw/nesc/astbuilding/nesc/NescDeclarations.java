@@ -2,14 +2,15 @@ package pl.edu.mimuw.nesc.astbuilding.nesc;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
-import pl.edu.mimuw.nesc.ast.util.Interval;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.ast.type.TypeDefinitionType;
+import pl.edu.mimuw.nesc.ast.util.Interval;
 import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
 import pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
+import pl.edu.mimuw.nesc.declaration.nesc.InterfaceDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.NescDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
@@ -30,6 +31,7 @@ import static pl.edu.mimuw.nesc.ast.util.AstUtils.getStartLocation;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class NescDeclarations extends AstBuildingBase {
 
@@ -83,8 +85,12 @@ public final class NescDeclarations extends AstBuildingBase {
         componentRef.setEndLocation(endLocation);
 
         final Word componentName = componentRef.getName();
-        final Optional<? extends NescDeclaration> component = nescEnvironment.get(componentName.getName());
-        // TODO: check if this is not an interface!
+        Optional<? extends NescDeclaration> component = nescEnvironment.get(componentName.getName());
+        if (component.isPresent() && component.get() instanceof InterfaceDeclaration) {
+            component = Optional.absent();
+            errorHelper.error(componentName.getLocation(), Optional.of(componentName.getEndLocation()),
+                    format("expected component, but got an interface '%s'", componentName.getName()));
+        }
         final String refName = alias.isPresent() ? alias.get() : componentRef.getName().getName();
 
         final ComponentRefDeclaration symbol = ComponentRefDeclaration.builder()

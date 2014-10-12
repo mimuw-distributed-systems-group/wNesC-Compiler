@@ -11,9 +11,6 @@ public class InterfaceDeclaration extends NescDeclaration {
 
     private Interface astInterface;
 
-    private Environment parameterEnvironment;
-    private Environment declarationEnvironment;
-
     public InterfaceDeclaration(String name, Location location) {
         super(name, location);
     }
@@ -31,19 +28,18 @@ public class InterfaceDeclaration extends NescDeclaration {
         this.astInterface = astInterface;
     }
 
+    @Override
     public Environment getParameterEnvironment() {
-        return parameterEnvironment;
+        return astInterface.getParameterEnvironment();
     }
 
-    public void setParameterEnvironment(Environment parameterEnvironment) {
-        this.parameterEnvironment = parameterEnvironment;
-    }
 
+    /**
+     * Returns the environment containing NesC interface's declarations.
+     *
+     * @return declaration environment
+     */
     public Environment getDeclarationEnvironment() {
-        return declarationEnvironment;
-    }
-
-    public void setDeclarationEnvironment(Environment declarationEnvironment) {
-        this.declarationEnvironment = declarationEnvironment;
+        return astInterface.getDeclarationEnvironment();
     }
 }

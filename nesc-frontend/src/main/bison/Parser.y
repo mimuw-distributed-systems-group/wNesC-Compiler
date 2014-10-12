@@ -1,4 +1,5 @@
 /* TODO: borrowed from..., licence, etc... */
+
 %code imports {
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -22,7 +23,6 @@ import pl.edu.mimuw.nesc.parser.value.*;
 import pl.edu.mimuw.nesc.astbuilding.*;
 import pl.edu.mimuw.nesc.astbuilding.nesc.*;
 import pl.edu.mimuw.nesc.token.*;
-import pl.edu.mimuw.nesc.symboltable.*;
 
 import java.io.IOException;
 import java.util.LinkedList;
@@ -1654,7 +1654,7 @@ primary:
         if ($exp instanceof Identifier) {
             final Identifier id = (Identifier) $exp;
             final Optional<? extends ObjectDeclaration> symbol = environment.getObjects().get(id.getName());
-            isComponentDeref = symbol.isPresent() && (symbol.get() instanceof ComponentRefDeclaration);
+            isComponentDeref = symbol.isPresent() && (symbol.get().getKind() == ObjectKind.COMPONENT);
         } else {
             isComponentDeref = false;
         }
@@ -4593,16 +4593,7 @@ string_chain:
                     if (thirdSymbolCode == IDENTIFIER ||
                             thirdSymbolCode == TYPEDEF_NAME ||
                             thirdSymbolCode == MAGIC_STRING) {
-
-                        /*
-                         * FIXME: when semantic analysis will be developed
-                         * enough, we need to check, whether the thirdSymbol
-                         * is a typename. If yes, we need to return the
-                         * following token seqence:
-                         *     COMPONENTREF DOT IDENTIFIER
-                         */
-                        boolean isTypedef = false;  // do a lookup in the symbol table!
-                        if (isTypedef) {
+                        if (isTypedef(componentRefSymbol, thirdSymbol)) {
                             componentRefSymbol.setSymbolCode(COMPONENTREF);
                             thirdSymbol.setSymbolCode(IDENTIFIER);
                         }
@@ -4647,6 +4638,28 @@ string_chain:
         public void pushtoken(Symbol symbol) {
             this.tokenQueue.addFirst(symbol);
         }
+    }
+
+    private boolean isTypedef(Symbol componentRefSymbol, Symbol thirdSymbol) {
+        /* Get the original name of the referenced component. */
+        final Optional<? extends ObjectDeclaration> objectDecl =
+                Parser.this.environment.getObjects().get(componentRefSymbol.getValue());
+        if (!objectDecl.isPresent() || objectDecl.get().getKind() != ObjectKind.COMPONENT) {
+            return false;
+        }
+
+        /* Check if there exists a component with given name. */
+        final Optional<? extends NescDeclaration> entityDecl =
+                ((ComponentRefDeclaration) objectDecl.get()).getComponentDeclaration();
+        if (!entityDecl.isPresent()) {
+            return false;
+        }
+
+        /* Check if the component contains a field with given name. */
+        final ComponentDeclaration componentDecl = (ComponentDeclaration) entityDecl.get();
+        final Optional<? extends ObjectDeclaration> fieldDecl =
+                componentDecl.getSpecificationEnvironment().getObjects().get(thirdSymbol.getValue());
+        return fieldDecl.isPresent() && fieldDecl.get().getKind() == ObjectKind.TYPENAME;
     }
 
 }

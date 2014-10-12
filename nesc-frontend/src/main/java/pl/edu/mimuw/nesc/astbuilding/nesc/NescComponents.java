@@ -45,7 +45,7 @@ public final class NescComponents extends AstBuildingBase {
         final InterfaceDeclaration declaration = new InterfaceDeclaration(name.getName(), name.getLocation());
         declaration.setAstInterface(iface);
         /* Set parameter environment before parameters are parsed. */
-        declaration.setParameterEnvironment(environment);
+        iface.setParameterEnvironment(environment);
         iface.setDeclaration(declaration);
 
         if (!nescEnvironment.add(name.getName(), declaration)) {
@@ -98,7 +98,7 @@ public final class NescComponents extends AstBuildingBase {
         iface.setParameters(parameters);
         iface.setAttributes(attributes);
         /* Set declaration environment before specification is parsed. */
-        iface.getDeclaration().setDeclarationEnvironment(environment);
+        iface.setDeclarationEnvironment(environment);
     }
 
     public void handleComponentParametersAttributes(Environment environment, Component component,

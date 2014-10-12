@@ -1135,6 +1135,8 @@ class Interface(BasicASTNode):
     parameters = ReferenceListField("Declaration", optional=True)
     declarations = ReferenceListField("Declaration")
     declaration = ReferenceField("InterfaceDeclaration", constructor_variable=False, visitable=False)
+    parameterEnvironment = ReferenceField("Environment", constructor_variable=False, visitable=False)
+    declarationEnvironment = ReferenceField("Environment", constructor_variable=False, visitable=False)
 
 
 class Component(BasicASTNode):

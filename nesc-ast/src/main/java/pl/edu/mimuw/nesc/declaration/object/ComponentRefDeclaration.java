@@ -8,23 +8,24 @@ import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.declaration.nesc.NescDeclaration;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 /**
  * <p>Component reference.</p>
  * <p><code>name</code> is not the name of component but the name of the
  * reference (component can be aliased).</p>
+ *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public class ComponentRefDeclaration extends ObjectDeclaration {
 
     private final Word componentName;
 
-    private ComponentRef astComponentRef;
+    private final ComponentRef astComponentRef;
     /**
      * Component declaration (absent if reference is erroneous).
      */
-    private Optional<? extends NescDeclaration> componentDeclaration;
+    private final Optional<? extends NescDeclaration> componentDeclaration;
 
     public static Builder builder() {
         return new Builder();
@@ -37,11 +38,6 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
         this.componentDeclaration = builder.componentDeclaration;
     }
 
-    @Override
-    public <R, A> R accept(Visitor<R, A> visitor, A arg) {
-        return visitor.visit(this, arg);
-    }
-
     public Word getComponentName() {
         return componentName;
     }
@@ -50,16 +46,13 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
         return astComponentRef;
     }
 
-    public void setAstComponentRef(ComponentRef astComponentRef) {
-        this.astComponentRef = astComponentRef;
-    }
-
     public Optional<? extends NescDeclaration> getComponentDeclaration() {
         return componentDeclaration;
     }
 
-    public void setComponentDeclaration(Optional<? extends NescDeclaration> componentDeclaration) {
-        this.componentDeclaration = componentDeclaration;
+    @Override
+    public <R, A> R accept(Visitor<R, A> visitor, A arg) {
+        return visitor.visit(this, arg);
     }
 
     /**

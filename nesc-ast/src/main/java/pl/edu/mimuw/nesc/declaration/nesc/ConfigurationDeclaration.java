@@ -2,11 +2,12 @@ package pl.edu.mimuw.nesc.declaration.nesc;
 
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Configuration;
+import pl.edu.mimuw.nesc.environment.Environment;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public class ConfigurationDeclaration extends NescDeclaration {
+public class ConfigurationDeclaration extends ComponentDeclaration {
 
     private Configuration astConfiguration;
 
@@ -15,8 +16,13 @@ public class ConfigurationDeclaration extends NescDeclaration {
     }
 
     @Override
-    public <R, A> R accept(Visitor<R, A> visitor, A arg) {
-        return visitor.visit(this, arg);
+    public Environment getParameterEnvironment() {
+        return astConfiguration.getParameterEnvironment();
+    }
+
+    @Override
+    public Environment getSpecificationEnvironment() {
+        return astConfiguration.getSpecificationEnvironment();
     }
 
     public Configuration getAstConfiguration() {
@@ -25,5 +31,10 @@ public class ConfigurationDeclaration extends NescDeclaration {
 
     public void setAstConfiguration(Configuration astConfiguration) {
         this.astConfiguration = astConfiguration;
+    }
+
+    @Override
+    public <R, A> R accept(Visitor<R, A> visitor, A arg) {
+        return visitor.visit(this, arg);
     }
 }
