@@ -78,7 +78,7 @@ public final class TagsAnalysis {
 
         if (maybeDeclarator.isPresent()) {
             final Declarator declarator = maybeDeclarator.get();
-            name = Optional.fromNullable(DeclaratorUtils.getDeclaratorName(declarator));
+            name = DeclaratorUtils.getDeclaratorName(declarator);
 
             if (maybeBaseType.isPresent()) {
                 fullType = resolveDeclaratorType(declarator, errorHelper, maybeBaseType.get());

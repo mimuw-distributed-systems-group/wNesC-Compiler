@@ -153,7 +153,7 @@ public final class TypesAnalysis {
             return Optional.absent();
         }
 
-        return Optional.fromNullable(getDeclaratorName(varDecl.getDeclarator().get()));
+        return getDeclaratorName(varDecl.getDeclarator().get());
     }
 
     /**

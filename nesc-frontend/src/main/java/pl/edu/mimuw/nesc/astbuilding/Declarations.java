@@ -79,7 +79,7 @@ public final class Declarations extends AstBuildingBase {
         final VariableDecl variableDecl = new VariableDecl(declarator.getLocation(), Optional.of(declarator),
                 attributes, asmStmt);
 
-        final Optional<String> identifier = Optional.fromNullable(DeclaratorUtils.getDeclaratorName(declarator));
+        final Optional<String> identifier = DeclaratorUtils.getDeclaratorName(declarator);
         if (!initialised) {
             final Location endLocation = AstUtils.getEndLocation(
                     asmStmt.isPresent() ? asmStmt.get().getEndLocation() : declarator.getEndLocation(),
@@ -250,15 +250,15 @@ public final class Declarations extends AstBuildingBase {
                 errorHelper, varStartLocation, varEndLocation));
 
         if (declarator.isPresent()) {
-            final String name = getDeclaratorName(declarator.get());
-            if (name != null) {
+            final Optional<String> name = getDeclaratorName(declarator.get());
+            if (name.isPresent()) {
                 final VariableDeclaration symbol = VariableDeclaration.builder()
                         .type(variableDecl.getType().orNull())
                         .linkage(Linkage.NONE)
-                        .name(name)
+                        .name(name.get())
                         .startLocation(declarator.get().getLocation())
                         .build();
-                if (!environment.getObjects().add(name, symbol)) {
+                if (!environment.getObjects().add(name.get(), symbol)) {
                     errorHelper.error(declarator.get().getLocation(), Optional.of(declarator.get().getEndLocation()),
                             format("redeclaration of '%s'", name));
                 }
@@ -654,16 +654,16 @@ public final class Declarations extends AstBuildingBase {
              * and types of parameters.
              */
             variableDecl.setForward(true);
-            final String name = getDeclaratorName(funDeclarator);
+            final Optional<String> name = getDeclaratorName(funDeclarator);
             final FunctionDeclaration functionDeclaration;
             /*
              * Check previous declarations.
              */
-            final Optional<? extends ObjectDeclaration> previousDeclarationOpt = environment.getObjects().get(name);
+            final Optional<? extends ObjectDeclaration> previousDeclarationOpt = environment.getObjects().get(name.get());
             final FunctionDeclaration.Builder builder = FunctionDeclaration.builder();
             builder.type(variableDecl.getType().orNull())
                     .linkage(linkage.orNull())
-                    .name(name)
+                    .name(name.get())
                     .startLocation(funDeclarator.getLocation());
 
             if (!previousDeclarationOpt.isPresent()) {
@@ -674,7 +674,7 @@ public final class Declarations extends AstBuildingBase {
                 /* Trying to redeclare non-function declaration. */
                 if (!(previousDeclaration instanceof FunctionDeclaration)) {
                     Declarations.this.errorHelper.error(funDeclarator.getLocation(), funDeclarator.getEndLocation(),
-                            new RedeclarationError(name, RedeclarationKind.OTHER));
+                            new RedeclarationError(name.get(), RedeclarationKind.OTHER));
 
                     /* Nevertheless, create declaration, put it into ast node
                      * but not into environment. */

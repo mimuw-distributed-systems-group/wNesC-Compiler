@@ -160,12 +160,12 @@ public final class NescDeclarations extends AstBuildingBase {
 
         if (declarator.isPresent()) {
             final boolean isTypedef = specifiers.contains(NonTypeSpecifier.TYPEDEF);
-            final String name = DeclaratorUtils.getDeclaratorName(declarator.get());
+            final Optional<String> name = DeclaratorUtils.getDeclaratorName(declarator.get());
             final ObjectDeclaration.Builder<? extends ObjectDeclaration> builder;
 
             if (isTypedef) {
                 final UnknownType denotedType = UnknownTypeFactory.newInstance()
-                        .setName(name)
+                        .setName(name.get())
                         .addAttributes(elements)
                         .addAttributes(attributes)
                         .newUnknownType();
@@ -179,11 +179,11 @@ public final class NescDeclarations extends AstBuildingBase {
             }
 
             final ObjectDeclaration declaration = builder
-                    .name(name)
+                    .name(name.get())
                     .startLocation(startLocation)
                     .build();
 
-            if (!environment.getObjects().add(name, declaration)) {
+            if (!environment.getObjects().add(name.get(), declaration)) {
                 errorHelper.error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", name));
             }
             variableDecl.setDeclaration(declaration);

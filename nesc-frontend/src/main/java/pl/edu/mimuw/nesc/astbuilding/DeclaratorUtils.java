@@ -1,8 +1,8 @@
 package pl.edu.mimuw.nesc.astbuilding;
 
 import com.google.common.base.Optional;
-import pl.edu.mimuw.nesc.ast.util.Interval;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.ast.util.Interval;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -24,7 +24,7 @@ public final class DeclaratorUtils {
      * @param declarator declarator
      * @return declarator's name
      */
-    public static String getDeclaratorName(Declarator declarator) {
+    public static Optional<String> getDeclaratorName(Declarator declarator) {
         checkNotNull(declarator, "declarator cannot be null");
         return declarator.accept(DECLARATOR_NAME_VISITOR, null);
     }
@@ -42,7 +42,7 @@ public final class DeclaratorUtils {
     /**
      * @param declarator Declarator to be traversed.
      * @return The interval that only the identifier is contained in. If the
-     *         identifier is not present, the value is absent.
+     * identifier is not present, the value is absent.
      */
     public static Optional<Interval> getIdentifierInterval(Declarator declarator) {
         checkNotNull(declarator, "the declarator cannot be null");
@@ -57,45 +57,48 @@ public final class DeclaratorUtils {
      *
      * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
      */
-    private static class DeclaratorNameVisitor extends ExceptionVisitor<String, Void> {
+    private static class DeclaratorNameVisitor extends ExceptionVisitor<Optional<String>, Void> {
 
         @Override
-        public String visitFunctionDeclarator(FunctionDeclarator elem, Void arg) {
+        public Optional<String> visitFunctionDeclarator(FunctionDeclarator elem, Void arg) {
+            if (elem.getDeclarator().isPresent()) {
+                return elem.getDeclarator().get().accept(this, null);
+            }
+            return Optional.absent();
+        }
+
+        @Override
+        public Optional<String> visitPointerDeclarator(PointerDeclarator elem, Void arg) {
+            if (elem.getDeclarator().isPresent()) {
+                return elem.getDeclarator().get().accept(this, null);
+            }
+            return Optional.absent();
+        }
+
+        @Override
+        public Optional<String> visitQualifiedDeclarator(QualifiedDeclarator elem, Void arg) {
+            if (elem.getDeclarator().isPresent()) {
+                return elem.getDeclarator().get().accept(this, null);
+            }
+            return Optional.absent();
+        }
+
+        @Override
+        public Optional<String> visitArrayDeclarator(ArrayDeclarator elem, Void arg) {
+            if (elem.getDeclarator().isPresent()) {
+                return elem.getDeclarator().get().accept(this, null);
+            }
+            return Optional.absent();
+        }
+
+        @Override
+        public Optional<String> visitIdentifierDeclarator(IdentifierDeclarator elem, Void arg) {
+            return Optional.of(elem.getName());
+        }
+
+        @Override
+        public Optional<String> visitInterfaceRefDeclarator(InterfaceRefDeclarator elem, Void arg) {
             return elem.getDeclarator().get().accept(this, null);
-        }
-
-        @Override
-        public String visitPointerDeclarator(PointerDeclarator elem, Void arg) {
-            if (elem.getDeclarator().isPresent()) {
-                return elem.getDeclarator().get().accept(this, null);
-            }
-            return null;
-        }
-
-        @Override
-        public String visitQualifiedDeclarator(QualifiedDeclarator elem, Void arg) {
-            if (elem.getDeclarator().isPresent()) {
-                return elem.getDeclarator().get().accept(this, null);
-            }
-            return null;
-        }
-
-        @Override
-        public String visitArrayDeclarator(ArrayDeclarator elem, Void arg) {
-            if (elem.getDeclarator().isPresent()) {
-                return elem.getDeclarator().get().accept(this, null);
-            }
-            return null;
-        }
-
-        @Override
-        public String visitIdentifierDeclarator(IdentifierDeclarator elem, Void arg) {
-            return elem.getName();
-        }
-
-        @Override
-        public String visitInterfaceRefDeclarator(InterfaceRefDeclarator elem, Void arg) {
-           return elem.getDeclarator().get().accept(this, null);
         }
 
     }
