@@ -23,7 +23,7 @@ public final class InvalidAssignAdditiveExprError extends BinaryExprErroneousIss
 
     @Override
     public String generateDescription() {
-        if (leftType.isPointerType() && rightType.isIntegerType()) {
+        if (leftType.isPointerType() && rightType.isGeneralizedIntegerType()) {
 
             final PointerType ptrType = (PointerType) leftType;
             final Type refType = ptrType.getReferencedType();

@@ -39,7 +39,7 @@ public final class InvalidConditionalExprError extends ErroneousIssue {
 
     @Override
     public String generateDescription() {
-        if (!condType.isScalarType()) {
+        if (!condType.isGeneralizedScalarType()) {
             return format("Condition operand '%s' for operator ?: has type '%s' but expecting a scalar type",
                           PrettyPrint.expression(condExpr), condType);
         } else if (trueType.isFieldTagType() && falseType.isFieldTagType()) {

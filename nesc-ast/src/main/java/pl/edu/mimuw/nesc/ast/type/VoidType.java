@@ -90,6 +90,21 @@ public final class VoidType extends AbstractType {
     }
 
     @Override
+    public final boolean isUnknownType() {
+        return false;
+    }
+
+    @Override
+    public final boolean isUnknownArithmeticType() {
+        return false;
+    }
+
+    @Override
+    public final boolean isUnknownIntegerType() {
+        return false;
+    }
+
+    @Override
     public final boolean isModifiable() {
         return false;
     }

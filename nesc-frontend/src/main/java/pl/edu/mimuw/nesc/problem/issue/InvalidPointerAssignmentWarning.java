@@ -21,7 +21,7 @@ public final class InvalidPointerAssignmentWarning extends BinaryExprCautionaryI
 
     @Override
     public String generateDescription() {
-        if (leftType.isPointerType() && rightType.isIntegerType()) {
+        if (leftType.isPointerType() && rightType.isGeneralizedIntegerType()) {
             return format("'%s' of integer type '%s' assigned to pointer '%s' without a cast",
                          PrettyPrint.expression(rightExpr), rightType,
                          PrettyPrint.expression(leftExpr));

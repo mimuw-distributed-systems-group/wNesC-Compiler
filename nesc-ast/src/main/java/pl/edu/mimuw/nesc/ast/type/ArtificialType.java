@@ -46,12 +46,22 @@ public abstract class ArtificialType implements Type {
     }
 
     @Override
+    public final boolean isGeneralizedRealType() {
+        return false;
+    }
+
+    @Override
     public final boolean isCharacterType() {
         return false;
     }
 
     @Override
     public final boolean isScalarType() {
+        return false;
+    }
+
+    @Override
+    public final boolean isGeneralizedScalarType() {
         return false;
     }
 
@@ -87,6 +97,31 @@ public abstract class ArtificialType implements Type {
 
     @Override
     public final boolean isFunctionType() {
+        return false;
+    }
+
+    @Override
+    public final boolean isUnknownType() {
+        return false;
+    }
+
+    @Override
+    public final boolean isUnknownArithmeticType() {
+        return false;
+    }
+
+    @Override
+    public final boolean isUnknownIntegerType() {
+        return false;
+    }
+
+    @Override
+    public final boolean isGeneralizedArithmeticType() {
+        return false;
+    }
+
+    @Override
+    public final boolean isGeneralizedIntegerType() {
         return false;
     }
 

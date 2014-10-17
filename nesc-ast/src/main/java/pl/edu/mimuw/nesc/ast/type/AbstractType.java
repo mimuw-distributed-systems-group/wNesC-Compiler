@@ -82,6 +82,26 @@ public abstract class AbstractType implements Type {
     }
 
     @Override
+    public final boolean isGeneralizedIntegerType() {
+        return isIntegerType() || isUnknownIntegerType();
+    }
+
+    @Override
+    public final boolean isGeneralizedArithmeticType() {
+        return isArithmetic() || isUnknownArithmeticType();
+    }
+
+    @Override
+    public final boolean isGeneralizedScalarType() {
+        return isScalarType() || isUnknownArithmeticType();
+    }
+
+    @Override
+    public final boolean isGeneralizedRealType() {
+        return isRealType() || isUnknownArithmeticType();
+    }
+
+    @Override
     public final boolean isConstQualified() {
         return constQualified;
     }
@@ -115,8 +135,8 @@ public abstract class AbstractType implements Type {
      *         qualifiers that the given type has.
      */
     protected final boolean hasAllBasicQualifiers(Type otherType) {
-        return !otherType.isConstQualified() || isConstQualified()
-                && !otherType.isVolatileQualified() || isVolatileQualified();
+        return (!otherType.isConstQualified() || isConstQualified())
+                && (!otherType.isVolatileQualified() || isVolatileQualified());
     }
 
     @Override

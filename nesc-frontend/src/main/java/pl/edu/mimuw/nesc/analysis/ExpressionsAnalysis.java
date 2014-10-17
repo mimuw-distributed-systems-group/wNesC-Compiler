@@ -168,13 +168,14 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
         cr.leftData.superDecay();
         cr.rightData.superDecay();
 
-        // Check types and simultaneously determine the result type
+        final Optional<Type> arithmeticResult = performGeneralizedArithmeticCheck(cr.leftType(),
+                cr.rightType());
         Optional<? extends Type> resultType = Optional.absent();
-        if (cr.leftType().isArithmetic() && cr.rightType().isArithmetic()) {
 
-            final Type afterUAC = doUsualArithmeticConversions((ArithmeticType) cr.leftType(),
-                                                               (ArithmeticType) cr.rightType());
-            resultType = Optional.of(afterUAC);
+        // Check types and simultaneously determine the result type
+        if (arithmeticResult.isPresent()) {
+
+            resultType = arithmeticResult;
 
         } else if (cr.leftType().isPointerType() || cr.rightType().isPointerType()) {
             final PointerType ptrType = cr.leftType().isPointerType()
@@ -186,7 +187,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
             final Type referencedType = ptrType.getReferencedType();
 
             if (referencedType.isComplete() && referencedType.isObjectType()
-                    && otherType.isIntegerType()) {
+                    && otherType.isGeneralizedIntegerType()) {
                 resultType = Optional.of(ptrType);
             }
         }
@@ -220,13 +221,16 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
         cr.leftData.superDecay();
         cr.rightData.superDecay();
 
+
+        final Optional<Type> arithmeticResult = performGeneralizedArithmeticCheck(cr.leftType(),
+                cr.rightType());
+        Optional<? extends Type> resultType = Optional.absent();
+
         /* Check if types are correct and simultaneously determine the result
            type */
-        Optional<? extends Type> resultType = Optional.absent();
-        if (cr.leftType().isArithmetic() && cr.rightType().isArithmetic()) {
+        if (arithmeticResult.isPresent()) {
 
-            resultType = Optional.of(doUsualArithmeticConversions((ArithmeticType) cr.leftType(),
-                    (ArithmeticType) cr.rightType()));
+            resultType = arithmeticResult;
 
         } else if (cr.leftType().isPointerType() && cr.rightType().isPointerType()) {
 
@@ -239,7 +243,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                     && refType2.isObjectType() && refType1.isCompatibleWith(refType2)) {
                 resultType = Optional.of(TYPE_PTRDIFF_T);
             }
-        } else if (cr.leftType().isPointerType() && cr.rightType().isIntegerType()) {
+        } else if (cr.leftType().isPointerType() && cr.rightType().isGeneralizedIntegerType()) {
 
             final PointerType ptrType = (PointerType) cr.leftType();
             final Type refType = ptrType.getReferencedType();
@@ -371,7 +375,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
         if (error.isPresent()) {
             errorHelper.error(expr.getLocation(), expr.getEndLocation(), error.get());
-        } else if (cr.leftType().isPointerType() && cr.rightType().isIntegerType()
+        } else if (cr.leftType().isPointerType() && cr.rightType().isGeneralizedIntegerType()
                 && !cr.rightData.isNullPointerConstant()) {
 
             final CautionaryIssue warn = new InvalidPointerAssignmentWarning(cr.leftType(),
@@ -520,7 +524,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
         cr.argData.superDecay();
 
-        if (!cr.argType().isIntegerType()) {
+        if (!cr.argType().isGeneralizedIntegerType()) {
             final ErroneousIssue error = new InvalidBitnotExprError(cr.argType(), expr.getArgument());
             errorHelper.error(expr.getLocation(), expr.getEndLocation(), error);
             return Optional.absent();
@@ -546,7 +550,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
         cr.argData.superDecay();
 
-        if (!cr.argType().isScalarType()) {
+        if (!cr.argType().isGeneralizedScalarType()) {
             final ErroneousIssue error = new InvalidNotExprError(cr.argType(),
                     expr.getArgument());
             errorHelper.error(expr.getLocation(), expr.getEndLocation(), error);
@@ -639,7 +643,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                     : arrayType;
             final Type refType = ptrType.getReferencedType();
 
-            if (refType.isComplete() && refType.isObjectType() && otherType.isIntegerType()) {
+            if (refType.isComplete() && refType.isObjectType()
+                    && otherType.isGeneralizedIntegerType()) {
                 resultType = Optional.of(refType);
             }
         }
@@ -770,12 +775,14 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
     private Optional<? extends Type> resolveTypeOfConditional(Type condType, Type trueType,
             Type falseType) {
 
-        if (!condType.isScalarType()) {
-            return Optional.absent();
-        } else if (trueType.isArithmetic() && falseType.isArithmetic()) {
+        final Optional<Type> arithmeticResult = performGeneralizedArithmeticCheck(trueType,
+                falseType);
 
-            return Optional.of(doUsualArithmeticConversions((ArithmeticType) trueType,
-                    (ArithmeticType) falseType));
+        if (!condType.isGeneralizedScalarType()) {
+            return Optional.absent();
+        } else if (arithmeticResult.isPresent()) {
+
+            return arithmeticResult;
 
         } else if (trueType.isFieldTagType() && falseType.isFieldTagType()
                 && trueType.isCompatibleWith(falseType)) {
@@ -803,9 +810,9 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
             } else if (trueRefType.isObjectType() && falseRefType.isVoid()) {
                 return Optional.of(falseRefType.addQualifiers(trueRefType));
             }
-        } else if (trueType.isPointerType() && falseType.isIntegerType()) {
+        } else if (trueType.isPointerType() && falseType.isGeneralizedIntegerType()) {
             return Optional.of(trueType);
-        } else if (trueType.isIntegerType() && falseType.isPointerType()) {
+        } else if (trueType.isGeneralizedIntegerType() && falseType.isPointerType()) {
             return Optional.of(falseType);
         }
 
@@ -1196,10 +1203,14 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
         final Type destType = expr.getAsttype().getType().get();
         cr.argData.superDecay();
 
-        final boolean correct = (destType.isVoid() || destType.isScalarType())
+        final boolean correct = (destType.isVoid() || destType.isGeneralizedScalarType())
                 && (!cr.argType().isFloatingType() || !destType.isPointerType())
                 && (!cr.argType().isPointerType() || !destType.isFloatingType())
-                && cr.argType().isScalarType();
+                && (!cr.argType().isUnknownArithmeticType() || cr.argType().isUnknownIntegerType()
+                    || !destType.isPointerType())
+                && (!cr.argType().isPointerType() || !destType.isUnknownArithmeticType()
+                    || destType.isUnknownIntegerType())
+                && cr.argType().isGeneralizedScalarType();
 
         if (!correct) {
             final ErroneousIssue error = new InvalidCastExprError(destType, cr.argType(),
@@ -1372,8 +1383,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
             return Optional.absent();
         }
 
-        final Type resultType = doUsualArithmeticConversions((ArithmeticType) cr.leftType(),
-                (ArithmeticType) cr.rightType());
+        final Type resultType = performGeneralizedArithmeticCheck(cr.leftType(),
+                cr.rightType()).get();
         final boolean isNullPtrCst = resultType.isIntegerType()
                 && (op != TIMES || cr.leftData.isNullPointerConstant() || cr.rightData.isNullPointerConstant())
                 && (op != MODULO && op != DIVIDE || cr.leftData.isNullPointerConstant());
@@ -1400,7 +1411,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
         cr.argData.superDecay();
 
-        if (!cr.argType().isArithmetic()) {
+        if (!cr.argType().isGeneralizedArithmeticType()) {
             final ErroneousIssue error = new InvalidUnaryAdditiveExprError(op, cr.argType(),
                     expr.getArgument());
             errorHelper.error(expr.getLocation(), expr.getEndLocation(), error);
@@ -1432,7 +1443,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
         cr.rightData.superDecay();
 
         boolean correct = false;
-        if (cr.leftType().isRealType() && cr.rightType().isRealType()) {
+        if (cr.leftType().isGeneralizedRealType() && cr.rightType().isGeneralizedRealType()) {
             correct = true;
         } else if (cr.leftType().isPointerType() && cr.rightType().isPointerType()) {
 
@@ -1477,7 +1488,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
         // Consider the cases when the type is correct
         boolean correct = false, missingCastWarning = false;
-        if (cr.leftType().isArithmetic() && cr.rightType().isArithmetic()) {
+        if (cr.leftType().isGeneralizedArithmeticType() && cr.rightType().isGeneralizedArithmeticType()) {
             correct = true;
         } else if (cr.leftType().isPointerType() && cr.rightType().isPointerType()) {
 
@@ -1489,10 +1500,10 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
             correct = leftRefType.isCompatibleWith(rightRefType)
                       || leftRefType.isObjectType() && rightRefType.isObjectType()
                            && (leftRefType.isVoid() || rightRefType.isVoid());
-        } else if (cr.leftType().isPointerType() && cr.rightType().isIntegerType()) {
+        } else if (cr.leftType().isPointerType() && cr.rightType().isGeneralizedIntegerType()) {
             correct = true;
             missingCastWarning = !cr.rightData.isNullPointerConstant();
-        } else if (cr.leftType().isIntegerType() && cr.rightType().isPointerType()) {
+        } else if (cr.leftType().isGeneralizedIntegerType() && cr.rightType().isPointerType()) {
             correct = true;
             missingCastWarning = !cr.leftData.isNullPointerConstant();
         }
@@ -1533,7 +1544,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
         cr.leftData.superDecay();
         cr.rightData.superDecay();
 
-        if (!cr.leftType().isScalarType() || !cr.rightType().isScalarType()) {
+        if (!cr.leftType().isGeneralizedScalarType() || !cr.rightType().isGeneralizedScalarType()) {
             final ErroneousIssue error = new InvalidBinaryLogicalExprError(cr.leftType(),
                     expr.getLeftArgument(), op, cr.rightType(), expr.getRightArgument());
             errorHelper.error(expr.getLocation(), expr.getEndLocation(), error);
@@ -1570,8 +1581,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
             return Optional.absent();
         }
 
-        final Type resultType = doUsualArithmeticConversions((ArithmeticType) cr.leftType(),
-                (ArithmeticType) cr.rightType());
+        final Type resultType = performGeneralizedArithmeticCheck(cr.leftType(),
+                cr.rightType()).get();
         final boolean isNullPtrCst =
                 (op != BITAND || cr.leftData.isNullPointerConstant()
                         || cr.rightData.isNullPointerConstant())
@@ -1601,7 +1612,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
         cr.rightData.superDecay();
         cr.leftData.decay();
 
-        final boolean typesCorrect = cr.leftType().isArithmetic() && cr.rightType().isArithmetic()
+        final boolean typesCorrect = cr.leftType().isGeneralizedArithmeticType()
+                && cr.rightType().isGeneralizedArithmeticType()
                 || checkPointerAdvance(cr.leftType(), cr.rightType());
 
         Optional<? extends ErroneousIssue> error = Optional.absent();
@@ -1704,7 +1716,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
         if (!cr.argData.isModifiableLvalue()) {
             error = Optional.of(new NotModifiableLvalueError(cr.argType(), expr.getArgument(),
                     cr.argData.isLvalue()));
-        } else if (!cr.argType().isRealType() && (!cr.argType().isPointerType()
+        } else if (!cr.argType().isGeneralizedRealType() && (!cr.argType().isPointerType()
                 || !checkPointerAdvance(cr.argType(), new IntType()))) {
             error = Optional.of(new InvalidIncrementExprError(op, cr.argType(), expr.getArgument()));
         }
@@ -1741,11 +1753,13 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
             case DIVIDE:
             case ASSIGN_TIMES:
             case ASSIGN_DIVIDE:
-                return leftType.isArithmetic() && rightType.isArithmetic();
+                return leftType.isGeneralizedArithmeticType()
+                        && rightType.isGeneralizedArithmeticType();
 
             case MODULO:
             case ASSIGN_MODULO:
-                return leftType.isIntegerType() && rightType.isIntegerType();
+                return leftType.isGeneralizedIntegerType()
+                        && rightType.isGeneralizedIntegerType();
 
             default:
                 throw new RuntimeException("invalid multiplicative operator '" + op + "'");
@@ -1757,7 +1771,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
      *         operands of a shift operator.
      */
     private boolean checkShiftOpsTypes(Type leftType, Type rightType) {
-        return leftType.isIntegerType() && rightType.isIntegerType();
+        return leftType.isGeneralizedIntegerType() && rightType.isGeneralizedIntegerType();
     }
 
     /**
@@ -1765,7 +1779,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
      *         operands of a binary bit operator (other than a shift operator).
      */
     private boolean checkBinaryBitOpsTypes(Type leftType, Type rightType) {
-        return leftType.isIntegerType() && rightType.isIntegerType();
+        return leftType.isGeneralizedIntegerType() && rightType.isGeneralizedIntegerType();
     }
 
     /**
@@ -1783,7 +1797,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
     private boolean checkAssignment(Type leftType, Type rightType) {
         boolean correct = false;
 
-        if (leftType.isArithmetic() && rightType.isArithmetic()) {
+        if (leftType.isGeneralizedArithmeticType() && rightType.isGeneralizedArithmeticType()) {
             correct = true;
         } else if (leftType.isFieldTagType()) {
             correct = leftType.removeQualifiers().isCompatibleWith(rightType.removeQualifiers());
@@ -1800,8 +1814,10 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                     && (leftUnqualRefType.isCompatibleWith(rightUnqualRefType)
                         || leftRefType.isObjectType() && rightRefType.isObjectType()
                             && (leftRefType.isVoid() || rightRefType.isVoid()));
-        } else if (leftType.isPointerType() && rightType.isIntegerType()) {
+        } else if (leftType.isPointerType() && rightType.isGeneralizedIntegerType()) {
             correct = true;
+        } else if (leftType.isUnknownType()) {
+            correct = leftType.removeQualifiers().isCompatibleWith(rightType.removeQualifiers());
         }
 
         return correct;
@@ -1819,7 +1835,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
     private boolean checkPointerAdvance(Type leftType, Type rightType) {
         boolean correct = false;
 
-        if (leftType.isPointerType() && rightType.isIntegerType()) {
+        if (leftType.isPointerType() && rightType.isGeneralizedIntegerType()) {
 
             final PointerType ptrType = (PointerType) leftType;
             final Type refType = ptrType.getReferencedType();
@@ -1829,6 +1845,53 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
         }
 
         return correct;
+    }
+
+    /**
+     * Check if both types are equivalent to an arithmetic type. It happens if
+     * every argument of this method is either an arithmetic type or an unknown
+     * arithmetic type.
+     *
+     * @return The object is present if and only if the check succeeded. If so,
+     *         the type is the result of usual arithmetic conversions. They are
+     *         simulated if an unknown arithmetic type is given.
+     */
+    private Optional<Type> performGeneralizedArithmeticCheck(Type leftType, Type rightType) {
+
+        final Type result;
+
+        if (leftType.isArithmetic() && rightType.isArithmetic()) {
+
+            result = doUsualArithmeticConversions((ArithmeticType) leftType,
+                    (ArithmeticType) rightType);
+
+        } else if (leftType.isUnknownArithmeticType() && rightType.isUnknownArithmeticType()) {
+
+            result = !leftType.isUnknownIntegerType() || !rightType.isUnknownIntegerType()
+                    ? UnknownArithmeticType.unnamed()
+                    : UnknownIntegerType.unnamed();
+
+        } else if (leftType.isUnknownArithmeticType() || rightType.isUnknownArithmeticType()) {
+
+            final UnknownArithmeticType unknownArithType = leftType.isUnknownArithmeticType()
+                    ? (UnknownArithmeticType) leftType
+                    : (UnknownArithmeticType) rightType;
+            final Type otherType = unknownArithType == leftType
+                    ? rightType
+                    : leftType;
+
+            if (otherType.isFloatingType()) {
+                result = UnknownArithmeticType.unnamed();
+            } else if (otherType.isArithmetic()) {
+                result = unknownArithType.removeName();
+            } else {
+                result = null;
+            }
+        } else {
+            result = null;
+        }
+
+        return Optional.fromNullable(result);
     }
 
     /**

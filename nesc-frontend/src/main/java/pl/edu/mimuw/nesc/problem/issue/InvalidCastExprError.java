@@ -33,10 +33,10 @@ public final class InvalidCastExprError extends ErroneousIssue {
 
     @Override
     public String generateDescription() {
-        if (!destType.isVoid() && !destType.isScalarType()) {
+        if (!destType.isVoid() && !destType.isGeneralizedScalarType()) {
             return format("Cannot cast to type '%s'; expecting '%s' or a scalar type", destType,
                           new VoidType());
-        } else if (!argType.isScalarType()) {
+        } else if (!argType.isGeneralizedScalarType()) {
             return format("Cannot cast expression '%s' of type '%s'; expecting a scalar type",
                          PrettyPrint.expression(argExpr), argType);
         } else if (argType.isPointerType() && destType.isFloatingType()) {
@@ -44,6 +44,17 @@ public final class InvalidCastExprError extends ErroneousIssue {
                           argType, destType);
         } else if (argType.isFloatingType() && destType.isPointerType()) {
             return format("Cannot cast expression of a floating type to a pointer type ('%s' to '%s')",
+                          argType, destType);
+        } else if (argType.isPointerType() && destType.isUnknownArithmeticType()
+                && !destType.isUnknownIntegerType()) {
+
+            return format("Cannot cast expression of a pointer type to an unknown arithmetic type ('%s' to '%s')",
+                          argType, destType);
+
+        } else if (argType.isUnknownArithmeticType() && !argType.isUnknownIntegerType()
+                && destType.isPointerType()) {
+
+            return format("Cannot cast expression of an unknown arithmetic type to a pointer type ('%s' to '%s')",
                           argType, destType);
         }
 

@@ -26,18 +26,18 @@ public final class InvalidMultiplicativeExprError extends BinaryExprErroneousIss
     @Override
     public String generateDescription() {
         if (op == MODULO) {
-            if (!leftType.isIntegerType()) {
+            if (!leftType.isGeneralizedIntegerType()) {
                 return format("Left operand '%s' of operator %s has type '%s' but expecting an integer type",
                               PrettyPrint.expression(leftExpr), op, leftType);
-            } else if (!rightType.isIntegerType()) {
+            } else if (!rightType.isGeneralizedIntegerType()) {
                 return format("Right operand '%s' of operator %s has type '%s' but expecting an integer type",
                               PrettyPrint.expression(rightExpr), op, rightType);
             }
         } else {
-            if (!leftType.isArithmetic()) {
+            if (!leftType.isGeneralizedArithmeticType()) {
                 return format("Left operand '%s' of operator %s has type '%s' but expecting an arithmetic type",
                               PrettyPrint.expression(leftExpr), op, leftType);
-            } else if (!rightType.isArithmetic()) {
+            } else if (!rightType.isGeneralizedArithmeticType()) {
                 return format("Right operand '%s' of operator %s has type '%s' but expecting an arithmetic type",
                               PrettyPrint.expression(rightExpr), op, rightType);
             }

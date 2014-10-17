@@ -53,7 +53,7 @@ public final class InvalidArrayRefExprError extends ErroneousIssue {
                     : exprArray;
             final Type refType = ptrType.getReferencedType();
 
-            if (!otherType.isIntegerType()) {
+            if (!otherType.isGeneralizedIntegerType()) {
                 return format("Operand '%s' for operator [] has type '%s' but expecting an integer type as the other operand is a pointer",
                               PrettyPrint.expression(otherExpr), otherType);
             } else if (!refType.isComplete()) {

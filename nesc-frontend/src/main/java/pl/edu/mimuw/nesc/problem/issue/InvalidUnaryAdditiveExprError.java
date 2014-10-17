@@ -23,7 +23,7 @@ public final class InvalidUnaryAdditiveExprError extends UnaryExprErroneousIssue
 
     @Override
     public String generateDescription() {
-        if (!argType.isArithmetic()) {
+        if (!argType.isGeneralizedArithmeticType()) {
             return format("Operand '%s' of unary operator %s has type '%s' but expecting an arithmetic type",
                           PrettyPrint.expression(argExpr), op, argType);
         }

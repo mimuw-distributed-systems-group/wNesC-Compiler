@@ -36,7 +36,7 @@ public final class InvalidPlusExprError extends BinaryExprErroneousIssue {
                     ? rightExpr
                     : leftExpr;
 
-            if (!otherType.isIntegerType()) {
+            if (!otherType.isGeneralizedIntegerType()) {
                 return format("Operand '%s' of operator %s has type '%s' but expecting an integer type as the other operand is a pointer",
                               PrettyPrint.expression(otherExpr), op, otherType);
             }

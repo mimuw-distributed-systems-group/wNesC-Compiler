@@ -34,10 +34,10 @@ public final class InvalidPointerConditionalWarning extends CautionaryIssue {
 
     @Override
     public String generateDescription() {
-        if (trueType.isPointerType() && falseType.isIntegerType()) {
+        if (trueType.isPointerType() && falseType.isGeneralizedIntegerType()) {
             return format("A pointer and an integer combined as the middle and the last operand for operator ?: ('%s' and '%s')",
                           trueType, falseType);
-        } else if (trueType.isIntegerType() && falseType.isPointerType()) {
+        } else if (trueType.isGeneralizedIntegerType() && falseType.isPointerType()) {
             return format("An integer and a pointer combined as the middle and the last operand for operator ?: ('%s' and '%s')",
                           trueType, falseType);
         }

@@ -6,6 +6,8 @@ import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.ast.type.TypeDefinitionType;
+import pl.edu.mimuw.nesc.ast.type.UnknownType;
+import pl.edu.mimuw.nesc.ast.type.UnknownTypeFactory;
 import pl.edu.mimuw.nesc.ast.util.Interval;
 import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
 import pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils;
@@ -55,7 +57,13 @@ public final class NescDeclarations extends AstBuildingBase {
         final TypeParmDecl decl = new TypeParmDecl(startLocation, name, attributes);
         decl.setEndLocation(endLocation);
 
+        final UnknownType denotedType = UnknownTypeFactory.newInstance()
+                .setName(name)
+                .addAttributes(attributes)
+                .newUnknownType();
+
         final TypenameDeclaration symbol = TypenameDeclaration.builder()
+                .denotedType(denotedType)
                 .name(name)
                 .startLocation(startLocation)
                 .build();
@@ -136,9 +144,17 @@ public final class NescDeclarations extends AstBuildingBase {
         variableDecl.setInitializer(Optional.<Expression>absent());
         variableDecl.setEndLocation(endLocation);
 
+        // Count the number of type elements that are not attributes
+        int specifiersCount = elements.size();
+        for (TypeElement typeElement : elements) {
+            if (typeElement instanceof Attribute) {
+                --specifiersCount;
+            }
+        }
+
         // Check the non-type specifiers and emit errors and warnings
         final SpecifiersSet specifiers = new SpecifiersSet(elements, errorHelper);
-        checkGenericParameterSpecifiers(specifiers, elements.size(),
+        checkGenericParameterSpecifiers(specifiers, specifiersCount,
                 Interval.of(getStartLocation(elements).get(), endLocation),
                 errorHelper);
 
@@ -148,9 +164,13 @@ public final class NescDeclarations extends AstBuildingBase {
             final ObjectDeclaration.Builder<? extends ObjectDeclaration> builder;
 
             if (isTypedef) {
-                /* FIXME set the denoted type to an object that reflects
-                   the type with regards to information from attributes */
-                builder = TypenameDeclaration.builder();
+                final UnknownType denotedType = UnknownTypeFactory.newInstance()
+                        .setName(name)
+                        .addAttributes(elements)
+                        .addAttributes(attributes)
+                        .newUnknownType();
+
+                builder = TypenameDeclaration.builder().denotedType(denotedType);
                 variableDecl.setType(Optional.<Type>of(TypeDefinitionType.getInstance()));
             } else {
                 variableDecl.setType(resolveType(environment, elements, declarator,

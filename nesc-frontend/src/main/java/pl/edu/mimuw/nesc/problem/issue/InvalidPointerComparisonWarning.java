@@ -24,12 +24,12 @@ public final class InvalidPointerComparisonWarning  extends BinaryExprCautionary
 
     @Override
     public String generateDescription() {
-        if (leftType.isPointerType() && rightType.isIntegerType()) {
+        if (leftType.isPointerType() && rightType.isGeneralizedIntegerType()) {
 
             return format("Pointer '%s' of type '%s' compared to number '%s' of type '%s' with operator %s without a cast",
                           PrettyPrint.expression(leftExpr), leftType, PrettyPrint.expression(rightExpr), rightType, op);
 
-        } else if (leftType.isIntegerType() && rightType.isPointerType()) {
+        } else if (leftType.isGeneralizedIntegerType() && rightType.isPointerType()) {
 
             return format("Number '%s' of type '%s' compared to pointer '%s' of type '%s' with operator %s without a cast",
                         PrettyPrint.expression(leftExpr), leftType, PrettyPrint.expression(rightExpr), rightType, op);

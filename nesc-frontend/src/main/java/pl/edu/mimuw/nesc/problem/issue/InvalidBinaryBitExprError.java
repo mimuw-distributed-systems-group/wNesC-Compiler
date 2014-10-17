@@ -24,10 +24,10 @@ public final class InvalidBinaryBitExprError extends BinaryExprErroneousIssue {
 
     @Override
     public String generateDescription() {
-        if (!leftType.isIntegerType()) {
+        if (!leftType.isGeneralizedIntegerType()) {
             return format("Left operand '%s' of bitwise operator %s has type '%s' but expecting an integer type",
                           PrettyPrint.expression(leftExpr), op, leftType);
-        } else if (!rightType.isIntegerType()) {
+        } else if (!rightType.isGeneralizedIntegerType()) {
             return format("Right operand '%s' of bitwise operator %s has type '%s' but expecting an integer type",
                           PrettyPrint.expression(rightExpr), op, rightType);
         }

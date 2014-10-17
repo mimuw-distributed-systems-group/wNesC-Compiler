@@ -2,7 +2,7 @@ package pl.edu.mimuw.nesc.integration;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -61,29 +61,32 @@ public class IntegrationBadTest extends IntegrationTestBase {
 
     @Parameters(name = "{0}")
     public static List<Object[]> testData() {
-        final List<Object[]> result = new ArrayList<>();
-
-        // Add all test programs
-        result.add(new Object[] { "bad01", "C.nc", AttributeUsageAsTypeError.CODE });
-        result.add(new Object[] { "bad02", "C.nc", RedefinitionError.CODE });
-        result.add(new Object[] { "bad03", "C.nc", InvalidArrayElementTypeError.CODE });
-        result.add(new Object[] { "bad04", "C.nc", InvalidFunctionReturnTypeError.CODE });
-        result.add(new Object[] { "bad05", "C.nc", InvalidFieldTypeError.CODE });
-        result.add(new Object[] { "bad06", "C.nc", ConflictingTagKindError.CODE });
-        result.add(new Object[] { "bad07", "C.nc", TypeSpecifierRepetitionError.CODE });
-        result.add(new Object[] { "bad08", "C.nc", RedefinitionError.CODE });
-        result.add(new Object[] { "bad09", "C.nc", InvalidTypeSpecifiersMixError.CODE });
-        result.add(new Object[] { "bad10", "C.nc", ConflictingStorageSpecifierError.CODE });
-        result.add(new Object[] { "bad11", "C.nc", RedefinitionError.CODE });
-        result.add(new Object[] { "bad12", "C.nc", IncompleteVariableTypeError.CODE });
+        // All test programs
+        final Object[][] testSpec = {
+            { "bad01", "C.nc", AttributeUsageAsTypeError.CODE },
+            { "bad02", "C.nc", RedefinitionError.CODE },
+            { "bad03", "C.nc", InvalidArrayElementTypeError.CODE },
+            { "bad04", "C.nc", InvalidFunctionReturnTypeError.CODE },
+            { "bad05", "C.nc", InvalidFieldTypeError.CODE },
+            { "bad06", "C.nc", ConflictingTagKindError.CODE },
+            { "bad07", "C.nc", TypeSpecifierRepetitionError.CODE },
+            { "bad08", "C.nc", RedefinitionError.CODE },
+            { "bad09", "C.nc", InvalidTypeSpecifiersMixError.CODE },
+            { "bad10", "C.nc", ConflictingStorageSpecifierError.CODE },
+            { "bad11", "C.nc", RedefinitionError.CODE },
+            { "bad12", "C.nc", IncompleteVariableTypeError.CODE },
+            { "bad13", "M.nc", InvalidSimpleAssignExprError.CODE },
+            { "bad14", "M.nc", InvalidCastExprError.CODE },
+            { "bad15", "M.nc", InvalidConditionalExprError.CODE },
+        };
 
         // Make the directory absolute
         final String testsDir = getResourceDirectory("integration/programs/bad");
-        for (Object[] testArgs : result) {
+        for (Object[] testArgs : testSpec) {
             testArgs[0] = testsDir + "/" + testArgs[0];
         }
 
-        return result;
+        return Arrays.asList(testSpec);
     }
 
     public IntegrationBadTest(String absoluteDirPath, String fileWithError, Issue.Code expectedIssue) {

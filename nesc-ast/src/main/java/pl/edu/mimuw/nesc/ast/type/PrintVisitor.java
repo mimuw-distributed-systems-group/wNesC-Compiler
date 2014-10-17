@@ -233,6 +233,21 @@ final class PrintVisitor implements TypeVisitor<Void, Boolean> {
         return prependTypename(TYPE_VOID, type);
     }
 
+    @Override
+    public Void visit(UnknownType type, Boolean pointerTo) {
+        return prependTypename(type.getName(), type);
+    }
+
+    @Override
+    public Void visit(UnknownArithmeticType type, Boolean pointerTo) {
+        return prependTypename(type.getName(), type);
+    }
+
+    @Override
+    public Void visit(UnknownIntegerType type, Boolean pointerTo) {
+        return prependTypename(type.getName(), type);
+    }
+
     private <A> void prepend(A value) {
         builder.insert(0, value);
     }

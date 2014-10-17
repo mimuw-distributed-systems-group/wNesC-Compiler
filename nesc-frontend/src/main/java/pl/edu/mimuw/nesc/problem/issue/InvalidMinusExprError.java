@@ -47,7 +47,7 @@ public final class InvalidMinusExprError extends BinaryExprErroneousIssue {
             }
         } else if (leftType.isPointerType()) {
 
-            if (!rightType.isIntegerType()) {
+            if (!rightType.isGeneralizedIntegerType()) {
                 return format("Right operand '%s' of operator %s has type '%s' but expecting an integer type as the left operand is a pointer",
                               PrettyPrint.expression(rightExpr), op, rightType);
             }

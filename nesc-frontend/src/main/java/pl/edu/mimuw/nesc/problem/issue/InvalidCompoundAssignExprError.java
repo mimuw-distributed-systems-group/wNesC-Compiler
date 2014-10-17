@@ -32,20 +32,20 @@ public final class InvalidCompoundAssignExprError extends BinaryExprErroneousIss
         switch (op) {
             case ASSIGN_TIMES:
             case ASSIGN_DIVIDE:
-                if (!leftType.isArithmetic()) {
+                if (!leftType.isGeneralizedArithmeticType()) {
                     return format("Left operand '%s' for operator %s has type '%s' but expecting an arithmetic type",
                                   PrettyPrint.expression(leftExpr), op, leftType);
-                } else if (!rightType.isArithmetic()) {
+                } else if (!rightType.isGeneralizedArithmeticType()) {
                     return format("Right operand '%s' for operator %s has type '%s' but expecting an arithmetic type",
                                   PrettyPrint.expression(rightExpr), op, rightType);
                 }
                 break;
 
             default:
-                if (!leftType.isIntegerType()) {
+                if (!leftType.isGeneralizedIntegerType()) {
                     return format("Left operand '%s' for operator %s has type '%s' but expecting an integer type",
                                   PrettyPrint.expression(leftExpr), op, leftType);
-                } else if (!rightType.isIntegerType()) {
+                } else if (!rightType.isGeneralizedIntegerType()) {
                     return format("Right operand '%s' for operator %s has type '%s' but expecting an integer type",
                                  PrettyPrint.expression(rightExpr), op, rightType);
                 }

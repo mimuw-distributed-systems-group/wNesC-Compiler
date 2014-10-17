@@ -39,7 +39,7 @@ public final class InvalidParameterTypeError extends ErroneousIssue {
 
     @Override
     public String generateDescription() {
-        return format("Cannot use '%s' of type '%s' as the %s parameter for function '%s' with declared type '%s'",
+        return format("Cannot use '%s' of type '%s' as the %s parameter of declared type '%s' for function '%s'",
                 PrettyPrint.expression(parameterExpr), actualType, getOrdinalForm(),
                 PrettyPrint.expression(funExpr), expectedType);
     }

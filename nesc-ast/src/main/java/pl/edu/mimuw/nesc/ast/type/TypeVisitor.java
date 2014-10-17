@@ -33,4 +33,7 @@ public interface TypeVisitor<R, A> {
     R visit(UnsignedLongType type, A arg);
     R visit(UnsignedShortType type, A arg);
     R visit(VoidType type, A arg);
+    R visit(UnknownType type, A arg);
+    R visit(UnknownArithmeticType type, A arg);
+    R visit(UnknownIntegerType type, A arg);
 }

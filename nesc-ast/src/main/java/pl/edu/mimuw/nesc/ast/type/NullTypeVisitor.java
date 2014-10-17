@@ -138,4 +138,19 @@ public class NullTypeVisitor<R, A> implements TypeVisitor<R, A> {
     public R visit(VoidType type, A arg) {
         return null;
     }
+
+    @Override
+    public R visit(UnknownType type, A arg) {
+        return null;
+    }
+
+    @Override
+    public R visit(UnknownArithmeticType type, A arg) {
+        return null;
+    }
+
+    @Override
+    public R visit(UnknownIntegerType type, A arg) {
+        return null;
+    }
 }

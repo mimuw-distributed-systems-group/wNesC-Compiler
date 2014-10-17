@@ -17,6 +17,26 @@ public interface Type {
     boolean isArithmetic();
 
     /**
+     * Check if this type is an unknown arithmetic type, i.e. an unknown type
+     * known to be an arithmetic type. For example, a type parameter of
+     * a generic interface or component declared with <code>@number()</code> or
+     * <code>@integer()</code> attribute.
+     *
+     * @return <code>true</code> if and only if this type is an unknown
+     *         arithmetic type.
+     */
+    boolean isUnknownArithmeticType();
+
+    /**
+     * Check if this type is a generalized arithmetic type. Generalized
+     * arithmetic types are arithmetic types and unknown arithmetic types.
+     *
+     * @return <code>true</code> if and only if this type is a generalized
+     *         arithmetic type.
+     */
+    boolean isGeneralizedArithmeticType();
+
+    /**
      * Integer types: <code>char</code>, signed integer types, unsigned integer
      * types and enumerated types.
      *
@@ -25,6 +45,26 @@ public interface Type {
      *         error.
      */
     boolean isIntegerType();
+
+    /**
+     * Check if this type is an unknown integer type, i.e. an unknown type
+     * that is known to be an integer type. For example, a type parameter for
+     * a generic interface or component declared with <code>@integer()</code>
+     * attribute.
+     *
+     * @return <code>true</code> if and only if this type is an unknown integer
+     *         type.
+     */
+    boolean isUnknownIntegerType();
+
+    /**
+     * Check if this type is a generalized integer type. Generalized integer
+     * types are integer types and unknown integer types.
+     *
+     * @return <code>true</code> if and only if this type is a generalized
+     *         integer type.
+     */
+    boolean isGeneralizedIntegerType();
 
     /**
      * Signed integer types: <code>signed char</code>, <code>short int</code>,
@@ -65,6 +105,14 @@ public interface Type {
     boolean isRealType();
 
     /**
+     * Generalized real types are: real types and unknown arithmetic types.
+     *
+     * @return <code>true</code> if and only if this type is a generalized real
+     *         type.
+     */
+    boolean isGeneralizedRealType();
+
+    /**
      * Character types are: <code>char</code>, <code>signed char</code>
      * and <code>unsigned char</code>.
      *
@@ -78,6 +126,14 @@ public interface Type {
      * @return <code>true</code> if and only if this type is a scalar type.
      */
     boolean isScalarType();
+
+    /**
+     * Generalized scalar types are scalar types and unknown arithmetic types.
+     *
+     * @return <code>true</code> if and only if this type is a generalized
+     *         scalar type.
+     */
+    boolean isGeneralizedScalarType();
 
     /**
      * @return <code>true</code> if and only if this type is the
@@ -139,6 +195,16 @@ public interface Type {
      * @return <code>true</code> if and only if this type is a function type.
      */
     boolean isFunctionType();
+
+    /**
+     * Check if this type is an unknown type. For example a type that is an
+     * argument for a generic interface or a generic component.
+     *
+     * @return <code>true</code> if and only if this type is an unknown type.
+     *         If so, it can be casted to <code>UnknownType</code> without
+     *         error.
+     */
+    boolean isUnknownType();
 
     /**
      * Check if an lvalue of this type could be entirely modified without

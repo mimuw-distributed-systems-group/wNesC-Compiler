@@ -24,10 +24,10 @@ public final class InvalidBinaryLogicalExprError extends BinaryExprErroneousIssu
 
     @Override
     public String generateDescription() {
-        if (!leftType.isScalarType()) {
+        if (!leftType.isGeneralizedScalarType()) {
             return format("Left operand '%s' of operator %s has type '%s' but expecting a scalar type",
                           PrettyPrint.expression(leftExpr), op, leftType);
-        } else if (!rightType.isScalarType()) {
+        } else if (!rightType.isGeneralizedScalarType()) {
             return format("Right operand '%s' of operator %s has type '%s' but expecting a scalar type",
                           PrettyPrint.expression(rightExpr), op, rightType);
         }

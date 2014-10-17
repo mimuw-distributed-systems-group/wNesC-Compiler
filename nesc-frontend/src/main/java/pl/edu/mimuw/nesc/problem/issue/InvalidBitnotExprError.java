@@ -20,7 +20,7 @@ public final class InvalidBitnotExprError extends UnaryExprErroneousIssue {
 
     @Override
     public String generateDescription() {
-        if (!argType.isIntegerType()) {
+        if (!argType.isGeneralizedIntegerType()) {
             return format("Operand '%s' of bitwise operator %s has type '%s' but expecting an integer type",
                           PrettyPrint.expression(argExpr), op, argType);
         }

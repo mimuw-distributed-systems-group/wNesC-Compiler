@@ -20,7 +20,7 @@ public final class InvalidNotExprError extends UnaryExprErroneousIssue {
 
     @Override
     public String generateDescription() {
-        if (!argType.isScalarType()) {
+        if (!argType.isGeneralizedScalarType()) {
             return format("Operand '%s' of unary operator %s has type '%s' but expecting a scalar type",
                           PrettyPrint.expression(argExpr), op, argType);
         }
