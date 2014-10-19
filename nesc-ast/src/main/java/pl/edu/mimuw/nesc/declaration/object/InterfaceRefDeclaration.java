@@ -1,16 +1,24 @@
 package pl.edu.mimuw.nesc.declaration.object;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import pl.edu.mimuw.nesc.ast.gen.DataDecl;
+import pl.edu.mimuw.nesc.ast.gen.Declaration;
+import pl.edu.mimuw.nesc.ast.gen.ErrorDecl;
 import pl.edu.mimuw.nesc.ast.gen.InterfaceRef;
+import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
 import pl.edu.mimuw.nesc.ast.type.InterfaceType;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.declaration.nesc.InterfaceDeclaration;
+
+import java.util.LinkedList;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.*;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public class InterfaceRefDeclaration extends ObjectDeclaration {
 
@@ -24,6 +32,22 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
 
     private boolean provides;
 
+    /**
+     * <p>Immutable list with types of instance parameters of this interface
+     * reference. It is absent if this is not a parameterised interface.
+     * A type is absent if it is incorrectly specified. Instance parameters
+     * are considered the parameters in brackets, e.g.:</p>
+     *
+     * <pre>
+     *  provides interface SendMsg[uint8_t id];
+     *                             ▲        ▲
+     *                             |        |
+     *                             |        |
+     *                             |        |
+     * </pre>
+     */
+    private final Optional<ImmutableList<Optional<Type>>> instanceParameters;
+
     public static Builder builder() {
         return new Builder();
     }
@@ -32,6 +56,7 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
         super(builder);
         this.ifaceName = builder.interfaceName;
         this.astInterfaceRef = builder.astInterfaceRef;
+        this.instanceParameters = builder.buildInstanceParameters();
     }
 
     @Override
@@ -65,6 +90,17 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
 
     public void setProvides(boolean provides) {
         this.provides = provides;
+    }
+
+    /**
+     * Get a list with instance parameters of this interface. More information
+     * about the returned list are
+     * {@link InterfaceRefDeclaration#instanceParameters here}.
+     *
+     * @return Immutable list with instance parameters.
+     */
+    public Optional<ImmutableList<Optional<Type>>> getInstanceParameters() {
+        return instanceParameters;
     }
 
     /**
@@ -141,6 +177,37 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
         @Override
         protected InterfaceRefDeclaration create() {
             return new InterfaceRefDeclaration(this);
+        }
+
+        private Optional<ImmutableList<Optional<Type>>> buildInstanceParameters() {
+            if (!astInterfaceRef.getGenericParameters().isPresent()) {
+                return Optional.absent();
+            }
+
+            final LinkedList<Declaration> declarations = astInterfaceRef.getGenericParameters().get();
+            final ImmutableList.Builder<Optional<Type>> typesBuilder = ImmutableList.builder();
+
+            for (Declaration declaration : declarations) {
+                if (declaration instanceof ErrorDecl) {
+                    continue;
+                }
+
+                checkState(declaration instanceof DataDecl, "unexpected instance parameter declaration class '%s'",
+                        declaration.getClass().getCanonicalName());
+
+                final DataDecl dataDecl = (DataDecl) declaration;
+                final LinkedList<Declaration> dataDeclDeclarations = dataDecl.getDeclarations();
+                checkState(dataDeclDeclarations.size() == 1, "unexpected declarations count %d", dataDeclDeclarations.size());
+
+                final Declaration innerDeclaration = dataDeclDeclarations.getFirst();
+                checkState(innerDeclaration instanceof VariableDecl, "unexpected inner instance parameter declaration class '%s'",
+                        innerDeclaration.getClass().getCanonicalName());
+
+                final VariableDecl variableDecl = (VariableDecl) innerDeclaration;
+                typesBuilder.add(variableDecl.getType());
+            }
+
+            return Optional.of(typesBuilder.build());
         }
     }
 }
