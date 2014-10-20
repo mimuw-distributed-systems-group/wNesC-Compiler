@@ -75,7 +75,8 @@ public final class Issues {
         INVALID_ARRAYREF_EXPR(44),
         INVALID_FIELDREF_EXPR(45),
         INVALID_FUNCTION_CALL(46),
-        INVALID_PARAMETER_TYPE(47);
+        INVALID_PARAMETER_TYPE(47),
+        INVALID_POST_TASK_EXPR(48);
 
         private final int codeNumber;
 

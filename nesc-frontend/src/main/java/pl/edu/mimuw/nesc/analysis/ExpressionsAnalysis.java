@@ -11,13 +11,10 @@ import java.util.List;
 
 import pl.edu.mimuw.nesc.ast.IntegerCstKind;
 import pl.edu.mimuw.nesc.ast.IntegerCstSuffix;
-import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.*;
-import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
-import pl.edu.mimuw.nesc.declaration.object.ObjectKind;
-import pl.edu.mimuw.nesc.declaration.tag.FieldDeclaration;
-import pl.edu.mimuw.nesc.declaration.tag.FieldTagDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.*;
+import pl.edu.mimuw.nesc.declaration.tag.*;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 import pl.edu.mimuw.nesc.problem.issue.*;
@@ -27,6 +24,7 @@ import static pl.edu.mimuw.nesc.ast.type.TypeUtils.*;
 import static pl.edu.mimuw.nesc.ast.util.AstConstants.*;
 import static pl.edu.mimuw.nesc.ast.util.AstConstants.BinaryOp.*;
 import static pl.edu.mimuw.nesc.ast.util.AstConstants.UnaryOp.*;
+import static pl.edu.mimuw.nesc.problem.issue.InvalidPostTaskExprError.PostProblemKind;
 
 /**
  * Class that is responsible for analysis of expressions.
@@ -840,10 +838,27 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
         expr.setDeclaration(pureObjDecl);
         final ObjectKind objKind = pureObjDecl.getKind();
         final Optional<Type> objType = pureObjDecl.getType();
+        final boolean entityCorrect;
 
         // Emit error if an invalid type of object is referred
         if (objKind != ObjectKind.VARIABLE && objKind != ObjectKind.FUNCTION
                 && objKind != ObjectKind.CONSTANT) {
+
+            entityCorrect = false;
+
+        } else if (objKind == ObjectKind.FUNCTION) {
+
+            final FunctionDeclaration funDecl = (FunctionDeclaration) pureObjDecl;
+            final FunctionDeclaration.FunctionType funKind = funDecl.getFunctionType();
+
+            entityCorrect = funKind != FunctionDeclaration.FunctionType.COMMAND
+                    && funKind != FunctionDeclaration.FunctionType.EVENT
+                    && funKind != FunctionDeclaration.FunctionType.TASK;
+        } else {
+            entityCorrect = true;
+        }
+
+        if (!entityCorrect) {
             errorHelper.error(expr.getLocation(), expr.getEndLocation(),
                     new InvalidIdentifierUsageError(expr.getName()));
             return Optional.absent();
@@ -975,55 +990,20 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
     @Override
     public Optional<ExprData> visitFunctionCall(FunctionCall expr, Void arg) {
-        // FIXME analysis of __builtin_va_arg(arguments, vaArgCall) and NesC calls
-        if (expr.getFunction() == null || expr.getCallKind() != NescCallKind.NORMAL_CALL) {
+        // FIXME analysis of __builtin_va_arg(arguments, vaArgCall)
+        if (expr.getFunction() == null) {
             return Optional.absent();
         }
 
-        // Analyze subexpressions
-        final Optional<ExprData> oFunData = expr.getFunction().accept(this, null);
-        final LinkedList<ExprData> argsData = new LinkedList<>();
-        for (Expression argExpr : expr.getArguments()) {
-            final Optional<ExprData> argData = argExpr.accept(this, null);
-            if (!argData.isPresent()) {
+        // FIXME analysis of all NesC call kinds
+        switch (expr.getCallKind()) {
+            case NORMAL_CALL:
+                return analyzeNormalCall(expr);
+            case POST_TASK:
+                return analyzePostTask(expr);
+            default:
                 return Optional.absent();
-            }
-            argsData.add(argData.get());
         }
-
-        // End analysis if the function expression is invalid
-        if (!oFunData.isPresent()) {
-            return Optional.absent();
-        }
-        final ExprData funData = oFunData.get();
-
-        // Perform operations
-        funData.superDecay();
-        for (ExprData argData : argsData) {
-            argData.superDecay();
-        }
-
-        final InvalidFunctionCallError.Builder errBuilder = InvalidFunctionCallError.builder()
-                .funExpr(funData.getType(), expr.getFunction());
-        final FunctionCallReport report = checkFunctionCall(funData.getType(), expr.getFunction(),
-                argsData, expr.getArguments(), errBuilder);
-
-        if (report.reportError) {
-            errorHelper.error(expr.getLocation(), expr.getEndLocation(), errBuilder.build());
-            return Optional.absent();
-        } else if (!report.returnType.isPresent()) {
-            return Optional.absent();
-        }
-
-        final ExprData result = ExprData.builder()
-                .type(report.returnType.get())
-                .isLvalue(false)
-                .isBitField(false)
-                .isNullPointerConstant(false)
-                .build()
-                .spread(expr);
-
-        return Optional.of(result);
     }
 
     /**
@@ -1734,6 +1714,114 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
         final ExprData result = ExprData.builder()
                 .type(cr.argType().removeQualifiers())
+                .isLvalue(false)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build()
+                .spread(expr);
+
+        return Optional.of(result);
+    }
+
+    /**
+     * Analysis for a normal function call, e.g. <code>f(2, "abc")</code>.
+     */
+    private Optional<ExprData> analyzeNormalCall(FunctionCall expr) {
+        // Analyze subexpressions
+        final Optional<ExprData> oFunData = expr.getFunction().accept(this, null);
+        final LinkedList<ExprData> argsData = new LinkedList<>();
+        for (Expression argExpr : expr.getArguments()) {
+            final Optional<ExprData> argData = argExpr.accept(this, null);
+            if (!argData.isPresent()) {
+                return Optional.absent();
+            }
+            argsData.add(argData.get());
+        }
+
+        // End analysis if the function expression is invalid
+        if (!oFunData.isPresent()) {
+            return Optional.absent();
+        }
+        final ExprData funData = oFunData.get();
+
+        // Perform operations
+        funData.superDecay();
+        for (ExprData argData : argsData) {
+            argData.superDecay();
+        }
+
+        final InvalidFunctionCallError.Builder errBuilder = InvalidFunctionCallError.builder()
+                .funExpr(funData.getType(), expr.getFunction());
+        final FunctionCallReport report = checkFunctionCall(funData.getType(), expr.getFunction(),
+                argsData, expr.getArguments(), errBuilder);
+
+        if (report.reportError) {
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), errBuilder.build());
+            return Optional.absent();
+        } else if (!report.returnType.isPresent()) {
+            return Optional.absent();
+        }
+
+        final ExprData result = ExprData.builder()
+                .type(report.returnType.get())
+                .isLvalue(false)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build()
+                .spread(expr);
+
+        return Optional.of(result);
+    }
+
+    /**
+     * Analysis of a task post expression, e.g. <code>post sendTask()</code>.
+     */
+    private Optional<ExprData> analyzePostTask(FunctionCall expr) {
+        final Optional<PostProblemKind> problemKind;
+
+        if (!expr.getArguments().isEmpty()) {
+            problemKind = Optional.of(PostProblemKind.PARAMETERS_GIVEN);
+        } else if (!(expr.getFunction() instanceof Identifier)) {
+            problemKind = Optional.of(PostProblemKind.IDENTIFER_NOT_PROVIDED);
+        } else {
+            final Identifier identExpr = (Identifier) expr.getFunction();
+            final String taskName = identExpr.getName();
+            final Optional<? extends ObjectDeclaration> oDeclData =
+                    environment.getObjects().get(taskName);
+
+            // Check if the task has been declared
+            if (!oDeclData.isPresent()) {
+                errorHelper.error(expr.getFunction().getLocation(), expr.getFunction().getEndLocation(),
+                        new UndeclaredIdentifierError(taskName));
+                return Optional.absent();
+            }
+
+            final ObjectDeclaration declData = oDeclData.get();
+            identExpr.setDeclaration(declData);
+
+            // Check if a task is being posted
+            if (declData.getKind() != ObjectKind.FUNCTION) {
+                problemKind = Optional.of(PostProblemKind.INVALID_OBJECT_REFERENCED);
+            } else {
+                final FunctionDeclaration funData = (FunctionDeclaration) declData;
+
+                if (funData.getFunctionType() != FunctionDeclaration.FunctionType.TASK) {
+                    problemKind = Optional.of(PostProblemKind.INVALID_OBJECT_REFERENCED);
+                } else {
+                    problemKind = Optional.absent();
+                }
+            }
+        }
+
+        if (problemKind.isPresent()) {
+            final ErroneousIssue error = new InvalidPostTaskExprError(problemKind.get(),
+                    expr.getFunction(), expr.getArguments().size());
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), error);
+            return Optional.absent();
+        }
+
+        final ExprData result = ExprData.builder()
+                .type(new UnsignedCharType())
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)

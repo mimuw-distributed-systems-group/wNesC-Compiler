@@ -38,6 +38,7 @@ public class FunctionDeclaration extends ObjectDeclaration {
         super(builder);
         this.ifaceName = builder.interfaceName;
         this.isDefined = builder.isDefined;
+        this.functionType = builder.functionType.orNull();
     }
 
     @Override
@@ -95,6 +96,7 @@ public class FunctionDeclaration extends ObjectDeclaration {
          * Data needed to build a function declaration.
          */
         private Optional<String> interfaceName = Optional.absent();
+        private Optional<FunctionType> functionType = Optional.absent();
         private boolean isDefined = false;
 
         protected Builder() {
@@ -112,6 +114,19 @@ public class FunctionDeclaration extends ObjectDeclaration {
             return this;
         }
 
+        /**
+         * Set the type of the function that the declaration object will
+         * represent. <code>null</code> is a legal argument value and can be
+         * used for a currently unknown function type.
+         *
+         * @param type Type of the function to set.
+         * @return <code>this</code>
+         */
+        public Builder functionType(FunctionType type) {
+            this.functionType = Optional.fromNullable(type);
+            return this;
+        }
+
         @Override
         protected void beforeBuild() {
             super.beforeBuild();
@@ -122,6 +137,7 @@ public class FunctionDeclaration extends ObjectDeclaration {
         protected void validate() {
             super.validate();
             checkNotNull(interfaceName, "the interface name cannot be null");
+            checkNotNull(functionType, "function type cannot be null");
         }
 
         @Override

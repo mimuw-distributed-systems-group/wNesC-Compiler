@@ -661,7 +661,8 @@ public final class Declarations extends AstBuildingBase {
              */
             final Optional<? extends ObjectDeclaration> previousDeclarationOpt = environment.getObjects().get(name.get());
             final FunctionDeclaration.Builder builder = FunctionDeclaration.builder();
-            builder.type(variableDecl.getType().orNull())
+            builder.functionType(TypeElementUtils.getFunctionType(elements))
+                    .type(variableDecl.getType().orNull())
                     .linkage(linkage.orNull())
                     .name(name.get())
                     .startLocation(funDeclarator.getLocation());
