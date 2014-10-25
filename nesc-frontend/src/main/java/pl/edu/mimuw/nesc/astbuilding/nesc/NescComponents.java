@@ -25,6 +25,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static java.lang.String.format;
+import static pl.edu.mimuw.nesc.analysis.NescAnalysis.checkInterfaceInstantiation;
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.checkInstanceParametersSpecifiers;
 import static pl.edu.mimuw.nesc.ast.util.AstUtils.makeWord;
 
@@ -297,6 +298,8 @@ public final class NescComponents extends AstBuildingBase {
             refDeclaration.setProvides(provides);
             refDeclaration.setIfaceDeclaration(Optional.of(ifaceDeclaration));
             refDeclaration.setFacade(facadeFactory.newInterfaceRefFacade());
+
+            checkInterfaceInstantiation(refDeclaration, errorHelper);
 
             return null;
         }
