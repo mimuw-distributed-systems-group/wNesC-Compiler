@@ -10,6 +10,7 @@ import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
 import pl.edu.mimuw.nesc.ast.type.InterfaceType;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.declaration.nesc.InterfaceDeclaration;
+import pl.edu.mimuw.nesc.facade.InterfaceRefFacade;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -31,6 +32,11 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
     private Optional<InterfaceDeclaration> ifaceDeclaration;
 
     private boolean provides;
+
+    /**
+     * Facade for this interface reference.
+     */
+    private InterfaceRefFacade facade;
 
     /**
      * <p>Immutable list with types of instance parameters of this interface
@@ -101,6 +107,31 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
      */
     public Optional<ImmutableList<Optional<Type>>> getInstanceParameters() {
         return instanceParameters;
+    }
+
+    /**
+     * Set the interface reference facade for this object.
+     *
+     * @param facade Facade to set for this object.
+     * @throws NullPointerException Given argument is null.
+     * @throws IllegalStateException The facade has been already set.
+     */
+    public void setFacade(InterfaceRefFacade facade) {
+        checkNotNull(facade, "the interface reference facade cannot be null");
+        checkState(this.facade == null, "the interface reference facade has been already set");
+
+        this.facade = facade;
+    }
+
+    /**
+     * Get the interface reference facade for this object. It is
+     * <code>null</code> if the specification of the component has not been
+     * fully parsed and processed. Otherwise, it is not <code>null</code>.
+     *
+     * @return The interface reference facade object.
+     */
+    public InterfaceRefFacade getFacade() {
+        return facade;
     }
 
     /**

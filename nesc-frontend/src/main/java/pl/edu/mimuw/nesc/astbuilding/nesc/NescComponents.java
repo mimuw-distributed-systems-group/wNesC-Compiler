@@ -16,6 +16,7 @@ import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.InterfaceRefDeclaration;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
+import pl.edu.mimuw.nesc.facade.InterfaceRefFacadeFactory;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.token.Token;
 
@@ -271,7 +272,9 @@ public final class NescComponents extends AstBuildingBase {
             final String name = ref.getAlias().isPresent() ? ref.getAlias().get().getName() : ref.getName().getName();
             final InterfaceRefDeclaration refDeclaration =
                     (InterfaceRefDeclaration) component.getSpecificationEnvironment().getObjects().get(name).get();
+            final InterfaceRefFacadeFactory facadeFactory = InterfaceRefFacadeFactory.newInstance();
 
+            facadeFactory.setInterfaceRefDeclaration(refDeclaration);
 
             final Word ifaceName = ref.getName();
             final Optional<? extends NescDeclaration> declaration = nescEnvironment.get(ifaceName.getName());
@@ -279,18 +282,21 @@ public final class NescComponents extends AstBuildingBase {
                 errorHelper.error(ifaceName.getLocation(), Optional.of(ifaceName.getEndLocation()),
                         format("unknown interface '%s'", ifaceName.getName()));
                 refDeclaration.setIfaceDeclaration(Optional.<InterfaceDeclaration>absent());
+                refDeclaration.setFacade(facadeFactory.newInterfaceRefFacade());
                 return null;
             }
             if (!(declaration.get() instanceof InterfaceDeclaration)) {
                 errorHelper.error(ifaceName.getLocation(), Optional.of(ifaceName.getEndLocation()),
                         format("'%s' is not interface", ifaceName.getName()));
                 refDeclaration.setIfaceDeclaration(Optional.<InterfaceDeclaration>absent());
+                refDeclaration.setFacade(facadeFactory.newInterfaceRefFacade());
                 return null;
             }
             final InterfaceDeclaration ifaceDeclaration = (InterfaceDeclaration) declaration.get();
 
             refDeclaration.setProvides(provides);
             refDeclaration.setIfaceDeclaration(Optional.of(ifaceDeclaration));
+            refDeclaration.setFacade(facadeFactory.newInterfaceRefFacade());
 
             return null;
         }
