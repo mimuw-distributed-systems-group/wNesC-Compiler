@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.facade;
 
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -11,9 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import pl.edu.mimuw.nesc.ast.type.FunctionType;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.type.UnknownType;
+import pl.edu.mimuw.nesc.ast.type.*;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.InterfaceRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
@@ -210,13 +209,223 @@ public final class GoodInterfaceRefFacade extends AbstractInterfaceRefFacade {
     }
 
     private Optional<Type> substituteType(Type type) {
-        if (type.isUnknownType()) {
-            final UnknownType unknownType = (UnknownType) type;
-            return Optional.fromNullable(substitution.get(unknownType.getName()))
-                           .or(Optional.<Type>absent());
+        final TypeSubstituteVisitor substituteVisitor = new TypeSubstituteVisitor();
+        return type.accept(substituteVisitor, null);
+    }
+
+    /**
+     * Visitor that is responsible for substituting unknown types that occur
+     * in a given type. It performs an action that is similar to cloning and
+     * then applying some small changes. The substitution is defined by
+     * {@link GoodInterfaceRefFacade#substitution substitution}.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private final class TypeSubstituteVisitor implements TypeVisitor<Optional<Type>, Void> {
+
+        // Primitive types
+
+        @Override
+        public Optional<Type> visit(CharType type, Void arg) {
+            return Optional.<Type>of(type);
         }
 
-        return Optional.of(type);
+        @Override
+        public Optional<Type> visit(SignedCharType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(UnsignedCharType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(ShortType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(UnsignedShortType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(IntType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(UnsignedIntType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(LongType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(UnsignedLongType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(LongLongType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(UnsignedLongLongType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(EnumeratedType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(FloatType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(DoubleType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(LongDoubleType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(VoidType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        // Derived types
+
+        @Override
+        public Optional<Type> visit(final ArrayType oldType, Void arg) {
+            final Function<Type, Type> arrayTypeTransform = new Function<Type, Type>() {
+                @Override
+                public Type apply(Type newElementType) {
+                    return newElementType != oldType.getElementType()
+                        ? new ArrayType(newElementType, oldType.ofKnownSize)
+                        : oldType;
+                }
+            };
+
+            return oldType.getElementType().accept(this, null)
+                        .transform(arrayTypeTransform);
+        }
+
+        @Override
+        public Optional<Type> visit(final PointerType oldType, Void arg) {
+            final Function<Type, Type> pointerTypeTransform = new Function<Type, Type>() {
+                @Override
+                public Type apply(Type newReferencedType) {
+                    return newReferencedType != oldType.getReferencedType()
+                        ? new PointerType(oldType.isConstQualified(), oldType.isVolatileQualified(),
+                                          oldType.isRestrictQualified(), newReferencedType)
+                        : oldType;
+                }
+            };
+
+            return oldType.getReferencedType().accept(this, null)
+                        .transform(pointerTypeTransform);
+        }
+
+        @Override
+        public Optional<Type> visit(StructureType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(UnionType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(ExternalStructureType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(ExternalUnionType type, Void arg) {
+            return Optional.<Type>of(type);
+        }
+
+        @Override
+        public Optional<Type> visit(FunctionType type, Void arg) {
+            boolean change;
+
+            // Process return type
+            final Optional<Type> returnType = type.getReturnType().accept(this, null);
+            if (!returnType.isPresent()) {
+                return returnType;
+            }
+            change = returnType.get() != type.getReturnType();
+
+            // Process arguments types
+            final List<Optional<Type>> argsTypes = new ArrayList<>(type.getArgumentsTypes().size());
+            for (Optional<Type> argType : type.getArgumentsTypes()) {
+                if (argType.isPresent()) {
+                    final Optional<Type> newArgType = argType.get().accept(this, null);
+                    argsTypes.add(newArgType);
+                    change = change || !newArgType.isPresent() || newArgType.get() != argType.get();
+                } else {
+                    argsTypes.add(argType);
+                }
+            }
+
+            final Type result = change
+                    ? new FunctionType(returnType.get(), argsTypes, type.getVariableArguments())
+                    : type;
+
+            return Optional.of(result);
+        }
+
+        // Artificial types
+
+        @Override
+        public Optional<Type> visit(ComponentType type, Void arg) {
+            throw new RuntimeException("unexpected artificial type");
+        }
+
+        @Override
+        public Optional<Type> visit(InterfaceType type, Void arg) {
+            throw new RuntimeException("unexpected artificial type");
+        }
+
+        @Override
+        public Optional<Type> visit(TypeDefinitionType type, Void arg) {
+            throw new RuntimeException("unexpected artificial type");
+        }
+
+        // Unknown types
+
+        @Override
+        public Optional<Type> visit(UnknownType type, Void arg) {
+            return doSubstitution(type);
+        }
+
+        @Override
+        public Optional<Type> visit(UnknownArithmeticType type, Void arg) {
+            return doSubstitution(type);
+        }
+
+        @Override
+        public Optional<Type> visit(UnknownIntegerType type, Void arg) {
+            return doSubstitution(type);
+        }
+
+        private Optional<Type> doSubstitution(UnknownType type) {
+            return Optional.fromNullable(substitution.get(type.getName()))
+                        .or(Optional.<Type>absent());
+        }
     }
 
     /**
@@ -321,6 +530,7 @@ public final class GoodInterfaceRefFacade extends AbstractInterfaceRefFacade {
         }
 
         public GoodInterfaceRefFacade build() {
+            validate();
             return new GoodInterfaceRefFacade(this);
         }
 
