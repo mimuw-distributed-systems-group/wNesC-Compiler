@@ -422,9 +422,17 @@ public final class GoodInterfaceRefFacade extends AbstractInterfaceRefFacade {
             return doSubstitution(type);
         }
 
-        private Optional<Type> doSubstitution(UnknownType type) {
+        private Optional<Type> doSubstitution(final UnknownType type) {
+            final Function<Type, Type> enrichTypeTransform = new Function<Type, Type>() {
+                @Override
+                public Type apply(Type newType) {
+                    return newType.addQualifiers(type);
+                }
+            };
+
             return Optional.fromNullable(substitution.get(type.getName()))
-                        .or(Optional.<Type>absent());
+                        .or(Optional.<Type>absent())
+                        .transform(enrichTypeTransform);
         }
     }
 

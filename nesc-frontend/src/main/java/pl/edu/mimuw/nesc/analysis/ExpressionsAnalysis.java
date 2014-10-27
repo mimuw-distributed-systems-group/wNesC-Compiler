@@ -180,6 +180,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
         final Optional<Type> arithmeticResult = performGeneralizedArithmeticCheck(cr.leftType(),
                 cr.rightType());
         Optional<? extends Type> resultType = Optional.absent();
+        Optional<? extends CautionaryIssue> warning = Optional.absent();
 
         // Check types and simultaneously determine the result type
         if (arithmeticResult.isPresent()) {
@@ -195,9 +196,19 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                     : cr.leftType();
             final Type referencedType = ptrType.getReferencedType();
 
-            if (referencedType.isComplete() && referencedType.isObjectType()
+            if ((referencedType.isComplete() || referencedType.isVoid())
+                    && referencedType.isObjectType()
                     && otherType.isGeneralizedIntegerType()) {
+
                 resultType = Optional.of(ptrType);
+
+                if (referencedType.isVoid()) {
+                    warning = Optional.of(new VoidPointerArithmeticsWarning(
+                            ptrType == cr.leftType() ? expr.getLeftArgument() : expr.getRightArgument(),
+                            ptrType,
+                            PLUS
+                    ));
+                }
             }
         }
 
@@ -206,6 +217,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                     cr.rightType(), expr.getRightArgument());
             errorHelper.error(expr.getLocation(), expr.getEndLocation(), error);
             return Optional.absent();
+        } else if (warning.isPresent()) {
+            errorHelper.warning(expr.getLocation(), expr.getEndLocation(), warning.get());
         }
 
         final ExprData result = ExprData.builder()
@@ -2303,15 +2316,21 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
             final Optional<InterfaceRefFacade.InterfaceEntityKind> kind =
                     ifaceFacade.getKind(methodName.get());
 
+            final Optional<ImmutableList<Optional<Type>>> argsTypes =
+                    ifaceFacade.getArgumentsTypes(methodName.get());
+
             if (!kind.isPresent()) {
                 problem = Optional.of(InvalidNescCallError.nonexistentInterfaceEntity(methodName.get(),
                         ifaceFacade.getInstanceName(), ifaceFacade.getInterfaceName()));
+                return;
+            } else if (!argsTypes.isPresent()) {
+                anotherProblem = true;
                 return;
             }
 
             this.isEvent = kind.get() == InterfaceRefFacade.InterfaceEntityKind.EVENT;
             this.returnType = ifaceFacade.getReturnType(methodName.get());
-            this.normalParamsExpectedTypes = ifaceFacade.getArgumentsTypes(methodName.get()).get();
+            this.normalParamsExpectedTypes = argsTypes.get();
             this.instanceParamsExpectedTypes = ifaceFacade.getInstanceParameters();
         }
 

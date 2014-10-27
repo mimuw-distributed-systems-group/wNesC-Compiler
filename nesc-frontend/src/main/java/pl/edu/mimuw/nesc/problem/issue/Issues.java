@@ -106,7 +106,8 @@ public final class Issues {
         INVALID_POINTER_COMPARISON(5),
         INVALID_POINTER_ASSIGNMENT(6),
         VOID_POINTER_ADVANCE(7),
-        INVALID_POINTER_CONDITIONAL(8);
+        INVALID_POINTER_CONDITIONAL(8),
+        VOID_POINTER_ARITHMETICS(9);
 
         private final int codeNumber;
 
