@@ -19,15 +19,20 @@ public final class InvalidParameterTypeError extends ErroneousIssue {
     private final Expression parameterExpr;
     private final Type expectedType;
     private final Type actualType;
+    private final FunctionKind funKind;
+    private final ParameterKind paramKind;
 
     public InvalidParameterTypeError(Expression funExpr, int parameterNumber,
-            Expression parameterExpr, Type expectedType, Type actualType) {
+            Expression parameterExpr, Type expectedType, Type actualType,
+            FunctionKind funKind, ParameterKind paramKind) {
         super(_CODE);
 
         checkNotNull(funExpr, "function expression cannot be null");
         checkNotNull(parameterExpr, "expression passed as an invalid parameter cannot be null");
         checkNotNull(expectedType, "expected type of an invalid parameter cannot be null");
         checkNotNull(actualType, "actual type of an invalid parameter cannot be null");
+        checkNotNull(funKind, "kind of the function cannot be null");
+        checkNotNull(paramKind, "parameter kind cannot be null");
         checkArgument(parameterNumber > 0, "number of the parameter must be positive");
 
         this.funExpr = funExpr;
@@ -35,13 +40,15 @@ public final class InvalidParameterTypeError extends ErroneousIssue {
         this.parameterExpr = parameterExpr;
         this.expectedType = expectedType;
         this.actualType = actualType;
+        this.funKind = funKind;
+        this.paramKind = paramKind;
     }
 
     @Override
     public String generateDescription() {
-        return format("Cannot use '%s' of type '%s' as the %s parameter of declared type '%s' for function '%s'",
-                PrettyPrint.expression(parameterExpr), actualType, getOrdinalForm(),
-                PrettyPrint.expression(funExpr), expectedType);
+        return format("Cannot use '%s' of type '%s' as the %s %s of type '%s' for %s '%s'",
+                PrettyPrint.expression(parameterExpr), actualType, getOrdinalForm(), paramKind,
+                expectedType, funKind, PrettyPrint.expression(funExpr));
     }
 
     private String getOrdinalForm() {
@@ -54,6 +61,47 @@ public final class InvalidParameterTypeError extends ErroneousIssue {
                 return "3rd";
             default:
                 return parameterNumber + "th";
+        }
+    }
+
+    public enum FunctionKind {
+        COMMAND("command"),
+        EVENT("event"),
+        NORMAL_FUNCTION("function"),
+        ;
+
+        private final String text;
+
+        private FunctionKind(String text) {
+            checkNotNull(text, "textual representation of a function type cannot be null");
+            checkArgument(!text.isEmpty(), "textual representation of a function type cannot be an empty string");
+
+            this.text = text;
+        }
+
+        @Override
+        public String toString() {
+            return text;
+        }
+    }
+
+    public enum ParameterKind {
+        INSTANCE_PARAMETER("instance parameter"),
+        NORMAL_PARAMETER("parameter"),
+        ;
+
+        private final String text;
+
+        private ParameterKind(String text) {
+            checkNotNull(text, "textual representation of a parameter type cannot be null");
+            checkArgument(!text.isEmpty(), "textual representation of a parameter type cannot be null");
+
+            this.text = text;
+        }
+
+        @Override
+        public String toString() {
+            return text;
         }
     }
 }

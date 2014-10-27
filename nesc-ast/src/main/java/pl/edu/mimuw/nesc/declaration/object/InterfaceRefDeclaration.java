@@ -9,6 +9,7 @@ import pl.edu.mimuw.nesc.ast.gen.InterfaceRef;
 import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
 import pl.edu.mimuw.nesc.ast.type.InterfaceType;
 import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.ast.util.AstUtils;
 import pl.edu.mimuw.nesc.declaration.nesc.InterfaceDeclaration;
 import pl.edu.mimuw.nesc.facade.InterfaceRefFacade;
 
@@ -211,34 +212,9 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
         }
 
         private Optional<ImmutableList<Optional<Type>>> buildInstanceParameters() {
-            if (!astInterfaceRef.getGenericParameters().isPresent()) {
-                return Optional.absent();
-            }
-
-            final LinkedList<Declaration> declarations = astInterfaceRef.getGenericParameters().get();
-            final ImmutableList.Builder<Optional<Type>> typesBuilder = ImmutableList.builder();
-
-            for (Declaration declaration : declarations) {
-                if (declaration instanceof ErrorDecl) {
-                    continue;
-                }
-
-                checkState(declaration instanceof DataDecl, "unexpected instance parameter declaration class '%s'",
-                        declaration.getClass().getCanonicalName());
-
-                final DataDecl dataDecl = (DataDecl) declaration;
-                final LinkedList<Declaration> dataDeclDeclarations = dataDecl.getDeclarations();
-                checkState(dataDeclDeclarations.size() == 1, "unexpected declarations count %d", dataDeclDeclarations.size());
-
-                final Declaration innerDeclaration = dataDeclDeclarations.getFirst();
-                checkState(innerDeclaration instanceof VariableDecl, "unexpected inner instance parameter declaration class '%s'",
-                        innerDeclaration.getClass().getCanonicalName());
-
-                final VariableDecl variableDecl = (VariableDecl) innerDeclaration;
-                typesBuilder.add(variableDecl.getType());
-            }
-
-            return Optional.of(typesBuilder.build());
+            return astInterfaceRef.getGenericParameters().isPresent()
+                    ? Optional.of(AstUtils.getTypes(astInterfaceRef.getGenericParameters().get()))
+                    : Optional.<ImmutableList<Optional<Type>>>absent();
         }
     }
 }

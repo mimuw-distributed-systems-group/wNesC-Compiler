@@ -32,6 +32,13 @@ public final class AstConstants {
     public static final String CALL_TASK = "post";
 
     /**
+     * Other symbols.
+     */
+    public static final String APOSTROPHE = "'";
+    public static final String QUOTATION_MARK = "\"";
+    public static final String SPACE = " ";
+
+    /**
      * Enumerated type that represents a binary operator.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>

@@ -1,12 +1,21 @@
 package pl.edu.mimuw.nesc.ast.util;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.gen.DataDecl;
+import pl.edu.mimuw.nesc.ast.gen.Declaration;
+import pl.edu.mimuw.nesc.ast.gen.ErrorDecl;
 import pl.edu.mimuw.nesc.ast.gen.Node;
+import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
 import pl.edu.mimuw.nesc.ast.gen.Word;
+import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 
 import java.util.LinkedList;
+import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * <h1>Locations</h1>
@@ -16,7 +25,11 @@ import java.util.LinkedList;
  * several tokens list that are likely to be empty or some tokens are
  * optional.</p>
  *
+ * <h1>Types</h1>
+ * <p>There is a method for retrieving types from a list of declarations.</p>
+ *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class AstUtils {
 
@@ -225,6 +238,45 @@ public final class AstUtils {
         final Word word = new Word(startLocation, name);
         word.setEndLocation(endLocation);
         return word;
+    }
+
+    /**
+     * Extracts type from each declaration from the given list. The method can
+     * be used only if all declarations from the list are <code>DataDecl</code>
+     * objects and each such object contains exactly one declaration that is
+     * a <code>VariableDecl</code> object. The list can also contain
+     * <code>ErrorDecl</code> objects - such objects are ignored.
+     *
+     * @param declarations List of declarations to extract types from.
+     * @return Immutable list with types from the given declarations (in proper
+     *         order).
+     * @throws IllegalArgumentException Declarations from the given list don't
+     *                                  fulfill depicted requirements.
+     */
+    public static ImmutableList<Optional<Type>> getTypes(List<Declaration> declarations) {
+        final ImmutableList.Builder<Optional<Type>> typesBuilder = ImmutableList.builder();
+
+        for (Declaration declaration : declarations) {
+            if (declaration instanceof ErrorDecl) {
+                continue;
+            }
+
+            checkArgument(declaration instanceof DataDecl, "unexpected outer declaration class '%s'",
+                    declaration.getClass());
+
+            final DataDecl dataDecl = (DataDecl) declaration;
+            final LinkedList<Declaration> dataDeclDeclarations = dataDecl.getDeclarations();
+            checkArgument(dataDeclDeclarations.size() == 1, "unexpected declarations count %d", dataDeclDeclarations.size());
+
+            final Declaration innerDeclaration = dataDeclDeclarations.getFirst();
+            checkArgument(innerDeclaration instanceof VariableDecl, "unexpected inner declaration class '%s'",
+                    innerDeclaration.getClass());
+
+            final VariableDecl variableDecl = (VariableDecl) innerDeclaration;
+            typesBuilder.add(variableDecl.getType());
+        }
+
+        return typesBuilder.build();
     }
 
     private AstUtils() {

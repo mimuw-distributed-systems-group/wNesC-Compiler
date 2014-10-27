@@ -28,7 +28,6 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
     private static final String TEXT_INVALID_TYPE = "<invalid type>";
     private static final String TEXT_INITIALIZER_LIST = "<initializer list>";
     private static final String TEXT_INITIALIZER = "<initializer>";
-    private static final String TEXT_GENERIC_CALL = "<generic call>";
     private static final String TEXT_CONJUGATE = "<conjugate>";
     private static final String TEXT_BUILTIN_VA_ARG = "__builtin_va_arg";
     private static final String TEXT_EXTENSION = "__extension__";
@@ -423,7 +422,13 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
 
     @Override
     public Void visitCharacterCst(CharacterCst expr, Void arg) {
-        printConstant(expr);
+        printLeftParentheses(expr);
+
+        strBuilder.append(APOSTROPHE);
+        strBuilder.append(expr.getString());
+        strBuilder.append(APOSTROPHE);
+
+        printRightParentheses(expr);
         return null;
     }
 
@@ -431,9 +436,9 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
     public Void visitStringCst(StringCst expr, Void arg) {
         printLeftParentheses(expr);
 
-        strBuilder.append('"');
+        strBuilder.append(QUOTATION_MARK);
         strBuilder.append(expr.getString());
-        strBuilder.append('"');
+        strBuilder.append(QUOTATION_MARK);
 
         printRightParentheses(expr);
         return null;
@@ -470,7 +475,7 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
             strBuilder.append(LPAREN);
             printCommaSepList(expr.getArguments());
             strBuilder.append(COMMA);
-            strBuilder.append(" ");
+            strBuilder.append(SPACE);
             printType(vaArgCall.getType());
             strBuilder.append(RPAREN);
         }
@@ -559,9 +564,13 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
 
     @Override
     public Void visitGenericCall(GenericCall expr, Void arg) {
-        // FIXME
         printLeftParentheses(expr);
-        strBuilder.append(TEXT_GENERIC_CALL);
+
+        expr.getName().accept(this, null);
+        strBuilder.append(LBRACK);
+        printCommaSepList(expr.getArguments());
+        strBuilder.append(RBRACK);
+
         printRightParentheses(expr);
         return null;
     }
@@ -571,7 +580,7 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
         printLeftParentheses(expr);
 
         strBuilder.append(TEXT_EXTENSION);
-        strBuilder.append(" ");
+        strBuilder.append(SPACE);
         expr.getArgument().accept(this, null);
 
         printRightParentheses(expr);
@@ -592,9 +601,9 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
         printLeftParentheses(binary);
         binary.getLeftArgument().accept(this, null);
 
-        strBuilder.append(' ');
+        strBuilder.append(SPACE);
         strBuilder.append(op);
-        strBuilder.append(' ');
+        strBuilder.append(SPACE);
 
         binary.getRightArgument().accept(this, null);
         printRightParentheses(binary);
@@ -613,7 +622,7 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
         printLeftParentheses(unary);
 
         strBuilder.append(op);
-        strBuilder.append(' ');
+        strBuilder.append(SPACE);
         unary.getArgument().accept(this, null);
 
         printRightParentheses(unary);
@@ -663,7 +672,7 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
         strBuilder.append(LPAREN);
         printType(type);
         strBuilder.append(RPAREN);
-        strBuilder.append(" ");
+        strBuilder.append(SPACE);
         subExpr.accept(this, null);
 
         printRightParentheses(expr);

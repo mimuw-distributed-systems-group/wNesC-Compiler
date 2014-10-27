@@ -1,12 +1,19 @@
 package pl.edu.mimuw.nesc.declaration.object;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDeclarator;
+import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.ast.util.AstUtils;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.LinkedList;
+
+import static com.google.common.base.Preconditions.*;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public class FunctionDeclaration extends ObjectDeclaration {
 
@@ -30,6 +37,28 @@ public class FunctionDeclaration extends ObjectDeclaration {
      */
     private boolean isDefined;
 
+    /**
+     * <p>Immutable list with instance parameters if this declaration represents
+     * a parameterised bare command or event or an implementation of a command
+     * or event from a parameterised interface. The list shall be present if the
+     * declaration represents a function declared in one of the following ways
+     * (instance parameters are indicated by arrows):</p>
+     *
+     * <pre>
+     *     command result_t Send.send[uint8_t id](uint8_t length, TOS_Msg* data) { &hellip; }
+     *                                ▲        ▲
+     *                                |        |
+     *                                |        |
+     * </pre>
+     * <pre>
+     *     provides command void sent[uint8_t id](int x);
+     *                                ▲        ▲
+     *                                |        |
+     *                                |        |
+     * </pre>
+     */
+    private final Optional<ImmutableList<Optional<Type>>> instanceParameters;
+
     public static Builder builder() {
         return new Builder();
     }
@@ -39,6 +68,7 @@ public class FunctionDeclaration extends ObjectDeclaration {
         this.ifaceName = builder.interfaceName;
         this.isDefined = builder.isDefined;
         this.functionType = builder.functionType.orNull();
+        this.instanceParameters = builder.buildInstanceParameters();
     }
 
     @Override
@@ -87,6 +117,18 @@ public class FunctionDeclaration extends ObjectDeclaration {
     }
 
     /**
+     * Get the instance parameters that can be present if this object represents
+     * a parameterised bare command or event or an implementation of a command
+     * or event from a parameterised interface.
+     *
+     * @return Immutable list with instance parameters if they are present.
+     * @see FunctionDeclaration#instanceParameters
+     */
+    public Optional<ImmutableList<Optional<Type>>> getInstanceParameters() {
+        return instanceParameters;
+    }
+
+    /**
      * Builder for a function declaration.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -97,6 +139,7 @@ public class FunctionDeclaration extends ObjectDeclaration {
          */
         private Optional<String> interfaceName = Optional.absent();
         private Optional<FunctionType> functionType = Optional.absent();
+        private Optional<LinkedList<Declaration>> instanceParameters = Optional.absent();
         private boolean isDefined = false;
 
         protected Builder() {
@@ -127,6 +170,21 @@ public class FunctionDeclaration extends ObjectDeclaration {
             return this;
         }
 
+        /**
+         * Set the instance parameters if this declaration represents a command
+         * or event (either parameterised bare or a command or event from
+         * a parameterised interface). <code>null</code> is a legal value and
+         * means that no instance parameters are present. Setting instance
+         * parameters for anything other than a command or event is not correct.
+         *
+         * @param instanceParams Instance parameters for the declaration object.
+         * @return <code>this</code>
+         */
+        public Builder instanceParameters(LinkedList<Declaration> instanceParams) {
+            this.instanceParameters = Optional.fromNullable(instanceParams);
+            return this;
+        }
+
         @Override
         protected void beforeBuild() {
             super.beforeBuild();
@@ -143,6 +201,12 @@ public class FunctionDeclaration extends ObjectDeclaration {
         @Override
         protected FunctionDeclaration create() {
             return new FunctionDeclaration(this);
+        }
+
+        private Optional<ImmutableList<Optional<Type>>> buildInstanceParameters() {
+            return instanceParameters.isPresent()
+                    ? Optional.of(AstUtils.getTypes(instanceParameters.get()))
+                    : Optional.<ImmutableList<Optional<Type>>>absent();
         }
     }
 }

@@ -546,7 +546,8 @@ public final class Declarations extends AstBuildingBase {
             final String name = identifierDeclarator.getName();
             final FunctionDeclaration functionDeclaration;
             final FunctionDeclaration.Builder builder = FunctionDeclaration.builder();
-            builder.type(maybeType.orNull())
+            builder.instanceParameters(funDeclarator.getGenericParameters().orNull())
+                    .type(maybeType.orNull())
                     .name(name)
                     .startLocation(startLocation);
 
@@ -600,6 +601,7 @@ public final class Declarations extends AstBuildingBase {
                 final IdentifierDeclarator idDeclarator = (IdentifierDeclarator) innerDeclarator;
                 final String callableName = idDeclarator.getName();
                 final FunctionDeclaration declaration = FunctionDeclaration.builder()
+                        .instanceParameters(funDeclarator.getGenericParameters().orNull())
                         .interfaceName(ifaceName)
                         .type(maybeType.orNull())
                         .name(callableName)
@@ -662,6 +664,7 @@ public final class Declarations extends AstBuildingBase {
             final Optional<? extends ObjectDeclaration> previousDeclarationOpt = environment.getObjects().get(name.get());
             final FunctionDeclaration.Builder builder = FunctionDeclaration.builder();
             builder.functionType(TypeElementUtils.getFunctionType(elements))
+                    .instanceParameters(funDeclarator.getGenericParameters().orNull())
                     .type(variableDecl.getType().orNull())
                     .linkage(linkage.orNull())
                     .name(name.get())

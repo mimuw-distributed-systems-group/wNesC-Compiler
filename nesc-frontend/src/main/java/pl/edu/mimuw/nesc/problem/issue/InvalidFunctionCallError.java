@@ -84,12 +84,18 @@ public final class InvalidFunctionCallError extends ErroneousIssue {
             }
         }
 
+        final String providedVerb = actualParamsCount == 1
+                ? "is"
+                : "are";
+
         if (!variableArgumentsFunction && actualParamsCount != expectedParamsCount) {
-            return format("Function '%s' expects %d parameters but %d were provided",
-                          PrettyPrint.expression(funExpr), expectedParamsCount, actualParamsCount);
+            return format("Function '%s' expects %d parameter(s) but %d %s provided",
+                          PrettyPrint.expression(funExpr), expectedParamsCount, actualParamsCount,
+                          providedVerb);
         } else if (variableArgumentsFunction && actualParamsCount < expectedParamsCount) {
-            return format("Function '%s' expects at least %d parameters but %d were provided",
-                          PrettyPrint.expression(funExpr), expectedParamsCount, actualParamsCount);
+            return format("Function '%s' expects at least %d parameter(s) but %d %s provided",
+                          PrettyPrint.expression(funExpr), expectedParamsCount, actualParamsCount,
+                          providedVerb);
         }
 
         return format("Invalid function call '%s'", PrettyPrint.expression(funExpr));

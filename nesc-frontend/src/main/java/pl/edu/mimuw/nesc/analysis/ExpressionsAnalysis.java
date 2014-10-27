@@ -9,21 +9,27 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.IntegerCstKind;
 import pl.edu.mimuw.nesc.ast.IntegerCstSuffix;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.*;
+import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.declaration.tag.*;
 import pl.edu.mimuw.nesc.environment.Environment;
+import pl.edu.mimuw.nesc.facade.InterfaceRefFacade;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 import pl.edu.mimuw.nesc.problem.issue.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 import static pl.edu.mimuw.nesc.ast.type.TypeUtils.*;
 import static pl.edu.mimuw.nesc.ast.util.AstConstants.*;
 import static pl.edu.mimuw.nesc.ast.util.AstConstants.BinaryOp.*;
 import static pl.edu.mimuw.nesc.ast.util.AstConstants.UnaryOp.*;
+import static pl.edu.mimuw.nesc.problem.issue.InvalidParameterTypeError.FunctionKind;
+import static pl.edu.mimuw.nesc.problem.issue.InvalidParameterTypeError.ParameterKind;
 import static pl.edu.mimuw.nesc.problem.issue.InvalidPostTaskExprError.PostProblemKind;
 
 /**
@@ -32,6 +38,11 @@ import static pl.edu.mimuw.nesc.problem.issue.InvalidPostTaskExprError.PostProbl
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Void> {
+    /**
+     * Logger for this class.
+     */
+    private static final Logger LOG = Logger.getLogger(ExpressionsAnalysis.class);
+
     /**
      * Type that is used as <code>size_t</code> type.
      */
@@ -995,14 +1006,17 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
             return Optional.absent();
         }
 
-        // FIXME analysis of all NesC call kinds
         switch (expr.getCallKind()) {
             case NORMAL_CALL:
                 return analyzeNormalCall(expr);
             case POST_TASK:
                 return analyzePostTask(expr);
+            case COMMAND_CALL:
+                return analyzeNescCall(expr, false);
+            case EVENT_SIGNAL:
+                return analyzeNescCall(expr, true);
             default:
-                return Optional.absent();
+                throw new RuntimeException("unexpected call kind '" + expr.getCallKind() + "'");
         }
     }
 
@@ -1011,7 +1025,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
      * determine the type of the result.
      */
     private FunctionCallReport checkFunctionCall(Type funExprType, Expression funExpr,
-                List<ExprData> argsData, LinkedList<Expression> argsExprs,
+                List<Optional<ExprData>> argsData, LinkedList<Expression> argsExprs,
                 InvalidFunctionCallError.Builder errBuilder) {
 
         // Check type of the function expression
@@ -1045,7 +1059,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
         }
 
         if (checkParametersTypes(funExpr, funType.getArgumentsTypes().iterator(),
-                argsData.iterator(), argsExprs.iterator())) {
+                argsData.iterator(), argsExprs.iterator(), FunctionKind.NORMAL_FUNCTION,
+                ParameterKind.NORMAL_PARAMETER)) {
             return FunctionCallReport.withType(funType.getReturnType());
         }
 
@@ -1059,7 +1074,8 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
      * @return <code>true</code> if and only if all parameters are valid.
      */
     private boolean checkParametersTypes(Expression funExpr, Iterator<Optional<Type>> expectedTypeIt,
-            Iterator<ExprData> argDataIt, Iterator<Expression> argExprIt) {
+            Iterator<Optional<ExprData>> argDataIt, Iterator<Expression> argExprIt, FunctionKind funKind,
+            ParameterKind paramKind) {
         boolean errorOccurred = false;
         int paramNum = 0;
 
@@ -1067,17 +1083,17 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
         while (expectedTypeIt.hasNext()) {
             ++paramNum;
             final Optional<Type> expectedType = expectedTypeIt.next();
-            final ExprData argData = argDataIt.next();
+            final Optional<ExprData> argData = argDataIt.next();
             final Expression argExpr = argExprIt.next();
 
-            if (!expectedType.isPresent()) {
+            if (!expectedType.isPresent() || !argData.isPresent()) {
                 continue;
             }
 
-            if (!checkAssignment(expectedType.get().removeQualifiers(), argData.getType())) {
+            if (!checkAssignment(expectedType.get().removeQualifiers(), argData.get().getType())) {
                 errorOccurred = true;
                 final ErroneousIssue error = new InvalidParameterTypeError(funExpr, paramNum, argExpr,
-                        expectedType.get().removeQualifiers(), argData.getType());
+                        expectedType.get().removeQualifiers(), argData.get().getType(), funKind, paramKind);
                 errorHelper.error(argExpr.getLocation(), argExpr.getEndLocation(), error);
             }
         }
@@ -1729,14 +1745,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
     private Optional<ExprData> analyzeNormalCall(FunctionCall expr) {
         // Analyze subexpressions
         final Optional<ExprData> oFunData = expr.getFunction().accept(this, null);
-        final LinkedList<ExprData> argsData = new LinkedList<>();
-        for (Expression argExpr : expr.getArguments()) {
-            final Optional<ExprData> argData = argExpr.accept(this, null);
-            if (!argData.isPresent()) {
-                return Optional.absent();
-            }
-            argsData.add(argData.get());
-        }
+        final ImmutableList<Optional<ExprData>> argsData = analyzeSubexpressions(expr.getArguments(), true);
 
         // End analysis if the function expression is invalid
         if (!oFunData.isPresent()) {
@@ -1746,9 +1755,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
         // Perform operations
         funData.superDecay();
-        for (ExprData argData : argsData) {
-            argData.superDecay();
-        }
+        // arguments data objects are automatically super decayed earlier
 
         final InvalidFunctionCallError.Builder errBuilder = InvalidFunctionCallError.builder()
                 .funExpr(funData.getType(), expr.getFunction());
@@ -1829,6 +1836,19 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 .spread(expr);
 
         return Optional.of(result);
+    }
+
+    /**
+     * Analysis of a command call or an event signal expression, e.g.:
+     *
+     * <pre>
+     * call Send.send(&amp;adcPacket, sizeof adcPacket.data)
+     * signal Send.sendDone[msg-&gt;amId](msg, SUCCESS)
+     * </pre>
+     */
+    private Optional<ExprData> analyzeNescCall(FunctionCall expr, boolean isSignal) {
+        final NescCallAnalyzer analyzer = new NescCallAnalyzer(expr, isSignal);
+        return analyzer.analyze();
     }
 
     /**
@@ -2006,6 +2026,33 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
     }
 
     /**
+     * All expressions from the given list are analyzed and results are put into
+     * the returned list. The returned list has the same size as the given list.
+     *
+     * @param subexpressions List with expressions to analyze.
+     * @param superDecay Value that indicates if {@link ExprData#superDecay()}
+     *                   is called for the data of given subexpressions.
+     * @return Newly created list with results of analysis of given expressions.
+     */
+    private ImmutableList<Optional<ExprData>> analyzeSubexpressions(LinkedList<Expression> subexpressions,
+            boolean superDecay) {
+
+        final ImmutableList.Builder<Optional<ExprData>> builder = ImmutableList.builder();
+
+        for (Expression expr : subexpressions) {
+            final Optional<ExprData> exprData = expr.accept(this, null);
+
+            if (superDecay && exprData.isPresent()) {
+                exprData.get().superDecay();
+            }
+
+            builder.add(exprData);
+        }
+
+        return builder.build();
+    }
+
+    /**
      * A simple helper class to facilitate analysis of binary expressions.
      * Reference fields are not null if and only if <code>good</code> is
      * <code>true</code>.
@@ -2095,6 +2142,333 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
         private FunctionCallReport(Optional<Type> returnType, boolean reportError) {
             this.reportError = reportError;
             this.returnType = returnType;
+        }
+    }
+
+    /**
+     * An object that is responsible for analyzing NesC call and signal
+     * expressions.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private final class NescCallAnalyzer {
+
+        private final FunctionCall callExpr;
+        private final boolean isSignal;
+        private boolean anotherProblem = false;
+        private Optional<InvalidNescCallError> problem = Optional.absent();
+
+        /**
+         * These variables are set after successful completion of method
+         * {@link NescCallAnalyzer#decompose}.
+         */
+        private Optional<Identifier> identifier;
+        private Optional<String> methodName;
+        private Optional<LinkedList<Expression>> instanceParams;
+        private LinkedList<Expression> normalParams;
+
+        /**
+         * Variables with results of analysis of parameters expressions. They
+         * are set after successful completion of method
+         * {@link NescCallAnalyzer#analyzeSubexpressions}.
+         */
+        private Optional<ImmutableList<Optional<ExprData>>> instanceParamsData;
+        private ImmutableList<Optional<ExprData>> normalParamsData;
+
+        /**
+         * Variables with data about the called command or signaled event
+         * retrieved from the symbol table. They are set after successful
+         * completion of method {@link NescCallAnalyzer#analyzeCallee}.
+         */
+        private boolean isEvent;
+        private Optional<Type> returnType;
+        private ImmutableList<Optional<Type>> normalParamsExpectedTypes;
+        private Optional<ImmutableList<Optional<Type>>> instanceParamsExpectedTypes;
+
+        private NescCallAnalyzer(FunctionCall callExpr, boolean isSignal) {
+            this.callExpr = callExpr;
+            this.isSignal = isSignal;
+        }
+
+        /**
+         * Performs all operations related to the analysis of a NesC call
+         * expression. It should be called instead of calling individual methods
+         * of this class.
+         *
+         * @return Result of the analysis.
+         */
+        private Optional<ExprData> analyze() {
+            decompose();
+            analyzeSubexpressions();
+            analyzeCallee();
+            analyzeParametersPresence();
+            analyzeParametersTypes();
+            analyzeCallKind();
+
+            return finish();
+        }
+
+        /**
+         * Extract all important elements of the call expression.
+         */
+        private void decompose() {
+            Expression nextExpr = callExpr.getFunction();
+
+            // 1. Function call
+            normalParams = callExpr.getArguments();
+
+            // 2. Generic call
+            if (nextExpr instanceof GenericCall) {
+                final GenericCall genericCall = (GenericCall) nextExpr;
+                instanceParams = Optional.of(genericCall.getArguments());
+                nextExpr = genericCall.getName();
+            } else {
+                instanceParams = Optional.absent();
+            }
+
+            // 3. Interface dereference
+            if (nextExpr instanceof InterfaceDeref) {
+                final InterfaceDeref ifaceDeref = (InterfaceDeref) nextExpr;
+                methodName = Optional.of(ifaceDeref.getMethodName().getName());
+                nextExpr = ifaceDeref.getArgument();
+            } else {
+                methodName = Optional.absent();
+            }
+
+            // 4. Identifier
+            identifier = nextExpr instanceof Identifier
+                    ? Optional.of((Identifier) nextExpr)
+                    : Optional.<Identifier>absent();
+        }
+
+        /**
+         * Performs analysis for expressions for both kinds of parameters:
+         * instance and normal.
+         */
+        private void analyzeSubexpressions() {
+            instanceParamsData = instanceParams.isPresent()
+                    ? Optional.of(ExpressionsAnalysis.this.analyzeSubexpressions(instanceParams.get(), true))
+                    : Optional.<ImmutableList<Optional<ExprData>>>absent();
+            normalParamsData = ExpressionsAnalysis.this.analyzeSubexpressions(normalParams, true);
+        }
+
+        /**
+         * Checks the correctness of the callee and extracts its return type and
+         * expected types of parameters.
+         */
+        private void analyzeCallee() {
+            if (!identifier.isPresent()) {
+                problem = Optional.of(InvalidNescCallError.invalidCallee(callExpr.getFunction()));
+                return;
+            }
+
+            final Identifier ident = identifier.get();
+
+            final Optional<? extends ObjectDeclaration> optDeclaration =
+                    environment.getObjects().get(ident.getName());
+            if (!optDeclaration.isPresent()) {
+                anotherProblem = true;
+                errorHelper.error(ident.getLocation(), ident.getEndLocation(),
+                        new UndeclaredIdentifierError(ident.getName()));
+                return;
+            }
+
+            final ObjectDeclaration declaration = optDeclaration.get();
+            ident.setDeclaration(declaration);
+
+            if (declaration.getKind() == ObjectKind.INTERFACE) {
+                analyzeInterfaceCallee((InterfaceRefDeclaration) declaration);
+            } else if (declaration.getKind() == ObjectKind.FUNCTION) {
+                analyzeBareCallee((FunctionDeclaration) declaration);
+            } else {
+                problem = Optional.of(InvalidNescCallError.invalidCallee(callExpr.getFunction()));
+            }
+        }
+
+        private void analyzeInterfaceCallee(InterfaceRefDeclaration ifaceRef) {
+            final InterfaceRefFacade ifaceFacade = ifaceRef.getFacade();
+
+            if (!methodName.isPresent()) {
+                problem = Optional.of(InvalidNescCallError.invalidCallee(callExpr.getFunction()));
+                return;
+            } else if (!ifaceFacade.goodInterfaceRef()) {
+                anotherProblem = true;
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug(format("Finish analysis of NesC call '%s' because the interface reference is not good",
+                            PrettyPrint.expression(callExpr)));
+                }
+                return;
+            }
+
+            final Optional<InterfaceRefFacade.InterfaceEntityKind> kind =
+                    ifaceFacade.getKind(methodName.get());
+
+            if (!kind.isPresent()) {
+                problem = Optional.of(InvalidNescCallError.nonexistentInterfaceEntity(methodName.get(),
+                        ifaceFacade.getInstanceName(), ifaceFacade.getInterfaceName()));
+                return;
+            }
+
+            this.isEvent = kind.get() == InterfaceRefFacade.InterfaceEntityKind.EVENT;
+            this.returnType = ifaceFacade.getReturnType(methodName.get());
+            this.normalParamsExpectedTypes = ifaceFacade.getArgumentsTypes(methodName.get()).get();
+            this.instanceParamsExpectedTypes = ifaceFacade.getInstanceParameters();
+        }
+
+        private void analyzeBareCallee(FunctionDeclaration funDecl) {
+            final boolean isEvent;
+
+            switch (funDecl.getFunctionType()) {
+                case COMMAND:
+                    isEvent = false;
+                    break;
+                case EVENT:
+                    isEvent = true;
+                    break;
+                default:
+                    problem = Optional.of(InvalidNescCallError.invalidCallee(callExpr.getFunction()));
+                    return;
+            }
+
+            if (methodName.isPresent()) {
+                problem = Optional.of(InvalidNescCallError.invalidCallee(callExpr.getFunction()));
+                return;
+            }
+
+            if (!funDecl.getType().isPresent()) {
+                anotherProblem = true;
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug(format("Finish analysis of NesC call '%s' because the type is absent in the function declaration object",
+                              PrettyPrint.expression(callExpr)));
+                }
+                return;
+            }
+
+            final FunctionType funType = (FunctionType) funDecl.getType().get();
+
+            this.isEvent = isEvent;
+            this.returnType = Optional.of(funType.getReturnType());
+            this.normalParamsExpectedTypes = funType.getArgumentsTypes();
+            this.instanceParamsExpectedTypes = funDecl.getInstanceParameters();
+        }
+
+        private void analyzeParametersPresence() {
+            if (!canContinue()) {
+                return;
+            }
+
+            // Presence and count of instance parameters
+            if (instanceParamsExpectedTypes.isPresent() && !instanceParams.isPresent()) {
+                problem = Optional.of(InvalidNescCallError.missingInstanceParameters(isEvent,
+                        callExpr.getFunction()));
+                return;
+            } else if (!instanceParamsExpectedTypes.isPresent() && instanceParams.isPresent()) {
+                problem = Optional.of(InvalidNescCallError.unexpectedInstanceParameters(identifier.get().getName(),
+                        methodName));
+                return;
+            } else if (instanceParamsExpectedTypes.isPresent()
+                    && instanceParamsExpectedTypes.get().size() != instanceParams.get().size()) {
+
+                final String parameterisedEntity = methodName.isPresent()
+                        ? identifier.get().getName() + "." + methodName.get()
+                        : identifier.get().getName();
+
+                problem = Optional.of(InvalidNescCallError.invalidInstanceParametersCount(isEvent,
+                                parameterisedEntity, instanceParamsExpectedTypes.get().size(),
+                                instanceParams.get().size()));
+                return;
+            }
+
+            // Count of normal parameters
+            if (normalParamsExpectedTypes.size() != normalParams.size()) {
+                problem = Optional.of(InvalidNescCallError.invalidNormalParametersCount(isEvent,
+                        callExpr.getFunction(), normalParamsExpectedTypes.size(),
+                        normalParams.size()));
+            }
+        }
+
+        private void analyzeParametersTypes() {
+            if (!canContinue()) {
+                return;
+            }
+
+            // Types of instance parameters
+
+            final FunctionKind funKind = isEvent
+                    ? FunctionKind.EVENT
+                    : FunctionKind.COMMAND;
+
+            if (instanceParams.isPresent()) {
+                ExpressionsAnalysis.this.checkParametersTypes(
+                        callExpr.getFunction(),
+                        instanceParamsExpectedTypes.get().iterator(),
+                        instanceParamsData.get().iterator(),
+                        instanceParams.get().iterator(),
+                        funKind,
+                        ParameterKind.INSTANCE_PARAMETER
+                );
+            }
+
+            // Types of normal parameters
+
+            ExpressionsAnalysis.this.checkParametersTypes(
+                    callExpr.getFunction(),
+                    normalParamsExpectedTypes.iterator(),
+                    normalParamsData.iterator(),
+                    normalParams.iterator(),
+                    funKind,
+                    ParameterKind.NORMAL_PARAMETER
+            );
+        }
+
+        private void analyzeCallKind() {
+            if (!canContinue()) {
+                return;
+            }
+
+            if (isEvent && !isSignal || !isEvent && isSignal) {
+                problem = Optional.of(InvalidNescCallError.invalidCallKind(isEvent, callExpr.getFunction()));
+            }
+        }
+
+        /**
+         * Report the detected error (if any) and prepare the result of the
+         * whole analysis.
+         *
+         * @return Object that represents the result of the whole analysis.
+         */
+        private Optional<ExprData> finish() {
+            // Report the detected error
+            if (problem.isPresent()) {
+
+                ExpressionsAnalysis.this.errorHelper.error(callExpr.getLocation(),
+                        callExpr.getEndLocation(), problem.get());
+                return Optional.absent();
+
+            } else if (!canContinue()) {
+                return Optional.absent();
+            }
+
+            // Prepare and return the final result
+            if (returnType.isPresent()) {
+
+                final ExprData result = ExprData.builder()
+                        .type(returnType.get())
+                        .isLvalue(false)
+                        .isBitField(false)
+                        .isNullPointerConstant(false)
+                        .build()
+                        .spread(callExpr);
+
+                return Optional.of(result);
+
+            } else {
+                return Optional.absent();
+            }
+        }
+
+        private boolean canContinue() {
+            return !anotherProblem && !problem.isPresent();
         }
     }
 }
