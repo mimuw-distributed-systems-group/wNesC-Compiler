@@ -4,12 +4,13 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+
 import java.math.BigInteger;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-
 import org.apache.log4j.Logger;
+
 import pl.edu.mimuw.nesc.ast.IntegerCstKind;
 import pl.edu.mimuw.nesc.ast.IntegerCstSuffix;
 import pl.edu.mimuw.nesc.ast.gen.*;
@@ -18,12 +19,14 @@ import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.declaration.tag.*;
 import pl.edu.mimuw.nesc.environment.Environment;
+import pl.edu.mimuw.nesc.facade.InterfaceEntity;
 import pl.edu.mimuw.nesc.facade.InterfaceRefFacade;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 import pl.edu.mimuw.nesc.problem.issue.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+
 import static pl.edu.mimuw.nesc.ast.type.TypeUtils.*;
 import static pl.edu.mimuw.nesc.ast.util.AstConstants.*;
 import static pl.edu.mimuw.nesc.ast.util.AstConstants.BinaryOp.*;
@@ -2194,7 +2197,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
          * completion of method {@link NescCallAnalyzer#analyzeCallee}.
          */
         private boolean isEvent;
-        private Optional<Type> returnType;
+        private Type returnType;
         private ImmutableList<Optional<Type>> normalParamsExpectedTypes;
         private Optional<ImmutableList<Optional<Type>>> instanceParamsExpectedTypes;
 
@@ -2313,24 +2316,20 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
                 return;
             }
 
-            final Optional<InterfaceRefFacade.InterfaceEntityKind> kind =
-                    ifaceFacade.getKind(methodName.get());
+            final Optional<InterfaceEntity> ifaceEntity = ifaceFacade.get(methodName.get());
 
-            final Optional<ImmutableList<Optional<Type>>> argsTypes =
-                    ifaceFacade.getArgumentsTypes(methodName.get());
-
-            if (!kind.isPresent()) {
+            if (!ifaceEntity.isPresent()) {
                 problem = Optional.of(InvalidNescCallError.nonexistentInterfaceEntity(methodName.get(),
                         ifaceFacade.getInstanceName(), ifaceFacade.getInterfaceName()));
                 return;
-            } else if (!argsTypes.isPresent()) {
+            } else if (!ifaceEntity.get().getType().isPresent()) {
                 anotherProblem = true;
                 return;
             }
 
-            this.isEvent = kind.get() == InterfaceRefFacade.InterfaceEntityKind.EVENT;
-            this.returnType = ifaceFacade.getReturnType(methodName.get());
-            this.normalParamsExpectedTypes = argsTypes.get();
+            this.isEvent = ifaceEntity.get().getKind() == InterfaceEntity.Kind.EVENT;
+            this.returnType = ifaceEntity.get().getType().get().getReturnType();
+            this.normalParamsExpectedTypes = ifaceEntity.get().getType().get().getArgumentsTypes();
             this.instanceParamsExpectedTypes = ifaceFacade.getInstanceParameters();
         }
 
@@ -2366,7 +2365,7 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
             final FunctionType funType = (FunctionType) funDecl.getType().get();
 
             this.isEvent = isEvent;
-            this.returnType = Optional.of(funType.getReturnType());
+            this.returnType = funType.getReturnType();
             this.normalParamsExpectedTypes = funType.getArgumentsTypes();
             this.instanceParamsExpectedTypes = funDecl.getInstanceParameters();
         }
@@ -2469,21 +2468,16 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
             }
 
             // Prepare and return the final result
-            if (returnType.isPresent()) {
 
-                final ExprData result = ExprData.builder()
-                        .type(returnType.get())
-                        .isLvalue(false)
-                        .isBitField(false)
-                        .isNullPointerConstant(false)
-                        .build()
-                        .spread(callExpr);
+            final ExprData result = ExprData.builder()
+                    .type(returnType)
+                    .isLvalue(false)
+                    .isBitField(false)
+                    .isNullPointerConstant(false)
+                    .build()
+                    .spread(callExpr);
 
-                return Optional.of(result);
-
-            } else {
-                return Optional.absent();
-            }
+            return Optional.of(result);
         }
 
         private boolean canContinue() {

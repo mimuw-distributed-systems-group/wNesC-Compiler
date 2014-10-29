@@ -2,12 +2,12 @@ package pl.edu.mimuw.nesc.facade;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,6 +30,18 @@ import static java.lang.String.format;
  */
 public final class GoodInterfaceRefFacade extends AbstractInterfaceRefFacade {
     /**
+     * Function that checks if the given instance represents a function type and
+     * throws an exception if not. If so, it returns the same object.
+     */
+    private static final Function<Type, FunctionType> TO_FUNCTION_TYPE = new Function<Type, FunctionType>() {
+        @Override
+        public FunctionType apply(Type type) {
+            checkArgument(type instanceof FunctionType, "type of a command or event after substitution is not a function type");
+            return (FunctionType) type;
+        }
+    };
+
+    /**
      * Environment from the body of the referred interface definition.
      */
     private final Environment bodyEnvironment;
@@ -41,10 +53,28 @@ public final class GoodInterfaceRefFacade extends AbstractInterfaceRefFacade {
     private final ImmutableMap<String, Optional<Type>> substitution;
 
     /**
-     * Map with already produced types of commands and events. It is used not to
-     * substitute types multiple times for the same command or event.
+     * Map with objects that are results of lookup operations of commands and
+     * events. It is used to avoid repeating the same operations.
      */
-    private final Map<String, FunctionType> typesCache = new HashMap<>();
+    private final Map<String, Optional<InterfaceEntity>> entitiesCache = new HashMap<>();
+
+    /**
+     * Map that represents all commands and events from the referred interface
+     * with all necessary type substitutions. It is created lazily.
+     */
+    private Optional<ImmutableMap<String, InterfaceEntity>> allEntities = Optional.absent();
+
+    /**
+     * Function that transforms given function declaration to an interface
+     * entity object with the usage of
+     * {@link GoodInterfaceRefFacade#newInterfaceEntity} method.
+     */
+    private final Function<FunctionDeclaration, InterfaceEntity> TO_INTERFACE_ENTITY = new Function<FunctionDeclaration, InterfaceEntity>() {
+        @Override
+        public InterfaceEntity apply(FunctionDeclaration funDecl) {
+            return newInterfaceEntity(funDecl);
+        }
+    };
 
     /**
      * Get the builder for a good interface reference facade.
@@ -80,47 +110,110 @@ public final class GoodInterfaceRefFacade extends AbstractInterfaceRefFacade {
     }
 
     @Override
-    public Optional<InterfaceEntityKind> getKind(String name) {
+    public Optional<InterfaceEntity> get(String name) {
         checkName(name);
 
-        final Optional<FunctionDeclaration> funDecl = lookForEntry(name);
+        // Try to use the immutable map with all commands and events
 
-        if (!funDecl.isPresent()) {
-            return Optional.absent();
+        if (allEntities.isPresent()) {
+            return Optional.fromNullable(allEntities.get().get(name));
         }
 
-        switch (funDecl.get().getFunctionType()) {
+        // Try to use the entities cache
+
+        final Optional<Optional<InterfaceEntity>> optResult =
+                Optional.fromNullable(entitiesCache.get(name));
+
+        if (optResult.isPresent()) {
+            return optResult.get();
+        }
+
+        /* Check if the entity is contained in the interface and if so construct
+           a new interface entity object. */
+
+        final Optional<InterfaceEntity> result = lookForEntry(name)
+                .transform(TO_INTERFACE_ENTITY);
+
+        // Update the cache and return result
+
+        entitiesCache.put(name, result);
+        return result;
+    }
+
+    /**
+     * Create a new interface entity object with information from the given
+     * function declaration.
+     *
+     * @param funDecl Declaration object with necessary information.
+     * @return Newly created interface entity object.
+     */
+    private InterfaceEntity newInterfaceEntity(FunctionDeclaration funDecl) {
+        final InterfaceEntity.Kind kind;
+
+        switch (funDecl.getFunctionType()) {
             case COMMAND:
-                return Optional.of(InterfaceEntityKind.COMMAND);
+                kind = InterfaceEntity.Kind.COMMAND;
+                break;
             case EVENT:
-                return Optional.of(InterfaceEntityKind.EVENT);
+                kind = InterfaceEntity.Kind.EVENT;
+                break;
             default:
-                throw new RuntimeException(format("got an interface entry that is not a command or event: %s",
-                        funDecl.get().getFunctionType()));
+                throw new RuntimeException(format("got function that is not a command or event: %s",
+                        funDecl.getFunctionType()));
         }
+
+        final Optional<FunctionType> funType = substituteType(funDecl.getType())
+                .transform(TO_FUNCTION_TYPE);
+
+        return new InterfaceEntity(kind, funType, funDecl.getName());
     }
 
     @Override
-    public Optional<Type> getReturnType(String name) {
-        checkName(name);
-        final Optional<FunctionType> funType = getEntryType(name);
-        return funType.isPresent()
-                ? Optional.of(funType.get().getReturnType())
-                : Optional.<Type>absent();
-    }
+    public ImmutableSet<Map.Entry<String, InterfaceEntity>> getAll() {
+        if (allEntities.isPresent()) {
+            return allEntities.get().entrySet();
+        }
 
-    @Override
-    public Optional<ImmutableList<Optional<Type>>> getArgumentsTypes(String name) {
-        checkName(name);
-        final Optional<FunctionType> funType = getEntryType(name);
-        return funType.isPresent()
-                ? Optional.of(funType.get().getArgumentsTypes())
-                : Optional.<ImmutableList<Optional<Type>>>absent();
+        // Create the map with all commands and events
+
+        final ImmutableMap.Builder<String, InterfaceEntity> builder = ImmutableMap.builder();
+
+        for (Map.Entry<String, ObjectDeclaration> entry : bodyEnvironment.getObjects().getAll()) {
+            if (entry.getValue().getKind() != ObjectKind.FUNCTION) {
+                continue;
+            }
+
+            final FunctionDeclaration funDecl = (FunctionDeclaration) entry.getValue();
+
+            if (funDecl.getFunctionType() != FunctionDeclaration.FunctionType.COMMAND
+                    && funDecl.getFunctionType() != FunctionDeclaration.FunctionType.EVENT) {
+                continue;
+            }
+
+            final Optional<Optional<InterfaceEntity>> optObject =
+                    Optional.fromNullable(entitiesCache.get(entry.getKey()));
+            final InterfaceEntity currentEntity;
+
+            if (optObject.isPresent()) {
+                checkState(optObject.get().isPresent(), "inconsistent state with regards to the existence of interface entity '%s'",
+                           entry.getKey());
+                currentEntity = optObject.get().get();
+            } else {
+                currentEntity = newInterfaceEntity(funDecl);
+            }
+
+            builder.put(entry.getKey(), currentEntity);
+        }
+
+        // Finish
+
+        allEntities = Optional.of(builder.build());
+        return allEntities.get().entrySet();
     }
 
     /**
      * Get the function declaration for a command or event with given name
-     * declared in the referred interface. It does not contain a command or
+     * declared in the referred interface. If it does not contain a command or
      * event with given name, then the object is absent.
      *
      * @param name Name of a command or event to look for.
@@ -148,58 +241,6 @@ public final class GoodInterfaceRefFacade extends AbstractInterfaceRefFacade {
                 || funType == FunctionDeclaration.FunctionType.EVENT
                 ? Optional.of(funDecl)
                 : Optional.<FunctionDeclaration>absent();
-    }
-
-    /**
-     * Get the type of a command or event after performing the necessary
-     * substitution.
-     *
-     * @param name Name of a command or an event.
-     * @return Type of the command or event with given name after substitution.
-     */
-    private Optional<FunctionType> getEntryType(String name) {
-        // Make use of the cache
-        final Optional<FunctionType> cachedType = Optional.fromNullable(typesCache.get(name));
-        if (cachedType.isPresent()) {
-            return cachedType;
-        }
-
-        // If the type is not cached, try to construct the type
-
-        final Optional<FunctionDeclaration> optFunDecl = lookForEntry(name);
-        if (!optFunDecl.isPresent()) {
-            return Optional.absent();
-        }
-        final FunctionDeclaration funDecl = optFunDecl.get();
-
-        if (!funDecl.getType().isPresent()) {
-            return Optional.absent();
-        }
-        checkState(funDecl.getType().get().isFunctionType(), "'%s' type used as a type for a function, a function type is expected",
-                funDecl.getType().get());
-        final FunctionType funType = (FunctionType) funDecl.getType().get();
-
-        // Perform the substitution
-
-        final Optional<Type> newReturnType = substituteType(funType.getReturnType());
-        final List<Optional<Type>> newArgumentsTypes = new LinkedList<>();
-        final Optional<FunctionType> result;
-
-        for (Optional<Type> argType : funType.getArgumentsTypes()) {
-            newArgumentsTypes.add(substituteType(argType));
-        }
-
-        result = Optional.fromNullable(
-                  newReturnType.isPresent()
-                ? new FunctionType(newReturnType.get(), newArgumentsTypes, funType.getVariableArguments())
-                : null
-        );
-
-        if (result.isPresent()) {
-            typesCache.put(name, result.get());
-        }
-
-        return result;
     }
 
     private Optional<Type> substituteType(Optional<Type> type) {

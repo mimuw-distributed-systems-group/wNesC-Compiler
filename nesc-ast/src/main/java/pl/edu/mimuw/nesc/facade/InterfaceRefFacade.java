@@ -2,6 +2,9 @@ package pl.edu.mimuw.nesc.facade;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+
+import java.util.Map;
 import pl.edu.mimuw.nesc.ast.type.Type;
 
 /**
@@ -77,56 +80,27 @@ public interface InterfaceRefFacade {
     boolean contains(String name);
 
     /**
-     * <p>Check if the entity with given name in the referred interface is
-     * a command or event.</p>
-     *
-     * @param name Name of a command or event.
-     * @return Kind of the entity with given name. The object is absent if the
-     *         referred interface does not contain any command or event with
-     *         given name.
-     * @throws NullPointerException Name is null.
-     * @throws IllegalArgumentException Name is an empty string.
-     */
-    Optional<InterfaceEntityKind> getKind(String name);
-
-    /**
-     * <p>Get the return type of a command or event with given name in the
-     * referred interface. The type is after all necessary substitutions that
+     * <p>Get the object that depicts the command or event with given name.
+     * The function type in the object is after all necessary substitutions that
      * are implied by instantiating a generic interface.</p>
      *
      * @param name Name of a command or event.
-     * @return Return type of the command or event with given name in the
-     *         referred interface. The object is absent if the type is specified
-     *         incorrectly or the interface does not contain any command or
+     * @return Object that depicts the command or event with given name. It is
+     *         absent if the referred interface does not contain any command or
      *         event with given name.
      * @throws NullPointerException Name is null.
      * @throws IllegalArgumentException Name is an empty string.
      */
-    Optional<Type> getReturnType(String name);
+    Optional<InterfaceEntity> get(String name);
 
     /**
-     * <p>Get the types of arguments of a command or event with given name in
-     * the referred interface. The types are after all necessary substitutions
-     * that are implied by instantiating a generic interface.</p>
+     * <p>Get the set with objects that depict all commands and events from the
+     * referred interface. Function types in these objects are after all
+     * necessary substitutions that are implied by instantiating a generic
+     * interface. Keys of the entries are commands and events names.</p>
      *
-     * @param name Name of a command or event.
-     * @return Immutable list with types of arguments of a command or event with
-     *         given name in the referred interface. It is absent if the
-     *         referred interface does not contain a command or event with given
-     *         name.
-     * @throws NullPointerException Name is null.
-     * @throws IllegalArgumentException Name is an empty string.
+     * @return Immutable set that allows identifying all commands and events
+     *         from the referred interface.
      */
-    Optional<ImmutableList<Optional<Type>>> getArgumentsTypes(String name);
-
-    /**
-     * Enumeration type that represents an entity that can be declared inside an
-     * interface.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    enum InterfaceEntityKind {
-        COMMAND,
-        EVENT,
-    }
+    ImmutableSet<Map.Entry<String, InterfaceEntity>> getAll();
 }

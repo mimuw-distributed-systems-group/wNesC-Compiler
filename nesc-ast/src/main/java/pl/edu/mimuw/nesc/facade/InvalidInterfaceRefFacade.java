@@ -1,11 +1,9 @@
 package pl.edu.mimuw.nesc.facade;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import com.google.common.collect.ImmutableSet;
+import java.util.Map;
 import pl.edu.mimuw.nesc.declaration.object.InterfaceRefDeclaration;
-
-import static com.google.common.base.Preconditions.*;
 
 /**
  * <p>Facade for interface references that are invalid. An invalid reference
@@ -40,20 +38,13 @@ public final class InvalidInterfaceRefFacade extends AbstractInterfaceRefFacade 
     }
 
     @Override
-    public Optional<InterfaceEntityKind> getKind(String name) {
+    public Optional<InterfaceEntity> get(String name) {
         checkName(name);
         return Optional.absent();
     }
 
     @Override
-    public Optional<Type> getReturnType(String name) {
-        checkName(name);
-        return Optional.absent();
-    }
-
-    @Override
-    public Optional<ImmutableList<Optional<Type>>> getArgumentsTypes(String name) {
-        checkName(name);
-        return Optional.absent();
+    public ImmutableSet<Map.Entry<String, InterfaceEntity>> getAll() {
+        return ImmutableSet.of();
     }
 }
