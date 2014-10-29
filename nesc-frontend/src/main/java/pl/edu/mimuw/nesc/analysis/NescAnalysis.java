@@ -142,9 +142,9 @@ public final class NescAnalysis {
             problem = Optional.of(IfaceParamProblemKind.ARRAY_TYPE);
         } else if (!providedType.isComplete()) {
             problem = Optional.of(IfaceParamProblemKind.INCOMPLETE_TYPE);
-        } else if (definitionType.isUnknownIntegerType() && !providedType.isIntegerType()) {
+        } else if (definitionType.isUnknownIntegerType() && !providedType.isGeneralizedIntegerType()) {
             problem = Optional.of(IfaceParamProblemKind.INTEGER_TYPE_EXPECTED);
-        } else if (definitionType.isUnknownArithmeticType() && !providedType.isArithmetic()) {
+        } else if (definitionType.isUnknownArithmeticType() && !providedType.isGeneralizedArithmeticType()) {
             problem = Optional.of(IfaceParamProblemKind.ARITHMETIC_TYPE_EXPECTED);
         } else {
             problem = Optional.absent();
