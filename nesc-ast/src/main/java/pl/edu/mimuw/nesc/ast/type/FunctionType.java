@@ -183,9 +183,13 @@ public final class FunctionType extends DerivedType {
         for (int i = 0; i < params.size(); ++i) {
             final Optional<Type> param = params.get(i),
                                  otherParam = otherParams.get(i);
-            if (param.isPresent() && otherParam.isPresent()
-                    && !param.get().isCompatibleWith(otherParam.get())) {
-                return false;
+            if (param.isPresent() && otherParam.isPresent()) {
+                final Type adjustedParam = param.get().decay().removeQualifiers(),
+                           adjustedOtherParam = otherParam.get().decay().removeQualifiers();
+
+                if (!adjustedParam.isCompatibleWith(adjustedOtherParam)) {
+                    return false;
+                }
             }
         }
 

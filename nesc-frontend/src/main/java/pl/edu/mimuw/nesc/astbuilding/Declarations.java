@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.astbuilding;
 
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -13,6 +14,7 @@ import pl.edu.mimuw.nesc.ast.TagRefSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.FunctionType;
 import pl.edu.mimuw.nesc.ast.type.TypeDefinitionType;
+import pl.edu.mimuw.nesc.ast.type.VoidType;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.environment.Environment;
@@ -56,6 +58,10 @@ import static pl.edu.mimuw.nesc.problem.issue.RedefinitionError.RedefinitionKind
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class Declarations extends AstBuildingBase {
+    /**
+     * Type required for an identifier of a task.
+     */
+    public static final FunctionType TYPE_TASK = new FunctionType(new VoidType(), new Type[0], false);
 
     private static final ErrorDecl ERROR_DECLARATION;
 
@@ -63,6 +69,17 @@ public final class Declarations extends AstBuildingBase {
         ERROR_DECLARATION = new ErrorDecl(Location.getDummyLocation());
         ERROR_DECLARATION.setEndLocation(Location.getDummyLocation());
     }
+
+    /**
+     * A function that returns the decayed type.
+     */
+    private static final Function<Type, Type> DECAY_TRANSFORMATION = new Function<Type, Type>() {
+        @Override
+        public Type apply(Type type) {
+            checkNotNull(type, "type cannot be null");
+            return type.decay();
+        }
+    };
 
     /**
      * Object that is present after a module specification is parsed and
@@ -262,8 +279,14 @@ public final class Declarations extends AstBuildingBase {
                 Optional.<AsmStmt>absent());
         variableDecl.setInitializer(Optional.<Expression>absent());
         variableDecl.setEndLocation(varEndLocation);
-        variableDecl.setType(resolveType(environment, elements, declarator,
-                errorHelper, varStartLocation, varEndLocation));
+
+        /* Resolve the type and adjust it if necessary. */
+        final Optional<Type> declaratorType = resolveType(environment, elements, declarator,
+                errorHelper, varStartLocation, varEndLocation);
+        final Optional<Type> adjustedType = environment.getScopeType() == ScopeType.FUNCTION_PARAMETER
+                ? declaratorType.transform(DECAY_TRANSFORMATION)
+                : declaratorType;
+        variableDecl.setType(adjustedType);
 
         if (declarator.isPresent()) {
             final Optional<String> name = getDeclaratorName(declarator.get());
@@ -683,7 +706,8 @@ public final class Declarations extends AstBuildingBase {
 
             final Optional<? extends ErroneousIssue> error =
                     checkInterfaceEntity(Optional.<String>absent(), name, bareDeclaration.getInstanceParameters(),
-                            expectedKind.get(), bareDeclaration.getType(), bareDeclaration.isProvided().get());
+                            expectedKind.get(), bareDeclaration.getType(), bareDeclaration.isProvided().get(),
+                            Optional.<Type>absent());
 
             if (error.isPresent()) {
                 finishWithError(error.get(), false, funDeclarator, getFunctionType(kind));
@@ -713,22 +737,8 @@ public final class Declarations extends AstBuildingBase {
             } else if (funDeclarator.getGenericParameters().isPresent()) {
                 error = Optional.of(InvalidTaskDeclarationError.instanceParametersPresent(
                         funDeclarator.getGenericParameters().get().size()));
-            } else if (maybeType.isPresent()) {
-                checkState(maybeType.get() instanceof FunctionType, "'%s' type of function definition", maybeType.get());
-
-                final FunctionType type = (FunctionType) maybeType.get();
-                final ImmutableList<Optional<Type>> argsTypes = type.getArgumentsTypes();
-                final Type returnType = type.getReturnType();
-
-                if (type.getVariableArguments()) {
-                    error = Optional.of(InvalidTaskDeclarationError.variableArgumentsPresent());
-                } else if (!argsTypes.isEmpty()) {
-                    error = Optional.of(InvalidTaskDeclarationError.parametersPresent(argsTypes.size()));
-                } else if (!returnType.isVoid()) {
-                    error = Optional.of(InvalidTaskDeclarationError.invalidReturnType(returnType));
-                } else {
-                    error = Optional.absent();
-                }
+            } else if (maybeType.isPresent() && !maybeType.get().isCompatibleWith(TYPE_TASK)) {
+                error = Optional.of(InvalidTaskDeclarationError.invalidType(name, maybeType.get()));
             } else {
                 error = Optional.absent();
             }
@@ -784,7 +794,7 @@ public final class Declarations extends AstBuildingBase {
                     || ifaceEntity.getKind() == InterfaceEntity.Kind.EVENT && !ifaceFacade.isProvided();
             final Optional<? extends ErroneousIssue> error = checkInterfaceEntity(Optional.of(ifaceName),
                     callableName,ifaceFacade.getInstanceParameters(), ifaceEntity.getKind(),
-                    ifaceEntity.getType(), isProvided);
+                    ifaceEntity.getType(), isProvided, optDeclaration.get().getType());
             if (error.isPresent()) {
                 return error;
             }
@@ -840,7 +850,7 @@ public final class Declarations extends AstBuildingBase {
         private Optional<? extends ErroneousIssue> checkInterfaceEntity(Optional<String> ifaceName,
                     String name, Optional<ImmutableList<Optional<Type>>> expectedInstanceParams,
                     InterfaceEntity.Kind expectedKind, Optional<? extends Type> expectedType,
-                    boolean isProvided) {
+                    boolean isProvided, Optional<Type> interfaceType) {
 
             // Instance parameters
 
@@ -873,7 +883,7 @@ public final class Declarations extends AstBuildingBase {
                     && !maybeType.get().isCompatibleWith(expectedType.get())) {
 
                 return Optional.of(InvalidInterfaceEntityDefinitionError.invalidType(ifaceName,
-                        name, expectedKind, expectedType.get(), maybeType.get()));
+                        name, expectedKind, expectedType.get(), maybeType.get(), interfaceType));
             }
 
             return Optional.absent();

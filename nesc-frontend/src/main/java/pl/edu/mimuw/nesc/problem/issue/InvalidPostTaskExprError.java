@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.astbuilding.Declarations;
 
 import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
@@ -43,6 +44,9 @@ public final class InvalidPostTaskExprError extends ErroneousIssue {
             case INVALID_OBJECT_REFERENCED:
                 return format("Cannot post '%s' because it is not a task",
                         PrettyPrint.expression(functionExpr));
+            case INVALID_TASK_TYPE:
+                return format("Task '%s' is not of type '%s'; correct its declaration and/or definition",
+                        PrettyPrint.expression(functionExpr), Declarations.TYPE_TASK);
             default:
                 return "Invalid task posting expression";
         }
@@ -52,6 +56,7 @@ public final class InvalidPostTaskExprError extends ErroneousIssue {
     public enum PostProblemKind {
         IDENTIFER_NOT_PROVIDED,
         PARAMETERS_GIVEN,
-        INVALID_OBJECT_REFERENCED
+        INVALID_OBJECT_REFERENCED,
+        INVALID_TASK_TYPE,
     }
 }

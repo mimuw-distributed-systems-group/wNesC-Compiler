@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.astbuilding.Declarations;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -20,20 +21,9 @@ public final class InvalidTaskDeclarationError extends ErroneousIssue {
         return new InvalidTaskDeclarationError(description);
     }
 
-    public static InvalidTaskDeclarationError variableArgumentsPresent() {
-        final String description = "Tasks cannot be declared as variable arguments functions";
-        return new InvalidTaskDeclarationError(description);
-    }
-
-    public static InvalidTaskDeclarationError parametersPresent(int paramsCount) {
-        final String description = format("Tasks do not take any parameters but %d parameter(s) declared",
-                                          paramsCount);
-        return new InvalidTaskDeclarationError(description);
-    }
-
-    public static InvalidTaskDeclarationError invalidReturnType(Type returnType) {
-        final String description = format("Tasks do not return any values but '%s' declared as the return type",
-                returnType);
+    public static InvalidTaskDeclarationError invalidType(String name, Type actualType) {
+        final String description = format("Tasks must have type '%s' but '%s' is of type '%s'",
+                                          Declarations.TYPE_TASK, name, actualType);
         return new InvalidTaskDeclarationError(description);
     }
 

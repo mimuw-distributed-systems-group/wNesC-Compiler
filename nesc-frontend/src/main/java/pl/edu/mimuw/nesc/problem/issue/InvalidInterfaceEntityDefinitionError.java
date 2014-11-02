@@ -72,14 +72,25 @@ public final class InvalidInterfaceEntityDefinitionError extends ErroneousIssue 
     }
 
     public static InvalidInterfaceEntityDefinitionError invalidType(Optional<String> ifaceName,
-            String callableName, InterfaceEntity.Kind kind, Type expectedType, Type actualType) {
+            String callableName, InterfaceEntity.Kind kind, Type expectedType, Type actualType,
+            Optional<Type> interfaceType) {
 
         final String entity = getInterfaceEntityText(kind, false);
         final String name = getName(ifaceName, callableName);
+        final Optional<String> ifaceTypeStr;
 
-        final String description = ifaceName.isPresent()
+        if (interfaceType.isPresent()) {
+            String fullIfaceTypeStr = interfaceType.get().toString();
+            ifaceTypeStr = fullIfaceTypeStr.matches("interface .*")
+                    ? Optional.of(fullIfaceTypeStr.substring(10))
+                    : Optional.of(fullIfaceTypeStr);
+        } else {
+            ifaceTypeStr = ifaceName;
+        }
+
+        final String description = ifaceTypeStr.isPresent()
             ? format("Type '%s' of %s '%s' differs from its declared type '%s' in interface '%s'",
-                     actualType, entity, name, expectedType, ifaceName.get())
+                     actualType, entity, name, expectedType, ifaceTypeStr.get())
             : format("Type '%s' of bare %s '%s' differs from its declared type '%s' in the specification",
                      actualType, entity, name, expectedType);
 

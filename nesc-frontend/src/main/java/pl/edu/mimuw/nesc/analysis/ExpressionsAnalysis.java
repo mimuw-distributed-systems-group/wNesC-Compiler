@@ -16,6 +16,7 @@ import pl.edu.mimuw.nesc.ast.IntegerCstSuffix;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.*;
 import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.astbuilding.Declarations;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.declaration.tag.*;
 import pl.edu.mimuw.nesc.environment.Environment;
@@ -40,7 +41,7 @@ import static pl.edu.mimuw.nesc.problem.issue.InvalidPostTaskExprError.PostProbl
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Void> {
+public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Void> {
     /**
      * Logger for this class.
      */
@@ -1830,6 +1831,9 @@ public class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Vo
 
                 if (funData.getFunctionType() != FunctionDeclaration.FunctionType.TASK) {
                     problemKind = Optional.of(PostProblemKind.INVALID_OBJECT_REFERENCED);
+                } else if (funData.getType().isPresent()
+                        && !funData.getType().get().isCompatibleWith(Declarations.TYPE_TASK)) {
+                    problemKind = Optional.of(PostProblemKind.INVALID_TASK_TYPE);
                 } else {
                     problemKind = Optional.absent();
                 }
