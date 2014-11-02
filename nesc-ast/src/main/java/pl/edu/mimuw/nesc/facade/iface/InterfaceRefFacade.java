@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.facade;
+package pl.edu.mimuw.nesc.facade.iface;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -31,7 +31,7 @@ public interface InterfaceRefFacade {
     /**
      * <p>Check if the interface that is referred is to be provided or used.</p>
      *
-     * @return Value indicating if the interface must be provided. If not, is is
+     * @return Value indicating if the interface must be provided. If not, it is
      *         used.
      */
     boolean isProvided();

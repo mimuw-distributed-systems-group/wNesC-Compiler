@@ -59,6 +59,16 @@ public class FunctionDeclaration extends ObjectDeclaration {
      */
     private final Optional<ImmutableList<Optional<Type>>> instanceParameters;
 
+    /**
+     * <p>Value is present if this declaration represents a bare command or
+     * event that is declared in a component specification, e.g.:</p>
+     *
+     * <pre>
+     *     provides command uint8_t getCounterHigh();
+     * </pre>
+     */
+    private Optional<Boolean> isProvided = Optional.absent();
+
     public static Builder builder() {
         return new Builder();
     }
@@ -126,6 +136,37 @@ public class FunctionDeclaration extends ObjectDeclaration {
      */
     public Optional<ImmutableList<Optional<Type>>> getInstanceParameters() {
         return instanceParameters;
+    }
+
+    /**
+     * <p>Check if this declaration represents a bare command or event declared
+     * in the specification of a component and if it is to be implemented in the
+     * component.</p>
+     *
+     * @return The value is present if this declaration represents a bare
+     *         command or event declared in the specification of a component and
+     *         is <code>true</code> if and only if the component is to implement
+     *         the command or event. The value is not meaningful and is never
+     *         present before the specification of the component is fully parsed
+     *         and analyzed.
+     */
+    public Optional<Boolean> isProvided() {
+        return isProvided;
+    }
+
+    /**
+     * <p>Store the information that this declaration object represents a bare
+     * command or event declared in the specification of a component and the
+     * given value indicating if the command or event has to be implemented.</p>
+     *
+     * @param isProvided Value indicating if the bare command or event
+     *                   represented by this declaration is to be implemented
+     *                   (if so the argument shall be <code>true</code>).
+     * @throws IllegalStateException The value has been already set.
+     */
+    public void setProvided(boolean isProvided) {
+        checkState(!this.isProvided.isPresent(), "the value indicating if the command or event is to be implemented has been already set");
+        this.isProvided = Optional.of(isProvided);
     }
 
     /**

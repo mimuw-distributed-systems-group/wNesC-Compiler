@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.facade;
+package pl.edu.mimuw.nesc.facade.iface;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;

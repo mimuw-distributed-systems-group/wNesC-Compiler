@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.facade;
+package pl.edu.mimuw.nesc.facade.iface;
 
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Expression;

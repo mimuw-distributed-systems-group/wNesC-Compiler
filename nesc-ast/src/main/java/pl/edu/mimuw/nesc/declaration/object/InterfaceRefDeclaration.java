@@ -2,18 +2,13 @@ package pl.edu.mimuw.nesc.declaration.object;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import pl.edu.mimuw.nesc.ast.gen.DataDecl;
-import pl.edu.mimuw.nesc.ast.gen.Declaration;
-import pl.edu.mimuw.nesc.ast.gen.ErrorDecl;
 import pl.edu.mimuw.nesc.ast.gen.InterfaceRef;
-import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
 import pl.edu.mimuw.nesc.ast.type.InterfaceType;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.ast.util.AstUtils;
 import pl.edu.mimuw.nesc.declaration.nesc.InterfaceDeclaration;
-import pl.edu.mimuw.nesc.facade.InterfaceRefFacade;
+import pl.edu.mimuw.nesc.facade.iface.InterfaceRefFacade;
 
-import java.util.LinkedList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.*;
@@ -101,7 +96,7 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
 
     /**
      * Get a list with instance parameters of this interface. More information
-     * about the returned list are
+     * about the returned list is
      * {@link InterfaceRefDeclaration#instanceParameters here}.
      *
      * @return Immutable list with instance parameters.

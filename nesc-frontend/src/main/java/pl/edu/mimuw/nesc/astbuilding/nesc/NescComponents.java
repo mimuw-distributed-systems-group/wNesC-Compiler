@@ -2,6 +2,9 @@ package pl.edu.mimuw.nesc.astbuilding.nesc;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableSet;
+import java.util.Map;
+import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
@@ -14,16 +17,24 @@ import pl.edu.mimuw.nesc.declaration.nesc.ModuleDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.NescDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.InterfaceRefDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.ObjectKind;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
-import pl.edu.mimuw.nesc.facade.InterfaceRefFacadeFactory;
+import pl.edu.mimuw.nesc.facade.component.ImplementationElement;
+import pl.edu.mimuw.nesc.facade.component.ModuleTable;
+import pl.edu.mimuw.nesc.facade.iface.InterfaceRefFacadeFactory;
 import pl.edu.mimuw.nesc.problem.NescIssue;
+import pl.edu.mimuw.nesc.problem.issue.ErroneousIssue;
+import pl.edu.mimuw.nesc.problem.issue.MissingImplementationElementError;
 import pl.edu.mimuw.nesc.token.Token;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static pl.edu.mimuw.nesc.analysis.NescAnalysis.checkInterfaceInstantiation;
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.checkInstanceParametersSpecifiers;
@@ -31,9 +42,14 @@ import static pl.edu.mimuw.nesc.ast.util.AstUtils.makeWord;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class NescComponents extends AstBuildingBase {
 
+    /**
+     * Object that allows logging events that occur in objects of this class.
+     */
+    private static final Logger LOG = Logger.getLogger(NescComponents.class);
 
     public NescComponents(NescEntityEnvironment nescEnvironment,
                           ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
@@ -119,6 +135,19 @@ public final class NescComponents extends AstBuildingBase {
         specificationVisitor.visitDeclarations(component);
     }
 
+    /**
+     * Method that is called after
+     * {@link NescComponents#handleComponentSpecification}.
+     */
+    public ModuleTable handleModuleSpecification(Module module, LinkedList<Declaration> specification) {
+        final ModuleTable result = ModuleTable.builder()
+                .addDeclarations(specification)
+                .build();
+
+        module.getDeclaration().setModuleTable(result);
+        return result;
+    }
+
     public void finishInterface(Interface iface, Location endLocation, LinkedList<Declaration> declarations) {
         iface.setDeclarations(declarations);
         iface.setEndLocation(endLocation);
@@ -131,6 +160,23 @@ public final class NescComponents extends AstBuildingBase {
     public void finishComponent(Component component, Implementation implementation) {
         component.setImplementation(implementation);
         component.setEndLocation(implementation.getEndLocation());
+    }
+
+    public void finishModule(Module module, Location endLocation) {
+        final ImmutableSet<Map.Entry<String, ImplementationElement>> elements =
+                module.getDeclaration().getModuleTable().getAll();
+
+        // Check if all required commands and events are implemented
+        for (Map.Entry<String, ImplementationElement> implEntry : elements) {
+            final String name = implEntry.getKey();
+            final ImplementationElement implElement = implEntry.getValue();
+
+            if (implElement.isProvided() && !implElement.isImplemented()) {
+                final ErroneousIssue error = new MissingImplementationElementError(implElement.getKind(),
+                        name, implElement.getInterfaceName());
+                errorHelper.error(module.getLocation(), endLocation, error);
+            }
+        }
     }
 
     public void declareInterfaceRef(Environment environment, InterfaceRef ifaceRef,
@@ -193,6 +239,12 @@ public final class NescComponents extends AstBuildingBase {
 
     private final class SpecificationVisitor extends ExceptionVisitor<Void, Component> {
 
+        /**
+         * Set with names of analyzed objects to ignore analysis of declarations
+         * that are redeclarations.
+         */
+        private final Set<String> analyzedNames = new HashSet<>();
+
         public void visitDeclarations(Component component) {
             for (Declaration declaration : component.getDeclarations()) {
                 if (declaration == null) {
@@ -218,13 +270,13 @@ public final class NescComponents extends AstBuildingBase {
         }
 
         public Void visitRequiresInterface(RequiresInterface elem, Component component) {
-            final RequiresProvidesVisitor rpVisitor = new RequiresProvidesVisitor(component, false);
+            final RequiresProvidesVisitor rpVisitor = new RequiresProvidesVisitor(component, false, analyzedNames);
             rpVisitor.visitDeclarations(elem.getDeclarations());
             return null;
         }
 
         public Void visitProvidesInterface(ProvidesInterface elem, Component component) {
-            final RequiresProvidesVisitor rpVisitor = new RequiresProvidesVisitor(component, true);
+            final RequiresProvidesVisitor rpVisitor = new RequiresProvidesVisitor(component, true, analyzedNames);
             rpVisitor.visitDeclarations(elem.getDeclarations());
             return null;
         }
@@ -241,10 +293,13 @@ public final class NescComponents extends AstBuildingBase {
 
         private final Component component;
         private final boolean provides;
+        private final Set<String> analyzedNames;
 
-        private RequiresProvidesVisitor(Component component, boolean provides) {
+        private RequiresProvidesVisitor(Component component, boolean provides,
+                Set<String> analyzedNames) {
             this.component = component;
             this.provides = provides;
+            this.analyzedNames = analyzedNames;
         }
 
         public void visitDeclarations(LinkedList<Declaration> declarations) {
@@ -271,6 +326,14 @@ public final class NescComponents extends AstBuildingBase {
         @Override
         public Void visitInterfaceRef(InterfaceRef ref, Void arg) {
             final String name = ref.getAlias().isPresent() ? ref.getAlias().get().getName() : ref.getName().getName();
+            // Ignore the reference if it is a redeclaration
+            if (!analyzedNames.add(name)) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug(format("Ignoring interface reference '%s' at %s:%d:%d", name, ref.getLocation().getFilePath(),
+                            ref.getLocation().getLine(), ref.getLocation().getColumn()));
+                }
+                return null;
+            }
             final InterfaceRefDeclaration refDeclaration =
                     (InterfaceRefDeclaration) component.getSpecificationEnvironment().getObjects().get(name).get();
             final InterfaceRefFacadeFactory facadeFactory = InterfaceRefFacadeFactory.newInstance();
@@ -308,6 +371,34 @@ public final class NescComponents extends AstBuildingBase {
         public Void visitDataDecl(DataDecl dataDecl, Void arg) {
             // TODO: bare event/command
             // TODO: typedef, tagged type
+
+            // Set the provides value for bare commands and events
+            for (Declaration innerDecl : dataDecl.getDeclarations()) {
+                if (!(innerDecl instanceof VariableDecl)) {
+                    continue;
+                }
+
+                final VariableDecl varDecl = (VariableDecl) innerDecl;
+                checkState(varDecl.getDeclaration() != null, "the declaration object is absent for a bare command or event AST node");
+                if (varDecl.getDeclaration().getKind() != ObjectKind.FUNCTION) {
+                    continue;
+                }
+
+                final FunctionDeclaration funDecl = (FunctionDeclaration) varDecl.getDeclaration();
+
+                // Ignore this declaration if it is a redeclaration
+                if (!analyzedNames.add(funDecl.getName())) {
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug(format("Ignoring function '%s' at %s:%d:%d", funDecl.getName(),
+                                varDecl.getLocation().getFilePath(), varDecl.getLocation().getLine(),
+                                varDecl.getLocation().getColumn()));
+                    }
+                    continue;
+                }
+
+                funDecl.setProvided(provides);
+            }
+
             return null;
         }
 

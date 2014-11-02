@@ -367,6 +367,15 @@ public class SpecifiersAnalysis {
         }
 
         /**
+         * Get the set with all main specifiers contained in this set.
+         *
+         * @return Immutable set with main specifiers.
+         */
+        public ImmutableSet<NonTypeSpecifier> getMainSpecifiers() {
+            return mainSpecifiers.keySet();
+        }
+
+        /**
          * Validates main specifiers and emits errors if the validation fails.
          *
          * @return <code>true</code> if and only if the main specifiers are
@@ -400,6 +409,17 @@ public class SpecifiersAnalysis {
             }
 
             return false;
+        }
+
+        /**
+         * Check if the main specifiers are correctly used, i.e. there is at
+         * most one main specifier in this set.
+         *
+         * @return <code>true</code> if and only if the main specifiers are
+         *         correctly used.
+         */
+        public boolean goodMainSpecifier() {
+            return mainSpecifiers.size() <= 1;
         }
 
         /**

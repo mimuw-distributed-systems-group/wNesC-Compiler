@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.astbuilding;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
 import pl.edu.mimuw.nesc.ast.util.AstUtils;
@@ -16,6 +17,10 @@ import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
+import pl.edu.mimuw.nesc.environment.ScopeType;
+import pl.edu.mimuw.nesc.facade.component.ModuleTable;
+import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
+import pl.edu.mimuw.nesc.facade.iface.InterfaceRefFacade;
 import pl.edu.mimuw.nesc.parser.TypeElementsAssociation;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.problem.issue.*;
@@ -24,9 +29,11 @@ import pl.edu.mimuw.nesc.ast.type.Type;
 
 import java.util.LinkedList;
 
+import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.determineLinkage;
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.NonTypeSpecifier;
+import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.SpecifiersSet;
 import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.makeFieldDeclaration;
 import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.processTagReference;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.checkFunctionParametersTypes;
@@ -56,6 +63,14 @@ public final class Declarations extends AstBuildingBase {
         ERROR_DECLARATION = new ErrorDecl(Location.getDummyLocation());
         ERROR_DECLARATION.setEndLocation(Location.getDummyLocation());
     }
+
+    /**
+     * Object that is present after a module specification is parsed and
+     * analyzed. Information about implementations of commands and events is
+     * passed to it. It must be present when parsing and analysis of a module
+     * has started.
+     */
+    private Optional<ModuleTable> moduleTable = Optional.absent();
 
     public Declarations(NescEntityEnvironment nescEnvironment,
                         ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
@@ -192,9 +207,10 @@ public final class Declarations extends AstBuildingBase {
                 null, isNested);
         final Optional<Type> maybeType = resolveType(environment, modifiers, Optional.of(declarator),
                 errorHelper, startLocation, startLocation);
+        final SpecifiersSet specifiersSet = new SpecifiersSet(modifiers, errorHelper);
 
         final StartFunctionVisitor startVisitor = new StartFunctionVisitor(environment,
-                functionDecl, modifiers, maybeType);
+                functionDecl, modifiers, specifiersSet, maybeType);
         try {
             declarator.accept(startVisitor, null);
         } catch (RuntimeException e) {
@@ -260,7 +276,7 @@ public final class Declarations extends AstBuildingBase {
                         .build();
                 if (!environment.getObjects().add(name.get(), symbol)) {
                     errorHelper.error(declarator.get().getLocation(), Optional.of(declarator.get().getEndLocation()),
-                            format("redeclaration of '%s'", name));
+                            format("redeclaration of '%s'", name.get()));
                 }
                 variableDecl.setDeclaration(symbol);
             }
@@ -483,18 +499,42 @@ public final class Declarations extends AstBuildingBase {
         return tagRef;
     }
 
+    /**
+     * Set the module table that will be notified about definitions of commands
+     * and events. The table must be set when parsing the implementation of
+     * a&nbsp;module.
+     *
+     * @param moduleTable Module table to set.
+     * @throws NullPointerException Given argument is null.
+     * @throws IllegalStateException A module table has been already set.
+     */
+    public void setModuleTable(ModuleTable moduleTable) {
+        checkNotNull(moduleTable, "module table cannot be null");
+        checkState(!this.moduleTable.isPresent(), "module table has been already set");
+
+        this.moduleTable = Optional.of(moduleTable);
+    }
+
     private class StartFunctionVisitor extends ExceptionVisitor<Void, Void> {
 
         private final Environment environment;
         private final FunctionDecl functionDecl;
         private final LinkedList<TypeElement> modifiers;
+        private final SpecifiersSet specifiersSet;
         private final Optional<Type> maybeType;
 
+        private Location startLocation;
+        private Location errorStartLocation;
+        private Optional<ImmutableList<Optional<Type>>> providedInstanceParams = Optional.absent();
+        private FunctionDeclaration.Builder funDeclBuilder;
+
         public StartFunctionVisitor(Environment environment, FunctionDecl functionDecl,
-                                    LinkedList<TypeElement> modifiers, Optional<Type> maybeType) {
+                                    LinkedList<TypeElement> modifiers, SpecifiersSet specifiersSet,
+                                    Optional<Type> maybeType) {
             this.environment = environment;
             this.functionDecl = functionDecl;
             this.modifiers = modifiers;
+            this.specifiersSet = specifiersSet;
             this.maybeType = maybeType;
         }
 
@@ -516,7 +556,6 @@ public final class Declarations extends AstBuildingBase {
 
         @Override
         public Void visitFunctionDeclarator(FunctionDeclarator funDeclarator, Void arg) {
-            final Location startLocation = funDeclarator.getLocation();
             final Declarator innerDeclarator = funDeclarator.getDeclarator().get();
 
             // Check types of parameters
@@ -528,78 +567,70 @@ public final class Declarations extends AstBuildingBase {
                                              errorHelper);
             }
 
+            providedInstanceParams = funDeclarator.getGenericParameters().isPresent()
+                    ? Optional.of(AstUtils.getTypes(funDeclarator.getGenericParameters().get()))
+                    : Optional.<ImmutableList<Optional<Type>>>absent();
+
+            startLocation = funDeclarator.getLocation();
+
+            errorStartLocation = !modifiers.isEmpty()
+                    ? modifiers.getFirst().getLocation()
+                    : startLocation;
+
             /* C function/task */
             if (innerDeclarator instanceof IdentifierDeclarator) {
-                identifierDeclarator(funDeclarator, (IdentifierDeclarator) innerDeclarator, startLocation);
+                identifierDeclarator(funDeclarator, (IdentifierDeclarator) innerDeclarator);
             }
             /* command/event */
             else if (innerDeclarator instanceof InterfaceRefDeclarator) {
-                interfaceRefDeclarator(funDeclarator, (InterfaceRefDeclarator) innerDeclarator, startLocation);
+                interfaceRefDeclarator(funDeclarator, (InterfaceRefDeclarator) innerDeclarator);
             } else {
                 throw new IllegalStateException("Unexpected declarator class " + innerDeclarator.getClass());
             }
             return null;
         }
 
-        private void identifierDeclarator(FunctionDeclarator funDeclarator, IdentifierDeclarator identifierDeclarator,
-                                          Location startLocation) {
+        private void identifierDeclarator(FunctionDeclarator funDeclarator, IdentifierDeclarator identifierDeclarator) {
             final String name = identifierDeclarator.getName();
-            final FunctionDeclaration functionDeclaration;
-            final FunctionDeclaration.Builder builder = FunctionDeclaration.builder();
-            builder.instanceParameters(funDeclarator.getGenericParameters().orNull())
+
+            funDeclBuilder = FunctionDeclaration.builder();
+            funDeclBuilder.instanceParameters(funDeclarator.getGenericParameters().orNull())
                     .type(maybeType.orNull())
                     .name(name)
                     .startLocation(startLocation);
 
-            /* Check previous declaration. */
-            final Optional<? extends ObjectDeclaration> previousDeclarationOpt = environment.getObjects().get(name);
-            if (!previousDeclarationOpt.isPresent()) {
-                functionDeclaration = builder.build();
-                define(functionDeclaration, funDeclarator);
-            } else {
-                final ObjectDeclaration previousDeclaration = previousDeclarationOpt.get();
-                /* Trying to redeclare non-function declaration. */
-                if (!(previousDeclaration instanceof FunctionDeclaration)) {
-                    Declarations.this.errorHelper.error(funDeclarator.getLocation(), funDeclarator.getEndLocation(),
-                            new RedeclarationError(name, RedeclarationKind.OTHER));
-
-                    /* Nevertheless, create declaration, put it into ast node
-                     * but not into environment. */
-                    functionDeclaration = builder.build();
-                }
-                /* Previous declaration is a function declaration or
-                 * definition. */
-                else {
-                    final FunctionDeclaration tmpDecl = (FunctionDeclaration) previousDeclaration;
-                    if (!tmpDecl.isDefined()) {
-                        /* Update previous declaration. */
-                        functionDeclaration = tmpDecl;
-                        functionDeclaration.setLocation(startLocation);
-                    } else {
-                        /* Function redefinition is forbidden. */
-                        Declarations.this.errorHelper.error(funDeclarator.getLocation(), funDeclarator.getEndLocation(),
-                                new RedefinitionError(name, RedefinitionKind.FUNCTION));
-                        functionDeclaration = builder.build();
-                    }
-
-                    // TODO: check if types match in declarations
-                }
+            if (!specifiersSet.goodMainSpecifier()) {
+                final ErroneousIssue error = new InvalidSpecifiersCombinationError(specifiersSet.getMainSpecifiers());
+                errorHelper.error(errorStartLocation, funDeclarator.getEndLocation(), error);
             }
 
-            functionDeclaration.setAstFunctionDeclarator(funDeclarator);
-            functionDeclaration.setFunctionType(TypeElementUtils.getFunctionType(modifiers));
-            functionDeclaration.setDefined(true);
-            functionDecl.setDeclaration(functionDeclaration);
+            final Optional<NonTypeSpecifier> mainSpecifier = specifiersSet.firstMainSpecifier();
+            final Optional<InterfaceEntity.Kind> kind = getDeclaredKind();
+
+            if (kind.isPresent()) {
+                bareEntity(kind.get(), name, funDeclarator);
+            } else if (mainSpecifier.isPresent() && mainSpecifier.get() == NonTypeSpecifier.TASK) {
+                task(name, funDeclarator);
+            } else {
+                regularFunction(name, funDeclarator);
+            }
         }
 
-        private void interfaceRefDeclarator(FunctionDeclarator funDeclarator, InterfaceRefDeclarator refDeclaration,
-                                            Location startLocation) {
+        private void interfaceRefDeclarator(FunctionDeclarator funDeclarator, InterfaceRefDeclarator refDeclaration) {
             final String ifaceName = refDeclaration.getName().getName();
             final Declarator innerDeclarator = refDeclaration.getDeclarator().get();
 
             if (innerDeclarator instanceof IdentifierDeclarator) {
                 final IdentifierDeclarator idDeclarator = (IdentifierDeclarator) innerDeclarator;
                 final String callableName = idDeclarator.getName();
+
+                final Optional<? extends ErroneousIssue> error =
+                        checkInterfaceRefDeclarator(ifaceName, callableName, funDeclarator);
+                if (error.isPresent()) {
+                    Declarations.this.errorHelper.error(errorStartLocation,
+                            funDeclarator.getEndLocation(), error.get());
+                }
+
                 final FunctionDeclaration declaration = FunctionDeclaration.builder()
                         .instanceParameters(funDeclarator.getGenericParameters().orNull())
                         .interfaceName(ifaceName)
@@ -616,9 +647,379 @@ public final class Declarations extends AstBuildingBase {
             }
         }
 
+        private void bareEntity(InterfaceEntity.Kind kind, String name, FunctionDeclarator funDeclarator) {
+
+            // Scope
+
+            if (environment.getScopeType() != ScopeType.MODULE_IMPLEMENTATION) {
+                finishWithError(InvalidInterfaceEntityDefinitionError.invalidScope(), false, funDeclarator, getFunctionType(kind));
+                return;
+            }
+
+            // Declaration in the specification
+
+            final Optional<? extends ObjectDeclaration> optBareDeclaration =
+                    environment.getParent().get().getObjects().get(name, true);
+
+            if (!optBareDeclaration.isPresent() || optBareDeclaration.get().getKind() != ObjectKind.FUNCTION) {
+                finishWithError(InvalidInterfaceEntityDefinitionError.undeclaredBareEntity(kind, name), false, funDeclarator, getFunctionType(kind));
+                return;
+            }
+
+            final FunctionDeclaration bareDeclaration = (FunctionDeclaration) optBareDeclaration.get();
+            final Optional<InterfaceEntity.Kind> expectedKind = getInterfaceEntityKind(bareDeclaration.getFunctionType());
+
+            if (!expectedKind.isPresent()) {
+                finishWithError(InvalidInterfaceEntityDefinitionError.undeclaredBareEntity(kind, name), false, funDeclarator, getFunctionType(kind));
+                return;
+            }
+
+            if (!bareDeclaration.isProvided().isPresent()) {
+                finishWithError(InvalidInterfaceEntityDefinitionError.undeclaredBareEntity(kind, name), false, funDeclarator, getFunctionType(kind));
+                return;
+            }
+
+            // Further correctness aspects
+
+            final Optional<? extends ErroneousIssue> error =
+                    checkInterfaceEntity(Optional.<String>absent(), name, bareDeclaration.getInstanceParameters(),
+                            expectedKind.get(), bareDeclaration.getType(), bareDeclaration.isProvided().get());
+
+            if (error.isPresent()) {
+                finishWithError(error.get(), false, funDeclarator, getFunctionType(kind));
+                return;
+            }
+
+            if (bareDeclaration.isDefined()) {
+                finishWithError(new RedefinitionError(name, RedefinitionKind.FUNCTION), false, funDeclarator, getFunctionType(kind));
+                return;
+            }
+
+            // Update state
+
+            checkState(moduleTable.isPresent(), "module table unexpectedly absent");
+
+            moduleTable.get().markImplemented(name);
+            bareDeclaration.setDefined(true);
+            bareDeclaration.setAstFunctionDeclarator(funDeclarator);
+            functionDecl.setDeclaration(bareDeclaration);
+        }
+
+        private void task(String name, FunctionDeclarator funDeclarator) {
+            final Optional<? extends ErroneousIssue> error;
+
+            if (environment.getScopeType() != ScopeType.MODULE_IMPLEMENTATION) {
+                error = Optional.of(InvalidTaskDeclarationError.invalidDefinitionScope());
+            } else if (funDeclarator.getGenericParameters().isPresent()) {
+                error = Optional.of(InvalidTaskDeclarationError.instanceParametersPresent(
+                        funDeclarator.getGenericParameters().get().size()));
+            } else if (maybeType.isPresent()) {
+                checkState(maybeType.get() instanceof FunctionType, "'%s' type of function definition", maybeType.get());
+
+                final FunctionType type = (FunctionType) maybeType.get();
+                final ImmutableList<Optional<Type>> argsTypes = type.getArgumentsTypes();
+                final Type returnType = type.getReturnType();
+
+                if (type.getVariableArguments()) {
+                    error = Optional.of(InvalidTaskDeclarationError.variableArgumentsPresent());
+                } else if (!argsTypes.isEmpty()) {
+                    error = Optional.of(InvalidTaskDeclarationError.parametersPresent(argsTypes.size()));
+                } else if (!returnType.isVoid()) {
+                    error = Optional.of(InvalidTaskDeclarationError.invalidReturnType(returnType));
+                } else {
+                    error = Optional.absent();
+                }
+            } else {
+                error = Optional.absent();
+            }
+
+            if (error.isPresent()) {
+                finishWithError(error.get(), true, funDeclarator, FunctionDeclaration.FunctionType.TASK);
+            } else {
+                finish(name, funDeclarator, FunctionDeclaration.FunctionType.TASK);
+            }
+        }
+
+        private void regularFunction(String name, FunctionDeclarator funDeclarator) {
+            final FunctionDeclaration.FunctionType funKind =
+                    TypeElementUtils.getFunctionType(modifiers);
+
+            if (providedInstanceParams.isPresent()) {
+                finishWithError(InvalidFunctionDefinitionError.instanceParametersPresent(name),
+                        true, funDeclarator, funKind);
+                return;
+            }
+
+            finish(name, funDeclarator, funKind);
+        }
+
+        private Optional<? extends ErroneousIssue> checkInterfaceRefDeclarator(String ifaceName,
+                String callableName, FunctionDeclarator funDeclarator) {
+
+            final Optional<? extends ObjectDeclaration> optDeclaration =
+                    environment.getObjects().get(ifaceName);
+
+            if (!optDeclaration.isPresent()) {
+                return Optional.of(new UndeclaredIdentifierError(ifaceName));
+            } else if (optDeclaration.get().getKind() != ObjectKind.INTERFACE) {
+                return Optional.of(InvalidInterfaceEntityDefinitionError.interfaceExpected(ifaceName));
+            }
+
+            // Reference to an existing command or event
+
+            final InterfaceRefFacade ifaceFacade = ((InterfaceRefDeclaration) optDeclaration.get()).getFacade();
+            if (!ifaceFacade.goodInterfaceRef()) {
+                return Optional.absent();
+            }
+            final Optional<InterfaceEntity> optIfaceEntity = ifaceFacade.get(callableName);
+            if (!optIfaceEntity.isPresent()) {
+                return Optional.of(InvalidInterfaceEntityDefinitionError.nonexistentInterfaceEntity(
+                        ifaceFacade.getInterfaceName(), ifaceFacade.getInstanceName(), callableName));
+            }
+
+            // Further aspects
+
+            final InterfaceEntity ifaceEntity = optIfaceEntity.get();
+            final boolean isProvided = ifaceEntity.getKind() == InterfaceEntity.Kind.COMMAND && ifaceFacade.isProvided()
+                    || ifaceEntity.getKind() == InterfaceEntity.Kind.EVENT && !ifaceFacade.isProvided();
+            final Optional<? extends ErroneousIssue> error = checkInterfaceEntity(Optional.of(ifaceName),
+                    callableName,ifaceFacade.getInstanceParameters(), ifaceEntity.getKind(),
+                    ifaceEntity.getType(), isProvided);
+            if (error.isPresent()) {
+                return error;
+            }
+
+            // Scope
+
+            final String name = format("%s.%s", ifaceName, callableName);
+            if (environment.getScopeType() != ScopeType.MODULE_IMPLEMENTATION) {
+                return Optional.of(InvalidInterfaceEntityDefinitionError.invalidScope());
+            }
+
+            // Everything is alright so mark the command or event as implemented
+
+            if (!environment.getObjects().contains(name, true)) {
+                moduleTable.get().markImplemented(name);
+            }
+
+            return Optional.absent();
+        }
+
+        private Optional<InterfaceEntity.Kind> getDeclaredKind() {
+            if (!specifiersSet.goodMainSpecifier()) {
+                return Optional.absent();
+            }
+
+            final Optional<NonTypeSpecifier> mainSpecifier = specifiersSet.firstMainSpecifier();
+
+            if (!mainSpecifier.isPresent()) {
+                return Optional.absent();
+            }
+
+            switch (mainSpecifier.get()) {
+                case COMMAND:
+                    return Optional.of(InterfaceEntity.Kind.COMMAND);
+                case EVENT:
+                    return Optional.of(InterfaceEntity.Kind.EVENT);
+                default:
+                    return Optional.absent();
+            }
+        }
+
+        private Optional<InterfaceEntity.Kind> getInterfaceEntityKind(FunctionDeclaration.FunctionType funKind) {
+            switch (funKind) {
+                case COMMAND:
+                    return Optional.of(InterfaceEntity.Kind.COMMAND);
+                case EVENT:
+                    return Optional.of(InterfaceEntity.Kind.EVENT);
+                default:
+                    return Optional.absent();
+            }
+        }
+
+        private Optional<? extends ErroneousIssue> checkInterfaceEntity(Optional<String> ifaceName,
+                    String name, Optional<ImmutableList<Optional<Type>>> expectedInstanceParams,
+                    InterfaceEntity.Kind expectedKind, Optional<? extends Type> expectedType,
+                    boolean isProvided) {
+
+            // Instance parameters
+
+            final Optional<? extends ErroneousIssue> instanceParamsError =
+                    checkInstanceParameters(expectedInstanceParams, providedInstanceParams,
+                                            ifaceName, name);
+
+            if (instanceParamsError.isPresent()) {
+                return instanceParamsError;
+            }
+
+            // Correct presence of 'command' or 'event' specifier
+
+            final Optional<InterfaceEntity.Kind> declaredKind = getDeclaredKind();
+            if (!declaredKind.isPresent() || declaredKind.get() != expectedKind) {
+                return Optional.of(InvalidInterfaceEntityDefinitionError.interfaceEntitySpecifierExpected(expectedKind));
+            }
+
+            // Presence or absence of 'default' specifier
+
+            final boolean isDefault = specifiersSet.contains(NonTypeSpecifier.DEFAULT);
+
+            if (isProvided == isDefault) {
+                return Optional.of(InvalidInterfaceEntityDefinitionError.providedDefaultMismatch(ifaceName,
+                        name, expectedKind, isProvided));
+            }
+
+            // Type
+            if (expectedType.isPresent() && maybeType.isPresent()
+                    && !maybeType.get().isCompatibleWith(expectedType.get())) {
+
+                return Optional.of(InvalidInterfaceEntityDefinitionError.invalidType(ifaceName,
+                        name, expectedKind, expectedType.get(), maybeType.get()));
+            }
+
+            return Optional.absent();
+        }
+
+        private Optional<? extends ErroneousIssue> checkInstanceParameters(Optional<ImmutableList<Optional<Type>>> optExpectedParams,
+                Optional<ImmutableList<Optional<Type>>> optProvidedParams, Optional<String> ifaceName, String callableName) {
+
+            if (optExpectedParams.isPresent() && !optProvidedParams.isPresent()) {
+                return Optional.of(InvalidInterfaceEntityDefinitionError.instanceParametersExpected(ifaceName, callableName));
+            } else if (!optExpectedParams.isPresent() && optProvidedParams.isPresent()) {
+                return Optional.of(InvalidInterfaceEntityDefinitionError.unexpectedInstanceParameters(ifaceName, callableName));
+            } else if (optExpectedParams.isPresent()) {
+
+                final ImmutableList<Optional<Type>> expectedParams = optExpectedParams.get();
+                final ImmutableList<Optional<Type>> providedParams = optProvidedParams.get();
+
+                if (expectedParams.size() != providedParams.size()) {
+                    return Optional.of(InvalidInterfaceEntityDefinitionError.invalidInstanceParametersCount(ifaceName,
+                            callableName, expectedParams.size(), providedParams.size()));
+                }
+
+                // Check types of parameters
+
+                for (int i = 0; i < expectedParams.size(); ++i) {
+                    final Optional<Type> expectedType = expectedParams.get(i);
+                    final Optional<Type> providedType = providedParams.get(i);
+
+                    if (!expectedType.isPresent() || !providedType.isPresent()) {
+                        continue;
+                    }
+
+                    if (!providedType.get().isCompatibleWith(expectedType.get())) {
+                        return Optional.of(InvalidInterfaceEntityDefinitionError.invalidInstanceParamType(
+                                i + 1, expectedType.get(), providedType.get()));
+                    }
+                }
+            }
+
+            return Optional.absent();
+        }
+
+        private void finish(String name, FunctionDeclarator funDeclarator, FunctionDeclaration.FunctionType funKind) {
+            final FunctionDeclaration functionDeclaration;
+
+            /* Check previous declaration. */
+            final Optional<? extends ObjectDeclaration> previousDeclarationOpt = environment.getObjects().get(name, true);
+            if (!previousDeclarationOpt.isPresent()) {
+                functionDeclaration = funDeclBuilder.build();
+                define(functionDeclaration, funDeclarator);
+            } else {
+                final ObjectDeclaration previousDeclaration = previousDeclarationOpt.get();
+                /* Trying to redeclare non-function declaration. */
+                if (previousDeclaration.getKind() != ObjectKind.FUNCTION) {
+                    Declarations.this.errorHelper.error(errorStartLocation, funDeclarator.getEndLocation(),
+                            new RedeclarationError(name, RedeclarationKind.OTHER));
+
+                    /* Nevertheless, create declaration, put it into ast node
+                     * but not into environment. */
+                    functionDeclaration = funDeclBuilder.build();
+                }
+                /* Previous declaration is a function declaration or
+                 * definition. */
+                else {
+                    final FunctionDeclaration tmpDecl = (FunctionDeclaration) previousDeclaration;
+                    final Optional<? extends ErroneousIssue> error;
+
+                    if (!checkFunctionType(tmpDecl.getFunctionType(), funKind)) {
+                        error = Optional.of(InvalidFunctionDefinitionError.kindMismatch(name));
+                    } else if (tmpDecl.getType().isPresent() && maybeType.isPresent()
+                            && !maybeType.get().isCompatibleWith(tmpDecl.getType().get())) {
+                        error = Optional.of(InvalidFunctionDefinitionError.typeMismatch(name,
+                                tmpDecl.getType().get(), maybeType.get()));
+                    } else if (tmpDecl.isDefined()) {
+                        /* Function redefinition is forbidden. */
+                        error = Optional.of(new RedefinitionError(name, RedefinitionKind.FUNCTION));
+                    } else {
+                        error = Optional.absent();
+                    }
+
+                    if (error.isPresent()) {
+                        Declarations.this.errorHelper.error(errorStartLocation,
+                                funDeclarator.getEndLocation(), error.get());
+                        functionDeclaration = funDeclBuilder.build();
+                    } else {
+                        /* Update previous declaration. */
+                        functionDeclaration = tmpDecl;
+                        functionDeclaration.setLocation(startLocation);
+                    }
+                }
+            }
+
+            updateState(functionDeclaration, funDeclarator, funKind);
+        }
+
+        private void finishWithError(ErroneousIssue error, boolean updateSymbolTable,
+                FunctionDeclarator funDecl, FunctionDeclaration.FunctionType funKind) {
+            // Report the error
+            Declarations.this.errorHelper.error(errorStartLocation, funDecl.getEndLocation(), error);
+
+            // Update declaration and AST node
+            final FunctionDeclaration declaration = funDeclBuilder.build();
+            updateState(declaration, funDecl, funKind);
+
+            if (updateSymbolTable) {
+                // Try to add the declaration to the symbol table
+                environment.getObjects().add(declaration.getName(), declaration);
+            }
+        }
+
+        private void updateState(FunctionDeclaration functionDeclaration, FunctionDeclarator funDeclarator,
+                FunctionDeclaration.FunctionType funKind) {
+
+            functionDeclaration.setAstFunctionDeclarator(funDeclarator);
+            functionDeclaration.setFunctionType(funKind);
+            functionDeclaration.setDefined(true);
+            functionDecl.setDeclaration(functionDeclaration);
+        }
+
+        private FunctionDeclaration.FunctionType getFunctionType(InterfaceEntity.Kind ifaceEntityKind) {
+            switch (ifaceEntityKind) {
+                case COMMAND:
+                    return FunctionDeclaration.FunctionType.COMMAND;
+                case EVENT:
+                    return FunctionDeclaration.FunctionType.EVENT;
+                default:
+                    throw new RuntimeException("unexpected interface entity kind '" + ifaceEntityKind + "'");
+            }
+        }
+
+        private boolean checkFunctionType(FunctionDeclaration.FunctionType previousKind,
+                FunctionDeclaration.FunctionType actualKind) {
+
+            final boolean mustMatchExactly = previousKind == FunctionDeclaration.FunctionType.COMMAND
+                    || previousKind == FunctionDeclaration.FunctionType.EVENT
+                    || previousKind == FunctionDeclaration.FunctionType.TASK
+                    || actualKind == FunctionDeclaration.FunctionType.COMMAND
+                    || actualKind == FunctionDeclaration.FunctionType.EVENT
+                    || actualKind == FunctionDeclaration.FunctionType.TASK;
+
+            return !mustMatchExactly || previousKind == actualKind;
+        }
+
         private void define(ObjectDeclaration declaration, Declarator declarator) {
             if (!environment.getObjects().add(declaration.getName(), declaration)) {
-                Declarations.this.errorHelper.error(declarator.getLocation(), declarator.getEndLocation(),
+                Declarations.this.errorHelper.error(errorStartLocation, declarator.getEndLocation(),
                         new RedefinitionError(declaration.getName(), RedefinitionKind.FUNCTION));
             }
         }

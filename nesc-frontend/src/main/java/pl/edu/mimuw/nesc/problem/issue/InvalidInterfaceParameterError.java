@@ -5,6 +5,7 @@ import pl.edu.mimuw.nesc.ast.type.UnknownType;
 
 import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
+import static pl.edu.mimuw.nesc.problem.issue.IssuesUtils.getOrdinalForm;
 
 /**
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -64,12 +65,7 @@ public final class InvalidInterfaceParameterError extends ErroneousIssue {
     }
 
     private String getOrdinalParamNum() {
-        switch (paramNum) {
-            case 1: return "1st";
-            case 2: return "2nd";
-            case 3: return "3rd";
-            default: return paramNum + "th";
-        }
+        return getOrdinalForm(paramNum);
     }
 
     public enum IfaceParamProblemKind {

@@ -23,5 +23,4 @@ public abstract class AstBuildingBase {
         this.tokensMultimapBuilder = tokensMultimapBuilder;
     }
 
-
 }

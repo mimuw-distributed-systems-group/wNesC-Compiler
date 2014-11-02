@@ -18,6 +18,7 @@ import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.nesc.*;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.environment.*;
+import pl.edu.mimuw.nesc.facade.component.ModuleTable;
 import pl.edu.mimuw.nesc.problem.*;
 import pl.edu.mimuw.nesc.parser.value.*;
 import pl.edu.mimuw.nesc.astbuilding.*;
@@ -662,12 +663,15 @@ module:
     {
         final Module module = $<Module>8;
         nescComponents.handleComponentSpecification(module, $specification);
+        final ModuleTable moduleTable = nescComponents.handleModuleSpecification(module, $specification);
+        declarations.setModuleTable(moduleTable);
         $<Module>$ = module;
     }
       RBRACE[rbrace] imodule[impl]
     {
         final Module module = $<Module>10;
         nescComponents.finishComponent(module, $impl);
+        nescComponents.finishModule(module, $name.getEndLocation());
 
         // implementation scope handled in imodule
         // specification scope

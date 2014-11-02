@@ -19,8 +19,8 @@ import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.declaration.tag.*;
 import pl.edu.mimuw.nesc.environment.Environment;
-import pl.edu.mimuw.nesc.facade.InterfaceEntity;
-import pl.edu.mimuw.nesc.facade.InterfaceRefFacade;
+import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
+import pl.edu.mimuw.nesc.facade.iface.InterfaceRefFacade;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 import pl.edu.mimuw.nesc.problem.issue.*;
 
