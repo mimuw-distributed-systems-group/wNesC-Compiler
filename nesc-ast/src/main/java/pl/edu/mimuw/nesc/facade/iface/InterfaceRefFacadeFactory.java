@@ -14,6 +14,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Set;
+import pl.edu.mimuw.nesc.facade.Substitution;
 
 import static com.google.common.base.Preconditions.*;
 
@@ -113,7 +114,7 @@ public final class InterfaceRefFacadeFactory {
 
         final Interface iface = interfaceRef.getIfaceDeclaration().get().getAstInterface();
         final Optional<LinkedList<Expression>> providedGenericParams = interfaceRef.getAstInterfaceRef().getArguments();
-        final GoodInterfaceRefFacade.Builder goodFacadeBuilder = GoodInterfaceRefFacade.builder();
+        final Substitution.Builder substitutionBuilder = Substitution.builder();
 
         /* Add information about the provided and needed generic parameters
            to the builder simultaneously checking the correctness. */
@@ -128,15 +129,17 @@ public final class InterfaceRefFacadeFactory {
             return new InvalidInterfaceRefFacade(interfaceRef);
 
         } else if (iface.getParameters().isPresent()) {
-            if (!addParametersData(goodFacadeBuilder, iface.getParameters().get().iterator(),
+            if (!addParametersData(substitutionBuilder, iface.getParameters().get().iterator(),
                     providedGenericParams.get().iterator())) {
                 return new InvalidInterfaceRefFacade(interfaceRef);
             }
         }
 
-        // Add remaining information to the facade builder
-        goodFacadeBuilder.bodyEnvironment(iface.getDeclarationEnvironment())
-                .ifaceRefDeclaration(interfaceRef);
+        // Prepare for building the good facade
+        final GoodInterfaceRefFacade.Builder goodFacadeBuilder = GoodInterfaceRefFacade.builder()
+                .bodyEnvironment(iface.getDeclarationEnvironment())
+                .ifaceRefDeclaration(interfaceRef)
+                .substitution(substitutionBuilder.build());
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Good interface reference facade for '" + interfaceRef.getName() + "' in file "
@@ -146,7 +149,7 @@ public final class InterfaceRefFacadeFactory {
         return goodFacadeBuilder.build();
     }
 
-    private boolean addParametersData(GoodInterfaceRefFacade.Builder builder, Iterator<Declaration> declsIt,
+    private boolean addParametersData(Substitution.Builder builder, Iterator<Declaration> declsIt,
             Iterator<Expression> destTypesIt) {
         final Set<String> paramsNames = new HashSet<>();
         boolean invalidCounts = false;
@@ -182,8 +185,7 @@ public final class InterfaceRefFacadeFactory {
                 return false;
             }
 
-            builder.addParameterName(typeParamDecl.getName());
-            builder.addInstantiationType(typeArgument.getAsttype().getType());
+            builder.addMapping(typeParamDecl.getName(), typeArgument.getAsttype().getType());
         }
 
         invalidCounts = invalidCounts || destTypesIt.hasNext();

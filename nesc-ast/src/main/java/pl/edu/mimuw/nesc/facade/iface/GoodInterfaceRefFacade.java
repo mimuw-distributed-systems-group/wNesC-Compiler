@@ -18,6 +18,7 @@ import pl.edu.mimuw.nesc.declaration.object.InterfaceRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectKind;
 import pl.edu.mimuw.nesc.environment.Environment;
+import pl.edu.mimuw.nesc.facade.Substitution;
 
 import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
@@ -47,10 +48,9 @@ public final class GoodInterfaceRefFacade extends AbstractInterfaceRefFacade {
     private final Environment bodyEnvironment;
 
     /**
-     * Map with types that are to be substituted for generic parameters of
-     * referred interfaces.
+     * Substitution for the generic parameters.
      */
-    private final ImmutableMap<String, Optional<Type>> substitution;
+    private final Substitution substitution;
 
     /**
      * Map with objects that are results of lookup operations of commands and
@@ -95,7 +95,7 @@ public final class GoodInterfaceRefFacade extends AbstractInterfaceRefFacade {
         super(builder.declaration);
 
         this.bodyEnvironment = builder.bodyEnvironment;
-        this.substitution = builder.buildSubstitution();
+        this.substitution = builder.substitution;
     }
 
     @Override
@@ -162,7 +162,7 @@ public final class GoodInterfaceRefFacade extends AbstractInterfaceRefFacade {
                         funDecl.getFunctionType()));
         }
 
-        final Optional<FunctionType> funType = substituteType(funDecl.getType())
+        final Optional<FunctionType> funType = substitution.substituteType(funDecl.getType())
                 .transform(TO_FUNCTION_TYPE);
 
         return new InterfaceEntity(kind, funType, funDecl.getName());
@@ -243,240 +243,6 @@ public final class GoodInterfaceRefFacade extends AbstractInterfaceRefFacade {
                 : Optional.<FunctionDeclaration>absent();
     }
 
-    private Optional<Type> substituteType(Optional<Type> type) {
-        return type.isPresent()
-                ? substituteType(type.get())
-                : type;
-    }
-
-    private Optional<Type> substituteType(Type type) {
-        final TypeSubstituteVisitor substituteVisitor = new TypeSubstituteVisitor();
-        return type.accept(substituteVisitor, null);
-    }
-
-    /**
-     * Visitor that is responsible for substituting unknown types that occur
-     * in a given type. It performs an action that is similar to cloning and
-     * then applying some small changes. The substitution is defined by
-     * {@link GoodInterfaceRefFacade#substitution substitution}.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    private final class TypeSubstituteVisitor implements TypeVisitor<Optional<Type>, Void> {
-
-        // Primitive types
-
-        @Override
-        public Optional<Type> visit(CharType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(SignedCharType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(UnsignedCharType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(ShortType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(UnsignedShortType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(IntType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(UnsignedIntType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(LongType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(UnsignedLongType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(LongLongType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(UnsignedLongLongType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(EnumeratedType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(FloatType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(DoubleType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(LongDoubleType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(VoidType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        // Derived types
-
-        @Override
-        public Optional<Type> visit(final ArrayType oldType, Void arg) {
-            final Function<Type, Type> arrayTypeTransform = new Function<Type, Type>() {
-                @Override
-                public Type apply(Type newElementType) {
-                    return newElementType != oldType.getElementType()
-                        ? new ArrayType(newElementType, oldType.ofKnownSize)
-                        : oldType;
-                }
-            };
-
-            return oldType.getElementType().accept(this, null)
-                        .transform(arrayTypeTransform);
-        }
-
-        @Override
-        public Optional<Type> visit(final PointerType oldType, Void arg) {
-            final Function<Type, Type> pointerTypeTransform = new Function<Type, Type>() {
-                @Override
-                public Type apply(Type newReferencedType) {
-                    return newReferencedType != oldType.getReferencedType()
-                        ? new PointerType(oldType.isConstQualified(), oldType.isVolatileQualified(),
-                                          oldType.isRestrictQualified(), newReferencedType)
-                        : oldType;
-                }
-            };
-
-            return oldType.getReferencedType().accept(this, null)
-                        .transform(pointerTypeTransform);
-        }
-
-        @Override
-        public Optional<Type> visit(StructureType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(UnionType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(ExternalStructureType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(ExternalUnionType type, Void arg) {
-            return Optional.<Type>of(type);
-        }
-
-        @Override
-        public Optional<Type> visit(FunctionType type, Void arg) {
-            boolean change;
-
-            // Process return type
-            final Optional<Type> returnType = type.getReturnType().accept(this, null);
-            if (!returnType.isPresent()) {
-                return returnType;
-            }
-            change = returnType.get() != type.getReturnType();
-
-            // Process arguments types
-            final List<Optional<Type>> argsTypes = new ArrayList<>(type.getArgumentsTypes().size());
-            for (Optional<Type> argType : type.getArgumentsTypes()) {
-                if (argType.isPresent()) {
-                    final Optional<Type> newArgType = argType.get().accept(this, null);
-                    argsTypes.add(newArgType);
-                    change = change || !newArgType.isPresent() || newArgType.get() != argType.get();
-                } else {
-                    argsTypes.add(argType);
-                }
-            }
-
-            final Type result = change
-                    ? new FunctionType(returnType.get(), argsTypes, type.getVariableArguments())
-                    : type;
-
-            return Optional.of(result);
-        }
-
-        // Artificial types
-
-        @Override
-        public Optional<Type> visit(ComponentType type, Void arg) {
-            throw new RuntimeException("unexpected artificial type");
-        }
-
-        @Override
-        public Optional<Type> visit(InterfaceType type, Void arg) {
-            throw new RuntimeException("unexpected artificial type");
-        }
-
-        @Override
-        public Optional<Type> visit(TypeDefinitionType type, Void arg) {
-            throw new RuntimeException("unexpected artificial type");
-        }
-
-        // Unknown types
-
-        @Override
-        public Optional<Type> visit(UnknownType type, Void arg) {
-            return doSubstitution(type);
-        }
-
-        @Override
-        public Optional<Type> visit(UnknownArithmeticType type, Void arg) {
-            return doSubstitution(type);
-        }
-
-        @Override
-        public Optional<Type> visit(UnknownIntegerType type, Void arg) {
-            return doSubstitution(type);
-        }
-
-        private Optional<Type> doSubstitution(final UnknownType type) {
-            final Function<Type, Type> enrichTypeTransform = new Function<Type, Type>() {
-                @Override
-                public Type apply(Type newType) {
-                    return newType.addQualifiers(type);
-                }
-            };
-
-            return Optional.fromNullable(substitution.get(type.getName()))
-                        .or(Optional.<Type>absent())
-                        .transform(enrichTypeTransform);
-        }
-    }
-
     /**
      * Builder for the good interface facade.
      *
@@ -488,8 +254,7 @@ public final class GoodInterfaceRefFacade extends AbstractInterfaceRefFacade {
          */
         private InterfaceRefDeclaration declaration;
         private Environment bodyEnvironment;
-        private final List<String> parametersNames = new ArrayList<>();
-        private final List<Optional<Type>> substitutedTypes = new ArrayList<>();
+        private Substitution substitution;
 
         /**
          * Private constructor to limit its accessibility.
@@ -520,77 +285,26 @@ public final class GoodInterfaceRefFacade extends AbstractInterfaceRefFacade {
         }
 
         /**
-         * <p>Add the next name of a generic parameter in the interface
-         * definition:</p>
+         * Set the substitution that will be used to substitute generic
+         * parameters of the referred interface to actual types.
          *
-         * <pre>
-         *     interface Read&lt;val_t&gt; { &hellip; }
-         *                      ▲
-         *                      |
-         *                      |
-         *                      |
-         *
-         * </pre>
-         *
-         * @param nextName Name of the generic paramter.
+         * @param substitution Substitution to set.
          * @return <code>this</code>
          */
-        public Builder addParameterName(String nextName) {
-            this.parametersNames.add(nextName);
-            return this;
-        }
-
-        /**
-         * <p>Add the next type from the instantiation of the referred
-         * interface:</p>
-         *
-         * <pre>
-         *      provides interface Read&lt;uint32_t&gt;;
-         *                                  ▲
-         *                                  |
-         *                                  |
-         *                                  |
-         * </pre>
-         *
-         * @param nextType Type to be added.
-         * @return <code>this</code>
-         */
-        public Builder addInstantiationType(Optional<Type> nextType) {
-            this.substitutedTypes.add(nextType);
+        public Builder substitution(Substitution substitution) {
+            this.substitution = substitution;
             return this;
         }
 
         private void validate() {
             checkNotNull(declaration, "declaration of the interface reference cannot be null");
             checkNotNull(bodyEnvironment, "body environment of the interface cannot be null");
-            checkState(parametersNames.size() == substitutedTypes.size(),
-                    "count of the parameters names is different from the count of instantiation types (%d:%d)",
-                    parametersNames.size(), substitutedTypes.size());
-
-            final Set<String> usedNames = new HashSet<>();
-
-            /* Check if parameters names are unique (relevant during
-               construction of the substitution) */
-            for (String paramName : parametersNames) {
-                checkState(!usedNames.contains(paramName), "'%s' generic parameter name added multiple times",
-                        paramName);
-                usedNames.add(paramName);
-            }
+            checkNotNull(substitution, "substitution cannot be null");
         }
 
         public GoodInterfaceRefFacade build() {
             validate();
             return new GoodInterfaceRefFacade(this);
-        }
-
-        private ImmutableMap<String, Optional<Type>> buildSubstitution() {
-            final ImmutableMap.Builder<String, Optional<Type>> substBuilder = ImmutableMap.builder();
-
-            for (int i = 0; i < parametersNames.size(); ++i) {
-                substBuilder.put(parametersNames.get(i), substitutedTypes.get(i));
-            }
-
-            return substBuilder.build();
         }
     }
 }
