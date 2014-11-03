@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.facade;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -22,6 +23,24 @@ public class Substitution {
      * Map that defines the substitution. Keys are names of unknown types.
      */
     private final ImmutableMap<String, Optional<Type>> substitution;
+
+    /**
+     * Instance of substitute visitor that will be used for performing
+     * substitutions.
+     */
+    private final TypeSubstituteVisitor substituteVisitor = new TypeSubstituteVisitor();
+
+    /**
+     * Function that substitutes all all types from given list.
+     */
+    private final Function<ImmutableList<Optional<Type>>, ImmutableList<Optional<Type>>> SUBSTITUTE_TRANSFORM =
+            new Function<ImmutableList<Optional<Type>>, ImmutableList<Optional<Type>>>() {
+        @Override
+        public ImmutableList<Optional<Type>> apply(ImmutableList<Optional<Type>> types) {
+            checkNotNull(types, "list of types cannot be null");
+            return substituteVisitor.doSubstitution(types);
+        }
+    };
 
     /**
      * Get a builder that will create a substitution.
@@ -47,8 +66,10 @@ public class Substitution {
      *
      * @param type Type whose unknown types will be substituted.
      * @return Type that is the result of performing the substitution.
+     * @throws NullPointerException Type is null.
      */
     public Optional<Type> substituteType(Optional<Type> type) {
+        checkNotNull(type, "type cannot be null");
         return type.isPresent()
                 ? substituteType(type.get())
                 : type;
@@ -63,10 +84,38 @@ public class Substitution {
      *
      * @param type Type that will have unknown types substituted.
      * @return A type that is the result of performing the substitution.
+     * @throws NullPointerException Type is null.
      */
     public Optional<Type> substituteType(Type type) {
-        final TypeSubstituteVisitor substituteVisitor = new TypeSubstituteVisitor();
+        checkNotNull(type, "type cannot be null");
         return type.accept(substituteVisitor, null);
+    }
+
+    /**
+     * <p>Performs the substitution for all types in the given list. The
+     * returned list has the same length as the given list.</p>
+     *
+     * @param types List of types to perform the substitution.
+     * @return Immutable list of types that is result of performing
+     *         substitution on given list.
+     * @throws NullPointerException List is null.
+     */
+    public ImmutableList<Optional<Type>> substituteTypes(ImmutableList<Optional<Type>> types) {
+        checkNotNull(types, "list of types cannot be null");
+        return substituteVisitor.doSubstitution(types);
+    }
+
+    /**
+     * <p>Performs substitution on all types on the given list if it is present
+     * and returns the result of the substitution.</p>
+     *
+     * @param types List with types to substitute.
+     * @return Result of the substitution.
+     * @throws NullPointerException The list is null.
+     */
+    public Optional<ImmutableList<Optional<Type>>> substituteTypes(Optional<ImmutableList<Optional<Type>>> types) {
+        checkNotNull(types, "list of types cannot be null");
+        return types.transform(SUBSTITUTE_TRANSFORM);
     }
 
     /**
@@ -226,16 +275,8 @@ public class Substitution {
             change = returnType.get() != type.getReturnType();
 
             // Process arguments types
-            final List<Optional<Type>> argsTypes = new ArrayList<>(type.getArgumentsTypes().size());
-            for (Optional<Type> argType : type.getArgumentsTypes()) {
-                if (argType.isPresent()) {
-                    final Optional<Type> newArgType = argType.get().accept(this, null);
-                    argsTypes.add(newArgType);
-                    change = change || !newArgType.isPresent() || newArgType.get() != argType.get();
-                } else {
-                    argsTypes.add(argType);
-                }
-            }
+            final ImmutableList<Optional<Type>> argsTypes = doSubstitution(type.getArgumentsTypes());
+            change = change || argsTypes != type.getArgumentsTypes();
 
             final Type result = change
                     ? new FunctionType(returnType.get(), argsTypes, type.getVariableArguments())
@@ -247,12 +288,23 @@ public class Substitution {
         // Artificial types
 
         @Override
-        public Optional<Type> visit(ComponentType type, Void arg) {
-            throw new RuntimeException("unexpected artificial type");
+        public Optional<Type> visit(InterfaceType type, Void arg) {
+            if (!type.getTypeParameters().isPresent()) {
+                return Optional.<Type>of(type);
+            }
+
+            final ImmutableList<Optional<Type>> types =
+                    doSubstitution(type.getTypeParameters().get());
+
+            final InterfaceType result = types == type.getTypeParameters().get()
+                    ? type
+                    : new InterfaceType(type.getInterfaceName(), Optional.of(types));
+
+            return Optional.<Type>of(result);
         }
 
         @Override
-        public Optional<Type> visit(InterfaceType type, Void arg) {
+        public Optional<Type> visit(ComponentType type, Void arg) {
             throw new RuntimeException("unexpected artificial type");
         }
 
@@ -289,6 +341,25 @@ public class Substitution {
             return Optional.fromNullable(substitution.get(type.getName()))
                     .or(Optional.<Type>absent())
                     .transform(enrichTypeTransform);
+        }
+
+        private ImmutableList<Optional<Type>> doSubstitution(ImmutableList<Optional<Type>> typesList) {
+            final ImmutableList.Builder<Optional<Type>> builder = ImmutableList.builder();
+            boolean change = false;
+
+            for (Optional<Type> type : typesList) {
+                if (type.isPresent()) {
+                    final Optional<Type> newArgType = type.get().accept(this, null);
+                    builder.add(newArgType);
+                    change = change || !newArgType.isPresent() || newArgType.get() != type.get();
+                } else {
+                    builder.add(type);
+                }
+            }
+
+            return change
+                    ? builder.build()
+                    : typesList;
         }
     }
 

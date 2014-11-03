@@ -135,18 +135,16 @@ public final class InterfaceRefFacadeFactory {
             }
         }
 
-        // Prepare for building the good facade
-        final GoodInterfaceRefFacade.Builder goodFacadeBuilder = GoodInterfaceRefFacade.builder()
-                .bodyEnvironment(iface.getDeclarationEnvironment())
-                .ifaceRefDeclaration(interfaceRef)
-                .substitution(substitutionBuilder.build());
-
         if (LOG.isDebugEnabled()) {
             LOG.debug("Good interface reference facade for '" + interfaceRef.getName() + "' in file "
                     + interfaceRef.getLocation().getFilePath());
         }
 
-        return goodFacadeBuilder.build();
+        return GoodInterfaceRefFacade.builder()
+                .bodyEnvironment(iface.getDeclarationEnvironment())
+                .ifaceRefDeclaration(interfaceRef)
+                .substitution(substitutionBuilder.build())
+                .build();
     }
 
     private boolean addParametersData(Substitution.Builder builder, Iterator<Declaration> declsIt,

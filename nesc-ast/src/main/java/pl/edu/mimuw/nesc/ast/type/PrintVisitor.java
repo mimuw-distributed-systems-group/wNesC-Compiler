@@ -134,7 +134,7 @@ final class PrintVisitor implements TypeVisitor<Void, Boolean> {
         builder.append(' ');
         builder.append(type.getInterfaceName());
 
-        final Optional<List<Optional<Type>>> maybeTypeParams = type.getTypeParameters();
+        final Optional<? extends List<Optional<Type>>> maybeTypeParams = type.getTypeParameters();
         if (maybeTypeParams.isPresent()) {
             builder.append(SYMBOL_LANGLE);
             appendTypesList(maybeTypeParams.get(), false);

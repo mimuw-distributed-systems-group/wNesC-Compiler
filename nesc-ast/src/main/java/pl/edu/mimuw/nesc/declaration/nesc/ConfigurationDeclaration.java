@@ -1,7 +1,10 @@
 package pl.edu.mimuw.nesc.declaration.nesc;
 
+import com.google.common.base.Optional;
+import java.util.LinkedList;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Configuration;
+import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.environment.Environment;
 
 /**
@@ -23,6 +26,11 @@ public class ConfigurationDeclaration extends ComponentDeclaration {
     @Override
     public Environment getSpecificationEnvironment() {
         return astConfiguration.getSpecificationEnvironment();
+    }
+
+    @Override
+    public Optional<LinkedList<Declaration>> getGenericParameters() {
+        return astConfiguration.getParameters();
     }
 
     public Configuration getAstConfiguration() {

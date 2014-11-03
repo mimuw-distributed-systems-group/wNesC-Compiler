@@ -1,6 +1,9 @@
 package pl.edu.mimuw.nesc.declaration.nesc;
 
+import com.google.common.base.Optional;
+import java.util.LinkedList;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Module;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.facade.component.ModuleTable;
@@ -30,6 +33,11 @@ public class ModuleDeclaration extends ComponentDeclaration {
     @Override
     public Environment getSpecificationEnvironment() {
         return astModule.getSpecificationEnvironment();
+    }
+
+    @Override
+    public Optional<LinkedList<Declaration>> getGenericParameters() {
+        return astModule.getParameters();
     }
 
     public Module getAstModule() {

@@ -6,6 +6,8 @@ import pl.edu.mimuw.nesc.ast.gen.Word;
 import pl.edu.mimuw.nesc.ast.type.ComponentType;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.declaration.nesc.NescDeclaration;
+import pl.edu.mimuw.nesc.facade.component.ComponentRefFacade;
+import pl.edu.mimuw.nesc.facade.component.ComponentRefFacadeFactory;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -26,6 +28,11 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
      * Component declaration (absent if reference is erroneous).
      */
     private final Optional<? extends NescDeclaration> componentDeclaration;
+
+    /**
+     * Facade for this component reference.
+     */
+    private ComponentRefFacade facade;
 
     public static Builder builder() {
         return new Builder();
@@ -48,6 +55,17 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
 
     public Optional<? extends NescDeclaration> getComponentDeclaration() {
         return componentDeclaration;
+    }
+
+    /**
+     * <p>Get the facade for this component reference. The facade provides
+     * a simplified interface for getting information about the component
+     * reference. <code>null</code> is never returned.</p>
+     *
+     * @return Facade for this component reference.
+     */
+    public ComponentRefFacade getFacade() {
+        return facade;
     }
 
     @Override
@@ -124,7 +142,15 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
 
         @Override
         protected ComponentRefDeclaration create() {
-            return new ComponentRefDeclaration(this);
+            final ComponentRefDeclaration result = new ComponentRefDeclaration(this);
+
+            // Create and set the facade
+            final ComponentRefFacade facade = ComponentRefFacadeFactory.newInstance()
+                    .setDeclaration(result)
+                    .newComponentRefFacade();
+            result.facade = facade;
+
+            return result;
         }
     }
 }

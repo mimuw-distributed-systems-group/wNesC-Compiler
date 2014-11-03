@@ -1,6 +1,8 @@
 package pl.edu.mimuw.nesc.ast.type;
 
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -17,6 +19,18 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public final class InterfaceType extends NescType {
     /**
+     * Function that creates a copy of given list as an immutable list.
+     */
+    private static final Function<List<Optional<Type>>, ImmutableList<Optional<Type>>> LIST_COPY =
+            new Function<List<Optional<Type>>, ImmutableList<Optional<Type>>>() {
+        @Override
+        public ImmutableList<Optional<Type>> apply(List<Optional<Type>> types) {
+            checkNotNull(types, "types cannot be null");
+            return ImmutableList.copyOf(types);
+        }
+    };
+
+    /**
      * Name of the interface that is referred by this interface type.
      * Never null or empty.
      */
@@ -26,7 +40,7 @@ public final class InterfaceType extends NescType {
      * Type arguments for the interface that form this type. If present, the
      * list should be at least one parameter long.
      */
-    private final Optional<List<Optional<Type>>> maybeTypeArguments;
+    private final Optional<ImmutableList<Optional<Type>>> maybeTypeArguments;
 
     /**
      * Initializes this interface type with given parameters.
@@ -36,7 +50,7 @@ public final class InterfaceType extends NescType {
      *                                 string or <code>maybeTypeArguments</code>
      *                                 contains a list with an empty element.
      */
-    public InterfaceType(String interfaceName, Optional<List<Optional<Type>>> maybeTypeArguments) {
+    public InterfaceType(String interfaceName, Optional<? extends List<Optional<Type>>> maybeTypeArguments) {
         // Validate arguments
         checkNotNull(interfaceName, "interface name cannot be null");
         checkNotNull(maybeTypeArguments, "type arguments cannot be null");
@@ -49,10 +63,7 @@ public final class InterfaceType extends NescType {
 
         // Initialize this object
         this.interfaceName = interfaceName;
-        this.maybeTypeArguments =
-                  maybeTypeArguments.isPresent()
-                ? Optional.of(Collections.unmodifiableList(new ArrayList<>(maybeTypeArguments.get())))
-                : Optional.<List<Optional<Type>>>absent();
+        this.maybeTypeArguments = maybeTypeArguments.transform(LIST_COPY);
     }
 
     /**
@@ -68,7 +79,7 @@ public final class InterfaceType extends NescType {
      *         is present if and only if this type is a type of a generic
      *         interface.
      */
-    public final Optional<List<Optional<Type>>> getTypeParameters() {
+    public final Optional<ImmutableList<Optional<Type>>> getTypeParameters() {
         return maybeTypeArguments;
     }
 
