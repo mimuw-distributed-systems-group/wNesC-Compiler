@@ -23,7 +23,7 @@ public final class BareEntity extends SpecificationEntity {
      */
     private final InterfaceEntity.Kind ifaceEntityKind;
 
-    BareEntity(boolean isProvided, String name, Optional<FunctionType> type, InterfaceEntity.Kind ifaceEntityKind,
+    public BareEntity(boolean isProvided, String name, Optional<FunctionType> type, InterfaceEntity.Kind ifaceEntityKind,
             Optional<ImmutableList<Optional<Type>>> instanceParameters) {
         super(isProvided, name, instanceParameters);
 

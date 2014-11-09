@@ -1,11 +1,11 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import com.google.common.base.Optional;
-import pl.edu.mimuw.nesc.ast.type.FunctionType;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
 
 import static java.lang.String.format;
+import static pl.edu.mimuw.nesc.problem.issue.IssuesUtils.getCompactTypeText;
 import static pl.edu.mimuw.nesc.problem.issue.IssuesUtils.getInterfaceEntityText;
 import static pl.edu.mimuw.nesc.problem.issue.IssuesUtils.getOrdinalForm;
 
@@ -80,10 +80,7 @@ public final class InvalidInterfaceEntityDefinitionError extends ErroneousIssue 
         final Optional<String> ifaceTypeStr;
 
         if (interfaceType.isPresent()) {
-            String fullIfaceTypeStr = interfaceType.get().toString();
-            ifaceTypeStr = fullIfaceTypeStr.matches("interface .*")
-                    ? Optional.of(fullIfaceTypeStr.substring(10))
-                    : Optional.of(fullIfaceTypeStr);
+            ifaceTypeStr = Optional.of(getCompactTypeText(interfaceType.get()));
         } else {
             ifaceTypeStr = ifaceName;
         }

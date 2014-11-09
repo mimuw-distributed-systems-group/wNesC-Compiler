@@ -180,7 +180,7 @@ public abstract class ArtificialType implements Type {
     }
 
     @Override
-    public final boolean isCompatibleWith(Type type) {
+    public boolean isCompatibleWith(Type type) {
         throw new UnsupportedOperationException("checking the compatibility with an artificial type");
     }
 

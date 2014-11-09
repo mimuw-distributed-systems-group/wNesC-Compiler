@@ -109,8 +109,8 @@ public abstract class FieldTagType<D extends FieldTagDeclaration<?>> extends Der
             return false;
         }
 
-        final FieldTagType<? extends FieldTagDeclaration> fieldTagType =
-                (FieldTagType<? extends FieldTagDeclaration>) type;
+        final FieldTagType<? extends FieldTagDeclaration<?>> fieldTagType =
+                (FieldTagType<? extends FieldTagDeclaration<?>>) type;
         return getDeclaration() == fieldTagType.getDeclaration();
     }
 

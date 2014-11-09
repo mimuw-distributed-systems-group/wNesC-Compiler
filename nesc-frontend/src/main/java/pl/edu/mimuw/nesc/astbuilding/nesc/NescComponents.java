@@ -36,7 +36,9 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static pl.edu.mimuw.nesc.analysis.NescAnalysis.checkEqConnection;
 import static pl.edu.mimuw.nesc.analysis.NescAnalysis.checkInterfaceInstantiation;
+import static pl.edu.mimuw.nesc.analysis.NescAnalysis.checkRpConnection;
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.checkInstanceParametersSpecifiers;
 import static pl.edu.mimuw.nesc.ast.util.AstUtils.makeWord;
 
@@ -162,6 +164,9 @@ public final class NescComponents extends AstBuildingBase {
         component.setEndLocation(implementation.getEndLocation());
     }
 
+    /**
+     * Method is called right after {@link NescComponents#finishComponent}.
+     */
     public void finishModule(Module module, Location endLocation) {
         final ImmutableSet<Map.Entry<String, ImplementationElement>> elements =
                 module.getDeclaration().getModuleTable().getAll();
@@ -175,6 +180,22 @@ public final class NescComponents extends AstBuildingBase {
                 final ErroneousIssue error = new MissingImplementationElementError(implElement.getKind(),
                         name, implElement.getInterfaceName());
                 errorHelper.error(module.getLocation(), endLocation, error);
+            }
+        }
+    }
+
+    /**
+     * Method is called right after {@link NescComponents#finishComponent}.
+     */
+    public void finishConfiguration(Configuration configuration, Location endLocation) {
+        final ConfigurationImpl implementation = (ConfigurationImpl) configuration.getImplementation();
+        final Environment implEnvironment = implementation.getEnvironment();
+
+        for (Declaration declaration : implementation.getDeclarations()) {
+            if (declaration instanceof RpConnection) {
+                checkRpConnection((RpConnection) declaration, implEnvironment, errorHelper);
+            } else if (declaration instanceof EqConnection) {
+                checkEqConnection((EqConnection) declaration, implEnvironment, errorHelper);
             }
         }
     }
@@ -235,6 +256,20 @@ public final class NescComponents extends AstBuildingBase {
                 Optional.<Declarator>of(id), makeWord(ifaceStartLocation, funcNameEndLocation, ifaceName));
         declarator.setEndLocation(funcNameEndLocation);
         return declarator;
+    }
+
+    public RpConnection makeRpConnection(EndPoint from, EndPoint to, Location startLocation,
+            Location endLocation, Environment environment) {
+        final RpConnection connection = new RpConnection(startLocation, from, to);
+        connection.setEndLocation(endLocation);
+        return connection;
+    }
+
+    public EqConnection makeEqConnection(EndPoint left, EndPoint right, Location startLocation,
+            Location endLocation, Environment environment) {
+        final EqConnection connection = new EqConnection(startLocation, left, right);
+        connection.setEndLocation(endLocation);
+        return connection;
     }
 
     private final class SpecificationVisitor extends ExceptionVisitor<Void, Component> {

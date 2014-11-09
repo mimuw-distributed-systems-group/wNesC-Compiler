@@ -16,7 +16,7 @@ public final class InterfaceRefEntity extends SpecificationEntity {
      */
     private final InterfaceType type;
 
-    InterfaceRefEntity(boolean isProvided, String name, InterfaceType type,
+    public InterfaceRefEntity(boolean isProvided, String name, InterfaceType type,
             Optional<ImmutableList<Optional<Type>>> instanceParameters) {
 
         super(isProvided, name, instanceParameters);

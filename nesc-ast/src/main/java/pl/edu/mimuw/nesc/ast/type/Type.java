@@ -331,7 +331,8 @@ public interface Type {
      * @return <code>true</code> if and only if this type is compatible with the
      *         given type as defined in the ISO C standard.
      * @throws UnsupportedOperationException Method invoked on an object that
-     *                                       represents an artificial type.
+     *                                       represents an artificial type
+     *                                       other than {@link InterfaceType}.
      * @throws NullPointerException Given argument is null.
      */
     boolean isCompatibleWith(Type type);

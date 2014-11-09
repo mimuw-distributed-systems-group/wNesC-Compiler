@@ -717,6 +717,7 @@ configuration:
     {
         final Configuration configuration = $<Configuration>10;
         nescComponents.finishComponent(configuration, $impl);
+        nescComponents.finishConfiguration(configuration, $name.getEndLocation());
 
         // implementation scope handled in iconfiguration
         // specification scope
@@ -943,6 +944,7 @@ iconfiguration:
     {
         final ConfigurationImpl impl = new ConfigurationImpl($keyword.getLocation(), $decls);
         impl.setEndLocation($rbrace.getEndLocation());
+        impl.setEnvironment(environment);
 
         environment.setEndLocation($rbrace.getEndLocation());
         popLevel();
@@ -1052,21 +1054,15 @@ configuration_decl:
 connection:
       endpoint EQ endpoint SEMICOLON
     {
-        final EqConnection connection = new EqConnection($1.getLocation(), $1, $3);
-        connection.setEndLocation($4.getLocation());
-        $$ = connection;
+        $$ = nescComponents.makeEqConnection($1, $3, $1.getLocation(), $4.getLocation(), environment);
     }
     | endpoint ARROW endpoint SEMICOLON
     {
-        final RpConnection connection = new RpConnection($1.getLocation(), $1, $3);
-        connection.setEndLocation($4.getLocation());
-        $$ = connection;
+        $$ = nescComponents.makeRpConnection($1, $3, $1.getLocation(), $4.getLocation(), environment);
     }
     | endpoint LEFT_ARROW endpoint SEMICOLON
     {
-        final RpConnection connection = new RpConnection($1.getLocation(), $3, $1);
-        connection.setEndLocation($4.getLocation());
-        $$ = connection;
+        $$ = nescComponents.makeRpConnection($3, $1, $1.getLocation(), $4.getLocation(), environment);
     }
     ;
 
@@ -1074,10 +1070,15 @@ endpoint:
       endpoint DOT parameterised_identifier
     {
         $1.setIds(Lists.<ParameterisedIdentifier>chain($1.getIds(), $3));
+        $1.setEndLocation($parameterised_identifier.getEndLocation());
         $$ = $1;
     }
     | parameterised_identifier
-    { $$ = new EndPoint($1.getLocation(), Lists.<ParameterisedIdentifier>newList($1)); }
+    {
+        final EndPoint result = new EndPoint($1.getLocation(), Lists.<ParameterisedIdentifier>newList($1));
+        result.setEndLocation($parameterised_identifier.getEndLocation());
+        $$ = result;
+    }
     ;
 
 parameterised_identifier:
@@ -1090,6 +1091,7 @@ parameterised_identifier:
     }
     | idword LBRACK nonnull_exprlist RBRACK
     {
+        analyzeExpressions($3);
         final ParameterisedIdentifier id = new ParameterisedIdentifier($1.getLocation(), $1, $3);
         id.setEndLocation($4.getEndLocation());
         $$ = id;
@@ -4488,6 +4490,12 @@ string_chain:
     private void analyzeExpression(Optional<Expression> expr) {
         if (expr.isPresent()) {
             ExpressionsAnalysis.analyze(expr.get(), environment, errorHelper);
+        }
+    }
+
+    private void analyzeExpressions(List<? extends Expression> exprs) {
+        for (Expression expr : exprs) {
+            ExpressionsAnalysis.analyze(expr, environment, errorHelper);
         }
     }
 

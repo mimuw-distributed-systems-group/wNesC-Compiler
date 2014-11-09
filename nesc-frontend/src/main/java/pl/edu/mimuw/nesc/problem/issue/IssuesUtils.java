@@ -1,11 +1,19 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
 
 /**
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 final class IssuesUtils {
+    /**
+     * Regular expression used for creating compact texts for types.
+     */
+    private static final Pattern COMPACT_TYPE_PATTERN = Pattern.compile("interface (?<text>.*)");
+
     /**
      * Get the ordinal form of the given number.
      *
@@ -41,6 +49,39 @@ final class IssuesUtils {
                 return firstLetterCapital ? "Event" : "event";
             default:
                 throw new RuntimeException("unexpected interface entity kind: " + kind);
+        }
+    }
+
+    /**
+     * Get the compact textual representation of given type. Its result is the
+     * same as {@link Type#toString} but if it begins with the word
+     * <code>interface</code>, the word is removed.
+     *
+     * @param type Type for creation of type compact text.
+     * @return Compact textual representation of the given type.
+     */
+    static String getCompactTypeText(Type type) {
+        final String fullTypeText = type.toString();
+        final Matcher matcher = COMPACT_TYPE_PATTERN.matcher(fullTypeText);
+
+        return matcher.matches()
+                ? matcher.group("text")
+                : fullTypeText;
+    }
+
+    /**
+     * Get the adjective for the given provided value.
+     *
+     * @param provided Value indicating if a specification element is provided.
+     * @param firstLetterCapital Value indicating if the first letter of the
+     *                           returned string shall be capital.
+     * @return Text for the given provided value.
+     */
+    static String getProvidedText(boolean provided, boolean firstLetterCapital) {
+        if (firstLetterCapital) {
+            return provided ? "Provided" : "Used";
+        } else {
+            return provided ? "provided" : "used";
         }
     }
 

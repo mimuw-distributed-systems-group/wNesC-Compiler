@@ -84,6 +84,41 @@ public final class InterfaceType extends NescType {
     }
 
     @Override
+    public final boolean isCompatibleWith(Type otherType) {
+        checkNotNull(otherType, "type checked for compatibility cannot be null");
+
+        if (getClass() != otherType.getClass()) {
+            return false;
+        }
+
+        final InterfaceType otherIfaceType = (InterfaceType) otherType;
+
+        if (!interfaceName.equals(otherIfaceType.interfaceName)
+                || maybeTypeArguments.isPresent() != otherIfaceType.maybeTypeArguments.isPresent()) {
+            return false;
+        } else if (maybeTypeArguments.isPresent()) {
+            final ImmutableList<Optional<Type>> typeArgs = maybeTypeArguments.get();
+            final ImmutableList<Optional<Type>> otherTypeArgs = otherIfaceType.maybeTypeArguments.get();
+
+            if (typeArgs.size() != otherTypeArgs.size()) {
+                return false;
+            }
+
+            for (int i = 0; i < typeArgs.size(); ++i) {
+                final Optional<Type> typeArg = typeArgs.get(i);
+                final Optional<Type> otherTypeArg = otherTypeArgs.get(i);
+
+                if (typeArg.isPresent() && otherTypeArg.isPresent()
+                        && !typeArg.get().isCompatibleWith(otherTypeArg.get())) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    @Override
     public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
     }

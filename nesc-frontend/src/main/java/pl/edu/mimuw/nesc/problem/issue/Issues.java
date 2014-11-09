@@ -85,6 +85,10 @@ public final class Issues {
         INVALID_SPECIFIERS_COMBINATION(54),
         INVALID_TASK_DECLARATION(55),
         INVALID_FUNCTION_DEFINITION(56),
+        INVALID_ENDPOINT(57),
+        INVALID_CONNECTION(58),
+        INVALID_RP_CONNECTION(59),
+        INVALID_EQ_CONNECTION(60),
         ;
 
         private final int codeNumber;

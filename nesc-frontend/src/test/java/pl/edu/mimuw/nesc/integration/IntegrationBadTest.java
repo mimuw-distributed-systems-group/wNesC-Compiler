@@ -86,6 +86,10 @@ public class IntegrationBadTest extends IntegrationTestBase {
             { "bad21", "M.nc", UndeclaredIdentifierError.CODE },
             { "bad22", "M.nc", MissingImplementationElementError.CODE },
             { "bad23", "M.nc", MissingImplementationElementError.CODE },
+            { "bad24", "C.nc", InvalidConnectionError.CODE },
+            { "bad25", "C.nc", InvalidConnectionError.CODE },
+            { "bad26", "C.nc", InvalidEqConnectionError.CODE },
+            { "bad27", "C.nc", InvalidConnectionError.CODE },
         };
 
         // Make the directory absolute
