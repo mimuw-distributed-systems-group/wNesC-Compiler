@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.declaration.nesc;
 import com.google.common.base.Optional;
 import java.util.LinkedList;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.gen.Component;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.environment.Environment;
 
@@ -28,4 +29,11 @@ public abstract class ComponentDeclaration extends NescDeclaration {
      * @return Generic paramters of this component.
      */
     public abstract Optional<LinkedList<Declaration>> getGenericParameters();
+
+    /**
+     * Get the component AST node that this object represents.
+     *
+     * @return AST node for this component.
+     */
+    public abstract Component getAstComponent();
 }

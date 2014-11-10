@@ -21,7 +21,7 @@ public final class InvalidEqConnectionError extends ErroneousIssue {
     }
 
     public static InvalidEqConnectionError expectedExternalSpecElement() {
-        final String description = "Equate wires requires at least one endpoint that is an external specification element but no such endpoints specified";
+        final String description = "Equate wires requires at least one endpoint that is an external specification element but no such endpoint specified";
         return new InvalidEqConnectionError(description);
     }
 

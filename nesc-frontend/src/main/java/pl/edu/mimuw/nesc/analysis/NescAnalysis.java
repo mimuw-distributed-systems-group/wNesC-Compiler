@@ -10,15 +10,20 @@ import java.util.Map;
 import java.util.Set;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.ast.type.ArrayType;
+import pl.edu.mimuw.nesc.ast.type.CharType;
 import pl.edu.mimuw.nesc.ast.type.FunctionType;
 import pl.edu.mimuw.nesc.ast.type.InterfaceType;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.ast.type.UnknownType;
+import pl.edu.mimuw.nesc.declaration.nesc.ComponentDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.InterfaceRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectKind;
+import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.VariableDeclaration;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.facade.component.BareEntity;
 import pl.edu.mimuw.nesc.facade.component.ComponentRefFacade;
@@ -27,6 +32,8 @@ import pl.edu.mimuw.nesc.facade.component.SpecificationEntity;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 import pl.edu.mimuw.nesc.problem.issue.ErroneousIssue;
+import pl.edu.mimuw.nesc.problem.issue.InvalidComponentInstantiationError;
+import pl.edu.mimuw.nesc.problem.issue.InvalidComponentParameterError;
 import pl.edu.mimuw.nesc.problem.issue.InvalidConnectionError;
 import pl.edu.mimuw.nesc.problem.issue.InvalidEndpointError;
 import pl.edu.mimuw.nesc.problem.issue.InvalidEqConnectionError;
@@ -50,6 +57,11 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class NescAnalysis {
+    /**
+     * Type that is allowed for a non-type generic parameter of a component.
+     */
+    private static final ArrayType TYPE_CHAR_ARRAY = new ArrayType(new CharType(), false);
+
     /**
      * Check the correctness of an interface instantiation. The given error
      * helper is notified about detected errors.
@@ -179,6 +191,188 @@ public final class NescAnalysis {
             final ErroneousIssue error = new InvalidInterfaceParameterError(problem.get(),
                     interfaceName, definitionType, providedType, paramNum);
             errorHelper.error(expr.getLocation(), expr.getEndLocation(), error);
+        }
+    }
+
+    /**
+     * <p>Check the correctness of the component reference represented by given
+     * declaration. All expressions that are generic parameters for the
+     * component should be analyzed before invoking this method.</p>
+     *
+     * @param declaration Declaration that represents the component reference to
+     *                    check.
+     * @param errorHelper Object that will be notified about detected errors.
+     * @throws NullPointerException One of the arguments is null.
+     */
+    public static void checkComponentInstantiation(ComponentRefDeclaration declaration,
+            ErrorHelper errorHelper) {
+        checkNotNull(declaration, "declaration cannot be null");
+        checkNotNull(errorHelper, "error helper cannot be null");
+
+        if (!declaration.getComponentDeclaration().isPresent()) {
+            return;
+        }
+
+        final ComponentDeclaration nescDeclaration = declaration.getComponentDeclaration().get();
+        final ComponentRef astRef = declaration.getAstComponentRef();
+        final Optional<? extends ErroneousIssue> error;
+
+        if (!astRef.getIsAbstract().equals(nescDeclaration.getAstComponent().getIsAbstract())) {
+
+            error = Optional.of(InvalidComponentInstantiationError.abstractMismatch(nescDeclaration.getName(),
+                    nescDeclaration.getAstComponent().getIsAbstract()));
+
+        } else if (astRef.getIsAbstract() && !nescDeclaration.getGenericParameters().isPresent()) {
+            error = Optional.of(InvalidComponentInstantiationError.missingComponentParams(nescDeclaration.getName()));
+        } else if (astRef.getIsAbstract()) {
+            final LinkedList<Declaration> paramsDecls = nescDeclaration.getGenericParameters().get();
+            final LinkedList<Expression> providedParams = astRef.getArguments();
+
+            if (paramsDecls.size() != providedParams.size()) {
+                error = Optional.of(InvalidComponentInstantiationError.invalidProvidedParamsCount(nescDeclaration.getName(),
+                        declaration.getName(), paramsDecls.size(), providedParams.size()));
+            } else {
+                checkComponentParameters(paramsDecls.iterator(), providedParams.iterator(),
+                        nescDeclaration.getName(), errorHelper);
+                error = Optional.absent();
+            }
+        } else {
+            error = Optional.absent();
+        }
+
+        if (error.isPresent()) {
+            errorHelper.error(astRef.getLocation(), astRef.getEndLocation(), error.get());
+        }
+    }
+
+    private static void checkComponentParameters(Iterator<Declaration> declsIt, Iterator<Expression> exprsIt,
+            String componentName, ErrorHelper errorHelper) {
+
+        int paramNum = 0;
+
+        while (declsIt.hasNext()) {
+            ++paramNum;
+
+            final Declaration decl = declsIt.next();
+            final Expression expr = exprsIt.next();
+
+            if (decl instanceof ErrorDecl || expr instanceof ErrorExpr) {
+                continue;
+            }
+
+            // Check constraints and cast
+            checkState(decl instanceof DataDecl, "unexpected type of the outer parameter declaration '%s'",
+                    decl.getClass());
+            final DataDecl dataDecl = (DataDecl) decl;
+            checkState(dataDecl.getDeclarations().size() == 1, "unexpected count of inner declarations of a generic parameter: %d",
+                    dataDecl.getDeclarations().size());
+            checkState(dataDecl.getDeclarations().getFirst() instanceof VariableDecl,
+                    "unexpected type of inner declaration of a generic parameter '%s'",
+                    dataDecl.getDeclarations().getFirst().getClass());
+            final VariableDecl innerDecl = (VariableDecl) dataDecl.getDeclarations().getFirst();
+
+            if (innerDecl.getDeclaration() == null) {
+                errorHelper.error(expr.getLocation(), expr.getEndLocation(),
+                        InvalidComponentParameterError.declarationMissing(componentName, paramNum));
+                continue;
+            }
+
+            final ObjectDeclaration paramDeclaration = innerDecl.getDeclaration();
+
+            if (paramDeclaration.getKind() == ObjectKind.TYPENAME) {
+                checkComponentTypeParameter((TypenameDeclaration) paramDeclaration, expr, paramNum,
+                        componentName, errorHelper);
+            } else if (paramDeclaration.getKind() == ObjectKind.VARIABLE) {
+                checkComponentNonTypeParameter((VariableDeclaration) paramDeclaration, expr,
+                        paramNum, componentName, errorHelper);
+            } else {
+                throw new RuntimeException(format("unexpected kind of generic parameter declaration '%s'",
+                        paramDeclaration.getKind()));
+            }
+        }
+    }
+
+    private static void checkComponentTypeParameter(TypenameDeclaration declaration, Expression expr,
+            int paramNum, String componentName, ErrorHelper errorHelper) {
+
+        if (!(expr instanceof TypeArgument)) {
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(),
+                    InvalidComponentParameterError.typeExpected(componentName, paramNum, expr));
+            return;
+        } else if (!declaration.getDenotedType().isPresent() || !expr.getType().isPresent()) {
+            return;
+        }
+
+        final UnknownType expectedType = (UnknownType) declaration.getDenotedType().get();
+        final Type providedType = expr.getType().get();
+
+        // The finale – check the type
+
+        final Optional<? extends ErroneousIssue> error;
+
+        if (!providedType.isComplete()) {
+            error = Optional.of(InvalidComponentParameterError.incompleteTypeProvided(componentName,
+                    paramNum, providedType));
+        } else if (providedType.isFunctionType()) {
+            error = Optional.of(InvalidComponentParameterError.functionTypeProvided(componentName,
+                    paramNum, providedType));
+        } else if (providedType.isArrayType()) {
+            error = Optional.of(InvalidComponentParameterError.arrayTypeProvided(componentName,
+                    paramNum, providedType));
+        } else if (expectedType.isUnknownIntegerType() && !providedType.isGeneralizedIntegerType()) {
+            error = Optional.of(InvalidComponentParameterError.expectedIntegerType(componentName,
+                    paramNum, providedType));
+        } else if (expectedType.isUnknownArithmeticType() && !providedType.isGeneralizedArithmeticType()) {
+            error = Optional.of(InvalidComponentParameterError.expectedArithmeticType(componentName,
+                    paramNum, providedType));
+        } else {
+            error = Optional.absent();
+        }
+
+        if (error.isPresent()) {
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), error.get());
+        }
+    }
+
+    private static void checkComponentNonTypeParameter(VariableDeclaration declaration, Expression expr,
+            int paramNum, String componentName, ErrorHelper errorHelper) {
+        if (expr instanceof TypeArgument) {
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(),
+                    InvalidComponentParameterError.unexpectedType(componentName, paramNum, (TypeArgument) expr));
+            return;
+        } else if (!declaration.getType().isPresent() || !expr.getType().isPresent()) {
+            return;
+        }
+
+        final Type expectedType = declaration.getType().get();
+        final Type providedType = expr.getType().get();
+
+        // TODO – check if the provided expression is constant
+
+        final Optional<? extends ErroneousIssue> error;
+
+        if (expectedType.isIntegerType()) {
+            error = !providedType.isIntegerType()
+                    ? Optional.of(InvalidComponentParameterError.expectedIntegerExpression(componentName,
+                                  paramNum, expr, providedType))
+                    : Optional.<ErroneousIssue>absent();
+        } else if (expectedType.isFloatingType()) {
+            error = !providedType.isFloatingType()
+                    ? Optional.of(InvalidComponentParameterError.expectedFloatingExpression(componentName,
+                                  paramNum, expr, providedType))
+                    : Optional.<ErroneousIssue>absent();
+        } else if (expectedType.isCompatibleWith(TYPE_CHAR_ARRAY) && !((ArrayType) expectedType).isOfKnownSize()) {
+            error = !providedType.isCompatibleWith(TYPE_CHAR_ARRAY)
+                    ? Optional.of(InvalidComponentParameterError.expectedCharArrayType(componentName,
+                                  paramNum, expr, providedType))
+                    : Optional.<ErroneousIssue>absent();
+        } else {
+            error = Optional.of(InvalidComponentParameterError.invalidDeclaredParameterType(componentName,
+                                paramNum, expectedType));
+        }
+
+        if (error.isPresent()) {
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), error.get());
         }
     }
 

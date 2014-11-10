@@ -40,7 +40,8 @@ public class ModuleDeclaration extends ComponentDeclaration {
         return astModule.getParameters();
     }
 
-    public Module getAstModule() {
+    @Override
+    public Module getAstComponent() {
         return astModule;
     }
 

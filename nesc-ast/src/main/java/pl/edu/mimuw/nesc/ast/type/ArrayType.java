@@ -13,13 +13,13 @@ public final class ArrayType extends DerivedType {
      * <code>true</code> if and only if the number of elements of this array
      * type is specified in the declarator.
      */
-    public final boolean ofKnownSize;
+    private final boolean ofKnownSize;
 
     /**
      * Type of the elements that an array of this type contains.
      * Never null.
      */
-    public final Type elementType;
+    private final Type elementType;
 
     /**
      * Initializes this array type with given parameters.

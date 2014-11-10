@@ -33,7 +33,8 @@ public class ConfigurationDeclaration extends ComponentDeclaration {
         return astConfiguration.getParameters();
     }
 
-    public Configuration getAstConfiguration() {
+    @Override
+    public Configuration getAstComponent() {
         return astConfiguration;
     }
 

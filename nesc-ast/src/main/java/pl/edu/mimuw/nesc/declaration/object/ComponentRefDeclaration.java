@@ -5,6 +5,7 @@ import pl.edu.mimuw.nesc.ast.gen.ComponentRef;
 import pl.edu.mimuw.nesc.ast.gen.Word;
 import pl.edu.mimuw.nesc.ast.type.ComponentType;
 import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.declaration.nesc.ComponentDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.NescDeclaration;
 import pl.edu.mimuw.nesc.facade.component.ComponentRefFacade;
 import pl.edu.mimuw.nesc.facade.component.ComponentRefFacadeFactory;
@@ -27,7 +28,7 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
     /**
      * Component declaration (absent if reference is erroneous).
      */
-    private final Optional<? extends NescDeclaration> componentDeclaration;
+    private final Optional<? extends ComponentDeclaration> componentDeclaration;
 
     /**
      * Facade for this component reference.
@@ -53,7 +54,7 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
         return astComponentRef;
     }
 
-    public Optional<? extends NescDeclaration> getComponentDeclaration() {
+    public Optional<? extends ComponentDeclaration> getComponentDeclaration() {
         return componentDeclaration;
     }
 
@@ -84,7 +85,7 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
          */
         private Word componentName;
         private ComponentRef astComponentRef;
-        private Optional<? extends NescDeclaration> componentDeclaration = Optional.absent();
+        private Optional<? extends ComponentDeclaration> componentDeclaration = Optional.absent();
 
         /**
          * Set the name of the referred component.
@@ -116,8 +117,8 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
          * @param declaration Declaration object to be set.
          * @return <code>this</code>
          */
-        public Builder nescDeclaration(Optional<? extends NescDeclaration> declaration) {
-            this.componentDeclaration = declaration;
+        public Builder nescDeclaration(ComponentDeclaration declaration) {
+            this.componentDeclaration = Optional.fromNullable(declaration);
             return this;
         }
 

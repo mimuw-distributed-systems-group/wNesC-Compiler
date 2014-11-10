@@ -12,6 +12,7 @@ import pl.edu.mimuw.nesc.ast.util.Interval;
 import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
 import pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
+import pl.edu.mimuw.nesc.declaration.nesc.ComponentDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.InterfaceDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.NescDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
@@ -26,6 +27,7 @@ import pl.edu.mimuw.nesc.token.Token;
 import java.util.LinkedList;
 
 import static java.lang.String.format;
+import static pl.edu.mimuw.nesc.analysis.NescAnalysis.checkComponentInstantiation;
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.*;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveType;
 import static pl.edu.mimuw.nesc.ast.util.AstUtils.getEndLocation;
@@ -104,7 +106,7 @@ public final class NescDeclarations extends AstBuildingBase {
         final ComponentRefDeclaration symbol = ComponentRefDeclaration.builder()
                 .componentName(componentName)
                 .astNode(componentRef)
-                .nescDeclaration(component)
+                .nescDeclaration((ComponentDeclaration) component.orNull())
                 .name(refName)
                 .startLocation(startLocation)
                 .build();
@@ -113,6 +115,8 @@ public final class NescDeclarations extends AstBuildingBase {
             errorHelper.error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", refName));
         }
         componentRef.setDeclaration(symbol);
+
+        checkComponentInstantiation(symbol, errorHelper);
 
         // TODO add to tokens
 

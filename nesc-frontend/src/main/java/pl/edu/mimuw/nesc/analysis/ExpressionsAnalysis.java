@@ -172,6 +172,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitPlus(Plus expr, Void arg) {
+        touch(expr);
         final BinaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -239,6 +240,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitMinus(Minus expr, Void arg) {
+        touch(expr);
         final BinaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -381,6 +383,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitAssign(Assign expr, Void arg) {
+        touch(expr);
         final BinaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -472,6 +475,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitDereference(Dereference expr, Void arg) {
+        touch(expr);
         final UnaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -502,6 +506,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitAddressOf(AddressOf expr, Void arg) {
+        touch(expr);
         final UnaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -543,6 +548,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitBitnot(Bitnot expr, Void arg) {
+        touch(expr);
         final UnaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -569,6 +575,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitNot(Not expr, Void arg) {
+        touch(expr);
         final UnaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -616,24 +623,29 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitOffsetof(Offsetof expr, Void arg) {
+        touch(expr);
         // FIXME
         return Optional.absent();
     }
 
     @Override
     public Optional<ExprData> visitRealpart(Realpart expr, Void arg) {
+        touch(expr);
         // FIXME
         return Optional.absent();
     }
 
     @Override
     public Optional<ExprData> visitImagpart(Imagpart expr, Void arg) {
+        touch(expr);
         // FIXME
         return Optional.absent();
     }
 
     @Override
     public Optional<ExprData> visitArrayRef(ArrayRef expr, Void arg) {
+        touch(expr);
+
         // Analyze subexpressions
         final Optional<ExprData> oArrayData = expr.getArray().accept(this, null);
         Optional<ExprData> oIndexData = Optional.absent();
@@ -697,11 +709,14 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitErrorExpr(ErrorExpr expr, Void arg) {
+        touch(expr);
         return Optional.absent();
     }
 
     @Override
     public Optional<ExprData> visitComma(Comma expr, Void arg) {
+        touch(expr);
+
         /* Analyze all subexpressions and simultaneously determine the data for
            the last one. */
         Optional<ExprData> oLastData = Optional.absent();
@@ -729,12 +744,15 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitLabelAddress(LabelAddress expr, Void arg) {
+        touch(expr);
         // FIXME
         return Optional.absent();
     }
 
     @Override
     public Optional<ExprData> visitConditional(Conditional expr, Void arg) {
+        touch(expr);
+
         // Analyze all three subexpressions
         final Optional<ExprData> oCondData = expr.getCondition().accept(this, null);
         final Optional<ExprData> oOnTrueData = expr.getOnTrueExp().isPresent()
@@ -847,6 +865,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitIdentifier(Identifier expr, Void arg) {
+        touch(expr);
         final ExprData.Builder dataBuilder = ExprData.builder()
                 .isBitField(false)
                 .isNullPointerConstant(false);
@@ -906,12 +925,14 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitCompoundExpr(CompoundExpr expr, Void arg) {
+        touch(expr);
         // FIXME
         return Optional.absent();
     }
 
     @Override
     public Optional<ExprData> visitIntegerCst(IntegerCst expr, Void arg) {
+        touch(expr);
         final Optional<BigInteger> value = expr.getValue();
         final boolean isNullPtrCst = value.isPresent()
                 && value.get().equals(BigInteger.ZERO);
@@ -1018,6 +1039,8 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitFunctionCall(FunctionCall expr, Void arg) {
+        touch(expr);
+
         // FIXME analysis of __builtin_va_arg(arguments, vaArgCall)
         if (expr.getFunction() == null) {
             return Optional.absent();
@@ -1120,6 +1143,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitFieldRef(FieldRef expr, Void arg) {
+        touch(expr);
         final UnaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -1176,12 +1200,14 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitInterfaceDeref(InterfaceDeref expr, Void arg) {
+        touch(expr);
         // FIXME
         return Optional.absent();
     }
 
     @Override
     public Optional<ExprData> visitComponentDeref(ComponentDeref expr, Void arg) {
+        touch(expr);
         // FIXME
         return Optional.absent();
     }
@@ -1208,6 +1234,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitCast(Cast expr, Void arg) {
+        touch(expr);
         final UnaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good || !expr.getAsttype().getType().isPresent()) {
             return Optional.absent();
@@ -1245,41 +1272,54 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitCastList(CastList expr, Void arg) {
+        touch(expr);
         // FIXME
         return Optional.absent();
     }
 
     @Override
     public Optional<ExprData> visitInitList(InitList expr, Void arg) {
+        touch(expr);
         // FIXME
         return Optional.absent();
     }
 
     @Override
     public Optional<ExprData> visitInitSpecific(InitSpecific expr, Void arg) {
+        touch(expr);
         // FIXME
         return Optional.absent();
     }
 
     @Override
     public Optional<ExprData> visitTypeArgument(TypeArgument expr, Void arg) {
+        touch(expr);
         // FIXME
         return Optional.absent();
     }
 
     @Override
     public Optional<ExprData> visitGenericCall(GenericCall expr, Void arg) {
+        touch(expr);
         // FIXME
         return Optional.absent();
     }
 
     @Override
     public Optional<ExprData> visitExtensionExpr(ExtensionExpr expr, Void arg) {
-        return expr.getArgument().accept(this, null);
+        touch(expr);
+
+        final Optional<ExprData> result = expr.getArgument().accept(this, null);
+        if (result.isPresent()) {
+            result.get().spread(expr);
+        }
+
+        return result;
     }
 
     @Override
     public Optional<ExprData> visitConjugate(Conjugate expr, Void arg) {
+        touch(expr);
         // FIXME
         return Optional.absent();
     }
@@ -1288,6 +1328,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
      * Analysis for operators <code>&lt;&lt;</code> and <code>&gt;&gt;</code>.
      */
     private Optional<ExprData> analyzeShiftExpr(Binary shiftExpr, BinaryOp op) {
+        touch(shiftExpr);
         final BinaryExprDataCarrier cr = analyzeSubexpressions(shiftExpr);
         if (!cr.good) {
             return Optional.absent();
@@ -1323,6 +1364,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
      */
     private Optional<ExprData> analyzeTypeQueryExpr(Expression typeQueryExpr,
             Optional<Type> arg, String op) {
+        touch(typeQueryExpr);
         if (!arg.isPresent()) {
             return Optional.absent();
         }
@@ -1351,6 +1393,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
      * applied to expressions.
      */
     private Optional<ExprData> analyzeExprQueryExpr(Unary unary, String op) {
+        touch(unary);
         final UnaryExprDataCarrier cr = analyzeSubexpressions(unary);
         if (!cr.good) {
             return Optional.absent();
@@ -1380,6 +1423,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
      * Analysis for operators <code>*</code>, <code>/</code> and <code>%</code>.
      */
     private Optional<ExprData> analyzeMultiplicativeExpr(Binary expr, BinaryOp op) {
+        touch(expr);
         final BinaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -1417,6 +1461,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
      * Analysis for unary operators <code>+</code> and <code>-</code>.
      */
     private Optional<ExprData> analyzeUnaryAdditiveExpr(Unary expr, UnaryOp op) {
+        touch(expr);
         final UnaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -1447,6 +1492,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
      * <code>&lt;</code> and <code>&gt;</code>.
      */
     private Optional<ExprData> analyzeCompareExpr(Binary expr, BinaryOp op) {
+        touch(expr);
         final BinaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -1491,6 +1537,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
      * Analysis for binary operators <code>==</code> and <code>!=</code>.
      */
     private Optional<ExprData> analyzeEqualityExpr(Binary expr, BinaryOp op) {
+        touch(expr);
         final BinaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -1549,6 +1596,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
      * Analysis for binary operators <code>&amp;&amp;</code> and <code>||</code>.
      */
     private Optional<ExprData> analyzeBinaryLogicalExpr(Binary expr, BinaryOp op) {
+        touch(expr);
         final BinaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -1579,6 +1627,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
      * Analysis for operators <code>&amp;</code>, <code>|</code> and <code>^</code>.
      */
     private Optional<ExprData> analyzeBinaryBitExpr(Binary expr, BinaryOp op) {
+        touch(expr);
         final BinaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -1617,6 +1666,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
      * Analysis for operators <code>+=</code> and <code>-=</code>.
      */
     private Optional<ExprData> analyzeAssignAdditiveExpr(Assignment expr, BinaryOp op) {
+        touch(expr);
         final BinaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -1666,6 +1716,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
      * <code>|=</code>, <code>^=</code>.
      */
     private Optional<ExprData> analyzeCompoundAssignExpr(Assignment expr, BinaryOp op) {
+        touch(expr);
         final BinaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -1717,6 +1768,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
      * versions.
      */
     private Optional<ExprData> analyzeIncrementExpr(Increment expr, UnaryOp op) {
+        touch(expr);
         final UnaryExprDataCarrier cr = analyzeSubexpressions(expr);
         if (!cr.good) {
             return Optional.absent();
@@ -2070,6 +2122,19 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
         }
 
         return builder.build();
+    }
+
+    /**
+     * <p>Set the fields of an <code>Expression</code> node that are set after
+     * the analysis of an expression to values suitable for an invalid
+     * expression (if an error happens the values won't be changed but when
+     * everything is OK they will be overwritten in {@link ExprData#spread}).
+     * </p>
+     *
+     * @param expr Expression to touch.
+     */
+    private void touch(Expression expr) {
+        expr.setType(Optional.<Type>absent());
     }
 
     /**
