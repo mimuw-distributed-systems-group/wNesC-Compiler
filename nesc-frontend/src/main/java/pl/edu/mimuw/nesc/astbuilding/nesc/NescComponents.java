@@ -20,12 +20,15 @@ import pl.edu.mimuw.nesc.declaration.object.InterfaceRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectKind;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
-import pl.edu.mimuw.nesc.facade.component.ImplementationElement;
-import pl.edu.mimuw.nesc.facade.component.ModuleTable;
+import pl.edu.mimuw.nesc.facade.component.specification.ConfigurationTable;
+import pl.edu.mimuw.nesc.facade.component.specification.ImplementationElement;
+import pl.edu.mimuw.nesc.facade.component.specification.ModuleTable;
+import pl.edu.mimuw.nesc.facade.component.specification.WiringElement;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceRefFacadeFactory;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.problem.issue.ErroneousIssue;
 import pl.edu.mimuw.nesc.problem.issue.MissingImplementationElementError;
+import pl.edu.mimuw.nesc.problem.issue.MissingWiringError;
 import pl.edu.mimuw.nesc.token.Token;
 
 import java.util.ArrayList;
@@ -150,6 +153,20 @@ public final class NescComponents extends AstBuildingBase {
         return result;
     }
 
+    /**
+     * This method is called after {@link NescComponents#handleComponentSpecification}.
+     */
+    public ConfigurationTable handleConfigurationSpecification(Configuration configuration,
+            LinkedList<Declaration> specification) {
+
+        final ConfigurationTable result = ConfigurationTable.builder()
+                .addDeclarations(specification)
+                .build();
+
+        configuration.getDeclaration().setConfigurationTable(result);
+        return result;
+    }
+
     public void finishInterface(Interface iface, Location endLocation, LinkedList<Declaration> declarations) {
         iface.setDeclarations(declarations);
         iface.setEndLocation(endLocation);
@@ -190,12 +207,25 @@ public final class NescComponents extends AstBuildingBase {
     public void finishConfiguration(Configuration configuration, Location endLocation) {
         final ConfigurationImpl implementation = (ConfigurationImpl) configuration.getImplementation();
         final Environment implEnvironment = implementation.getEnvironment();
+        final ConfigurationTable table = configuration.getDeclaration().getConfigurationTable();
 
+        // Check wiring
         for (Declaration declaration : implementation.getDeclarations()) {
             if (declaration instanceof RpConnection) {
                 checkRpConnection((RpConnection) declaration, implEnvironment, errorHelper);
             } else if (declaration instanceof EqConnection) {
-                checkEqConnection((EqConnection) declaration, implEnvironment, errorHelper);
+                checkEqConnection((EqConnection) declaration, implEnvironment, table, errorHelper);
+            }
+        }
+
+        // Check if all external specification elements are wired
+        for (Map.Entry<String, WiringElement> configurationEntry : table.getAll()) {
+            final String elementName = configurationEntry.getKey();
+            final WiringElement wiringElement = configurationEntry.getValue();
+
+            if (!wiringElement.isWired()) {
+                final ErroneousIssue error = new MissingWiringError(elementName, wiringElement.getKind());
+                errorHelper.error(configuration.getLocation(), endLocation, error);
             }
         }
     }

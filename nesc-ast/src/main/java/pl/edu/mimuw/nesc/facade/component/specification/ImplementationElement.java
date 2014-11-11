@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.facade.component;
+package pl.edu.mimuw.nesc.facade.component.specification;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;

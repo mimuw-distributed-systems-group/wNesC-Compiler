@@ -1,8 +1,11 @@
-package pl.edu.mimuw.nesc.facade.component;
+package pl.edu.mimuw.nesc.facade.component.reference;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.facade.component.reference.BareEntity;
+import pl.edu.mimuw.nesc.facade.component.reference.InterfaceRefEntity;
+
 import static com.google.common.base.Preconditions.*;
 
 /**

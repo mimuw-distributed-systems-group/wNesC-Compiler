@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.facade.component;
+package pl.edu.mimuw.nesc.facade.component.reference;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;

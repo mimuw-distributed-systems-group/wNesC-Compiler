@@ -25,10 +25,11 @@ import pl.edu.mimuw.nesc.declaration.object.ObjectKind;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.VariableDeclaration;
 import pl.edu.mimuw.nesc.environment.Environment;
-import pl.edu.mimuw.nesc.facade.component.BareEntity;
-import pl.edu.mimuw.nesc.facade.component.ComponentRefFacade;
-import pl.edu.mimuw.nesc.facade.component.InterfaceRefEntity;
-import pl.edu.mimuw.nesc.facade.component.SpecificationEntity;
+import pl.edu.mimuw.nesc.facade.component.reference.BareEntity;
+import pl.edu.mimuw.nesc.facade.component.reference.ComponentRefFacade;
+import pl.edu.mimuw.nesc.facade.component.reference.InterfaceRefEntity;
+import pl.edu.mimuw.nesc.facade.component.reference.SpecificationEntity;
+import pl.edu.mimuw.nesc.facade.component.specification.ConfigurationTable;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 import pl.edu.mimuw.nesc.problem.issue.ErroneousIssue;
@@ -402,17 +403,20 @@ public final class NescAnalysis {
      *
      * @param connection Equate wires to check.
      * @param environment Environment to check the connection in.
+     * @param table Configuration table that will be updated with information
+     *              about wired external specification elements.
      * @param errorHelper Object that will be notified about detected errors.
      * @throws NullPointerException One of the arguments is null.
      */
     public static void checkEqConnection(EqConnection connection, Environment environment,
-            ErrorHelper errorHelper) {
+            ConfigurationTable table, ErrorHelper errorHelper) {
         checkNotNull(connection, "connection cannot be null");
         checkNotNull(environment, "environment cannot be null");
+        checkNotNull(table, "table cannot be null");
         checkNotNull(errorHelper, "error helper cannot be null");
 
         final EqConnectionAnalyzer analyzer = new EqConnectionAnalyzer(connection,
-                environment, errorHelper);
+                environment, table, errorHelper);
         analyzer.analyze();
     }
 
@@ -1113,12 +1117,15 @@ public final class NescAnalysis {
         private final SpecificationEntity[] entities = new SpecificationEntity[2];
         private final EntityPack[] packs = new EntityPack[2];
 
+        private final ConfigurationTable table;
+
         private EqConnectionAnalyzer(EqConnection connection, Environment environment,
-                ErrorHelper errorHelper) {
+                ConfigurationTable table, ErrorHelper errorHelper) {
             super(connection, environment, errorHelper);
 
             this.endpoints = ImmutableList.of(connection.getEndPoint1(),
                     connection.getEndPoint2());
+            this.table = table;
         }
 
         private void analyze() {
@@ -1127,6 +1134,7 @@ public final class NescAnalysis {
             intermediateEndpointsCheck();
             resolveSpecificationEntities();
             finalEndpointsCheck();
+            updateConfigurationTable();
             analyzeWiring();
         }
 
@@ -1274,6 +1282,21 @@ public final class NescAnalysis {
                 }
 
                 secondEndpointCheck(endpoints.get(i), entities[i]);
+            }
+        }
+
+        private void updateConfigurationTable() {
+            if (!canContinue()) {
+                return;
+            }
+
+            for (ObjectDeclaration declaration : declarations) {
+                if (declaration.getKind() != ObjectKind.INTERFACE
+                        && declaration.getKind() != ObjectKind.FUNCTION) {
+                    continue;
+                }
+
+                table.markFulfilled(declaration.getName());
             }
         }
 

@@ -6,7 +6,7 @@ import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Module;
 import pl.edu.mimuw.nesc.environment.Environment;
-import pl.edu.mimuw.nesc.facade.component.ModuleTable;
+import pl.edu.mimuw.nesc.facade.component.specification.ModuleTable;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>

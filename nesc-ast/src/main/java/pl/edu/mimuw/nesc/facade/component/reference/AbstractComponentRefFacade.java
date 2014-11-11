@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.facade.component;
+package pl.edu.mimuw.nesc.facade.component.reference;
 
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
 import static com.google.common.base.Preconditions.checkArgument;

@@ -6,6 +6,10 @@ import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Configuration;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.environment.Environment;
+import pl.edu.mimuw.nesc.facade.component.specification.ConfigurationTable;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -13,6 +17,12 @@ import pl.edu.mimuw.nesc.environment.Environment;
 public class ConfigurationDeclaration extends ComponentDeclaration {
 
     private Configuration astConfiguration;
+
+    /**
+     * Object with information about the elements from the specification of this
+     * configuration.
+     */
+    private ConfigurationTable table;
 
     public ConfigurationDeclaration(String name, Location location) {
         super(name, location);
@@ -40,6 +50,25 @@ public class ConfigurationDeclaration extends ComponentDeclaration {
 
     public void setAstConfiguration(Configuration astConfiguration) {
         this.astConfiguration = astConfiguration;
+    }
+
+    /**
+     * <p>Get the object with information about the elements from the
+     * specification of this configuration. It is not null if and only if the
+     * specification of the configuration has been already parsed and analyzed.
+     * </p>
+     *
+     * @return The table for this configuration.
+     */
+    public ConfigurationTable getConfigurationTable() {
+        return table;
+    }
+
+    public void setConfigurationTable(ConfigurationTable table) {
+        checkNotNull(table, "the table cannot be null");
+        checkState(this.table == null, "the table has been already set");
+
+        this.table = table;
     }
 
     @Override

@@ -18,7 +18,7 @@ import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.nesc.*;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.environment.*;
-import pl.edu.mimuw.nesc.facade.component.ModuleTable;
+import pl.edu.mimuw.nesc.facade.component.specification.ModuleTable;
 import pl.edu.mimuw.nesc.problem.*;
 import pl.edu.mimuw.nesc.parser.value.*;
 import pl.edu.mimuw.nesc.astbuilding.*;
@@ -646,7 +646,10 @@ module:
         environment.setStartLocation($name.getEndLocation());
         entityStarted($name.getName());
         parserListener.nescEntityRecognized(NesCFileType.MODULE);
-        final Module module = nescComponents.startModule(environment, $keyword.getLocation(), $name,
+        final Location startLocation = $isGeneric.getValue()
+                ? $isGeneric.getLocation()
+                : $keyword.getLocation();
+        final Module module = nescComponents.startModule(environment, startLocation, $name,
                 $isGeneric.getValue());
         $<Module>$ = module;
     }
@@ -693,7 +696,10 @@ configuration:
         environment.setStartLocation($name.getEndLocation());
         entityStarted($name.getName());
         parserListener.nescEntityRecognized(NesCFileType.CONFIGURATION);
-        final Configuration configuration = nescComponents.startConfiguration(environment, $keyword.getLocation(),
+        final Location startLocation = $isGeneric.getValue()
+                ? $isGeneric.getLocation()
+                : $keyword.getLocation();
+        final Configuration configuration = nescComponents.startConfiguration(environment, startLocation,
                 $name, $isGeneric.getValue());
         $<Configuration>$ = configuration;
     }
@@ -711,6 +717,7 @@ configuration:
     {
         final Configuration configuration = $<Configuration>8;
         nescComponents.handleComponentSpecification(configuration, $specification);
+        nescComponents.handleConfigurationSpecification(configuration, $specification);
         $<Configuration>$ = configuration;
     }
       RBRACE[rbrace] iconfiguration[impl]

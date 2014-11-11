@@ -93,6 +93,8 @@ public class IntegrationBadTest extends IntegrationTestBase {
             { "bad28", "C.nc", InvalidComponentInstantiationError.CODE },
             { "bad29", "C.nc", InvalidComponentParameterError.CODE },
             { "bad30", "C.nc", InvalidComponentParameterError.CODE },
+            { "bad31", "C.nc", MissingWiringError.CODE },
+            { "bad32", "C.nc", MissingWiringError.CODE },
         };
 
         // Make the directory absolute

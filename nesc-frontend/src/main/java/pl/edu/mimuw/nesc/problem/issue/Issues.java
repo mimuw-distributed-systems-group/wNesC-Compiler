@@ -91,6 +91,7 @@ public final class Issues {
         INVALID_EQ_CONNECTION(60),
         INVALID_COMPONENT_INSTANTIATION(61),
         INVALID_COMPONENT_PARAMETER(62),
+        MISSING_WIRING(63),
         ;
 
         private final int codeNumber;

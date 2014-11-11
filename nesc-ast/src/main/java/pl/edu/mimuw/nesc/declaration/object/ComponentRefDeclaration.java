@@ -6,9 +6,8 @@ import pl.edu.mimuw.nesc.ast.gen.Word;
 import pl.edu.mimuw.nesc.ast.type.ComponentType;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.declaration.nesc.ComponentDeclaration;
-import pl.edu.mimuw.nesc.declaration.nesc.NescDeclaration;
-import pl.edu.mimuw.nesc.facade.component.ComponentRefFacade;
-import pl.edu.mimuw.nesc.facade.component.ComponentRefFacadeFactory;
+import pl.edu.mimuw.nesc.facade.component.reference.ComponentRefFacade;
+import pl.edu.mimuw.nesc.facade.component.reference.ComponentRefFacadeFactory;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 

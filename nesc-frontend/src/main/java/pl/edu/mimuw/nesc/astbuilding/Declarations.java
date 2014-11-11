@@ -20,7 +20,7 @@ import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
 import pl.edu.mimuw.nesc.environment.ScopeType;
-import pl.edu.mimuw.nesc.facade.component.ModuleTable;
+import pl.edu.mimuw.nesc.facade.component.specification.ModuleTable;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceRefFacade;
 import pl.edu.mimuw.nesc.parser.TypeElementsAssociation;
@@ -723,7 +723,7 @@ public final class Declarations extends AstBuildingBase {
 
             checkState(moduleTable.isPresent(), "module table unexpectedly absent");
 
-            moduleTable.get().markImplemented(name);
+            moduleTable.get().markFulfilled(name);
             bareDeclaration.setDefined(true);
             bareDeclaration.setAstFunctionDeclarator(funDeclarator);
             functionDecl.setDeclaration(bareDeclaration);
@@ -809,7 +809,7 @@ public final class Declarations extends AstBuildingBase {
             // Everything is alright so mark the command or event as implemented
 
             if (!environment.getObjects().contains(name, true)) {
-                moduleTable.get().markImplemented(name);
+                moduleTable.get().markFulfilled(name);
             }
 
             return Optional.absent();
