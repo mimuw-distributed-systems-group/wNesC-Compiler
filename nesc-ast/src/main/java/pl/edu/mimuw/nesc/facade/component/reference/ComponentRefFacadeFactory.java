@@ -79,18 +79,20 @@ public final class ComponentRefFacadeFactory {
     public ComponentRefFacade newComponentRefFacade() {
         checkState(declaration != null, "component reference declaration object has not been set yet");
 
-        if (!declaration.getComponentDeclaration().isPresent() ||
-                !(declaration.getComponentDeclaration().get() instanceof ComponentDeclaration)) {
+        if (!declaration.getComponentDeclaration().isPresent()) {
             logInvalidFacade("erroneous component declaration or reference");
             return new InvalidComponentRefFacade(declaration);
         }
 
-        final ComponentDeclaration nescDeclaration =
-                (ComponentDeclaration) declaration.getComponentDeclaration().get();
-
+        final ComponentDeclaration nescDeclaration = declaration.getComponentDeclaration().get();
         final Optional<LinkedList<Declaration>> expectedParameters = nescDeclaration.getGenericParameters();
         final LinkedList<Expression> providedParameters = declaration.getAstComponentRef().getArguments();
         final Substitution.Builder substBuilder = Substitution.builder();
+
+        if (expectedParameters == null) {
+            logInvalidFacade("parameters of the component are null");
+            return new InvalidComponentRefFacade(declaration);
+        }
 
         // Create the substitution if the component is generic
         if (!expectedParameters.isPresent() && !providedParameters.isEmpty()) {

@@ -116,6 +116,10 @@ public final class InterfaceRefFacadeFactory {
         final Optional<LinkedList<Expression>> providedGenericParams = interfaceRef.getAstInterfaceRef().getArguments();
         final Substitution.Builder substitutionBuilder = Substitution.builder();
 
+        if (iface.getParameters() == null) {
+            return new InvalidInterfaceRefFacade(interfaceRef);
+        }
+
         /* Add information about the provided and needed generic parameters
            to the builder simultaneously checking the correctness. */
         if (!iface.getParameters().isPresent() && providedGenericParams.isPresent()

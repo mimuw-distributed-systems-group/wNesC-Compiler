@@ -83,6 +83,10 @@ public final class NescAnalysis {
         final Optional<LinkedList<Expression>> instantiationTypes = ifaceRefDecl
                 .getAstInterfaceRef().getArguments();
 
+        if (paramsDecls == null) {
+            return;
+        }
+
         final Optional<InterfaceRefProblemKind> problemKind;
         int definitionParamsCount = 0, providedParamsCount = 0;
 
@@ -222,7 +226,8 @@ public final class NescAnalysis {
 
             error = Optional.of(InvalidComponentInstantiationError.abstractMismatch(nescDeclaration.getName(),
                     nescDeclaration.getAstComponent().getIsAbstract()));
-
+        } else if (nescDeclaration.getGenericParameters() == null) {
+            return;
         } else if (astRef.getIsAbstract() && !nescDeclaration.getGenericParameters().isPresent()) {
             error = Optional.of(InvalidComponentInstantiationError.missingComponentParams(nescDeclaration.getName()));
         } else if (astRef.getIsAbstract()) {

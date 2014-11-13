@@ -4676,6 +4676,9 @@ string_chain:
 
         /* Check if the component contains a field with given name. */
         final ComponentDeclaration componentDecl = (ComponentDeclaration) entityDecl.get();
+        if (componentDecl.getSpecificationEnvironment() == null) {
+            return false;
+        }
         final Optional<? extends ObjectDeclaration> fieldDecl =
                 componentDecl.getSpecificationEnvironment().getObjects().get(thirdSymbol.getValue());
         return fieldDecl.isPresent() && fieldDecl.get().getKind() == ObjectKind.TYPENAME;
