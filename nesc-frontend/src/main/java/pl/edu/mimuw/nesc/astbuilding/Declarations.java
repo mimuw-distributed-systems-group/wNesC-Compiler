@@ -152,7 +152,9 @@ public final class Declarations extends AstBuildingBase {
     public VariableDecl finishDecl(VariableDecl declaration, Environment environment,
                                    Optional<Expression> initializer) {
         if (initializer.isPresent()) {
-            ExpressionsAnalysis.analyze(initializer.get(), environment, errorHelper);
+            if (!AstUtils.IS_INITIALIZER.apply(initializer.get())) {
+                ExpressionsAnalysis.analyze(initializer.get(), environment, errorHelper);
+            }
             final Location endLocation = initializer.get().getEndLocation();
             declaration.setEndLocation(endLocation);
         }
@@ -407,7 +409,7 @@ public final class Declarations extends AstBuildingBase {
         endLocation = getEndLocation(endLocation, attributes);
         final FieldDecl decl = new FieldDecl(startLocation, declarator, attributes, bitfield);
         decl.setEndLocation(endLocation);
-        makeFieldDeclaration(decl, maybeBaseType, errorHelper);
+        makeFieldDeclaration(decl, maybeBaseType, environment, errorHelper);
 
         return decl;
     }
@@ -416,6 +418,10 @@ public final class Declarations extends AstBuildingBase {
                                      Optional<Expression> value) {
         final Enumerator enumerator = new Enumerator(startLocation, id, value.orNull());
         enumerator.setEndLocation(endLocation);
+
+        if (value.isPresent()) {
+            ExpressionsAnalysis.analyze(value.get(), environment, errorHelper);
+        }
 
         final ConstantDeclaration symbol = ConstantDeclaration.builder()
                 .name(id)

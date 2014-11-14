@@ -37,7 +37,7 @@ public final class Issues {
         TYPE_SPECIFIER_REPETITION(6),
         TYPE_SPECIFIERS_MIX_ERROR(7),
         UNDECLARED_IDENTIFIER(8),
-        INVALID_IDENTIFIER_TYPE(9),
+        INVALID_TYPENAME(9),
         REDEFINITION(10),
         CONFLICTING_TAG_KIND(11),
         ENUM_FORWARD_DECLARATION(12),
@@ -92,6 +92,8 @@ public final class Issues {
         INVALID_COMPONENT_INSTANTIATION(61),
         INVALID_COMPONENT_PARAMETER(62),
         MISSING_WIRING(63),
+        INVALID_COMPONENT_TYPEREF(64),
+        INVALID_INITIALIZER_USAGE(65),
         ;
 
         private final int codeNumber;

@@ -69,7 +69,7 @@ public final class TagsAnalysis {
      * and is available with its <code>getDeclaration</code> method.
      */
     public static void makeFieldDeclaration(FieldDecl fieldDecl, Optional<Type> maybeBaseType,
-                                            ErrorHelper errorHelper) {
+            Environment environment, ErrorHelper errorHelper) {
         final Optional<Declarator> maybeDeclarator = fieldDecl.getDeclarator();
         final Optional<Expression> maybeBitField = fieldDecl.getBitfield();
 
@@ -81,7 +81,8 @@ public final class TagsAnalysis {
             name = DeclaratorUtils.getDeclaratorName(declarator);
 
             if (maybeBaseType.isPresent()) {
-                fullType = resolveDeclaratorType(declarator, errorHelper, maybeBaseType.get());
+                fullType = resolveDeclaratorType(declarator, environment, errorHelper,
+                        maybeBaseType.get());
             }
         }
 

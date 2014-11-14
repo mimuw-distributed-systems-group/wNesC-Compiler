@@ -8,6 +8,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public class TypenameDeclaration extends ObjectDeclaration {
 
@@ -17,6 +18,8 @@ public class TypenameDeclaration extends ObjectDeclaration {
      */
     private final Optional<Type> denotedType;
 
+    private final boolean isGenericParameter;
+
     public static Builder builder() {
         return new Builder();
     }
@@ -24,10 +27,22 @@ public class TypenameDeclaration extends ObjectDeclaration {
     protected TypenameDeclaration(Builder builder) {
         super(builder);
         this.denotedType = builder.denotedType;
+        this.isGenericParameter = builder.isGenericParameter;
     }
 
     public Optional<Type> getDenotedType() {
         return denotedType;
+    }
+
+    /**
+     * <p>Check if this declaration represents a generic type parameter of
+     * a generic component.</p>
+     *
+     * @return Value indicating if this declaration represents a generic type
+     *         parameter of a generic component.
+     */
+    public boolean isGenericParameter() {
+        return isGenericParameter;
     }
 
     @Override
@@ -45,6 +60,7 @@ public class TypenameDeclaration extends ObjectDeclaration {
          * Data needed to build a typename declaration.
          */
         private Optional<Type> denotedType = Optional.absent();
+        private boolean isGenericParameter = false;
 
         protected Builder() {
         }
@@ -58,6 +74,18 @@ public class TypenameDeclaration extends ObjectDeclaration {
          */
         public Builder denotedType(Type denotedType) {
             this.denotedType = Optional.fromNullable(denotedType);
+            return this;
+        }
+
+        /**
+         * <p>Set the value indicating if this typename declaration represents
+         * a generic type parameter of a generic component.</p>
+         *
+         * @param isGenericParameter Value to set.
+         * @return <code>this</code>
+         */
+        public Builder isGenericParameter(boolean isGenericParameter) {
+            this.isGenericParameter = isGenericParameter;
             return this;
         }
 

@@ -294,8 +294,14 @@ class AstType(BasicASTNode):
 
 # typedef-type with declaration DDECL. The name is ddecl->name.
 class Typename(BasicASTNode):
+    """
+    <p><code>isGenericReference</code> is set to <code>true</code> after the semantic analysis if and only
+    if this typename occurs inside a generic component definition and refers to one of its generic type
+    parameters.</p>
+    """
     superclass = TypeElement
     name = StringField()
+    isGenericReference = BoolField(constructor_variable=False)
     declaration = ReferenceField("TypenameDeclaration", constructor_variable=False, visitable=False)
 
 
@@ -714,8 +720,13 @@ class Conditional(BasicASTNode):
 
 
 class Identifier(BasicASTNode):
+    """
+    <p><code>isGenericReference</code> is <code>true</code> after semantic analysis if and only if this identifier
+    occurs inside a generic component definition and refers to one of its generic non-type parameters.
+    """
     superclass = Expression
     name = StringField()
+    isGenericReference = BoolField(constructor_variable=False)
     declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False)
 
 

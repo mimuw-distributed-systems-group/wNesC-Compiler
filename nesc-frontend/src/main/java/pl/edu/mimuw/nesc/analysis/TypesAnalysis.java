@@ -2,8 +2,10 @@ package pl.edu.mimuw.nesc.analysis;
 
 import pl.edu.mimuw.nesc.ast.util.Interval;
 import pl.edu.mimuw.nesc.ast.TagRefSemantics;
+import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.Linkage;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.ObjectKind;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.TagDeclaration;
 import pl.edu.mimuw.nesc.ast.type.*;
@@ -11,6 +13,7 @@ import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.environment.Environment;
+import pl.edu.mimuw.nesc.facade.component.reference.ComponentRefFacade;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 import pl.edu.mimuw.nesc.problem.issue.*;
 
@@ -171,7 +174,8 @@ public final class TypesAnalysis {
                 typeElements, false, errorHelper, apxStartLoc, apxEndLoc);
 
         return   maybeBaseType.isPresent() && declarator.isPresent()
-               ? resolveDeclaratorType(declarator.get(), errorHelper, maybeBaseType.get())
+               ? resolveDeclaratorType(declarator.get(), environment,
+                        errorHelper, maybeBaseType.get())
                : maybeBaseType;
     }
 
@@ -179,6 +183,7 @@ public final class TypesAnalysis {
      * Resolves the type of the identifier from the given declarator.
      *
      * @param declarator Declarator to extract the type from.
+     * @param environment Environment of the given declarator.
      * @param errorHelper Object that will be notified about detected errors
      *                    and warnings.
      * @param baseType Type extracted from the declaration specifiers.
@@ -188,14 +193,16 @@ public final class TypesAnalysis {
      * @throws NullPointerException One of the arguments is null.
      */
     public static Optional<Type> resolveDeclaratorType(Declarator declarator,
-                ErrorHelper errorHelper, Type baseType) {
+                Environment environment, ErrorHelper errorHelper, Type baseType) {
         // Validate arguments
         checkNotNull(declarator, "declarator cannot be null");
+        checkNotNull(environment, "environment cannot be null");
         checkNotNull(errorHelper, "error helper cannot be null");
         checkNotNull(baseType, "base type cannot be null");
 
         // Resolve the type
-        final DeclaratorTypeVisitor visitor = new DeclaratorTypeVisitor(baseType, errorHelper);
+        final DeclaratorTypeVisitor visitor = new DeclaratorTypeVisitor(baseType,
+                environment, errorHelper);
         declarator.accept(visitor, null);
         return visitor.get();
     }
@@ -374,6 +381,24 @@ public final class TypesAnalysis {
         private Typename typename;
         private AttributeRef attributeDefinition;
 
+        /**
+         * Function performed at the end on a type that is a successfully
+         * resolved typename.
+         */
+        private final Function<Type, Type> TYPENAME_TRANSFORM = new Function<Type, Type>() {
+            @Override
+            public Type apply(Type type) {
+                checkNotNull(type, "type cannot be null");
+
+                if (!type.isPointerType()) {
+                    emitRestrictWarning();
+                }
+
+                return type.addQualifiers(isConstQualified, isVolatileQualified,
+                        restrictQualifier.isPresent());
+            }
+        };
+
         private BaseTypeVisitor(Environment environment, ErrorHelper errorHelper,
                                 boolean isStandalone, Location startFuzzy, Location endFuzzy) {
             this.environment = environment;
@@ -494,41 +519,63 @@ public final class TypesAnalysis {
         }
 
         private Optional<Type> finishTypename() {
-            if (typename instanceof ComponentTyperef) {
-                // TODO handle typedefs from other components
-                return Optional.absent();
-            }
+            return typename instanceof ComponentTyperef
+                    ? finishComponentTyperef()
+                    : finishPureTypename();
+        }
 
-            // Resolve the typename
-            final String typenameStr = typename.getName();
-            Optional<? extends ErroneousIssue> error;
-            final Optional<? extends ObjectDeclaration> maybeDecl = environment.getObjects().get(typenameStr);
-            if (!maybeDecl.isPresent()) {
-                error = Optional.of(new UndeclaredIdentifierError(typenameStr));
-            } else if (!maybeDecl.get().getType().isPresent()) {
+        private Optional<Type> finishComponentTyperef() {
+            final ComponentTyperef typeref = (ComponentTyperef) typename;
+            final String componentRefName = typeref.getName();
+            final String referredTypename = typeref.getTypeName();
+
+            typename.setIsGenericReference(false);
+
+            // Check if the component reference is correct and retrieve the type
+
+            final Optional<? extends ObjectDeclaration> optDeclaration =
+                    environment.getObjects().get(componentRefName);
+
+            if (!optDeclaration.isPresent()) {
+                errorHelper.error(typeref.getLocation(), typeref.getEndLocation(),
+                        new UndeclaredIdentifierError(componentRefName));
+                return Optional.absent();
+            } else if (optDeclaration.get().getKind() != ObjectKind.COMPONENT) {
+                errorHelper.error(typeref.getLocation(), typeref.getEndLocation(),
+                        InvalidComponentTyperefError.expectedComponentRef(componentRefName));
                 return Optional.absent();
             } else {
-                final Type type = maybeDecl.get().getType().get();
-                if (!type.isTypeDefinition()) {
-                    error = Optional.of(new InvalidIdentifierTypeError(typenameStr, type,
-                                        TypeDefinitionType.getInstance()));
-                } else {
-                    final TypenameDeclaration declaration = (TypenameDeclaration) maybeDecl.get();
-                    final Optional<Type> denotedType = declaration.getDenotedType();
-                    final Function<Type, Type> transformFun = new Function<Type, Type>() {
-                        @Override
-                        public final Type apply(Type type) {
-                            return type.addQualifiers(isConstQualified, isVolatileQualified,
-                                                      restrictQualifier.isPresent());
-                        }
-                    };
-
-                    if (denotedType.isPresent() && !denotedType.get().isPointerType()) {
-                        emitRestrictWarning();
-                    }
-
-                    return declaration.getDenotedType().transform(transformFun);
+                final ComponentRefFacade refFacade = ((ComponentRefDeclaration) optDeclaration.get()).getFacade();
+                if (!refFacade.goodComponentRef()) {
+                    return Optional.absent();
                 }
+
+                final Optional<Optional<Type>> referredType = refFacade.getTypedef(referredTypename);
+
+                if (!referredType.isPresent()) {
+                    errorHelper.error(typeref.getLocation(), typeref.getEndLocation(),
+                            InvalidComponentTyperefError.nonexistentTypedefReferenced(componentRefName, referredTypename));
+                    return Optional.absent();
+                }
+
+                return referredType.get().transform(TYPENAME_TRANSFORM);
+            }
+        }
+
+        private Optional<Type> finishPureTypename() {
+            // Resolve the typename
+            final String typenameStr = typename.getName();
+            final Optional<? extends ErroneousIssue> error;
+            final Optional<? extends ObjectDeclaration> maybeDecl = environment.getObjects().get(typenameStr);
+
+            if (!maybeDecl.isPresent()) {
+                error = Optional.of(new UndeclaredIdentifierError(typenameStr));
+            } else if (maybeDecl.get().getKind() != ObjectKind.TYPENAME) {
+                error = Optional.of(InvalidTypenameError.expectedTypename(typenameStr));
+            } else {
+                final TypenameDeclaration declaration = (TypenameDeclaration) maybeDecl.get();
+                typename.setIsGenericReference(declaration.isGenericParameter());
+                return declaration.getDenotedType().transform(TYPENAME_TRANSFORM);
             }
 
             errorHelper.error(typename.getLocation(), typename.getEndLocation(), error.get());
@@ -829,6 +876,11 @@ public final class TypesAnalysis {
      */
     private static class DeclaratorTypeVisitor extends ExceptionVisitor<Void, Void> {
         /**
+         * Environment of the resolved type.
+         */
+        private final Environment environment;
+
+        /**
          * Object that will be notified about detected errors.
          */
         private final ErrorHelper errorHelper;
@@ -850,8 +902,10 @@ public final class TypesAnalysis {
          */
         private Type accumulatedType;
 
-        private DeclaratorTypeVisitor(Type baseType, ErrorHelper errorHelper) {
+        private DeclaratorTypeVisitor(Type baseType, Environment environment,
+                ErrorHelper errorHelper) {
             this.accumulatedType = baseType;
+            this.environment = environment;
             this.errorHelper = errorHelper;
             this.validityVisitor = new TypeValidityVisitor(errorHelper);
         }
@@ -880,6 +934,11 @@ public final class TypesAnalysis {
 
         @Override
         public Void visitArrayDeclarator(ArrayDeclarator declarator, Void v) {
+            final Optional<Expression> arraySizeExpr = declarator.getSize();
+            if (arraySizeExpr.isPresent()) {
+                ExpressionsAnalysis.analyze(arraySizeExpr.get(), environment, errorHelper);
+            }
+
             accumulatedType = new ArrayType(accumulatedType, declarator.getSize().isPresent());
             checkType(declarator);
             jump(declarator.getDeclarator());

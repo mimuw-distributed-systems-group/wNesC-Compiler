@@ -71,7 +71,8 @@ public final class TypeElementsAssociation {
                                                  apxStartLoc, apxEndLoc);
 
         return   maybeType.isPresent() && maybeDeclarator.isPresent()
-               ? resolveDeclaratorType(maybeDeclarator.get(), errorHelper, maybeType.get())
+               ? resolveDeclaratorType(maybeDeclarator.get(), environment,
+                        errorHelper, maybeType.get())
                : maybeType;
     }
 

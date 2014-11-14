@@ -1467,7 +1467,7 @@ cast_expr:
     }
     | LPAREN typename RPAREN LBRACE initlist_maybe_comma RBRACE
     {
-        final InitList initList = Initializers.makeInitList($4.getLocation(), $6.getEndLocation(), $5);
+        final InitList initList = initializers.makeInitList(environment, $4.getLocation(), $6.getEndLocation(), $5);
         $$ = Expressions.makeCastList($1.getLocation(), $6.getEndLocation(), $2, initList);
     }
     ;
@@ -2662,7 +2662,7 @@ init:
     }
     | LBRACE initlist_maybe_comma RBRACE
     {
-        $$ = Initializers.makeInitList($1.getLocation(), $3.getEndLocation(), $2);
+        $$ = initializers.makeInitList(environment, $1.getLocation(), $3.getEndLocation(), $2);
     }
     | error
     {
@@ -2690,16 +2690,16 @@ initelt:
       designator_list EQ initval
     {
         final Location startLocation = AstUtils.getStartLocation($1).get();
-        $$ = Initializers.makeInitSpecific(startLocation, $3.getEndLocation(), $1, $3);
+        $$ = initializers.makeInitSpecific(environment, startLocation, $3.getEndLocation(), $1, $3);
     }
     | designator initval
     {
-        $$ = Initializers.makeInitSpecific($1.getLocation(), $2.getEndLocation(), $1, $2);
+        $$ = initializers.makeInitSpecific(environment, $1.getLocation(), $2.getEndLocation(), $1, $2);
     }
     | identifier COLON initval
     {
-        final Designator designator = Initializers.setInitLabel($1.getLocation(), $1.getEndLocation(), $1.getValue());
-        $$ = Initializers.makeInitSpecific($1.getLocation(), $3.getEndLocation(), designator, $3);
+        final Designator designator = initializers.setInitLabel($1.getLocation(), $1.getEndLocation(), $1.getValue());
+        $$ = initializers.makeInitSpecific(environment, $1.getLocation(), $3.getEndLocation(), designator, $3);
     }
     | initval
     { $$ = $1; }
@@ -2708,7 +2708,7 @@ initelt:
 initval:
       LBRACE initlist_maybe_comma RBRACE
     {
-        $$ = Initializers.makeInitList($1.getLocation(), $3.getEndLocation(), $2);
+        $$ = initializers.makeInitList(environment, $1.getLocation(), $3.getEndLocation(), $2);
     }
     | expr_no_commas
     {
@@ -2730,18 +2730,18 @@ designator_list:
 designator:
       DOT identifier
     {
-        $$ = Initializers.setInitLabel($2.getLocation(), $2.getEndLocation(), $2.getValue());
+        $$ = initializers.setInitLabel($2.getLocation(), $2.getEndLocation(), $2.getValue());
     }
     /* These are for labeled elements.  The syntax for an array element
        initializer conflicts with the syntax for an Objective-C message,
        so don't include these productions in the Objective-C grammar.  */
     | LBRACK expr_no_commas ELLIPSIS expr_no_commas RBRACK
     {
-        $$ = Initializers.setInitIndex($1.getLocation(), $5.getEndLocation(), $2, Optional.<Expression>of($4));
+        $$ = initializers.setInitIndex(environment, $1.getLocation(), $5.getEndLocation(), $2, Optional.<Expression>of($4));
     }
     | LBRACK expr_no_commas RBRACK
     {
-        $$ = Initializers.setInitIndex($1.getLocation(), $3.getEndLocation(), $2, Optional.<Expression>absent());
+        $$ = initializers.setInitIndex(environment, $1.getLocation(), $3.getEndLocation(), $2, Optional.<Expression>absent());
     }
     ;
 
@@ -4272,6 +4272,7 @@ string_chain:
     private ErrorHelper errorHelper;
 
     private Declarations declarations;
+    private Initializers initializers;
     private Statements statements;
     private NescDeclarations nescDeclarations;
     private NescComponents nescComponents;
@@ -4323,6 +4324,8 @@ string_chain:
         this.errorHelper = new ErrorHelper(this.issuesMultimapBuilder);
 
         this.declarations = new Declarations(this.nescEnvironment, this.issuesMultimapBuilder,
+                this.tokensMultimapBuilder);
+        this.initializers = new Initializers(this.nescEnvironment, this.issuesMultimapBuilder,
                 this.tokensMultimapBuilder);
         this.statements = new Statements(this.nescEnvironment, this.issuesMultimapBuilder,
                 this.tokensMultimapBuilder);

@@ -174,12 +174,14 @@ public final class NescDeclarations extends AstBuildingBase {
                         .addAttributes(attributes)
                         .newUnknownType();
 
-                builder = TypenameDeclaration.builder().denotedType(denotedType);
+                builder = TypenameDeclaration.builder().isGenericParameter(true)
+                            .denotedType(denotedType);
                 variableDecl.setType(Optional.<Type>of(TypeDefinitionType.getInstance()));
             } else {
                 variableDecl.setType(resolveType(environment, elements, declarator,
                         errorHelper, startLocation, endLocation));
-                builder = VariableDeclaration.builder().type(variableDecl.getType().orNull());
+                builder = VariableDeclaration.builder().isGenericParameter(true)
+                            .type(variableDecl.getType().orNull());
             }
 
             final ObjectDeclaration declaration = builder

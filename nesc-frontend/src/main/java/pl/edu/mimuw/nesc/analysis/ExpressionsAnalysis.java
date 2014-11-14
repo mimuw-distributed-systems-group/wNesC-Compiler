@@ -141,7 +141,9 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     /**
      * Analyze the given expression and report all detected errors to the given
-     * error helper.
+     * error helper. This method shall not be called if
+     * {@link pl.edu.mimuw.nesc.ast.util.AstUtils#IS_INITIALIZER IS_INITIALIZER}
+     * predicate is fulfilled for the expression.
      *
      * @param expr Expression to be analyzed.
      * @param environment Environment of the expression.
@@ -866,9 +868,6 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
     @Override
     public Optional<ExprData> visitIdentifier(Identifier expr, Void arg) {
         touch(expr);
-        final ExprData.Builder dataBuilder = ExprData.builder()
-                .isBitField(false)
-                .isNullPointerConstant(false);
 
         final Optional<? extends ObjectDeclaration> objDecl =
                 environment.getObjects().get(expr.getName());
@@ -882,39 +881,25 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
         // Get necessary information from the declaration object
         final ObjectDeclaration pureObjDecl = objDecl.get();
+        final ObjectReferenceVisitor dataVisitor = new ObjectReferenceVisitor();
+        pureObjDecl.accept(dataVisitor, null);
+
         expr.setDeclaration(pureObjDecl);
-        final ObjectKind objKind = pureObjDecl.getKind();
-        final Optional<Type> objType = pureObjDecl.getType();
-        final boolean entityCorrect;
+        expr.setIsGenericReference(dataVisitor.isGenericReference);
 
         // Emit error if an invalid type of object is referred
-        if (objKind != ObjectKind.VARIABLE && objKind != ObjectKind.FUNCTION
-                && objKind != ObjectKind.CONSTANT) {
-
-            entityCorrect = false;
-
-        } else if (objKind == ObjectKind.FUNCTION) {
-
-            final FunctionDeclaration funDecl = (FunctionDeclaration) pureObjDecl;
-            final FunctionDeclaration.FunctionType funKind = funDecl.getFunctionType();
-
-            entityCorrect = funKind != FunctionDeclaration.FunctionType.COMMAND
-                    && funKind != FunctionDeclaration.FunctionType.EVENT
-                    && funKind != FunctionDeclaration.FunctionType.TASK;
-        } else {
-            entityCorrect = true;
-        }
-
-        if (!entityCorrect) {
+        if (!dataVisitor.entityCorrect) {
             errorHelper.error(expr.getLocation(), expr.getEndLocation(),
                     new InvalidIdentifierUsageError(expr.getName()));
             return Optional.absent();
         }
 
-        if (objType.isPresent()) {
-            final ExprData result = dataBuilder
-                    .isLvalue(pureObjDecl.getKind() == ObjectKind.VARIABLE)
-                    .type(objType.get())
+        if (dataVisitor.type.isPresent()) {
+            final ExprData result = ExprData.builder()
+                    .type(dataVisitor.type.get())
+                    .isLvalue(dataVisitor.isLvalue)
+                    .isBitField(false)
+                    .isNullPointerConstant(false)
                     .build()
                     .spread(expr);
             return Optional.of(result);
@@ -1280,15 +1265,13 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
     @Override
     public Optional<ExprData> visitInitList(InitList expr, Void arg) {
         touch(expr);
-        // FIXME
-        return Optional.absent();
+        return analyzeInitializer(expr);
     }
 
     @Override
     public Optional<ExprData> visitInitSpecific(InitSpecific expr, Void arg) {
         touch(expr);
-        // FIXME
-        return Optional.absent();
+        return analyzeInitializer(expr);
     }
 
     @Override
@@ -1924,6 +1907,19 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
     }
 
     /**
+     * Report error because initializers cannot be used within expressions.
+     *
+     * @param initializer <code>InitSpecific</code> or <code>InitList</code>
+     *                    object.
+     * @return Absent object.
+     */
+    private Optional<ExprData> analyzeInitializer(Expression initializer) {
+        errorHelper.error(initializer.getLocation(), initializer.getEndLocation(),
+                new InvalidInitializerUsageError());
+        return Optional.absent();
+    }
+
+    /**
      * @return <code>true</code> if and only if both types are correct for the
      *         operands of the given multiplicative operator.
      */
@@ -2551,6 +2547,79 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
         private boolean canContinue() {
             return !anotherProblem && !problem.isPresent();
+        }
+    }
+
+    /**
+     * <p>Visitor for analysis and retrieving data about used identifiers.
+     * A visitor contains proper data about an object after visiting its
+     * declaration object.</p>
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class ObjectReferenceVisitor implements ObjectDeclaration.Visitor<Void, Void> {
+        private boolean entityCorrect;
+        private boolean isLvalue;
+        private Optional<Type> type;
+        private boolean isGenericReference;
+
+        @Override
+        public Void visit(VariableDeclaration declaration, Void arg) {
+            this.entityCorrect = true;
+            this.isLvalue = !declaration.isGenericParameter();
+            this.type = declaration.getType();
+            this.isGenericReference = declaration.isGenericParameter();
+
+            return null;
+        }
+
+        @Override
+        public Void visit(FunctionDeclaration declaration, Void arg) {
+            final FunctionDeclaration.FunctionType funKind = declaration.getFunctionType();
+
+            this.entityCorrect = funKind != FunctionDeclaration.FunctionType.COMMAND
+                    && funKind != FunctionDeclaration.FunctionType.EVENT
+                    && funKind != FunctionDeclaration.FunctionType.TASK;
+            this.isLvalue = false;
+            this.type = declaration.getType();
+            this.isGenericReference = false;
+
+            return null;
+        }
+
+        @Override
+        public Void visit(ConstantDeclaration declaration, Void arg) {
+            this.entityCorrect = true;
+            this.isLvalue = false;
+            this.type = declaration.getType();
+            this.isGenericReference = false;
+
+            return null;
+        }
+
+        @Override
+        public Void visit(InterfaceRefDeclaration declaration, Void arg) {
+            setIllegalReferenceValues();
+            return null;
+        }
+
+        @Override
+        public Void visit(ComponentRefDeclaration declaration, Void arg) {
+            setIllegalReferenceValues();
+            return null;
+        }
+
+        @Override
+        public Void visit(TypenameDeclaration declaration, Void arg) {
+            setIllegalReferenceValues();
+            return null;
+        }
+
+        private void setIllegalReferenceValues() {
+            this.entityCorrect = false;
+            this.isLvalue = false;
+            this.type = Optional.absent();
+            this.isGenericReference = false;
         }
     }
 }

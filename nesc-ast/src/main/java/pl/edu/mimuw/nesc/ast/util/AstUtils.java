@@ -1,11 +1,15 @@
 package pl.edu.mimuw.nesc.ast.util;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.DataDecl;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.ErrorDecl;
+import pl.edu.mimuw.nesc.ast.gen.Expression;
+import pl.edu.mimuw.nesc.ast.gen.InitList;
+import pl.edu.mimuw.nesc.ast.gen.InitSpecific;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
 import pl.edu.mimuw.nesc.ast.gen.Word;
@@ -16,6 +20,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * <h1>Locations</h1>
@@ -32,6 +37,18 @@ import static com.google.common.base.Preconditions.checkArgument;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class AstUtils {
+    /**
+     * <p>Predicate of an expression that is fulfilled if and only if the
+     * expression is an initializer list or an initialization designation inside
+     * an initializer list.</p>
+     */
+    public static final Predicate<Expression> IS_INITIALIZER = new Predicate<Expression>() {
+        @Override
+        public boolean apply(Expression expr) {
+            checkNotNull(expr, "the expression cannot be null");
+            return expr instanceof InitList || expr instanceof InitSpecific;
+        }
+    };
 
     /**
      * Returns start location of nodes in the list.
