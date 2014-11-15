@@ -296,6 +296,23 @@ public final class AstUtils {
         return typesBuilder.build();
     }
 
+    @SuppressWarnings("unchecked")
+    public static <T extends Node> LinkedList<T> deepCopyNodes(LinkedList<T> toCopy) {
+        final LinkedList<T> copy = new LinkedList<>();
+
+        for (T node : toCopy) {
+            copy.add((T) node.deepCopy());
+        }
+
+        return copy;
+    }
+
+    public static <T extends Node> Optional<LinkedList<T>> deepCopyNodes(Optional<LinkedList<T>> toCopy) {
+        return toCopy.isPresent()
+                ? Optional.of(deepCopyNodes(toCopy.get()))
+                : Optional.<LinkedList<T>>absent();
+    }
+
     private AstUtils() {
     }
 }

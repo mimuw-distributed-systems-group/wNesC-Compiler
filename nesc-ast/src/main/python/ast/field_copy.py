@@ -1,0 +1,97 @@
+from ast.util import DST_LANGUAGE, tab
+import re
+
+
+class DEEP_COPY_MODE:
+    ASSIGN_NULL = 0
+    ASSIGN_DEEP_COPY = 1
+    ASSIGN_REFERENCE_COPY = 2
+    ASSIGN_LIST_DEEP_COPY = 3
+
+
+class FieldCopyCodeGenerator:
+    """Base class for generators of code responsible for copying fields."""
+
+    def __init__(self, field_name, field_optional, type_fun):
+        self.field_name = field_name
+        self.field_optional = field_optional
+        self.type_fun = type_fun
+
+    def generate_code(self, lang, copy_name):
+        """Returns a list with lines of code."""
+        if lang == DST_LANGUAGE.JAVA:
+            return self.generate_code_java(copy_name)
+        elif lang == DST_LANGUAGE.CPP:
+            return self.generate_code_cpp(copy_name)
+        else:
+            raise Exception("unexpected destination language {0}".format(lang))
+
+    def generate_code_java(self, copy_name):
+        raise NotImplementedError
+
+    def generate_code_cpp(self, copy_name):
+        raise NotImplementedError
+
+
+class NullCopyCodeGenerator(FieldCopyCodeGenerator):
+    def __init__(self, field_name, field_optional, type_fun):
+        super().__init__(field_name, field_optional, type_fun)
+
+    def generate_code_java(self, copy_name):
+        return ["{0}.{1} = null;".format(copy_name, self.field_name)]
+
+
+class DeepCopyCodeGenerator(FieldCopyCodeGenerator):
+    def __init__(self, field_name, field_optional, type_fun):
+        super().__init__(field_name, field_optional, type_fun)
+
+    def generate_code_java(self, copy_name):
+        if not self.field_optional:
+            return ["{0}.{1} = this.{1}.deepCopy();".format(copy_name, self.field_name)]
+        else:
+            # Retrieve the argument of the optional type
+            field_type = self.type_fun(DST_LANGUAGE.JAVA)
+            match = re.fullmatch(r'Optional<(?P<nested_type>.+)>', field_type)
+            if match is None:
+                raise Exception('unexpected type for an optional field {0}'.format(field_type))
+            nested_type = match.group("nested_type")
+
+            return [
+                "{0}.{1} = this.{1}.isPresent()".format(copy_name, self.field_name),
+                2 * tab + "? Optional.of(this.{0}.get().deepCopy())".format(self.field_name),
+                2 * tab + ": Optional.<{0}>absent();".format(nested_type)
+            ]
+
+
+class ReferenceCopyCodeGenerator(FieldCopyCodeGenerator):
+    def __init__(self, field_name, field_optional, type_fun):
+        super().__init__(field_name, field_optional, type_fun)
+
+    def generate_code_java(self, copy_name):
+        return ["{0}.{1} = this.{1};".format(copy_name, self.field_name)]
+
+
+class ListDeepCopyCodeGenerator(FieldCopyCodeGenerator):
+    def __init__(self, field_name, field_optional, type_fun):
+        super().__init__(field_name, field_optional, type_fun)
+
+    def generate_code_java(self, copy_name):
+        return ["{0}.{1} = AstUtils.deepCopyNodes({1});".format(copy_name, self.field_name)]
+
+
+def get_field_copy_gen(field_name, field):
+    """Returns the generator of the copy code for given field."""
+    mode = field.deep_copy_mode
+    field_optional = field.optional
+    type_fun = field.get_type
+
+    if mode == DEEP_COPY_MODE.ASSIGN_NULL:
+        return NullCopyCodeGenerator(field_name, field_optional, type_fun)
+    elif mode == DEEP_COPY_MODE.ASSIGN_DEEP_COPY:
+        return DeepCopyCodeGenerator(field_name, field_optional, type_fun)
+    elif mode == DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY:
+        return ReferenceCopyCodeGenerator(field_name, field_optional, type_fun)
+    elif mode == DEEP_COPY_MODE.ASSIGN_LIST_DEEP_COPY:
+        return ListDeepCopyCodeGenerator(field_name, field_optional, type_fun)
+    else:
+        raise Exception("invalid field deep copy mode {0}".format(mode))

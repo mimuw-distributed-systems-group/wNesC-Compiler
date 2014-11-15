@@ -2,6 +2,7 @@ from os import path, makedirs
 from collections import OrderedDict
 
 from ast.util import first_to_cap, DST_LANGUAGE, tab, ast_nodes, ast_enums
+from ast.field_copy import *
 from ast.fields import BasicASTNodeField, ReferenceField, ReferenceListField, EnumField, EnumListField
 
 #TODO:
@@ -91,6 +92,52 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
 
         return code
 
+    def gen_deep_copy(self, lang):
+        """Generate the code of the method that creates a deep clone of an AST node.
+
+        Returns the code of the method that creates a new instance of the same class and fills
+        fields of this new instance according to deep copy mode of each field.
+        """
+        if lang == DST_LANGUAGE.CPP:
+            return self.gen_deep_copy_cpp()
+        elif lang == DST_LANGUAGE.JAVA:
+            return self.gen_deep_copy_java()
+        else:
+            raise Exception("unexpected destination language {0}".format(lang))
+
+    def gen_deep_copy_cpp(self):
+        # FIXME
+        raise NotImplementedError
+
+    def gen_deep_copy_java(self):
+        cls = self.__class__
+        classname = cls.__name__
+
+        all_fields = dict(cls.__field_types)
+        all_fields.update(cls.__super_field_types)
+
+        body_indent = 2 * tab
+
+        fields_assigns = []
+        for name, field_data in sorted(all_fields.items(), key=lambda x : x[0]):
+            fields_assigns.extend(field_data[3].generate_code(DST_LANGUAGE.JAVA, "copy"))
+        fields_assigns = map(lambda s : body_indent + s, fields_assigns)
+
+        body = body_indent + "final {0} copy = new {0}();\n\n".format(classname)
+        body += "\n".join(fields_assigns) + "\n"
+        body += "\n" + body_indent + "return copy;\n"
+
+        code = ""
+
+        if hasattr(self, "superclass"):
+            code += tab + "@Override\n"
+
+        code += tab + "public {0} deepCopy() {{\n".format(classname)
+        code += body
+        code += tab + "}\n\n"
+
+        return code
+
     def get_fields(self, lang):
         fields = []
         field_types = dict()
@@ -104,7 +151,8 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             for n, el in map(lambda x: (x, self.__getattribute__(x)), dir(self)):
                 if isinstance(el, BasicASTNodeField):
                     fields.append(n)
-                    field_types[n] = (el.const, el.get_type(lang), el.constructor_variable)
+                    field_copy_gen = get_field_copy_gen(n, el)
+                    field_types[n] = (el.const, el.get_type(lang), el.constructor_variable, field_copy_gen)
                     field_defaults[n] = el.default_value
         else:
             fields = cls.__field_names + cls.__super_field_names
@@ -206,8 +254,9 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
 
             for n, el in map(lambda x: (x, self.__getattribute__(x)), members):
                 if isinstance(el, BasicASTNodeField):
+                    field_copy_gen = get_field_copy_gen(n, el)
                     cls.__field_names.append(n)
-                    cls.__field_types[n] = (el.const, el.get_type(lang), el.constructor_variable)
+                    cls.__field_types[n] = (el.const, el.get_type(lang), el.constructor_variable, field_copy_gen)
                     if el.default_value is not None:
                         cls.__field_defaults[n] = el.default_value
                     if el.name is None:
@@ -221,6 +270,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
                     cls.__methods.append("\n".join(map(lambda x: tab + x if x != "\n" else x, method.split("\n"))))
 
         constructor = self.gen_constructor(lang)
+        deep_copy_method = self.gen_deep_copy(lang)
 
         if lang == DST_LANGUAGE.CPP:
             res = "class " + class_name + superclass + " {\n"
@@ -242,6 +292,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             res += "import com.google.common.base.Optional;\n"
             res += "import pl.edu.mimuw.nesc.ast.*;\n"
             res += "import pl.edu.mimuw.nesc.ast.type.Type;\n"
+            res += "import pl.edu.mimuw.nesc.ast.util.AstUtils;\n"
             res += "import pl.edu.mimuw.nesc.declaration.label.*;\n"
             res += "import pl.edu.mimuw.nesc.declaration.nesc.*;\n"
             res += "import pl.edu.mimuw.nesc.declaration.object.*;\n"
@@ -259,6 +310,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
                 res += "\n".join(cls.__fields) + "\n\n"
             res += constructor
             res += "\n".join(cls.__methods) + "\n"
+            res += deep_copy_method
             res += self.gen_visitable_code(lang)
             res += "}\n"
 

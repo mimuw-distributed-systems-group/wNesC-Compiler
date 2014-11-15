@@ -1,13 +1,16 @@
 from ast.util import first_to_cap, DST_LANGUAGE, tab, ast_nodes
+from ast.field_copy import DEEP_COPY_MODE
 
 #the basic class from which all field classes must derive.
 #All field classes must have name and const fields
 class BasicASTNodeField:
-    def __init__(self, constructor_variable=True, default_value=None, visitable=True, optional=False):
+    def __init__(self, constructor_variable=True, default_value=None, visitable=True, optional=False,
+                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_DEEP_COPY):
         self.constructor_variable = constructor_variable
         self.default_value = default_value
         self.visitable = visitable
         self.optional = optional
+        self.deep_copy_mode = deep_copy_mode
 
     #expected result for c++ and java is a pair of strings
     #that represent the member declaration and getter/setter functions
@@ -68,8 +71,9 @@ class FLOAT_TYPE:
 #all fields available
 #TODO: add EnumField and EnumListField
 class BoolField(BasicASTNodeField):
-    def __init__(self, name=None, const=False, *args, **kwargs):
-        super(BoolField, self).__init__(*args, **kwargs)
+    def __init__(self, name=None, const=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY,
+                 *args, **kwargs):
+        super(BoolField, self).__init__(deep_copy_mode=deep_copy_mode, *args, **kwargs)
         self.name = name
         self.const = const
 
@@ -270,8 +274,9 @@ class FloatField(BasicASTNodeField):
 
 
 class StringField(BasicASTNodeField):
-    def __init__(self, name=None, const=False, *args, **kwargs):
-        super(StringField, self).__init__(*args, **kwargs)
+    def __init__(self, name=None, const=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY,
+                 *args, **kwargs):
+        super(StringField, self).__init__(deep_copy_mode=deep_copy_mode, *args, **kwargs)
         self.name = name
         self.const = const
 
@@ -784,8 +789,9 @@ class StringListField(BasicASTNodeField):
 
 
 class ReferenceListField(BasicASTNodeField):
-    def __init__(self, ref_type, name=None, const=False, *args, **kwargs):
-        super(ReferenceListField, self).__init__(*args, **kwargs)
+    def __init__(self, ref_type, name=None, const=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_LIST_DEEP_COPY,
+                 *args, **kwargs):
+        super(ReferenceListField, self).__init__(deep_copy_mode=deep_copy_mode, *args, **kwargs)
         self.name = name
         self.const = const
 
