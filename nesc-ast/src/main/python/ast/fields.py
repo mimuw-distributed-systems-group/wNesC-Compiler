@@ -22,6 +22,30 @@ class BasicASTNodeField:
     def gen_printer(self, lang):
         raise NotImplementedError
 
+    #expected result is a list of lines with code for given language
+    def gen_subst_code(self, lang, field_name, nodes_names, indicators, manager_name):
+        return []
+
+    def gen_subst_code_helper(self, obj_expr, obj_type, indicator, manager_name, assign_fun):
+        code = ["if ({0}.get{1}() == null || !{0}.get{1}()) {{"
+                    .format(obj_expr, first_to_cap(indicator[1]))]
+        code.append(tab + "final Optional<{0}> replacement = {1}.substitute({2});"
+                    .format(obj_type, manager_name, obj_expr))
+        code.append(tab + "if (replacement.isPresent()) {")
+        code.append(2 * tab + assign_fun("replacement.get()"))
+        code.append(tab + "} else {")
+        code.append(2 * tab + "{0}.substitute({1});".format(obj_expr, manager_name))
+        code.append(tab + "}")
+        code.append("} else {")
+        code.append(tab + "{0}.substitute({1});".format(obj_expr, manager_name))
+        code.append("}")
+
+        return code
+
+    #expected result is a list of lines with code for given language
+    def gen_set_paste_flag_deep(self, lang, field_name, nodes_names, value_param_name):
+        return []
+
     #expected result for c++ and java is a string
     #representing the full type of the field
     def get_type(self, lang, full=False):
@@ -393,6 +417,83 @@ class ReferenceField(BasicASTNodeField):
                 res += tab * 2 + '}}'
 
         return res.format(first_to_cap(self.name))
+
+    def gen_subst_code(self, lang, field_name, nodes_names, indicators, manager_name):
+        if lang == DST_LANGUAGE.CPP:
+            return self.gen_subst_code_cpp(field_name, nodes_names, indicators, manager_name)
+        elif lang == DST_LANGUAGE.JAVA:
+            return self.gen_subst_code_java(field_name, nodes_names, indicators, manager_name)
+        else:
+            raise Exception("unexpected destination language '{0}'".format(lang))
+
+    def gen_subst_code_cpp(self, field_name, nodes_names, indicators, manager_name):
+        # FIXME
+        raise NotImplementedError
+
+    def gen_subst_code_java(self, field_name, nodes_names, indicators, manager_name):
+        if not self.visitable:
+            return []
+        elif self.ref_type not in indicators and self.ref_type not in nodes_names:
+            return []
+        elif self.ref_type not in indicators and self.ref_type in nodes_names:
+            if not self.optional:
+                return [
+                    "if (this.{0} != null) {{".format(field_name),
+                    tab + "this.{0}.substitute({1});".format(field_name, manager_name),
+                    "}"
+                ]
+            else:
+                return [
+                    "if (this.{0} != null && this.{0}.isPresent()) {{".format(field_name),
+                    tab + "this.{0}.get().substitute({1});".format(field_name, manager_name),
+                    "}"
+                ]
+
+        indicator = indicators[self.ref_type]
+        code = []
+
+        if not self.optional:
+            code.append("if (this.{0} != null) {{".format(field_name))
+            obj_expr = "this.{0}".format(field_name)
+            assign_fun = lambda s : "this.{0} = {1};".format(field_name, s)
+        else:
+            code.append("if (this.{0} != null && this.{0}.isPresent()) {{".format(field_name))
+            obj_expr = "this.{0}.get()".format(field_name)
+            assign_fun = lambda s : "this.{0} = Optional.of({1});".format(field_name, s)
+
+        helper_code = self.gen_subst_code_helper(obj_expr, self.ref_type, indicator, manager_name, assign_fun)
+        helper_code = map(lambda s : tab + s, helper_code)
+        code.extend(helper_code)
+        code.append("}")
+
+        return code
+
+    def gen_set_paste_flag_deep(self, lang, field_name, nodes_names, value_param_name):
+        if lang == DST_LANGUAGE.CPP:
+            return self.gen_set_paste_flag_deep_cpp(field_name, nodes_names, value_param_name)
+        elif lang == DST_LANGUAGE.JAVA:
+            return self.gen_set_paste_flag_deep_java(field_name, nodes_names, value_param_name)
+
+    def gen_set_paste_flag_deep_cpp(self, field_name, nodes_names, value_param_name):
+        # FIXME
+        raise NotImplementedError
+
+    def gen_set_paste_flag_deep_java(self, field_name, nodes_names, value_param_name):
+        if not self.visitable or self.ref_type not in nodes_names:
+            return []
+
+        if not self.optional:
+            code = ["if (this.{0} != null) {{".format(field_name)]
+            node_expr = "this.{0}".format(field_name)
+        else:
+            code = ["if (this.{0} != null && this.{0}.isPresent()) {{".format(field_name)]
+            node_expr = "this.{0}.get()".format(field_name)
+
+        code.append(tab + "{0}.setPasteFlagDeep({1});".format(node_expr, value_param_name))
+        code.append("}")
+
+        return code
+
 
     def generate_code(self, lang):
         res = None
@@ -867,6 +968,95 @@ class ReferenceListField(BasicASTNodeField):
 
         return res.format(first_to_cap(self.name), self.ref_type)
 
+    def gen_subst_code(self, lang, field_name, nodes_names, indicators, manager_name):
+        if lang == DST_LANGUAGE.CPP:
+            return self.gen_subst_code_cpp(field_name, nodes_names, indicators, manager_name)
+        elif lang == DST_LANGUAGE.JAVA:
+            return self.gen_subst_code_java(field_name, nodes_names, indicators, manager_name)
+        else:
+            raise Exception("unexpected destination language '{0}'".format(lang))
+
+    def gen_subst_code_cpp(self, field_name, nodes_names, indicators, manager_name):
+        # FIXME
+        raise NotImplementedError
+
+    def gen_subst_code_java(self, field_name, nodes_names, indicators, manager_name):
+        if not self.visitable:
+            return []
+        elif self.ref_type not in indicators and self.ref_type not in nodes_names:
+            return []
+        elif self.ref_type not in indicators and self.ref_type in nodes_names:
+            if not self.optional:
+                return [
+                    "if (this.{0} != null) {{".format(field_name),
+                    tab + "for ({0} node : this.{1}) {{".format(self.ref_type, field_name),
+                    2 * tab + "node.substitute({0});".format(manager_name),
+                    tab + "}",
+                    "}"
+                ]
+            else:
+                return [
+                    "if (this.{0} != null && this.{0}.isPresent()) {{",
+                    tab + "for ({0} node : this.{1}.get()) {{".format(self.ref_type, field_name),
+                    2 * tab + "node.substitute({0});".format(manager_name),
+                    tab + "}",
+                    "}"
+                ]
+
+        indicator = indicators[self.ref_type]
+        code = []
+
+        if not self.optional:
+            code.append("if (this.{0} != null) {{".format(field_name))
+            it_expr = "this.{0}.listIterator()".format(field_name)
+        else:
+            code.append("if (this.{0} != null && this.{0}.isPresent()) {{".format(field_name))
+            it_expr = "this.{0}.get().listIterator()".format(field_name)
+
+        code.append(tab + "final ListIterator<{0}> it = {1};".format(self.ref_type, it_expr))
+        code.append(tab + "while (it.hasNext()) {")
+        code.append(2 * tab + "final {0} node = it.next();".format(self.ref_type))
+
+        helper_code = self.gen_subst_code_helper("node", self.ref_type, indicator,
+                                    manager_name, lambda s : "it.set({0});".format(s))
+        helper_code = map(lambda s : 2 * tab + s, helper_code)
+        code.extend(helper_code)
+
+        code.append(tab + "}")
+        code.append("}")
+
+        return code
+
+    def gen_set_paste_flag_deep(self, lang, field_name, nodes_names, value_param_name):
+        if lang == DST_LANGUAGE.CPP:
+            return self.gen_set_paste_flag_deep_cpp(field_name, nodes_names, value_param_name)
+        elif lang == DST_LANGUAGE.JAVA:
+            return self.gen_set_paste_flag_deep_java(field_name, nodes_names, value_param_name)
+        else:
+            raise Exception("unexpected destination language '{0}'".format(lang))
+
+    def gen_set_paste_flag_deep_cpp(self, field_name, nodes_names, value_param_name):
+        # FIXME
+        raise NotImplementedError
+
+    def gen_set_paste_flag_deep_java(self, field_name, nodes_names, value_param_name):
+        if not self.visitable or self.ref_type not in nodes_names:
+            return []
+
+        if not self.optional:
+            code = ["if (this.{0} != null) {{".format(field_name)]
+            node_expr = "this.{0}".format(field_name)
+        else:
+            code = ["if (this.{0} != null && this.{0}.isPresent()) {{".format(field_name)]
+            node_expr = "this.{0}.get()".format(field_name)
+
+        code.append(tab + "for ({0} node : {1}) {{".format(self.ref_type, node_expr))
+        code.append(2 * tab + "node.setPasteFlagDeep({0});".format(value_param_name))
+        code.append(tab + "}")
+        code.append("}")
+
+        return code
+
     def generate_code(self, lang):
         res = None
         res_type = None
@@ -1019,4 +1209,3 @@ class EnumSetField(BasicASTNodeField):
         code = self.gen_getter_code(lang, res_type)
 
         return res, code
-

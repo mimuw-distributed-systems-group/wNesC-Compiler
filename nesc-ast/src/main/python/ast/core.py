@@ -1,9 +1,9 @@
 from os import path, makedirs
 from collections import OrderedDict
 
-from ast.util import first_to_cap, DST_LANGUAGE, tab, ast_nodes, ast_enums
+from ast.util import first_to_cap, DST_LANGUAGE, tab, ast_nodes, ast_enums, generic_nodes
 from ast.field_copy import *
-from ast.fields import BasicASTNodeField, ReferenceField, ReferenceListField, EnumField, EnumListField
+from ast.fields import BasicASTNodeField, BoolField, ReferenceField, ReferenceListField, EnumField, EnumListField
 
 #TODO:
 #   - protection in printer from printing null
@@ -31,13 +31,27 @@ class ASTElemMetaclass(type):
     def __new__(cls, name, bases, namespace, *args, **kwargs):
         #newclass = super(cls, ASTElemMetaclass)
         #newclass = newclass.__new__(cls, clsname, bases, attrs)
+
+        #Add the pasted field for nodes with activated generic indicator
+        if name != 'BasicASTNode' and name != 'BasicASTEnum':
+            if "genericIndicator" in namespace:
+                indicator = namespace["genericIndicator"]
+                if indicator.activated:
+                    namespace[indicator.pasted_field_name] = BoolField(constructor_variable=False)
+
         newclass = type.__new__(cls, name, bases, dict(namespace))
         newclass.members__ = tuple(namespace)
+
         if name != 'BasicASTNode' and name != 'BasicASTEnum':
             if "BasicASTNode" in map(lambda x: x.__name__, bases):
                 ast_nodes[first_to_cap(name)] = newclass
             if "BasicASTEnum" in map(lambda x: x.__name__, bases):
                 ast_enums[first_to_cap(name)] = newclass
+            if "genericIndicator" in namespace:
+                indicator = namespace["genericIndicator"]
+                if indicator.activated:
+                    generic_nodes[name] = (newclass, indicator.pasted_field_name)
+
         return newclass
 
 
@@ -117,13 +131,21 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         all_fields.update(cls.__super_field_types)
 
         body_indent = 2 * tab
-
         fields_assigns = []
-        for name, field_data in sorted(all_fields.items(), key=lambda x : x[0]):
-            fields_assigns.extend(field_data[3].generate_code(DST_LANGUAGE.JAVA, "copy"))
-        fields_assigns = map(lambda s : body_indent + s, fields_assigns)
+        insert_empty_line = True
 
-        body = body_indent + "final {0} copy = new {0}();\n\n".format(classname)
+        for name, field_data in sorted(all_fields.items(), key=lambda x : x[0]):
+            field_lines = field_data[3].generate_code(DST_LANGUAGE.JAVA, "copy")
+
+            if insert_empty_line or len(field_lines) > 1:
+                fields_assigns.append("")
+
+            insert_empty_line = len(field_lines) > 1
+            fields_assigns.extend(field_lines)
+
+        fields_assigns = map(lambda s : body_indent + s if len(s) > 0 else "", fields_assigns)
+
+        body = body_indent + "final {0} copy = new {0}();\n".format(classname)
         body += "\n".join(fields_assigns) + "\n"
         body += "\n" + body_indent + "return copy;\n"
 
@@ -133,6 +155,102 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             code += tab + "@Override\n"
 
         code += tab + "public {0} deepCopy() {{\n".format(classname)
+        code += body
+        code += tab + "}\n\n"
+
+        return code
+
+    def gen_substitute(self, lang):
+        if lang == DST_LANGUAGE.CPP:
+            return self.gen_substitute_cpp()
+        elif lang == DST_LANGUAGE.JAVA:
+            return self.gen_substitute_java()
+        else:
+            raise Exception("unexpected destination language '{0}".format(lang))
+
+    def gen_substitute_cpp(self):
+        # FIXME
+        raise NotImplementedError
+
+    def gen_substitute_java(self):
+        body_lines = []
+
+        for name, field in map(lambda x: (x, self.__getattribute__(x)), dir(self)):
+            if not isinstance(field, BasicASTNodeField):
+                continue
+
+            field_lines = field.gen_subst_code(DST_LANGUAGE.JAVA, name, ast_nodes.keys(),
+                                               generic_nodes, "manager")
+            if len(field_lines) > 0:
+                if len(body_lines) > 0:
+                    body_lines.append("")
+                body_lines.append("// {0}".format(name))
+                body_lines.extend(field_lines)
+
+        body_lines = map(lambda s: 2 * tab + s if len(s) != 0 else "", body_lines)
+        body = "\n".join(body_lines)
+
+        if len(body) == 0 and hasattr(self, "superclass"):
+            return ""
+        elif len(body) == 0:
+            return tab + "public void substitute(SubstitutionManager manager) {}\n\n"
+        else:
+            body += "\n"
+
+        if hasattr(self, "superclass"):
+            code = tab + "@Override\n"
+            code += tab + "public void substitute(SubstitutionManager manager) {\n"
+            code += 2 * tab + "super.substitute(manager);\n\n"
+        else:
+            code = tab + "public void substitute(SubstitutionManager manager) {\n"
+
+        code += body
+        code += tab + "}\n\n"
+
+        return code
+
+    def gen_set_paste_flag_deep(self, lang):
+        if lang == DST_LANGUAGE.CPP:
+            return self.gen_set_paste_flag_deep_cpp()
+        elif lang == DST_LANGUAGE.JAVA:
+            return self.gen_set_paste_flag_deep_java()
+        else:
+            raise Exception("unexpected destination language '{0}'".format(lang))
+
+    def gen_set_paste_flag_deep_cpp(self):
+        # FIXME
+        raise NotImplementedError
+
+    def gen_set_paste_flag_deep_java(self):
+        classname = self.__class__.__name__
+        body_lines = []
+
+        if classname in generic_nodes:
+            body_lines.append("this.{0} = value;".format(generic_nodes[classname][1]))
+
+        for name, field in map(lambda x: (x, self.__getattribute__(x)), dir(self)):
+            if not isinstance(field, BasicASTNodeField):
+                continue
+
+            field_lines = field.gen_set_paste_flag_deep(DST_LANGUAGE.JAVA, name, ast_nodes.keys(), "value")
+
+            if len(field_lines) > 0:
+                if len(body_lines) > 0:
+                    body_lines.append("")
+                body_lines.append("// {0}".format(name))
+                body_lines.extend(field_lines)
+
+        if len(body_lines) == 0 and hasattr(self, "superclass"):
+            return ""
+        elif len(body_lines) == 0:
+            return tab + "public void setPasteFlagDeep(boolean value) {}\n\n"
+
+        body = 2 * tab + "super.setPasteFlagDeep(value);\n\n" if hasattr(self, "superclass") else ""
+        body_lines = map(lambda s : 2 * tab + s if len(s) > 0 else "", body_lines)
+        body += "\n".join(body_lines) + "\n"
+
+        code = tab + "@Override\n" if hasattr(self, "superclass") else ""
+        code += tab + "public void setPasteFlagDeep(boolean value) {\n"
         code += body
         code += tab + "}\n\n"
 
@@ -271,6 +389,8 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
 
         constructor = self.gen_constructor(lang)
         deep_copy_method = self.gen_deep_copy(lang)
+        substitute_method = self.gen_substitute(lang)
+        set_paste_flag_deep_method = self.gen_set_paste_flag_deep(lang)
 
         if lang == DST_LANGUAGE.CPP:
             res = "class " + class_name + superclass + " {\n"
@@ -289,6 +409,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             res = "package pl.edu.mimuw.nesc.ast.gen;\n\n"
             res += "import java.math.BigInteger;\n"
             res += "import java.util.LinkedList;\n"
+            res += "import java.util.ListIterator;\n"
             res += "import com.google.common.base.Optional;\n"
             res += "import pl.edu.mimuw.nesc.ast.*;\n"
             res += "import pl.edu.mimuw.nesc.ast.type.Type;\n"
@@ -311,10 +432,21 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             res += constructor
             res += "\n".join(cls.__methods) + "\n"
             res += deep_copy_method
+            res += substitute_method
+            res += set_paste_flag_deep_method
             res += self.gen_visitable_code(lang)
             res += "}\n"
 
         return res
+
+
+class GenericIndicator:
+    """Class that marks a node as important for generic substitution."""
+
+    def __init__(self, activated, pasted_field_name):
+        self.activated = activated
+        self.pasted_field_name = pasted_field_name
+
 
 #TODO: add comments and cleanup code
 def gen_printer(lang, directory):
@@ -414,6 +546,33 @@ def gen_java_visitor(directory):
     f.close()
 
 
+def gen_subst_manager(lang, directory):
+    if lang == DST_LANGUAGE.CPP:
+        gen_subst_manager_cpp(directory)
+    elif lang == DST_LANGUAGE.JAVA:
+        gen_subst_manager_java(directory)
+    else:
+        raise Exception("unexpected destination language '{0}'".format(lang))
+
+
+def gen_subst_manager_cpp(directory):
+    # FIXME
+    raise NotImplementedError
+
+
+def gen_subst_manager_java(directory):
+    with open(path.join(directory, "SubstitutionManager.java"), "w") as f:
+        f.write("package pl.edu.mimuw.nesc.ast.gen;\n\n")
+        f.write("import com.google.common.base.Optional;\n\n")
+        f.write("public interface SubstitutionManager {\n")
+
+        lines = [ tab + "Optional<{0}> substitute({0} node);".format(classname)
+                  for classname in generic_nodes.keys()]
+        f.write("\n".join(lines) + "\n")
+
+        f.write("}\n")
+
+
 def generate_code(lang, directory=""):
     #if dir is None, then the files will be generated in the
     #current working directory. Else dir should be a valid relative
@@ -473,3 +632,5 @@ def generate_java_code(directory):
     gen_visitor(DST_LANGUAGE.JAVA, directory)
 
     gen_printer(DST_LANGUAGE.JAVA, directory)
+
+    gen_subst_manager(DST_LANGUAGE.JAVA, directory)

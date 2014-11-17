@@ -1,6 +1,6 @@
 # coding=utf-8
 #from ast_core import *
-from ast.core import BasicASTNode, generate_code
+from ast.core import BasicASTNode, generate_code, GenericIndicator
 from ast.field_copy import DEEP_COPY_MODE
 from ast.fields import *
 
@@ -51,6 +51,7 @@ class Node(BasicASTNode):
 class Declaration(BasicASTNode):
     """ A common superclass of all definitions. """
     superclass = Node
+    genericIndicator = GenericIndicator(True, "isPasted")
 
 
 # TODO: statements probably should have pointer to the next statement,
@@ -84,6 +85,7 @@ class Expression(BasicASTNode):
     This field is relevant when generating error messages.</p>
     """
     superclass = Node
+    genericIndicator = GenericIndicator(True, "isPasted")
     type = ReferenceField("Type", optional=True, constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
     parenthesesCount = IntField(constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
     # FIXME: the fields below are borrowed from ncc, but they are propably not required in our implementation.
@@ -295,6 +297,7 @@ class FieldDecl(BasicASTNode):
 # The source-level type QUALIFIERS DECLARATOR.
 class AstType(BasicASTNode):
     superclass = Node
+    genericIndicator = GenericIndicator(True, "isPasted")
     declarator = ReferenceField("Declarator")
     qualifiers = ReferenceListField("TypeElement")
     type = ReferenceField("Type", optional=True, constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)

@@ -47,7 +47,11 @@ class DeepCopyCodeGenerator(FieldCopyCodeGenerator):
 
     def generate_code_java(self, copy_name):
         if not self.field_optional:
-            return ["{0}.{1} = this.{1}.deepCopy();".format(copy_name, self.field_name)]
+            return [
+                "{0}.{1} = this.{1} != null".format(copy_name, self.field_name),
+                2 * tab + "? this.{0}.deepCopy()".format(self.field_name),
+                2 * tab + ": null;",
+            ]
         else:
             # Retrieve the argument of the optional type
             field_type = self.type_fun(DST_LANGUAGE.JAVA)
@@ -57,9 +61,13 @@ class DeepCopyCodeGenerator(FieldCopyCodeGenerator):
             nested_type = match.group("nested_type")
 
             return [
-                "{0}.{1} = this.{1}.isPresent()".format(copy_name, self.field_name),
-                2 * tab + "? Optional.of(this.{0}.get().deepCopy())".format(self.field_name),
-                2 * tab + ": Optional.<{0}>absent();".format(nested_type)
+                "if (this.{0} != null) {{".format(self.field_name),
+                tab + "{0}.{1} = this.{1}.isPresent()".format(copy_name, self.field_name),
+                3 * tab + "? Optional.of(this.{0}.get().deepCopy())".format(self.field_name),
+                3 * tab + ": Optional.<{0}>absent();".format(nested_type),
+                "} else {",
+                tab + "{0}.{1} = null;".format(copy_name, self.field_name),
+                "}",
             ]
 
 
@@ -76,7 +84,11 @@ class ListDeepCopyCodeGenerator(FieldCopyCodeGenerator):
         super().__init__(field_name, field_optional, type_fun)
 
     def generate_code_java(self, copy_name):
-        return ["{0}.{1} = AstUtils.deepCopyNodes({1});".format(copy_name, self.field_name)]
+        return [
+            "{0}.{1} = this.{1} != null".format(copy_name, self.field_name),
+            2 * tab + "? AstUtils.deepCopyNodes(this.{0})".format(self.field_name),
+            2 * tab + ": null;",
+        ]
 
 
 def get_field_copy_gen(field_name, field):

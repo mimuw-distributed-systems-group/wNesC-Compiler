@@ -18,3 +18,6 @@ tab = " " * 4
 #A dictionary of all nodes of the abstract syntax tree
 ast_nodes = OrderedDict()
 ast_enums = OrderedDict()
+
+#Dictionary with nodes that have an activated generic indicator
+generic_nodes = {}
