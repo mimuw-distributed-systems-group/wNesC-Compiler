@@ -489,7 +489,7 @@ class ReferenceField(BasicASTNodeField):
             code = ["if (this.{0} != null && this.{0}.isPresent()) {{".format(field_name)]
             node_expr = "this.{0}.get()".format(field_name)
 
-        code.append(tab + "{0}.setPasteFlagDeep({1});".format(node_expr, value_param_name))
+        code.append(tab + "{0}.setPastedFlagDeep({1});".format(node_expr, value_param_name))
         code.append("}")
 
         return code
@@ -1051,7 +1051,7 @@ class ReferenceListField(BasicASTNodeField):
             node_expr = "this.{0}.get()".format(field_name)
 
         code.append(tab + "for ({0} node : {1}) {{".format(self.ref_type, node_expr))
-        code.append(2 * tab + "node.setPasteFlagDeep({0});".format(value_param_name))
+        code.append(2 * tab + "node.setPastedFlagDeep({0});".format(value_param_name))
         code.append(tab + "}")
         code.append("}")
 

@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.astbuilding;
+package pl.edu.mimuw.nesc.ast.util;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.gen.*;

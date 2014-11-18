@@ -11,7 +11,8 @@
 /target
 
 # eclipse
-# TODO
+# TODO extend
+.settings/
 
 # idea
 .idea

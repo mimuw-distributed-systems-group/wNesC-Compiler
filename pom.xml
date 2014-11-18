@@ -10,6 +10,16 @@
 
     <developers>
         <developer>
+            <id>mc305195</id>
+            <name>Michał Ciszewski</name>
+            <email>mc305195@students.mimuw.edu.pl</email>
+            <organization>University of Warsaw</organization>
+            <roles>
+                <role>developer</role>
+            </roles>
+            <timezone>1</timezone>
+        </developer>
+        <developer>
             <id>gk291583</id>
             <name>Grzegorz Kołakowski</name>
             <email>gk291583@students.mimuw.edu.pl</email>
@@ -27,6 +37,7 @@
         <module>nesc-common</module>
         <module>nesc-ast</module>
         <module>nesc-frontend</module>
+        <module>nesc-core</module>
     </modules>
 
     <properties>

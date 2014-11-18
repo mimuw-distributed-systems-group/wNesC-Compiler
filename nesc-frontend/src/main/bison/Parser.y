@@ -12,6 +12,7 @@ import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.util.AstUtils;
+import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
 import pl.edu.mimuw.nesc.common.FileType;
 import pl.edu.mimuw.nesc.common.NesCFileType;
 import pl.edu.mimuw.nesc.common.util.list.Lists;

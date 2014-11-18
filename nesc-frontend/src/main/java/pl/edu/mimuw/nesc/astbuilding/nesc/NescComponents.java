@@ -10,7 +10,7 @@ import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
-import pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils;
+import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
 import pl.edu.mimuw.nesc.declaration.nesc.ConfigurationDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.InterfaceDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.ModuleDeclaration;

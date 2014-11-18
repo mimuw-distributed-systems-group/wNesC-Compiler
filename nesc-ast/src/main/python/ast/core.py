@@ -243,14 +243,14 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         if len(body_lines) == 0 and hasattr(self, "superclass"):
             return ""
         elif len(body_lines) == 0:
-            return tab + "public void setPasteFlagDeep(boolean value) {}\n\n"
+            return tab + "public void setPastedFlagDeep(boolean value) {}\n\n"
 
-        body = 2 * tab + "super.setPasteFlagDeep(value);\n\n" if hasattr(self, "superclass") else ""
+        body = 2 * tab + "super.setPastedFlagDeep(value);\n\n" if hasattr(self, "superclass") else ""
         body_lines = map(lambda s : 2 * tab + s if len(s) > 0 else "", body_lines)
         body += "\n".join(body_lines) + "\n"
 
         code = tab + "@Override\n" if hasattr(self, "superclass") else ""
-        code += tab + "public void setPasteFlagDeep(boolean value) {\n"
+        code += tab + "public void setPastedFlagDeep(boolean value) {\n"
         code += body
         code += tab + "}\n\n"
 

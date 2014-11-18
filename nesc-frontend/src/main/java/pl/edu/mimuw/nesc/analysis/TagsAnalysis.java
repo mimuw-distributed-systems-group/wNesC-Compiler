@@ -5,7 +5,7 @@ import pl.edu.mimuw.nesc.ast.TagRefSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.FieldTagType;
 import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils;
+import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.*;
 import pl.edu.mimuw.nesc.declaration.tag.fieldtree.*;
@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Set;
 
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveDeclaratorType;
-import static pl.edu.mimuw.nesc.astbuilding.TypeElementUtils.getStructKind;
+import static pl.edu.mimuw.nesc.ast.util.TypeElementUtils.getStructKind;
 import static pl.edu.mimuw.nesc.problem.issue.RedefinitionError.RedefinitionKind;
 import static pl.edu.mimuw.nesc.problem.issue.RedeclarationError.RedeclarationKind;
 import static com.google.common.base.Preconditions.checkArgument;

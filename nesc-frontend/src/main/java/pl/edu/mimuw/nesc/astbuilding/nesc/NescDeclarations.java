@@ -10,7 +10,7 @@ import pl.edu.mimuw.nesc.ast.type.UnknownType;
 import pl.edu.mimuw.nesc.ast.type.UnknownTypeFactory;
 import pl.edu.mimuw.nesc.ast.util.Interval;
 import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
-import pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils;
+import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.nesc.ComponentDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.InterfaceDeclaration;

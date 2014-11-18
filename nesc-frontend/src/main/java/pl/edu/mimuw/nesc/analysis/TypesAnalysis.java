@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.Set;
 
 import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.*;
-import static pl.edu.mimuw.nesc.astbuilding.DeclaratorUtils.getDeclaratorName;
+import static pl.edu.mimuw.nesc.ast.util.DeclaratorUtils.getDeclaratorName;
 import static pl.edu.mimuw.nesc.problem.issue.InvalidTypeSpecifiersMixError.InvalidCombinationType.*;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;

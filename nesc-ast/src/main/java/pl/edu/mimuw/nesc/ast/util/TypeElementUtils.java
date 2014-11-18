@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.astbuilding;
+package pl.edu.mimuw.nesc.ast.util;
 
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.StructKind;
