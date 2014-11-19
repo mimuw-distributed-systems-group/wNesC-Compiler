@@ -1857,6 +1857,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
             final ObjectDeclaration declData = oDeclData.get();
             identExpr.setDeclaration(declData);
+            identExpr.setIsGenericReference(false);
 
             // Check if a task is being posted
             if (declData.getKind() != ObjectKind.FUNCTION) {
@@ -2280,6 +2281,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
          */
         private Optional<ExprData> analyze() {
             decompose();
+            updateIdentifierState();
             analyzeSubexpressions();
             analyzeCallee();
             analyzeParametersPresence();
@@ -2320,6 +2322,15 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
             identifier = nextExpr instanceof Identifier
                     ? Optional.of((Identifier) nextExpr)
                     : Optional.<Identifier>absent();
+        }
+
+        /**
+         * Updates necessary data in the decomposed identifier object.
+         */
+        private void updateIdentifierState() {
+            if (identifier.isPresent()) {
+                identifier.get().setIsGenericReference(false);
+            }
         }
 
         /**

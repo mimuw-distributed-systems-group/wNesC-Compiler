@@ -91,8 +91,9 @@ public final class NescDeclarations extends AstBuildingBase {
      * @param alias         optional alias
      */
     public ComponentRef declareComponentRef(Environment environment, Location startLocation, Location endLocation,
-                                            ComponentRef componentRef, Optional<String> alias) {
+                                            ComponentRef componentRef, Optional<Word> alias) {
         componentRef.setEndLocation(endLocation);
+        componentRef.setAlias(alias);
 
         final Word componentName = componentRef.getName();
         Optional<? extends NescDeclaration> component = nescEnvironment.get(componentName.getName());
@@ -101,7 +102,7 @@ public final class NescDeclarations extends AstBuildingBase {
             errorHelper.error(componentName.getLocation(), Optional.of(componentName.getEndLocation()),
                     format("expected component, but got an interface '%s'", componentName.getName()));
         }
-        final String refName = alias.isPresent() ? alias.get() : componentRef.getName().getName();
+        final String refName = alias.isPresent() ? alias.get().getName() : componentRef.getName().getName();
 
         final ComponentRefDeclaration symbol = ComponentRefDeclaration.builder()
                 .componentName(componentName)

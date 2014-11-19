@@ -982,18 +982,16 @@ component_ref:
     {
         requireComponent($ref.getName());
         /* Put component's name into parser's symbol table. */
-        final String componentAlias = $ref.getName().getName();
         nescDeclarations.declareComponentRef(environment, $ref.getLocation(), $ref.getEndLocation(),
-                $ref, Optional.<String>absent());
+                $ref, Optional.<Word>absent());
         $$ = $ref;
     }
     | component_ref2[ref] AS idword[alias]
     {
         requireComponent($ref.getName());
         /* Put component's alias into parser's symbol table. */
-        final String componentAlias = $alias.getName();
         nescDeclarations.declareComponentRef(environment, $alias.getLocation(), $alias.getEndLocation(),
-                $ref, Optional.of(componentAlias));
+                $ref, Optional.of($alias));
         $$ = $ref;
     }
     ;
