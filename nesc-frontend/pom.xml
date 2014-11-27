@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <properties>
-        <groovy.version>2.0.5</groovy.version>
+        <groovy.version>2.3.7</groovy.version>
     </properties>
 
     <parent>
@@ -31,9 +31,9 @@
             </plugin>
 
             <plugin>
-                <groupId>org.codehaus.gmaven</groupId>
-                <artifactId>gmaven-plugin</artifactId>
-                <version>1.4</version>
+                <groupId>org.codehaus.gmavenplus</groupId>
+                <artifactId>gmavenplus-plugin</artifactId>
+                <version>1.2</version>
                 <executions>
                     <execution>
                         <goals>
@@ -42,13 +42,6 @@
                         </goals>
                     </execution>
                 </executions>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.codehaus.groovy</groupId>
-                        <artifactId>groovy-all</artifactId>
-                        <version>${groovy.version}</version>
-                    </dependency>
-                </dependencies>
             </plugin>
 
             <plugin>
@@ -140,6 +133,12 @@
             <groupId>org.spockframework</groupId>
             <artifactId>spock-core</artifactId>
             <version>0.7-groovy-2.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.codehaus.groovy</groupId>
+                    <artifactId>groovy-all</artifactId>
+                </exclusion>
+            </exclusions>
             <scope>test</scope>
         </dependency>
 
