@@ -21,3 +21,6 @@ ast_enums = OrderedDict()
 
 #Dictionary with nodes that have an activated generic indicator
 generic_nodes = {}
+
+#Dictionary with nodes that have a unique indicator activated
+unique_nodes = {}

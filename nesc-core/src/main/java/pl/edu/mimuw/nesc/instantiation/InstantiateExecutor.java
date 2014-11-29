@@ -12,12 +12,14 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import org.apache.log4j.Logger;
+import pl.edu.mimuw.nesc.analysis.NameMangler;
 import pl.edu.mimuw.nesc.ast.gen.BinaryComponent;
 import pl.edu.mimuw.nesc.ast.gen.Component;
 import pl.edu.mimuw.nesc.ast.gen.ComponentRef;
 import pl.edu.mimuw.nesc.ast.gen.Configuration;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
+import pl.edu.mimuw.nesc.ast.gen.RemanglingVisitor;
 import pl.edu.mimuw.nesc.ast.gen.SubstitutionManager;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -47,6 +49,19 @@ public final class InstantiateExecutor {
             return componentRef.getAlias().isPresent()
                     ? componentRef.getAlias().get().getName()
                     : componentRef.getName().getName();
+        }
+    };
+
+    /**
+     * Function used for mangling names in created components. Returns name
+     * after mangling.
+     */
+    private static final Function<String, String> MANGLING_FUN = new Function<String, String>() {
+        private final NameMangler mangler = NameMangler.getInstance();
+
+        @Override
+        public String apply(String name) {
+            return mangler.mangle(name);
         }
     };
 
@@ -173,16 +188,7 @@ public final class InstantiateExecutor {
 
         // FIXME copy and prepare the component
         logInstantiationInfo(genericRef);
-        final Component newComponent = instantiatedComponentData.getComponent().deepCopy();
-        newComponent.setIsAbstract(false);
-        newComponent.setParameters(Optional.<LinkedList<Declaration>>absent());
-
-        // Perform the substitution of references to generic parameters
-        final SubstitutionManager substitution = GenericParametersSubstitution.builder()
-                .componentRef(genericRef)
-                .genericComponent(instantiatedComponentData.getComponent())
-                .build();
-        newComponent.substitute(substitution);
+        final Component newComponent = copyComponent(instantiatedComponentData.getComponent(), genericRef);
 
         // Update state
         componentsAccumulator.add(newComponent);
@@ -193,6 +199,30 @@ public final class InstantiateExecutor {
             currentPath.addLast(newNode);
             logPath();
         }
+    }
+
+    /**
+     * Copy the given component and make all necessary changes to the copy.
+     *
+     * @param specimen Generic component that will be copied.
+     * @param genericRef Reference to the generic component that causes the copy
+     *                   to be created (the <code>new</code> construct).
+     * @return Properly modified and prepared copy of the given component.
+     */
+    private Component copyComponent(Component specimen, ComponentRef genericRef) {
+        final Component copy = specimen.deepCopy();
+        final RemanglingVisitor manglingVisitor = new RemanglingVisitor(MANGLING_FUN);
+        final SubstitutionManager substitution = GenericParametersSubstitution.builder()
+                .componentRef(genericRef)
+                .genericComponent(specimen)
+                .build();
+
+        copy.setIsAbstract(false);
+        copy.setParameters(Optional.<LinkedList<Declaration>>absent());
+        copy.accept(manglingVisitor, null);
+        copy.substitute(substitution);
+
+        return copy;
     }
 
     private void logPath() {

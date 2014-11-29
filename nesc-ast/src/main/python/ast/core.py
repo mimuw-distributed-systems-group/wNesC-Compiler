@@ -1,9 +1,11 @@
 from os import path, makedirs
 from collections import OrderedDict
 
-from ast.util import first_to_cap, DST_LANGUAGE, tab, ast_nodes, ast_enums, generic_nodes
+from ast.util import first_to_cap, DST_LANGUAGE, tab, ast_nodes, ast_enums, \
+    generic_nodes, unique_nodes
 from ast.field_copy import *
-from ast.fields import BasicASTNodeField, BoolField, ReferenceField, ReferenceListField, EnumField, EnumListField
+from ast.fields import BasicASTNodeField, BoolField, ReferenceField, \
+    ReferenceListField, EnumField, EnumListField, StringField
 
 #TODO:
 #   - protection in printer from printing null
@@ -38,6 +40,12 @@ class ASTElemMetaclass(type):
                 indicator = namespace["genericIndicator"]
                 if indicator.activated:
                     namespace[indicator.pasted_field_name] = BoolField(constructor_variable=False)
+            if "uniqueIndicator" in namespace:
+                indicator = namespace["uniqueIndicator"]
+                if indicator.activated:
+                    namespace[indicator.unique_field_name] = StringField(constructor_variable=False,
+                                                                         optional=indicator.optional)
+                    namespace[indicator.remangle_flag_name] = BoolField(constructor_variable=False)
 
         newclass = type.__new__(cls, name, bases, dict(namespace))
         newclass.members__ = tuple(namespace)
@@ -51,6 +59,10 @@ class ASTElemMetaclass(type):
                 indicator = namespace["genericIndicator"]
                 if indicator.activated:
                     generic_nodes[name] = (newclass, indicator.pasted_field_name)
+            if "uniqueIndicator" in namespace:
+                indicator = namespace["uniqueIndicator"]
+                if indicator.activated:
+                    unique_nodes[name] = (newclass, indicator)
 
         return newclass
 
@@ -256,6 +268,79 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
 
         return code
 
+    def gen_remangling_code(self, lang, names_map, mangler):
+        if lang == DST_LANGUAGE.JAVA:
+            return self.gen_remangling_code_java(names_map, mangler)
+        elif lang == DST_LANGUAGE.CPP:
+            return self.gen_remangling_code_cpp(names_map, mangler)
+        else:
+            raise Exception("unexpected destination language '{0}'".format(lang))
+
+    def gen_remangling_code_cpp(self, names_map, mangler):
+        # FIXME
+        raise NotImplementedError
+
+    def gen_remangling_code_java(self, names_map, mangler):
+        classname = self.__class__.__name__
+        header = ""
+        body = []
+
+        # Add a call to the method for the superclass
+        if hasattr(self, "superclass"):
+            header = "this.visit{0}(node, arg);\n".format(self.superclass().__class__.__name__)
+
+        # Perform the remangling if necessary
+        if classname in unique_nodes:
+            indicator = unique_nodes[classname][1]
+            getter_name = "get{0}".format(first_to_cap(indicator.unique_field_name))
+            setter_name = "set{0}".format(first_to_cap(indicator.unique_field_name))
+            flag_getter_name = "get{0}".format(first_to_cap(indicator.remangle_flag_name))
+
+            if not indicator.optional:
+                body.append("if (node.{0}() != null && node.{1}()) {{".format(getter_name, flag_getter_name))
+                get_expr = "node.{0}()".format(getter_name)
+            else:
+                body.append("if (node.{0}() != null && node.{0}().isPresent() && node.{1}()) {{".format(getter_name, flag_getter_name))
+                get_expr = "node.{0}().get()".format(getter_name)
+
+            body.append(tab + "final Optional<String> storedName = Optional.fromNullable(this.{0}.get({1}));"
+                        .format(names_map, get_expr))
+            body.append(tab + "final String mangledName = storedName.isPresent()")
+            body.append(2 * tab + "? storedName.get()")
+            body.append(2 * tab + ": this.{0}.apply(node.{1});".format(mangler, indicator.java_expr))
+            body.append(tab + "if (!storedName.isPresent()) {")
+            body.append(2 * tab + "this.{0}.put({1}, mangledName);".format(names_map, get_expr))
+            body.append(tab + "}")
+
+            if not indicator.optional:
+                body.append(tab + "node.{0}(mangledName);".format(setter_name))
+            else:
+                body.append(tab + "node.{0}(Optional.of(mangledName));".format(setter_name))
+
+            body.append("}")
+
+        # Mangle names in children nodes
+        for name, field in [(name, self.__getattribute__(name)) for name in dir(self)]:
+            if isinstance(field, BasicASTNodeField):
+                new_lines = field.gen_mangling_code(DST_LANGUAGE.JAVA, name, ast_nodes.keys(), "node")
+                if len(new_lines) > 0 and len(body) > 0:
+                    body.append("")
+                body.extend(new_lines)
+
+        # Increase the indentation of the body part
+        body = [2 * tab + line if len(line) > 0 else "" for line in body]
+
+        code = tab + "@Override\n"
+        code += tab + "public Void visit{0}({0} node, Void arg) {{\n".format(classname)
+        code += 2 * tab + header if len(header) > 0 else ""
+        code += "\n" if len(header) > 0 and len(body) > 0 else ""
+        code += "\n".join(body) + "\n" if len(body) > 0 else ""
+        code += "\n" if len(body) > 0 else ""
+        code += 2 * tab + "return null;\n"
+        code += tab + "}\n\n"
+
+        return code
+
     def get_fields(self, lang):
         fields = []
         field_types = dict()
@@ -448,6 +533,22 @@ class GenericIndicator:
         self.pasted_field_name = pasted_field_name
 
 
+class UniqueIndicator:
+    """Class that marks a node as containing information of name mangling."""
+
+    def __init__(self, unique_field_name, remangle_flag_name, java_expr, activated=True, optional=False):
+        """Initializes the unique indicator.
+
+        'java_expr' shall be a string with Java expression that evaluates to the
+        name before mangling.
+        """
+        self.unique_field_name = unique_field_name
+        self.remangle_flag_name = remangle_flag_name
+        self.java_expr = java_expr
+        self.activated = activated
+        self.optional = optional
+
+
 #TODO: add comments and cleanup code
 def gen_printer(lang, directory):
     if lang == DST_LANGUAGE.CPP:
@@ -573,6 +674,45 @@ def gen_subst_manager_java(directory):
         f.write("}\n")
 
 
+def gen_remangling_visitor(lang, directory):
+    if lang == DST_LANGUAGE.JAVA:
+        gen_remangling_visitor_java(directory)
+    elif lang == DST_LANGUAGE.CPP:
+        gen_remangling_visitor_cpp(directory)
+    else:
+        raise Exception("unexpected destination language '{0}'".format(lang))
+
+
+def gen_remangling_visitor_cpp(directory):
+    # FIXME
+    raise NotImplementedError
+
+
+def gen_remangling_visitor_java(directory):
+    with open(path.join(directory, "RemanglingVisitor.java"), "w") as f:
+        f.write("package pl.edu.mimuw.nesc.ast.gen;\n\n")
+        f.write("import com.google.common.base.Function;\n")
+        f.write("import com.google.common.base.Optional;\n")
+        f.write("import java.util.HashMap;\n")
+        f.write("import java.util.Map;\n")
+        f.write("\n")
+        f.write("import static com.google.common.base.Preconditions.checkNotNull;\n")
+        f.write("\n")
+        f.write("public final class RemanglingVisitor implements Visitor<Void, Void> {\n")
+        f.write(tab + "private final Map<String, String> namesMap = new HashMap<>();\n")
+        f.write(tab + "private final Function<String, String> mangler;\n\n")
+        f.write(tab + "public RemanglingVisitor(Function<String, String> mangler) {\n")
+        f.write(2 * tab + 'checkNotNull(mangler, "the mangling function cannot be null");\n')
+        f.write(2 * tab + "this.mangler = mangler;\n")
+        f.write(tab + "}\n\n")
+
+        # Generate code for each node
+        for node_cls in ast_nodes.values():
+            f.write(node_cls().gen_remangling_code(DST_LANGUAGE.JAVA, "namesMap", "mangler"))
+
+        f.write("}\n")
+
+
 def generate_code(lang, directory=""):
     #if dir is None, then the files will be generated in the
     #current working directory. Else dir should be a valid relative
@@ -634,3 +774,5 @@ def generate_java_code(directory):
     gen_printer(DST_LANGUAGE.JAVA, directory)
 
     gen_subst_manager(DST_LANGUAGE.JAVA, directory)
+
+    gen_remangling_visitor(DST_LANGUAGE.JAVA, directory)

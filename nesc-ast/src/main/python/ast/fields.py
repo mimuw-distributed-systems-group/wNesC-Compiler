@@ -46,6 +46,9 @@ class BasicASTNodeField:
     def gen_set_paste_flag_deep(self, lang, field_name, nodes_names, value_param_name):
         return []
 
+    def gen_mangling_code(self, lang, field_name, nodes_names, node_ref_name):
+        return []
+
     #expected result for c++ and java is a string
     #representing the full type of the field
     def get_type(self, lang, full=False):
@@ -494,6 +497,35 @@ class ReferenceField(BasicASTNodeField):
 
         return code
 
+    def gen_mangling_code(self, lang, field_name, nodes_names, node_ref_name):
+        if lang == DST_LANGUAGE.JAVA:
+            return self.gen_mangling_code_java(field_name, nodes_names, node_ref_name)
+        elif lang == DST_LANGUAGE.CPP:
+            return self.gen_mangling_code_cpp(field_name, nodes_names, node_ref_name)
+        else:
+            raise Exception("unexpected destination language '{0}'".format(lang))
+
+    def gen_mangling_code_cpp(self, field_name, nodes_names, node_ref_name):
+        # FIXME
+        raise NotImplementedError
+
+    def gen_mangling_code_java(self, field_name, nodes_names, node_ref_name):
+        if not self.visitable or self.ref_type not in nodes_names:
+            return []
+
+        getter_name = "get{0}".format(first_to_cap(field_name))
+
+        if not self.optional:
+            code = ["if ({0}.{1}() != null) {{".format(node_ref_name, getter_name)]
+            node_expr = "{0}.{1}()".format(node_ref_name, getter_name)
+        else:
+            code = ["if ({0}.{1}() != null && {0}.{1}().isPresent()) {{".format(node_ref_name, getter_name)]
+            node_expr = "{0}.{1}().get()".format(node_ref_name, getter_name)
+
+        code.append(tab + "{0}.accept(this, null);".format(node_expr))
+        code.append("}")
+
+        return code
 
     def generate_code(self, lang):
         res = None
@@ -1052,6 +1084,38 @@ class ReferenceListField(BasicASTNodeField):
 
         code.append(tab + "for ({0} node : {1}) {{".format(self.ref_type, node_expr))
         code.append(2 * tab + "node.setPastedFlagDeep({0});".format(value_param_name))
+        code.append(tab + "}")
+        code.append("}")
+
+        return code
+
+    def gen_mangling_code(self, lang, field_name, nodes_names, node_ref_name):
+        if lang == DST_LANGUAGE.JAVA:
+            return self.gen_mangling_code_java(field_name, nodes_names, node_ref_name)
+        elif lang == DST_LANGUAGE.CPP:
+            return self.gen_mangling_code_cpp(field_name, nodes_names, node_ref_name)
+        else:
+            raise Exception("unexpected destination language '{0}'".format(lang))
+
+    def gen_mangling_code_cpp(self, field_name, nodes_names, node_ref_name):
+        # FIXME
+        raise NotImplementedError
+
+    def gen_mangling_code_java(self, field_name, nodes_names, node_ref_name):
+        if not self.visitable or self.ref_type not in nodes_names:
+            return []
+
+        getter_name = "get{0}".format(first_to_cap(field_name))
+
+        if not self.optional:
+            code = ["if ({0}.{1}() != null) {{".format(node_ref_name, getter_name)]
+            list_expr = "{0}.{1}()".format(node_ref_name, getter_name)
+        else:
+            code = ["if ({0}.{1}() != null && {0}.{1}().isPresent()) {{".format(node_ref_name, getter_name)]
+            list_expr = "{0}.{1}().get()".format(node_ref_name, getter_name)
+
+        code.append(tab + "for ({0} child : {1}) {{".format(self.ref_type, list_expr))
+        code.append(2 * tab + "child.accept(this, null);")
         code.append(tab + "}")
         code.append("}")
 

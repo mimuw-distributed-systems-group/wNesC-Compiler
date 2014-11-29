@@ -1,6 +1,6 @@
 # coding=utf-8
 #from ast_core import *
-from ast.core import BasicASTNode, generate_code, GenericIndicator
+from ast.core import BasicASTNode, generate_code, GenericIndicator, UniqueIndicator
 from ast.field_copy import DEEP_COPY_MODE
 from ast.fields import *
 
@@ -199,6 +199,7 @@ class EllipsisDecl(BasicASTNode):
 class Enumerator(BasicASTNode):
     """ The enumeration element. """
     superclass = Declaration
+    uniqueIndicator = UniqueIndicator("uniqueName", "nestedInNescEntity", "getName()")
     # name is optional.
     name = StringField()
     value = ReferenceField("Expression")
@@ -368,6 +369,7 @@ class TagRef(BasicASTNode):
     the tag reference is invalid semantically, e.g. it conflicts with a previous declaration.</p>
     """
     superclass = TypeElement
+    uniqueIndicator = UniqueIndicator("uniqueName", "nestedInNescEntity", "getName().getName()", optional=True)
     name = ReferenceField("Word")   # FIXME optional!
     attributes = ReferenceListField("Attribute")
     fields = ReferenceListField("Declaration")  # FIXME optional!
@@ -481,8 +483,11 @@ class ArrayDeclarator(BasicASTNode):
 class IdentifierDeclarator(BasicASTNode):
     """
     A simple declarator consisting of only a single identifier.
+    The unique name is absent if this declarator is used to declare a field in
+    a structure or union (either external or not).
     """
     superclass = Declarator
+    uniqueIndicator = UniqueIndicator("uniqueName", "nestedInNescEntity", "getName()", optional=True)
     name = StringField()
 
 
@@ -743,6 +748,7 @@ class Identifier(BasicASTNode):
     occurs inside a generic component definition and refers to one of its generic non-type parameters.
     """
     superclass = Expression
+    uniqueIndicator = UniqueIndicator("uniqueName", "nestedInNescEntity", "getName()")
     name = StringField()
     isGenericReference = BoolField(constructor_variable=False)
     declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False,
