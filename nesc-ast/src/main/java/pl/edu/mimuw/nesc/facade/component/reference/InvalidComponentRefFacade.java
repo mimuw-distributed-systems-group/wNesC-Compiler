@@ -30,7 +30,7 @@ public final class InvalidComponentRefFacade extends AbstractComponentRefFacade 
     }
 
     @Override
-    public Optional<Optional<Type>> getTypedef(String name) {
+    public Optional<Typedef> getTypedef(String name) {
         checkName(name);
         return Optional.absent();
     }

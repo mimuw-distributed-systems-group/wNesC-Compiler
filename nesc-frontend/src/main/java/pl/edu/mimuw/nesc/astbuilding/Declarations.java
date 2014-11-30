@@ -1159,8 +1159,12 @@ public final class Declarations extends AstBuildingBase {
             final ObjectDeclaration.Builder<? extends ObjectDeclaration> builder;
 
             if (isTypedef) {
+                final String uniqueName = NameMangler.getInstance().mangle(name);
+
                 builder = TypenameDeclaration.builder()
+                        .uniqueName(uniqueName)
                         .denotedType(declaratorType.orNull());
+                declarator.setUniqueName(Optional.of(uniqueName));
             } else {
                 builder = VariableDeclaration.builder()
                         .type(declaratorType.orNull())

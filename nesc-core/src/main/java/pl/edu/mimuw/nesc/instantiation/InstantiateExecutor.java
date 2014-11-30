@@ -177,6 +177,9 @@ public final class InstantiateExecutor {
         logInstantiationInfo(genericRef);
         final Component newComponent = copyComponent(instantiatedComponentData.getComponent(), genericRef);
 
+        /* FIXME update the unique names in ComponentTyperef and ComponentDeref
+           of the source component */
+
         // Update state
         componentsAccumulator.add(newComponent);
         if (newComponent instanceof Configuration) {

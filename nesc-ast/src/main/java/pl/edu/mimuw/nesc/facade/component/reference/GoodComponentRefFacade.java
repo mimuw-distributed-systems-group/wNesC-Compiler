@@ -46,7 +46,7 @@ public final class GoodComponentRefFacade extends AbstractComponentRefFacade {
      * Map with all type definitions from the specification of the referred
      * component after all type substitutions.
      */
-    private final ImmutableMap<String, Optional<Type>> typeDefinitions;
+    private final ImmutableMap<String, Typedef> typeDefinitions;
 
     /**
      * Get the builder for a good component reference facade.
@@ -86,7 +86,7 @@ public final class GoodComponentRefFacade extends AbstractComponentRefFacade {
     }
 
     @Override
-    public Optional<Optional<Type>> getTypedef(String name) {
+    public Optional<Typedef> getTypedef(String name) {
         checkName(name);
         return Optional.fromNullable(typeDefinitions.get(name));
     }
@@ -125,7 +125,7 @@ public final class GoodComponentRefFacade extends AbstractComponentRefFacade {
          */
         private ImmutableMap<String, SpecificationEntity> entities;
         private ImmutableMap<String, ConstantDeclaration> constants;
-        private ImmutableMap<String, Optional<Type>> typedefs;
+        private ImmutableMap<String, Typedef> typedefs;
 
         /**
          * Private constructor to limit its accessibility.
@@ -206,7 +206,7 @@ public final class GoodComponentRefFacade extends AbstractComponentRefFacade {
 
             private final ImmutableMap.Builder<String, SpecificationEntity> builderEntities = ImmutableMap.builder();
             private final ImmutableMap.Builder<String, ConstantDeclaration> builderConstants = ImmutableMap.builder();
-            private final ImmutableMap.Builder<String, Optional<Type>> builderTypedefs = ImmutableMap.builder();
+            private final ImmutableMap.Builder<String, Typedef> builderTypedefs = ImmutableMap.builder();
 
             @Override
             public Void visit(ConstantDeclaration declaration, Void arg) {
@@ -217,7 +217,8 @@ public final class GoodComponentRefFacade extends AbstractComponentRefFacade {
             @Override
             public Void visit(TypenameDeclaration declaration, Void arg) {
                 final Optional<Type> afterSubst = substitution.substituteType(declaration.getDenotedType());
-                builderTypedefs.put(declaration.getName(), afterSubst);
+                final Typedef typedef = new Typedef(declaration.getName(), declaration.getUniqueName(), afterSubst);
+                builderTypedefs.put(declaration.getName(), typedef);
                 return null;
             }
 

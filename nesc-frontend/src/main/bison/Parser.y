@@ -2893,12 +2893,13 @@ after_type_declarator:
     | TYPEDEF_NAME
     {
         final IdentifierDeclarator decl = new IdentifierDeclarator($1.getLocation(), $1.getValue());
+        decl.setIsNestedInNescEntity(environment.isEnclosedInNescEntity());
         decl.setEndLocation($1.getEndLocation());
         $$ = decl;
     }
     | TYPEDEF_NAME DOT identifier
     {
-        $$ = nescComponents.makeInterfaceRefDeclarator($1.getLocation(), $1.getValue(),
+        $$ = nescComponents.makeInterfaceRefDeclarator(environment, $1.getLocation(), $1.getValue(),
                 $3.getLocation(), $3.getEndLocation(), $3.getValue());
     }
     ;
@@ -2928,6 +2929,7 @@ parm_declarator:
     | TYPEDEF_NAME
     {
         final IdentifierDeclarator decl = new IdentifierDeclarator($1.getLocation(), $1.getValue());
+        decl.setIsNestedInNescEntity(environment.isEnclosedInNescEntity());
         decl.setEndLocation($1.getEndLocation());
         $$ = decl;
     }
@@ -2965,12 +2967,13 @@ notype_declarator:
     | IDENTIFIER
     {
         final IdentifierDeclarator decl = new IdentifierDeclarator($1.getLocation(), $1.getValue());
+        decl.setIsNestedInNescEntity(environment.isEnclosedInNescEntity());
         decl.setEndLocation($1.getEndLocation());
         $$ = decl;
     }
     | IDENTIFIER DOT identifier
     {
-        $$ = nescComponents.makeInterfaceRefDeclarator($1.getLocation(), $1.getValue(),
+        $$ = nescComponents.makeInterfaceRefDeclarator(environment, $1.getLocation(), $1.getValue(),
                $3.getLocation(), $3.getEndLocation(), $3.getValue());
     }
     ;

@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.astbuilding.nesc;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
+import pl.edu.mimuw.nesc.analysis.NameMangler;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.Type;
@@ -56,8 +57,12 @@ public final class NescDeclarations extends AstBuildingBase {
      */
     public TypeParmDecl declareTypeParameter(Environment environment, Location startLocation, Location endLocation,
                                              String name, LinkedList<Attribute> attributes) {
+        final String uniqueName = NameMangler.getInstance().mangle(name);
+
         final TypeParmDecl decl = new TypeParmDecl(startLocation, name, attributes);
         decl.setEndLocation(endLocation);
+        decl.setIsNestedInNescEntity(true);
+        decl.setUniqueName(uniqueName);
 
         final UnknownType denotedType = UnknownTypeFactory.newInstance()
                 .setName(name)
@@ -65,6 +70,7 @@ public final class NescDeclarations extends AstBuildingBase {
                 .newUnknownType();
 
         final TypenameDeclaration symbol = TypenameDeclaration.builder()
+                .uniqueName(uniqueName)
                 .denotedType(denotedType)
                 .name(name)
                 .startLocation(startLocation)
@@ -165,18 +171,21 @@ public final class NescDeclarations extends AstBuildingBase {
 
         if (declarator.isPresent()) {
             final boolean isTypedef = specifiers.contains(NonTypeSpecifier.TYPEDEF);
-            final Optional<String> name = DeclaratorUtils.getDeclaratorName(declarator.get());
+            final String name = DeclaratorUtils.getDeclaratorName(declarator.get()).get();
             final ObjectDeclaration.Builder<? extends ObjectDeclaration> builder;
 
             if (isTypedef) {
                 final UnknownType denotedType = UnknownTypeFactory.newInstance()
-                        .setName(name.get())
+                        .setName(name)
                         .addAttributes(elements)
                         .addAttributes(attributes)
                         .newUnknownType();
+                final String uniqueName = DeclaratorUtils.mangleDeclaratorName(declarator.get(),
+                        NameMangler.FUNCTION).get();
 
                 builder = TypenameDeclaration.builder().isGenericParameter(true)
-                            .denotedType(denotedType);
+                            .denotedType(denotedType)
+                            .uniqueName(uniqueName);
                 variableDecl.setType(Optional.<Type>of(TypeDefinitionType.getInstance()));
             } else {
                 variableDecl.setType(resolveType(environment, elements, declarator,
@@ -186,11 +195,11 @@ public final class NescDeclarations extends AstBuildingBase {
             }
 
             final ObjectDeclaration declaration = builder
-                    .name(name.get())
+                    .name(name)
                     .startLocation(startLocation)
                     .build();
 
-            if (!environment.getObjects().add(name.get(), declaration)) {
+            if (!environment.getObjects().add(name, declaration)) {
                 errorHelper.error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", name));
             }
             variableDecl.setDeclaration(declaration);

@@ -5,6 +5,7 @@ import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.ast.type.TypeDefinitionType;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -18,7 +19,16 @@ public class TypenameDeclaration extends ObjectDeclaration {
      */
     private final Optional<Type> denotedType;
 
+    /**
+     * Value indicating if this type definition represents a generic, type
+     * parameter of a generic component.
+     */
     private final boolean isGenericParameter;
+
+    /**
+     * The globally unique name of this type definition.
+     */
+    private final String uniqueName;
 
     public static Builder builder() {
         return new Builder();
@@ -26,8 +36,10 @@ public class TypenameDeclaration extends ObjectDeclaration {
 
     protected TypenameDeclaration(Builder builder) {
         super(builder);
+
         this.denotedType = builder.denotedType;
         this.isGenericParameter = builder.isGenericParameter;
+        this.uniqueName = builder.uniqueName;
     }
 
     public Optional<Type> getDenotedType() {
@@ -43,6 +55,15 @@ public class TypenameDeclaration extends ObjectDeclaration {
      */
     public boolean isGenericParameter() {
         return isGenericParameter;
+    }
+
+    /**
+     * <p>Get the globally unique name of this type definition.</p>
+     *
+     * @return The globally unique name of this type definition.
+     */
+    public String getUniqueName() {
+        return uniqueName;
     }
 
     @Override
@@ -61,6 +82,7 @@ public class TypenameDeclaration extends ObjectDeclaration {
          */
         private Optional<Type> denotedType = Optional.absent();
         private boolean isGenericParameter = false;
+        private String uniqueName;
 
         protected Builder() {
         }
@@ -89,6 +111,17 @@ public class TypenameDeclaration extends ObjectDeclaration {
             return this;
         }
 
+        /**
+         * <p>Set the globally unique name of the type definition.</p>
+         *
+         * @param name Name to set.
+         * @return <code>this</code>
+         */
+        public Builder uniqueName(String name) {
+            this.uniqueName = name;
+            return this;
+        }
+
         @Override
         protected void beforeBuild() {
             super.beforeBuild();
@@ -101,7 +134,10 @@ public class TypenameDeclaration extends ObjectDeclaration {
         @Override
         protected void validate() {
             super.validate();
+
             checkNotNull(denotedType, "the denoted type cannot be null");
+            checkNotNull(uniqueName, "unique name cannot be null");
+            checkState(!uniqueName.isEmpty(), "unique name cannot be an empty string");
         }
 
         @Override

@@ -277,11 +277,13 @@ public final class NescComponents extends AstBuildingBase {
         ifaceRef.setDeclaration(declaration);
     }
 
-    public InterfaceRefDeclarator makeInterfaceRefDeclarator(Location ifaceStartLocation, String ifaceName,
-                                                             Location funcNameStartLocation,
-                                                             Location funcNameEndLocation, String functionName) {
+    public InterfaceRefDeclarator makeInterfaceRefDeclarator(Environment environment, Location ifaceStartLocation,
+            String ifaceName, Location funcNameStartLocation, Location funcNameEndLocation, String functionName) {
+
         final IdentifierDeclarator id = new IdentifierDeclarator(funcNameStartLocation, functionName);
+        id.setIsNestedInNescEntity(environment.isEnclosedInNescEntity());
         id.setEndLocation(funcNameEndLocation);
+
         final InterfaceRefDeclarator declarator = new InterfaceRefDeclarator(ifaceStartLocation,
                 Optional.<Declarator>of(id), makeWord(ifaceStartLocation, funcNameEndLocation, ifaceName));
         declarator.setEndLocation(funcNameEndLocation);

@@ -40,18 +40,17 @@ public interface ComponentRefFacade {
     /**
      * <p>Check if the specification of the referred component contains a type
      * definition with given name. If so, the object is present and the type is
-     * in the nested object. If the type is present, it is after performing all
+     * nested in it. If the type is present, it is after performing all
      * necessary substitutions.</p>
      *
      * @param name Name of the type definition to lookup.
-     * @return The less nested object is present if the specification contains
-     *         a type definition with the given name. The more nested object is
-     *         present if the type definition is correct. If so, it is after all
-     *        substitutions.
+     * @return The object is present if the specification contains a type
+     *         definition with the given name. If the type in the object is
+     *         present, it is after all substitutions.
      * @throws NullPointerException Name is null.
      * @throws IllegalArgumentException Name is an empty string.
      */
-    Optional<Optional<Type>> getTypedef(String name);
+    Optional<Typedef> getTypedef(String name);
 
     /**
      * <p>Check if the specification of the referred component contains an

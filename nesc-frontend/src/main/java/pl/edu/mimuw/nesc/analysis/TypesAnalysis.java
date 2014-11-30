@@ -14,6 +14,7 @@ import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.facade.component.reference.ComponentRefFacade;
+import pl.edu.mimuw.nesc.facade.component.reference.Typedef;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 import pl.edu.mimuw.nesc.problem.issue.*;
 
@@ -530,6 +531,7 @@ public final class TypesAnalysis {
             final String referredTypename = typeref.getTypeName();
 
             typename.setIsGenericReference(false);
+            typename.setIsDeclaredInThisNescEntity(false);
 
             // Check if the component reference is correct and retrieve the type
 
@@ -550,15 +552,16 @@ public final class TypesAnalysis {
                     return Optional.absent();
                 }
 
-                final Optional<Optional<Type>> referredType = refFacade.getTypedef(referredTypename);
+                final Optional<Typedef> referredTypedef = refFacade.getTypedef(referredTypename);
 
-                if (!referredType.isPresent()) {
+                if (!referredTypedef.isPresent()) {
                     errorHelper.error(typeref.getLocation(), typeref.getEndLocation(),
                             InvalidComponentTyperefError.nonexistentTypedefReferenced(componentRefName, referredTypename));
                     return Optional.absent();
                 }
 
-                return referredType.get().transform(TYPENAME_TRANSFORM);
+                typename.setUniqueName(referredTypedef.get().getUniqueName());
+                return referredTypedef.get().getType().transform(TYPENAME_TRANSFORM);
             }
         }
 
@@ -575,6 +578,8 @@ public final class TypesAnalysis {
             } else {
                 final TypenameDeclaration declaration = (TypenameDeclaration) maybeDecl.get();
                 typename.setIsGenericReference(declaration.isGenericParameter());
+                typename.setUniqueName(declaration.getUniqueName());
+                typename.setIsDeclaredInThisNescEntity(environment.isObjectDeclaredInsideNescEntity(typenameStr));
                 return declaration.getDenotedType().transform(TYPENAME_TRANSFORM);
             }
 

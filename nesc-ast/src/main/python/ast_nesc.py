@@ -312,6 +312,7 @@ class Typename(BasicASTNode):
     parameters.</p>
     """
     superclass = TypeElement
+    uniqueIndicator = UniqueIndicator("uniqueName", "isDeclaredInThisNescEntity", "getName()")
     name = StringField()
     isGenericReference = BoolField(constructor_variable=False)
     declaration = ReferenceField("TypenameDeclaration", constructor_variable=False, visitable=False,
@@ -487,7 +488,7 @@ class IdentifierDeclarator(BasicASTNode):
     a structure or union (either external or not).
     """
     superclass = Declarator
-    uniqueIndicator = UniqueIndicator("uniqueName", "nestedInNescEntity", "getName()", optional=True)
+    uniqueIndicator = UniqueIndicator("uniqueName", "isNestedInNescEntity", "getName()", optional=True)
     name = StringField()
 
 
@@ -1465,6 +1466,7 @@ class TypeParmDecl(BasicASTNode):
     </pre>
     """
     superclass = Declaration
+    uniqueIndicator = UniqueIndicator("uniqueName", "isNestedInNescEntity", "getName()")
     name = StringField()
     attributes = ReferenceListField("Attribute")
     declaration = ReferenceField("TypenameDeclaration", constructor_variable=False, visitable=False,

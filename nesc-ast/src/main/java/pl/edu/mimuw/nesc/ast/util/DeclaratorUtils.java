@@ -1,10 +1,11 @@
 package pl.edu.mimuw.nesc.ast.util;
 
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.gen.*;
-import pl.edu.mimuw.nesc.ast.util.Interval;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 
 /**
  * Common operations on declarators.
@@ -47,6 +48,25 @@ public final class DeclaratorUtils {
     public static Optional<Interval> getIdentifierInterval(Declarator declarator) {
         checkNotNull(declarator, "the declarator cannot be null");
         return declarator.accept(IDENTIFIER_INTERVAL_VISITOR, null);
+    }
+
+    /**
+     * <p>Mangles the name found in the given declarator and saves the name
+     * after mangling in it.</p>
+     *
+     * @param declarator Declarator to traverse.
+     * @param mangleFun Function that returns mangled names.
+     * @return Name after mangling. The object is present if the given
+     *         declarator contains an identifier declarator.
+     */
+    public static Optional<String> mangleDeclaratorName(Declarator declarator,
+            Function<String, String> mangleFun) {
+
+        checkNotNull(declarator, "declarator cannot be null");
+        checkNotNull(mangleFun, "the mangling function cannot be null");
+
+        final MangleNameVisitor visitor = new MangleNameVisitor(mangleFun);
+        return declarator.accept(visitor, null);
     }
 
     private DeclaratorUtils() {
@@ -211,6 +231,70 @@ public final class DeclaratorUtils {
                 return nextDeclarator.get().accept(this, null);
             }
             return Optional.absent();
+        }
+    }
+
+    /**
+     * Mangles the name found in the given declarator. Returns the unique name.
+     *
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class MangleNameVisitor extends ExceptionVisitor<Optional<String>, Void> {
+        private final Function<String, String> mangleFun;
+
+        private MangleNameVisitor(Function<String, String> manglingFun) {
+            this.mangleFun = manglingFun;
+        }
+
+        @Override
+        public Optional<String> visitIdentifierDeclarator(IdentifierDeclarator declarator, Void arg) {
+            final Optional<String> uniqueName = Optional.of(mangleFun.apply(declarator.getName()));
+            declarator.setUniqueName(uniqueName);
+            return uniqueName;
+        }
+
+        @Override
+        public Optional<String> visitInterfaceRefDeclarator(InterfaceRefDeclarator declarator, Void arg) {
+            if (!declarator.getDeclarator().isPresent()) {
+                throw new RuntimeException("the declarator inside an interface reference declarator is absent");
+            } else if (!(declarator.getDeclarator().get() instanceof IdentifierDeclarator)) {
+                throw new RuntimeException("unexpected inner declarator of an interface reference declarator: "
+                        + declarator.getDeclarator().get().getClass());
+            }
+
+            final IdentifierDeclarator innerDeclarator = (IdentifierDeclarator) declarator.getDeclarator().get();
+            final String nameToMangle = format("%s__%s", declarator.getName().getName(), innerDeclarator.getName());
+            final Optional<String> uniqueName = Optional.of(mangleFun.apply(nameToMangle));
+            innerDeclarator.setUniqueName(uniqueName);
+
+            return uniqueName;
+        }
+
+        @Override
+        public Optional<String> visitArrayDeclarator(ArrayDeclarator declarator, Void arg) {
+            return jump(declarator.getDeclarator());
+        }
+
+        @Override
+        public Optional<String> visitQualifiedDeclarator(QualifiedDeclarator declarator, Void arg) {
+            return jump(declarator.getDeclarator());
+        }
+
+        @Override
+        public Optional<String> visitFunctionDeclarator(FunctionDeclarator declarator, Void arg) {
+            return jump(declarator.getDeclarator());
+        }
+
+        @Override
+        public Optional<String> visitPointerDeclarator(PointerDeclarator declarator, Void arg) {
+            return jump(declarator.getDeclarator());
+        }
+
+        private Optional<String> jump(Optional<Declarator> nextDeclarator) {
+            return nextDeclarator.isPresent()
+                    ? nextDeclarator.get().accept(this, null)
+                    : Optional.<String>absent();
         }
     }
 
