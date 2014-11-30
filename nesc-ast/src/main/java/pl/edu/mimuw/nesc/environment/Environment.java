@@ -92,4 +92,38 @@ public interface Environment {
      * @return list of nested environments
      */
     List<Environment> getEnclosedEnvironments();
+
+    /**
+     * Check if this environment is located inside a NesC entity, i.e.
+     * a component or interface.
+     *
+     * @return <code>true</code> if and only if this environment is located
+     *         inside a NesC entity.
+     */
+    boolean isEnclosedInNescEntity();
+
+    /**
+     * Check if there is an object declared in this environment or one of the
+     * enclosing environments and if the declaration is located inside a NesC
+     * entity.
+     *
+     * @param name Name of the object to look for.
+     * @return <code>true</code> if and only if an object with given name is
+     *         declared in this or one of parent environments and the first
+     *         declaration found is located inside a NesC entity.
+     * @throws NullPointerException Name is <code>null</code>.
+     * @throws IllegalArgumentException Name is an empty string.
+     */
+    boolean isObjectDeclaredInsideNescEntity(String name);
+
+    /**
+     * Check if there is a tag declared in this environment or one of parent
+     * environments and if its declaration is located inside a NesC entity.
+     *
+     * @param name Name of the tag to look for.
+     * @return <code>true</code> if and only if an object with given name is
+     *         declared in this or one of parent environments and the first
+     *         declaration found is located inside a NesC entity.
+     */
+    boolean isTagDeclaredInsideNescEntity(String name);
 }

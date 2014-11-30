@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.analysis;
 
+import com.google.common.base.Function;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -24,6 +26,17 @@ public final class NameMangler {
      * The only instance of this class.
      */
     private static final NameMangler instance = new NameMangler();
+
+    /**
+     * Function that mangles the name given in parameter using the only instance
+     * of the name mangler.
+     */
+    public static final Function<String, String> FUNCTION = new Function<String, String>() {
+        @Override
+        public String apply(String name) {
+            return instance.mangle(name);
+        }
+    };
 
     /**
      * Unique suffix appended to mangled names. Each returned name contain

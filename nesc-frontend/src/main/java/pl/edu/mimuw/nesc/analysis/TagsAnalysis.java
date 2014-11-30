@@ -257,6 +257,9 @@ public final class TagsAnalysis {
                 tagRef.setIsInvalid(true);
                 errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(),
                                   new ConflictingTagKindError(name));
+            } else {
+                tagRef.setUniqueName(tagsTable.get(name).get().getUniqueName());
+                tagRef.setNestedInNescEntity(environment.isTagDeclaredInsideNescEntity(name));
             }
 
             // Check the correctness of an enumeration tag declaration
@@ -316,6 +319,11 @@ public final class TagsAnalysis {
                         break;
                     default:
                         throw new RuntimeException("unexpected tag reference semantics");
+                }
+
+                // Set the unique name in the AST node if necessary
+                if (tagRef.getUniqueName() == null) {
+                    tagRef.setUniqueName(oldDeclPure.getUniqueName());
                 }
             }
         }
@@ -539,6 +547,9 @@ public final class TagsAnalysis {
      *     declaration object</li>
      *     <li>if the given tag reference represents a definition, checking the
      *     definition and emitting found issues</li>
+     *     <li>if the given tag reference is named, generating a unique name for
+     *     it using the name mangler and storing the name in the returned object
+     *     and in the given tag reference</li>
      * </ul>
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -569,13 +580,16 @@ public final class TagsAnalysis {
                 builder = AttributeDeclaration.preDefinitionBuilder();
             }
 
+            final String name = attrRef.getName().getName();
             final AttributeDeclaration result = builder
                     .astNode(attrRef)
-                    .name(attrRef.getName().getName())
+                    .name(name, NameMangler.getInstance().mangle(name))
                     .startLocation(attrRef.getLocation())
                     .build();
 
             attrRef.setDeclaration(result);
+            attrRef.setUniqueName(result.getUniqueName());
+
             return result;
         }
 
@@ -600,13 +614,16 @@ public final class TagsAnalysis {
                             .addAllEnumerators(getEnumerators(enumRef));
             }
 
+            final Optional<String> name = getTagName(enumRef);
             final EnumDeclaration result = builder
                     .astNode(enumRef)
-                    .name(getTagName(enumRef).orNull())
+                    .name(name.orNull(), name.transform(NameMangler.FUNCTION).orNull())
                     .startLocation(enumRef.getLocation())
                     .build();
 
             enumRef.setDeclaration(result);
+            enumRef.setUniqueName(result.getUniqueName());
+
             return result;
         }
 
@@ -630,14 +647,17 @@ public final class TagsAnalysis {
                 builder = StructDeclaration.declarationBuilder();
             }
 
+            final Optional<String> name = getTagName(structRef);
             final StructDeclaration result = builder
                     .isExternal(isExternal)
                     .astNode(structRef)
-                    .name(getTagName(structRef).orNull())
+                    .name(name.orNull(), name.transform(NameMangler.FUNCTION).orNull())
                     .startLocation(structRef.getLocation())
                     .build();
 
             structRef.setDeclaration(result);
+            structRef.setUniqueName(result.getUniqueName());
+
             return result;
         }
 
@@ -651,14 +671,17 @@ public final class TagsAnalysis {
                 builder = UnionDeclaration.declarationBuilder();
             }
 
+            final Optional<String> name = getTagName(unionRef);
             final UnionDeclaration result = builder
                     .isExternal(isExternal)
                     .astNode(unionRef)
-                    .name(getTagName(unionRef).orNull())
+                    .name(name.orNull(), name.transform(NameMangler.FUNCTION).orNull())
                     .startLocation(unionRef.getLocation())
                     .build();
 
             unionRef.setDeclaration(result);
+            unionRef.setUniqueName(result.getUniqueName());
+
             return result;
         }
 

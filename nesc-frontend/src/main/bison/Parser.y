@@ -2989,12 +2989,12 @@ structuse:
       structkind tag nesc_attributes
     {
         // TODO: make warning "attributes ignored"
-        $$ = declarations.makeXrefTag($1.getLocation(), $2.getEndLocation(), $1.getKind(), $2);
+        $$ = declarations.makeXrefTag(environment, $1.getLocation(), $2.getEndLocation(), $1.getKind(), $2);
     }
     | ENUM tag nesc_attributes
     {
         // TODO: make warning "attributes ignored"
-        $$ = declarations.makeXrefTag($1.getLocation(), $2.getEndLocation(), StructKind.ENUM, $2);
+        $$ = declarations.makeXrefTag(environment, $1.getLocation(), $2.getEndLocation(), StructKind.ENUM, $2);
     }
     ;
 
@@ -3033,7 +3033,7 @@ structdef:
     | structkind LBRACE component_decl_list RBRACE maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($4.getEndLocation(), $5);
-        $$ = declarations.makeStruct($1.getLocation(), endLocation, $1.getKind(), Optional.<Word>absent(), $3, $5);
+        $$ = declarations.makeStruct(environment, $1.getLocation(), endLocation, $1.getKind(), Optional.<Word>absent(), $3, $5);
     }
     | ENUM tag nesc_attributes LBRACE
     {
@@ -3050,7 +3050,7 @@ structdef:
     | ENUM LBRACE enumlist maybecomma_warn RBRACE maybe_attribute
     {
         final Location endLocation = AstUtils.getEndLocation($5.getEndLocation(), $6);
-        $$ = declarations.makeEnum($1.getLocation(), endLocation, Optional.<Word>absent(), $3, $6);
+        $$ = declarations.makeEnum(environment, $1.getLocation(), endLocation, Optional.<Word>absent(), $3, $6);
     }
     ;
 

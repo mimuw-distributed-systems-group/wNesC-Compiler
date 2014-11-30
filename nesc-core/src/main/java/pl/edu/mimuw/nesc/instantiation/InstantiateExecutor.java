@@ -53,19 +53,6 @@ public final class InstantiateExecutor {
     };
 
     /**
-     * Function used for mangling names in created components. Returns name
-     * after mangling.
-     */
-    private static final Function<String, String> MANGLING_FUN = new Function<String, String>() {
-        private final NameMangler mangler = NameMangler.getInstance();
-
-        @Override
-        public String apply(String name) {
-            return mangler.mangle(name);
-        }
-    };
-
-    /**
      * Current path that leads from a non-generic configuration through
      * instantiated generic components. It is used as a stack for DFS algorithm.
      * The only component that is not a result of instantiation is the first
@@ -211,7 +198,7 @@ public final class InstantiateExecutor {
      */
     private Component copyComponent(Component specimen, ComponentRef genericRef) {
         final Component copy = specimen.deepCopy();
-        final RemanglingVisitor manglingVisitor = new RemanglingVisitor(MANGLING_FUN);
+        final RemanglingVisitor manglingVisitor = new RemanglingVisitor(NameMangler.FUNCTION);
         final SubstitutionManager substitution = GenericParametersSubstitution.builder()
                 .componentRef(genericRef)
                 .genericComponent(specimen)

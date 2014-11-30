@@ -345,7 +345,7 @@ public final class Declarations extends AstBuildingBase {
 
     private TagRef startNamedTagDefinition(Environment environment, Location startLocation,
                                            Location endLocation, StructKind kind, Word tag) {
-        final TagRef result = makeTagRef(startLocation, endLocation, kind, Optional.of(tag),
+        final TagRef result = makeTagRef(environment, startLocation, endLocation, kind, Optional.of(tag),
                 Lists.<Declaration>newList(), Lists.<Attribute>newList(),
                 TagRefSemantics.PREDEFINITION);
         processTagReference(result, environment, true, errorHelper);
@@ -361,15 +361,16 @@ public final class Declarations extends AstBuildingBase {
         processTagReference(tagRef, environment, true, errorHelper);
     }
 
-    public TagRef makeStruct(Location startLocation, Location endLocation, StructKind kind, Optional<Word> tag,
-                             LinkedList<Declaration> fields, LinkedList<Attribute> attributes) {
-        return makeTagRef(startLocation, endLocation, kind, tag, fields, attributes,
+    public TagRef makeStruct(Environment environment, Location startLocation, Location endLocation,
+                             StructKind kind, Optional<Word> tag,  LinkedList<Declaration> fields,
+                             LinkedList<Attribute> attributes) {
+        return makeTagRef(environment, startLocation, endLocation, kind, tag, fields, attributes,
                           TagRefSemantics.DEFINITION);
     }
 
-    public TagRef makeEnum(Location startLocation, Location endLocation, Optional<Word> tag,
+    public TagRef makeEnum(Environment environment, Location startLocation, Location endLocation, Optional<Word> tag,
                            LinkedList<Declaration> fields, LinkedList<Attribute> attributes) {
-        return makeTagRef(startLocation, endLocation, StructKind.ENUM, tag, fields,
+        return makeTagRef(environment, startLocation, endLocation, StructKind.ENUM, tag, fields,
                           attributes, TagRefSemantics.DEFINITION);
     }
 
@@ -382,8 +383,9 @@ public final class Declarations extends AstBuildingBase {
      * @param tag           name
      * @return struct/union/enum reference
      */
-    public TagRef makeXrefTag(Location startLocation, Location endLocation, StructKind structKind, Word tag) {
-        return makeTagRef(startLocation, endLocation, structKind, Optional.of(tag));
+    public TagRef makeXrefTag(Environment environment, Location startLocation, Location endLocation,
+                              StructKind structKind, Word tag) {
+        return makeTagRef(environment, startLocation, endLocation, structKind, Optional.of(tag));
     }
 
     /**
@@ -491,16 +493,16 @@ public final class Declarations extends AstBuildingBase {
         return result;
     }
 
-    private TagRef makeTagRef(Location startLocation, Location endLocation, StructKind structKind,
-                              Optional<Word> tag) {
+    private TagRef makeTagRef(Environment environment, Location startLocation, Location endLocation,
+                              StructKind structKind, Optional<Word> tag) {
         final LinkedList<Attribute> attributes = Lists.newList();
         final LinkedList<Declaration> declarations = Lists.newList();
-        return makeTagRef(startLocation, endLocation, structKind, tag, declarations, attributes,
-                          TagRefSemantics.OTHER);
+        return makeTagRef(environment, startLocation, endLocation, structKind, tag, declarations,
+                          attributes, TagRefSemantics.OTHER);
     }
 
-    private TagRef makeTagRef(Location startLocation, Location endLocation, StructKind structKind,
-                              Optional<Word> tag, LinkedList<Declaration> declarations,
+    private TagRef makeTagRef(Environment environment, Location startLocation, Location endLocation,
+                              StructKind structKind, Optional<Word> tag, LinkedList<Declaration> declarations,
                               LinkedList<Attribute> attributes, TagRefSemantics semantics) {
         final TagRef tagRef;
         switch (structKind) {
@@ -527,6 +529,7 @@ public final class Declarations extends AstBuildingBase {
         }
         tagRef.setEndLocation(endLocation);
         tagRef.setIsInvalid(false);
+        tagRef.setNestedInNescEntity(environment.isEnclosedInNescEntity());
         return tagRef;
     }
 

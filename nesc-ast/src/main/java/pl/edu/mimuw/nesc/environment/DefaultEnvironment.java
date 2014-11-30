@@ -10,6 +10,9 @@ import pl.edu.mimuw.nesc.symboltable.SymbolTable;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * <p>Default implementation of an environment.</p>
  * <p>Should be used for non-global scopes.</p>
@@ -108,5 +111,40 @@ public class DefaultEnvironment implements Environment {
     @Override
     public List<Environment> getEnclosedEnvironments() {
         return this.enclosedEnvironments;
+    }
+
+    @Override
+    public boolean isEnclosedInNescEntity() {
+        switch (getScopeType()) {
+            case INTERFACE_PARAMETER:
+            case INTERFACE:
+            case COMPONENT_PARAMETER:
+            case SPECIFICATION:
+            case MODULE_IMPLEMENTATION:
+            case CONFIGURATION_IMPLEMENTATION:
+                return true;
+            default:
+                return parent.isPresent() && parent.get().isEnclosedInNescEntity();
+        }
+    }
+
+    @Override
+    public boolean isObjectDeclaredInsideNescEntity(String name) {
+        checkNotNull(name, "name cannot be null");
+        checkArgument(!name.isEmpty(), "name cannot be an empty string");
+
+        return objects.contains(name, true)
+                ? isEnclosedInNescEntity()
+                : parent.isPresent() && parent.get().isObjectDeclaredInsideNescEntity(name);
+    }
+
+    @Override
+    public boolean isTagDeclaredInsideNescEntity(String name) {
+        checkNotNull(name, "name cannot be null");
+        checkArgument(!name.isEmpty(), "name cannot be an empty string");
+
+        return tags.contains(name, true)
+                ? isEnclosedInNescEntity()
+                : parent.isPresent() && parent.get().isTagDeclaredInsideNescEntity(name);
     }
 }

@@ -28,9 +28,15 @@ public abstract class TagDeclaration extends Declaration {
      */
     private final StructKind kind;
 
+    /**
+     * Mangled name of the tag that is globally unique.
+     */
+    private final Optional<String> uniqueName;
+
     protected TagDeclaration(Builder<? extends TagDeclaration> builder) {
         super(builder);
         this.name = builder.name;
+        this.uniqueName = builder.uniqueName;
         this.kind = builder.kind;
     }
 
@@ -41,6 +47,16 @@ public abstract class TagDeclaration extends Declaration {
      */
     public Optional<String> getName() {
         return name;
+    }
+
+    /**
+     * Get the globally unique name of the tag this object represents.
+     *
+     * @return The mangled, unique name of the tag. The object is present if and
+     *         only if the normal name is present.
+     */
+    public Optional<String> getUniqueName() {
+        return uniqueName;
     }
 
     /**
@@ -128,6 +144,7 @@ public abstract class TagDeclaration extends Declaration {
          * Data needed to build a tag declaration.
          */
         private Optional<String> name = Optional.absent();
+        private Optional<String> uniqueName = Optional.absent();
         private StructKind kind;
 
         protected Builder() {
@@ -139,8 +156,9 @@ public abstract class TagDeclaration extends Declaration {
          * @param name Name of a tag to set.
          * @return <code>this</code>
          */
-        public Builder<T> name(String name) {
+        public Builder<T> name(String name, String uniqueName) {
             this.name = Optional.fromNullable(name);
+            this.uniqueName = Optional.fromNullable(uniqueName);
             return this;
         }
 
@@ -169,7 +187,10 @@ public abstract class TagDeclaration extends Declaration {
         protected void validate() {
             super.validate();
             checkNotNull(name, "tag name cannot be null");
+            checkNotNull(uniqueName, "unique name cannot be null");
             checkNotNull(kind, "tag kind must not be null");
+            checkState(name.isPresent() == uniqueName.isPresent(),
+                    "unique name must be set if and only if the name is set");
         }
     }
 }
