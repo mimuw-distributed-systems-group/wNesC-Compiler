@@ -5,6 +5,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
+import pl.edu.mimuw.nesc.analysis.NameMangler;
 import pl.edu.mimuw.nesc.ast.util.AstUtils;
 import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
 import pl.edu.mimuw.nesc.ast.util.Interval;
@@ -420,14 +421,15 @@ public final class Declarations extends AstBuildingBase {
 
     public Enumerator makeEnumerator(Environment environment, Location startLocation, Location endLocation, String id,
                                      Optional<Expression> value) {
-        final Enumerator enumerator = new Enumerator(startLocation, id, value.orNull());
-        enumerator.setEndLocation(endLocation);
-
         if (value.isPresent()) {
             ExpressionsAnalysis.analyze(value.get(), environment, errorHelper);
         }
 
+        final Enumerator enumerator = new Enumerator(startLocation, id, value.orNull());
+        enumerator.setEndLocation(endLocation);
+
         final ConstantDeclaration symbol = ConstantDeclaration.builder()
+                .uniqueName(NameMangler.getInstance().mangle(id))
                 .name(id)
                 .startLocation(startLocation)
                 .build();
@@ -435,7 +437,10 @@ public final class Declarations extends AstBuildingBase {
         if (!environment.getObjects().add(id, symbol)) {
             errorHelper.error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", id));
         }
+
         enumerator.setDeclaration(symbol);
+        enumerator.setUniqueName(symbol.getUniqueName());
+        enumerator.setNestedInNescEntity(environment.isEnclosedInNescEntity());
 
         return enumerator;
     }
