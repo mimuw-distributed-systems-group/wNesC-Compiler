@@ -48,6 +48,7 @@ import static pl.edu.mimuw.nesc.ast.util.AstUtils.getEndLocation;
 import static pl.edu.mimuw.nesc.ast.util.AstUtils.getStartLocation;
 import static pl.edu.mimuw.nesc.ast.util.DeclaratorUtils.getDeclaratorName;
 import static pl.edu.mimuw.nesc.ast.util.DeclaratorUtils.getIdentifierInterval;
+import static pl.edu.mimuw.nesc.ast.util.DeclaratorUtils.mangleDeclaratorName;
 import static pl.edu.mimuw.nesc.problem.issue.RedeclarationError.RedeclarationKind;
 import static pl.edu.mimuw.nesc.problem.issue.RedefinitionError.RedefinitionKind;
 
@@ -295,8 +296,11 @@ public final class Declarations extends AstBuildingBase {
 
         if (declarator.isPresent()) {
             final Optional<String> name = getDeclaratorName(declarator.get());
+            final Optional<String> uniqueName = mangleDeclaratorName(declarator.get(), NameMangler.FUNCTION);
+
             if (name.isPresent()) {
                 final VariableDeclaration symbol = VariableDeclaration.builder()
+                        .uniqueName(uniqueName.get())
                         .type(variableDecl.getType().orNull())
                         .linkage(Linkage.NONE)
                         .name(name.get())
@@ -1157,16 +1161,15 @@ public final class Declarations extends AstBuildingBase {
             final Location startLocation = declarator.getLocation();
             final boolean isTypedef = TypeElementUtils.isTypedef(elements);
             final ObjectDeclaration.Builder<? extends ObjectDeclaration> builder;
+            final String uniqueName = NameMangler.getInstance().mangle(name);
 
             if (isTypedef) {
-                final String uniqueName = NameMangler.getInstance().mangle(name);
-
                 builder = TypenameDeclaration.builder()
                         .uniqueName(uniqueName)
                         .denotedType(declaratorType.orNull());
-                declarator.setUniqueName(Optional.of(uniqueName));
             } else {
                 builder = VariableDeclaration.builder()
+                        .uniqueName(uniqueName)
                         .type(declaratorType.orNull())
                         .linkage(linkage.orNull());
             }
@@ -1177,6 +1180,7 @@ public final class Declarations extends AstBuildingBase {
 
             declare(declaration, declarator);
             variableDecl.setDeclaration(declaration);
+            declarator.setUniqueName(Optional.of(uniqueName));
             return null;
         }
 

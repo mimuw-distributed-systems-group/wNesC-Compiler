@@ -1,12 +1,23 @@
 package pl.edu.mimuw.nesc.declaration.object;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public class VariableDeclaration extends ObjectDeclaration {
-
+    /**
+     * Value indicating if this object represents a generic parameter.
+     */
     private final boolean isGenericParameter;
+
+    /**
+     * Globally unique name of the variable that this declaration object
+     * represents.
+     */
+    private final String uniqueName;
 
     public static Builder builder() {
         return new Builder();
@@ -14,7 +25,9 @@ public class VariableDeclaration extends ObjectDeclaration {
 
     protected VariableDeclaration(Builder builder) {
         super(builder);
+
         this.isGenericParameter = builder.isGenericParameter;
+        this.uniqueName = builder.uniqueName;
     }
 
     /**
@@ -26,6 +39,16 @@ public class VariableDeclaration extends ObjectDeclaration {
      */
     public boolean isGenericParameter() {
         return isGenericParameter;
+    }
+
+    /**
+     * <p>Get the globally unique name of the variable that this declaration
+     * object represents.</p>
+     *
+     * @return Unique name of the variable this declaration object represents.
+     */
+    public String getUniqueName() {
+        return uniqueName;
     }
 
     @Override
@@ -43,6 +66,7 @@ public class VariableDeclaration extends ObjectDeclaration {
          * Data needed to build a variable declaration.
          */
         private boolean isGenericParameter = false;
+        private String uniqueName;
 
         /**
          * Private constructor to limit its accessibility.
@@ -62,10 +86,29 @@ public class VariableDeclaration extends ObjectDeclaration {
             return this;
         }
 
+        /**
+         * <p>Set the unique name of the variable.</p>
+         *
+         * @param name Unique name to set.
+         * @return <code>this</code>
+         */
+        public Builder uniqueName(String name) {
+            this.uniqueName = name;
+            return this;
+        }
+
         @Override
         protected void beforeBuild() {
             super.beforeBuild();
             setKind(ObjectKind.VARIABLE);
+        }
+
+        @Override
+        protected void validate() {
+            super.validate();
+
+            checkNotNull(uniqueName, "the unique name cannot be null");
+            checkState(!uniqueName.isEmpty(), "the unique name cannot be an empty string");
         }
 
         @Override

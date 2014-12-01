@@ -18,6 +18,10 @@ public class DefaultSymbolTableTest {
     private static final String VAR_A = "A";
     private static final String VAR_B = "B";
 
+    private static final String UNIQUE_VAR_A = "A__a";
+    private static final String UNIQUE_VAR_B = "B__b";
+    private static final String UNIQUE_NESTED_VAR_A = "A__c";
+
     private static final Location LOCATION_10_15 = new Location("file_a.nc", 10, 15);
     private static final Location LOCATION_11_12 = new Location("file_a.nc", 11, 12);
 
@@ -30,10 +34,12 @@ public class DefaultSymbolTableTest {
     public void setUp() throws Exception {
         objectTable = new DefaultSymbolTable<>();
         variableA = VariableDeclaration.builder()
+                .uniqueName(UNIQUE_VAR_A)
                 .name(VAR_A)
                 .startLocation(LOCATION_10_15)
                 .build();
         variableB = VariableDeclaration.builder()
+                .uniqueName(UNIQUE_VAR_B)
                 .name(VAR_B)
                 .startLocation(LOCATION_11_12)
                 .build();
@@ -62,6 +68,7 @@ public class DefaultSymbolTableTest {
     public void tryToRedeclare() {
         assertThat(objectTable.add(VAR_A, variableA)).isTrue();
         final ObjectDeclaration newVariableA = VariableDeclaration.builder()
+                .uniqueName(UNIQUE_NESTED_VAR_A)
                 .name(VAR_A)
                 .startLocation(LOCATION_11_12)
                 .build();
@@ -73,6 +80,7 @@ public class DefaultSymbolTableTest {
         assertThat(objectTable.add(VAR_A, variableA)).isTrue();
         final SymbolTable<ObjectDeclaration> enclosedObjectTable = new DefaultSymbolTable<>(Optional.of(objectTable));
         final ObjectDeclaration newVariableA = VariableDeclaration.builder()
+                .uniqueName(UNIQUE_NESTED_VAR_A)
                 .name(VAR_A)
                 .startLocation(LOCATION_11_12)
                 .build();
