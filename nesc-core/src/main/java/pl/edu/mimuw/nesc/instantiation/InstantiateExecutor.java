@@ -12,6 +12,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import org.apache.log4j.Logger;
+import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.gen.Expression;
+import pl.edu.mimuw.nesc.ast.gen.NescDecl;
+import pl.edu.mimuw.nesc.ast.gen.Word;
 import pl.edu.mimuw.nesc.ast.util.NameMangler;
 import pl.edu.mimuw.nesc.ast.gen.BinaryComponent;
 import pl.edu.mimuw.nesc.ast.gen.Component;
@@ -79,6 +83,12 @@ public final class InstantiateExecutor {
     private final Set<Component> componentsAccumulator = new HashSet<>();
 
     /**
+     * Component name mangler used to create unique names for instantiated
+     * components.
+     */
+    private final ComponentNameMangler mangler;
+
+    /**
      * Get a builder that will create an instantiate executor.
      *
      * @return Newly created builder of an instantiate executor.
@@ -94,6 +104,7 @@ public final class InstantiateExecutor {
      */
     private InstantiateExecutor(Builder builder) {
         this.components = builder.buildComponentsMap();
+        this.mangler = builder.buildMangler();
     }
 
     /**
@@ -176,6 +187,13 @@ public final class InstantiateExecutor {
         // FIXME copy and prepare the component
         logInstantiationInfo(genericRef);
         final Component newComponent = copyComponent(instantiatedComponentData.getComponent(), genericRef);
+        genericRef.setIsAbstract(false);
+        genericRef.setArguments(new LinkedList<Expression>());
+        final String newAlias = genericRef.getAlias().isPresent()
+                ? genericRef.getAlias().get().getName()
+                : genericRef.getName().getName();
+        genericRef.getName().setName(newComponent.getName().getName());
+        genericRef.setAlias(Optional.of(new Word(Location.getDummyLocation(), newAlias)));
 
         /* FIXME update the unique names in ComponentTyperef and ComponentDeref
            of the source component */
@@ -209,6 +227,7 @@ public final class InstantiateExecutor {
 
         copy.setIsAbstract(false);
         copy.setParameters(Optional.<LinkedList<Declaration>>absent());
+        copy.getName().setName(mangler.mangle(copy.getName().getName()));
         copy.accept(manglingVisitor, null);
         copy.substitute(substitution);
 
@@ -261,7 +280,7 @@ public final class InstantiateExecutor {
         /**
          * Data needed to build an instantiate executor.
          */
-        private final List<Component> components = new ArrayList<>();
+        private final List<NescDecl> nescDeclarations = new ArrayList<>();
 
         /**
          * Private constructor to limit its accessibility.
@@ -270,38 +289,40 @@ public final class InstantiateExecutor {
         }
 
         /**
-         * Adds the given component to take part in the instantiation process.
+         * Adds the given NesC declaration to take part in the instantiation
+         * process.
          *
-         * @param component Component to add.
+         * @param nescDecl Interface or component to add.
          * @return <code>this</code>
          */
-        public Builder addComponent(Component component) {
-            this.components.add(component);
+        public Builder addNescDeclaration(NescDecl nescDecl) {
+            this.nescDeclarations.add(nescDecl);
             return this;
         }
 
         /**
-         * Add components from the given list of nodes. Only nodes from the
-         * given list that represent components are added.
+         * Add NesC declarations from the given list of nodes. Only nodes from
+         * the given list that represent interfaces and components are added.
          *
-         * @param nodes List with nodes (and possibly components) to add.
+         * @param nodes List with nodes (and possibly interfaces and components)
+         *              to add.
          * @return <code>this</code>
          */
-        public Builder addComponents(List<? extends Node> nodes) {
+        public Builder addNescDeclarations(List<? extends Node> nodes) {
             FluentIterable.from(nodes)
-                    .filter(Component.class)
-                    .copyInto(components);
+                    .filter(NescDecl.class)
+                    .copyInto(nescDeclarations);
             return this;
         }
 
         private void validate() {
             final Set<String> names = new HashSet<>();
 
-            for (Component component : components) {
-                checkNotNull(component, "null has been added as a component");
+            for (NescDecl nescDecl : nescDeclarations) {
+                checkNotNull(nescDecl, "null has been added as an interface or component");
 
-                if (!names.add(component.getName().getName())) {
-                    throw new IllegalStateException("names of added components are not unique");
+                if (!names.add(nescDecl.getName().getName())) {
+                    throw new IllegalStateException("names of added NesC declarations are not unique");
                 }
             }
         }
@@ -313,6 +334,8 @@ public final class InstantiateExecutor {
 
         private ImmutableMap<String, ComponentData> buildComponentsMap() {
             final ImmutableMap.Builder<String, ComponentData> builder = ImmutableMap.builder();
+            final FluentIterable<Component> components = FluentIterable.from(nescDeclarations)
+                    .filter(Component.class);
 
             for (Component component : components) {
                 if (component instanceof BinaryComponent) {
@@ -323,6 +346,12 @@ public final class InstantiateExecutor {
             }
 
             return builder.build();
+        }
+
+        private ComponentNameMangler buildMangler() {
+            return ComponentNameMangler.builder()
+                    .addNescDeclarations(nescDeclarations)
+                    .build();
         }
     }
 }
