@@ -2,10 +2,11 @@ package pl.edu.mimuw.nesc.astbuilding;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
-import pl.edu.mimuw.nesc.analysis.NameMangler;
+import pl.edu.mimuw.nesc.ast.util.NameMangler;
 import pl.edu.mimuw.nesc.ast.util.AstUtils;
 import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
 import pl.edu.mimuw.nesc.ast.util.Interval;
@@ -570,6 +571,7 @@ public final class Declarations extends AstBuildingBase {
         private Location errorStartLocation;
         private Optional<ImmutableList<Optional<Type>>> providedInstanceParams = Optional.absent();
         private FunctionDeclaration.Builder funDeclBuilder;
+        private Supplier<String> uniqueNameSupplier;
 
         public StartFunctionVisitor(Environment environment, FunctionDecl functionDecl,
                                     LinkedList<TypeElement> modifiers, SpecifiersSet specifiersSet,
@@ -633,7 +635,7 @@ public final class Declarations extends AstBuildingBase {
             return null;
         }
 
-        private void identifierDeclarator(FunctionDeclarator funDeclarator, IdentifierDeclarator identifierDeclarator) {
+        private void identifierDeclarator(final FunctionDeclarator funDeclarator, IdentifierDeclarator identifierDeclarator) {
             final String name = identifierDeclarator.getName();
 
             funDeclBuilder = FunctionDeclaration.builder();
@@ -641,6 +643,13 @@ public final class Declarations extends AstBuildingBase {
                     .type(maybeType.orNull())
                     .name(name)
                     .startLocation(startLocation);
+
+            uniqueNameSupplier = new Supplier<String>() {
+                @Override
+                public String get() {
+                    return mangleDeclaratorName(funDeclarator, NameMangler.FUNCTION).get();
+                }
+            };
 
             if (!specifiersSet.goodMainSpecifier()) {
                 final ErroneousIssue error = new InvalidSpecifiersCombinationError(specifiersSet.getMainSpecifiers());
@@ -675,6 +684,7 @@ public final class Declarations extends AstBuildingBase {
                 }
 
                 final FunctionDeclaration declaration = FunctionDeclaration.builder()
+                        .uniqueName(mangleDeclaratorName(funDeclarator, NameMangler.FUNCTION).get())
                         .instanceParameters(funDeclarator.getGenericParameters().orNull())
                         .interfaceName(ifaceName)
                         .type(maybeType.orNull())
@@ -747,6 +757,7 @@ public final class Declarations extends AstBuildingBase {
             bareDeclaration.setDefined(true);
             bareDeclaration.setAstFunctionDeclarator(funDeclarator);
             functionDecl.setDeclaration(bareDeclaration);
+            DeclaratorUtils.setUniqueName(funDeclarator, Optional.of(bareDeclaration.getUniqueName()));
         }
 
         private void task(String name, FunctionDeclarator funDeclarator) {
@@ -910,7 +921,7 @@ public final class Declarations extends AstBuildingBase {
         }
 
         private Optional<? extends ErroneousIssue> checkInstanceParameters(Optional<ImmutableList<Optional<Type>>> optExpectedParams,
-                Optional<ImmutableList<Optional<Type>>> optProvidedParams, Optional<String> ifaceName, String callableName) {
+                    Optional<ImmutableList<Optional<Type>>> optProvidedParams, Optional<String> ifaceName, String callableName) {
 
             if (optExpectedParams.isPresent() && !optProvidedParams.isPresent()) {
                 return Optional.of(InvalidInterfaceEntityDefinitionError.instanceParametersExpected(ifaceName, callableName));
@@ -952,7 +963,7 @@ public final class Declarations extends AstBuildingBase {
             /* Check previous declaration. */
             final Optional<? extends ObjectDeclaration> previousDeclarationOpt = environment.getObjects().get(name, true);
             if (!previousDeclarationOpt.isPresent()) {
-                functionDeclaration = funDeclBuilder.build();
+                functionDeclaration = funDeclBuilder.uniqueName(uniqueNameSupplier.get()).build();
                 define(functionDeclaration, funDeclarator);
             } else {
                 final ObjectDeclaration previousDeclaration = previousDeclarationOpt.get();
@@ -963,7 +974,7 @@ public final class Declarations extends AstBuildingBase {
 
                     /* Nevertheless, create declaration, put it into ast node
                      * but not into environment. */
-                    functionDeclaration = funDeclBuilder.build();
+                    functionDeclaration = funDeclBuilder.uniqueName(uniqueNameSupplier.get()).build();
                 }
                 /* Previous declaration is a function declaration or
                  * definition. */
@@ -987,11 +998,12 @@ public final class Declarations extends AstBuildingBase {
                     if (error.isPresent()) {
                         Declarations.this.errorHelper.error(errorStartLocation,
                                 funDeclarator.getEndLocation(), error.get());
-                        functionDeclaration = funDeclBuilder.build();
+                        functionDeclaration = funDeclBuilder.uniqueName(uniqueNameSupplier.get()).build();
                     } else {
                         /* Update previous declaration. */
                         functionDeclaration = tmpDecl;
                         functionDeclaration.setLocation(startLocation);
+                        DeclaratorUtils.setUniqueName(funDeclarator, Optional.of(functionDeclaration.getUniqueName()));
                     }
                 }
             }
@@ -1005,7 +1017,7 @@ public final class Declarations extends AstBuildingBase {
             Declarations.this.errorHelper.error(errorStartLocation, funDecl.getEndLocation(), error);
 
             // Update declaration and AST node
-            final FunctionDeclaration declaration = funDeclBuilder.build();
+            final FunctionDeclaration declaration = funDeclBuilder.uniqueName(uniqueNameSupplier.get()).build();
             updateState(declaration, funDecl, funKind);
 
             if (updateSymbolTable) {
@@ -1078,7 +1090,7 @@ public final class Declarations extends AstBuildingBase {
         }
 
         @Override
-        public Void visitFunctionDeclarator(FunctionDeclarator funDeclarator, Void arg) {
+        public Void visitFunctionDeclarator(final FunctionDeclarator funDeclarator, Void arg) {
             // FIXME: refactoring needed
             /*
              * Function declaration (not definition!). There can be many
@@ -1101,8 +1113,15 @@ public final class Declarations extends AstBuildingBase {
                     .name(name.get())
                     .startLocation(funDeclarator.getLocation());
 
+            final Supplier<String> uniqueNameSupplier = new Supplier<String> () {
+                @Override
+                public String get() {
+                    return mangleDeclaratorName(funDeclarator, NameMangler.FUNCTION).get();
+                }
+            };
+
             if (!previousDeclarationOpt.isPresent()) {
-                functionDeclaration = builder.build();
+                functionDeclaration = builder.uniqueName(uniqueNameSupplier.get()).build();
                 declare(functionDeclaration, funDeclarator);
             } else {
                 final ObjectDeclaration previousDeclaration = previousDeclarationOpt.get();
@@ -1113,7 +1132,7 @@ public final class Declarations extends AstBuildingBase {
 
                     /* Nevertheless, create declaration, put it into ast node
                      * but not into environment. */
-                    functionDeclaration = builder.build();
+                    functionDeclaration = builder.uniqueName(uniqueNameSupplier.get()).build();
                 }
                 /* Previous declaration is a function declaration or
                  * definition. */
@@ -1121,6 +1140,7 @@ public final class Declarations extends AstBuildingBase {
                     functionDeclaration = (FunctionDeclaration) previousDeclaration;
                     /* Update previous declaration. */
                     functionDeclaration.setLocation(funDeclarator.getLocation());
+                    DeclaratorUtils.setUniqueName(funDeclarator, Optional.of(functionDeclaration.getUniqueName()));
 
                     // TODO: check if types match in declarations
                 }

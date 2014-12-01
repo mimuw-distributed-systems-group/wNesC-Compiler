@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.environment;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.type.*;
+import pl.edu.mimuw.nesc.ast.util.NameMangler;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.symboltable.SymbolTable;
 
@@ -27,7 +28,8 @@ public final class TranslationUnitEnvironment extends DefaultEnvironment {
         final Type uniqueType = new FunctionType(new UnsignedIntType(), argsTypes, false);
         final FunctionDeclaration.Builder declBuilder = FunctionDeclaration.builder();
 
-        declBuilder.type(uniqueType)
+        declBuilder.uniqueName(NameMangler.getInstance().mangle("unique"))
+                .type(uniqueType)
                 .linkage(Linkage.EXTERNAL)
                 .name("unique")
                 .startLocation(Location.getDummyLocation());
@@ -46,7 +48,8 @@ public final class TranslationUnitEnvironment extends DefaultEnvironment {
         final Type uniqueNType = new FunctionType(new UnsignedIntType(), argsTypes, false);
         final FunctionDeclaration.Builder declBuilder = FunctionDeclaration.builder();
 
-        declBuilder.type(uniqueNType)
+        declBuilder.uniqueName(NameMangler.getInstance().mangle("uniqueN"))
+                .type(uniqueNType)
                 .linkage(Linkage.EXTERNAL)
                 .name("uniqueN")
                 .startLocation(Location.getDummyLocation());
@@ -65,7 +68,8 @@ public final class TranslationUnitEnvironment extends DefaultEnvironment {
         final Type uniqueCountType = new FunctionType(new UnsignedIntType(), argsTypes, false);
         final FunctionDeclaration.Builder declBuilder = FunctionDeclaration.builder();
 
-        declBuilder.type(uniqueCountType)
+        declBuilder.uniqueName(NameMangler.getInstance().mangle("uniqueCount"))
+                .type(uniqueCountType)
                 .linkage(Linkage.EXTERNAL)
                 .name("uniqueCount")
                 .startLocation(Location.getDummyLocation());

@@ -12,7 +12,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import org.apache.log4j.Logger;
-import pl.edu.mimuw.nesc.analysis.NameMangler;
+import pl.edu.mimuw.nesc.ast.util.NameMangler;
 import pl.edu.mimuw.nesc.ast.gen.BinaryComponent;
 import pl.edu.mimuw.nesc.ast.gen.Component;
 import pl.edu.mimuw.nesc.ast.gen.ComponentRef;

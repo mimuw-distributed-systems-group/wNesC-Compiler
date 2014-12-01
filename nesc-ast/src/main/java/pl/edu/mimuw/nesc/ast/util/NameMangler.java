@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.analysis;
+package pl.edu.mimuw.nesc.ast.util;
 
 import com.google.common.base.Function;
 

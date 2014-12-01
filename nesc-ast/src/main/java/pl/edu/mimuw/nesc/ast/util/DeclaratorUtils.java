@@ -18,6 +18,7 @@ public final class DeclaratorUtils {
     private static final IsFunctionDeclaratorVisitor IS_FUNCTION_DECLARATOR_VISITOR = new IsFunctionDeclaratorVisitor();
     private static final FunctionDeclaratorExtractor FUNCTION_DECLARATOR_EXTRACTOR = new FunctionDeclaratorExtractor();
     private static final IdentifierIntervalVisitor IDENTIFIER_INTERVAL_VISITOR = new IdentifierIntervalVisitor();
+    private static final SetUniqueNameVisitor SET_UNIQUE_NAME_VISITOR = new SetUniqueNameVisitor();
 
     /**
      * Gets declarator's name.
@@ -67,6 +68,20 @@ public final class DeclaratorUtils {
 
         final MangleNameVisitor visitor = new MangleNameVisitor(mangleFun);
         return declarator.accept(visitor, null);
+    }
+
+    /**
+     * <p>Sets the unique name in the given declarator to the given one. If no
+     * identifier declarator is found, then calling this method has no effect.
+     * </p>
+     *
+     * @param declarator Declarator with the unique name to change.
+     * @param nameToSet Name to set in the identifier declarator nested in the
+     *                  given one.
+     */
+    public static void setUniqueName(Declarator declarator, Optional<String> nameToSet) {
+        checkNotNull(nameToSet, "name to set in the declarator cannot be null");
+        declarator.accept(SET_UNIQUE_NAME_VISITOR, nameToSet);
     }
 
     private DeclaratorUtils() {
@@ -237,7 +252,6 @@ public final class DeclaratorUtils {
     /**
      * Mangles the name found in the given declarator. Returns the unique name.
      *
-     *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     private static class MangleNameVisitor extends ExceptionVisitor<Optional<String>, Void> {
@@ -295,6 +309,58 @@ public final class DeclaratorUtils {
             return nextDeclarator.isPresent()
                     ? nextDeclarator.get().accept(this, null)
                     : Optional.<String>absent();
+        }
+    }
+
+    /**
+     * Sets the unique name to the given one in the encountered identifier
+     * declarator.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class SetUniqueNameVisitor extends ExceptionVisitor<Void, Optional<String>> {
+        @Override
+        public Void visitIdentifierDeclarator(IdentifierDeclarator declarator, Optional<String> arg) {
+            declarator.setUniqueName(arg);
+            return null;
+        }
+
+        @Override
+        public Void visitInterfaceRefDeclarator(InterfaceRefDeclarator declarator, Optional<String> arg) {
+            jump(declarator.getDeclarator(), arg);
+            return null;
+        }
+
+        @Override
+        public Void visitArrayDeclarator(ArrayDeclarator declarator, Optional<String> arg) {
+            jump(declarator.getDeclarator(), arg);
+            return null;
+        }
+
+        @Override
+        public Void visitQualifiedDeclarator(QualifiedDeclarator declarator, Optional<String> arg) {
+            jump(declarator.getDeclarator(), arg);
+            return null;
+        }
+
+        @Override
+        public Void visitFunctionDeclarator(FunctionDeclarator declarator, Optional<String> arg) {
+            jump(declarator.getDeclarator(), arg);
+            return null;
+        }
+
+        @Override
+        public Void visitPointerDeclarator(PointerDeclarator declarator, Optional<String> arg) {
+            jump(declarator.getDeclarator(), arg);
+            return null;
+        }
+
+        private Void jump(Optional<Declarator> nextDeclarator, Optional<String> arg) {
+            if (nextDeclarator.isPresent()) {
+                nextDeclarator.get().accept(this, arg);
+            }
+
+            return null;
         }
     }
 

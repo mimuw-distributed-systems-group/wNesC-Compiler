@@ -1,13 +1,15 @@
-package pl.edu.mimuw.nesc.analysis;
+package pl.edu.mimuw.nesc.ast.util;
 
 import org.junit.Test;
+import pl.edu.mimuw.nesc.ast.util.NameMangler;
+
 import static org.junit.Assert.assertEquals;
 
 /**
  * Tests for the name mangling class.
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
- * @see NameMangler
+ * @see pl.edu.mimuw.nesc.ast.util.NameMangler
  */
 public final class NameManglerTest {
     @Test

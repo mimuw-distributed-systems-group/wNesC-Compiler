@@ -28,6 +28,11 @@ public class FunctionDeclaration extends ObjectDeclaration {
 
     private final Optional<String> ifaceName;
 
+    /**
+     * Globally unique name of this function.
+     */
+    private final String uniqueName;
+
     private FunctionDeclarator astFunctionDeclarator;
     private FunctionType functionType;
 
@@ -79,6 +84,7 @@ public class FunctionDeclaration extends ObjectDeclaration {
         this.isDefined = builder.isDefined;
         this.functionType = builder.functionType.orNull();
         this.instanceParameters = builder.buildInstanceParameters();
+        this.uniqueName = builder.uniqueName;
     }
 
     @Override
@@ -170,6 +176,15 @@ public class FunctionDeclaration extends ObjectDeclaration {
     }
 
     /**
+     * Get the globally unique name of this function.
+     *
+     * @return The globally unique name for this function.
+     */
+    public String getUniqueName() {
+        return uniqueName;
+    }
+
+    /**
      * Builder for a function declaration.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -182,6 +197,7 @@ public class FunctionDeclaration extends ObjectDeclaration {
         private Optional<FunctionType> functionType = Optional.absent();
         private Optional<LinkedList<Declaration>> instanceParameters = Optional.absent();
         private boolean isDefined = false;
+        private String uniqueName;
 
         protected Builder() {
         }
@@ -226,6 +242,17 @@ public class FunctionDeclaration extends ObjectDeclaration {
             return this;
         }
 
+        /**
+         * Set the unique name for the function.
+         *
+         * @param uniqueName Unique name to set.
+         * @return <code>this</code>
+         */
+        public Builder uniqueName(String uniqueName) {
+            this.uniqueName = uniqueName;
+            return this;
+        }
+
         @Override
         protected void beforeBuild() {
             super.beforeBuild();
@@ -235,8 +262,11 @@ public class FunctionDeclaration extends ObjectDeclaration {
         @Override
         protected void validate() {
             super.validate();
+
             checkNotNull(interfaceName, "the interface name cannot be null");
             checkNotNull(functionType, "function type cannot be null");
+            checkNotNull(uniqueName, "unique name cannot be null");
+            checkState(!uniqueName.isEmpty(), "unique name cannot be an empty string");
         }
 
         @Override
