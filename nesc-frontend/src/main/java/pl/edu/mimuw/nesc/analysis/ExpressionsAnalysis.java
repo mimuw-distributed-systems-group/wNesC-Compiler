@@ -886,6 +886,8 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
         expr.setDeclaration(pureObjDecl);
         expr.setIsGenericReference(dataVisitor.isGenericReference);
+        expr.setUniqueName(dataVisitor.uniqueName);
+        expr.setRefsDeclInThisNescEntity(environment.isObjectDeclaredInsideNescEntity(expr.getName()));
 
         // Emit error if an invalid type of object is referred
         if (!dataVisitor.entityCorrect) {
@@ -1858,6 +1860,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
             final ObjectDeclaration declData = oDeclData.get();
             identExpr.setDeclaration(declData);
             identExpr.setIsGenericReference(false);
+            identExpr.setRefsDeclInThisNescEntity(true);
 
             // Check if a task is being posted
             if (declData.getKind() != ObjectKind.FUNCTION) {
@@ -1871,6 +1874,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
                         && !funData.getType().get().isCompatibleWith(Declarations.TYPE_TASK)) {
                     problemKind = Optional.of(PostProblemKind.INVALID_TASK_TYPE);
                 } else {
+                    identExpr.setUniqueName(Optional.of(funData.getUniqueName()));
                     problemKind = Optional.absent();
                 }
             }
@@ -2329,7 +2333,10 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
          */
         private void updateIdentifierState() {
             if (identifier.isPresent()) {
-                identifier.get().setIsGenericReference(false);
+                final Identifier ident = identifier.get();
+                ident.setIsGenericReference(false);
+                ident.setUniqueName(Optional.<String>absent());
+                ident.setRefsDeclInThisNescEntity(false);
             }
         }
 
@@ -2573,6 +2580,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
         private boolean isLvalue;
         private Optional<Type> type;
         private boolean isGenericReference;
+        private Optional<String> uniqueName;
 
         @Override
         public Void visit(VariableDeclaration declaration, Void arg) {
@@ -2580,6 +2588,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
             this.isLvalue = !declaration.isGenericParameter();
             this.type = declaration.getType();
             this.isGenericReference = declaration.isGenericParameter();
+            this.uniqueName = Optional.of(declaration.getUniqueName());
 
             return null;
         }
@@ -2594,6 +2603,9 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
             this.isLvalue = false;
             this.type = declaration.getType();
             this.isGenericReference = false;
+            this.uniqueName = this.entityCorrect
+                    ? Optional.of(declaration.getUniqueName())
+                    : null;
 
             return null;
         }
@@ -2604,6 +2616,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
             this.isLvalue = false;
             this.type = declaration.getType();
             this.isGenericReference = false;
+            this.uniqueName = Optional.of(declaration.getUniqueName());
 
             return null;
         }
@@ -2631,6 +2644,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
             this.isLvalue = false;
             this.type = Optional.absent();
             this.isGenericReference = false;
+            this.uniqueName = null;
         }
     }
 }

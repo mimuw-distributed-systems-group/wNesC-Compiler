@@ -746,10 +746,12 @@ class Conditional(BasicASTNode):
 class Identifier(BasicASTNode):
     """
     <p><code>isGenericReference</code> is <code>true</code> after semantic analysis if and only if this identifier
-    occurs inside a generic component definition and refers to one of its generic non-type parameters.
+    occurs inside a generic component definition and refers to one of its generic non-type parameters.</p>
+    <p><code>uniqueName</code> is absent if and only if this identifier refers to a name of a command or event. If an
+    error is detected during the semantic analysis, the name can be <code>null</code>.</p>
     """
     superclass = Expression
-    uniqueIndicator = UniqueIndicator("uniqueName", "nestedInNescEntity", "getName()")
+    uniqueIndicator = UniqueIndicator("uniqueName", "refsDeclInThisNescEntity", "getName()", optional=True)
     name = StringField()
     isGenericReference = BoolField(constructor_variable=False)
     declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False,
