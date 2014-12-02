@@ -1320,8 +1320,15 @@ class EqConnection(BasicASTNode):
 
 
 class EndPoint(BasicASTNode):
+    """
+    <p>Implicit identifier is present after semantic analysis if and only if this endpoint denotes a component
+    and is an element of a correct implicit connection. If so, it is the name of the specification element from
+    the component referred by the only identifier in <code>ids</code> that forms the connection. If an error is
+    detected during the semantic analysis, the identifier can be <code>null</code>.</p>
+    """
     superclass = Node
     ids = ReferenceListField("ParameterisedIdentifier")
+    implicitIdentifier = StringField(optional=True, constructor_variable=False)
 
 
 class ParameterisedIdentifier(BasicASTNode):

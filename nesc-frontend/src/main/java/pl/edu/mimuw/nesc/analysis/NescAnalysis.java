@@ -1014,7 +1014,7 @@ public final class NescAnalysis {
             final MatcherUsesProvidesMode usesProvidesMode;
             final ComponentRefDeclaration explicitDeclaration;
             final ComponentRefDeclaration implicitDeclaration;
-            final EndPoint explicitEndpoint;
+            final EndPoint explicitEndpoint, implicitEndpoint;
             final SpecificationEntity explicitEntity;
             final EntityPack expliticEntityPack;
 
@@ -1023,11 +1023,13 @@ public final class NescAnalysis {
                 explicitDeclaration = toDeclaration;
                 implicitDeclaration = fromDeclaration;
                 explicitEndpoint = to;
+                implicitEndpoint = from;
             } else {
                 usesProvidesMode = MatcherUsesProvidesMode.TOWARDS_TESTED_ENTITY;
                 explicitDeclaration = fromDeclaration;
                 implicitDeclaration = toDeclaration;
                 explicitEndpoint = from;
+                implicitEndpoint = to;
             }
 
             final Word explicitName = explicitEndpoint.getIds().getLast().getName();
@@ -1049,10 +1051,14 @@ public final class NescAnalysis {
                 return;
             }
 
-            // Check the connection
+            // Check the connection and update the AST nodes
 
-            implicitConnectionLookup(implicitDeclaration.getFacade(), explicitEntity,
-                    expliticEntityPack, Optional.of(usesProvidesMode));
+            final Optional<SpecificationEntity> impliedEntity = implicitConnectionLookup(implicitDeclaration.getFacade(),
+                    explicitEntity, expliticEntityPack, Optional.of(usesProvidesMode));
+            if (impliedEntity.isPresent()) {
+                implicitEndpoint.setImplicitIdentifier(Optional.of(impliedEntity.get().getName()));
+                explicitEndpoint.setImplicitIdentifier(Optional.<String>absent());
+            }
         }
 
         private void analyzeExplicitWiring() {
@@ -1096,6 +1102,11 @@ public final class NescAnalysis {
                     format("%s.%s", toDeclaration.getName(), toEntity.getName()));
 
             matchSpecificationElements(fromEntity, packFrom, toEntity, packTo, true, true);
+
+            // Update AST nodes
+
+            from.setImplicitIdentifier(Optional.<String>absent());
+            to.setImplicitIdentifier(Optional.<String>absent());
         }
     }
 
@@ -1336,12 +1347,17 @@ public final class NescAnalysis {
         }
 
         private void analyzeImplicitWiring() {
-            final int componentIndex = entities[0] == null ? 0 : 1;
-            final int otherIndex = componentIndex ^ 1;
-            final ComponentRefDeclaration ctDeclaration = (ComponentRefDeclaration) declarations[componentIndex];
+            final int implicitIndex = entities[0] == null ? 0 : 1;
+            final int explicitIndex = implicitIndex ^ 1;
+            final ComponentRefDeclaration ctDeclaration = (ComponentRefDeclaration) declarations[implicitIndex];
 
-            implicitConnectionLookup(ctDeclaration.getFacade(), entities[otherIndex],
-                    packs[otherIndex], Optional.of(MatcherUsesProvidesMode.SAME_AS_STORED));
+            final Optional<SpecificationEntity> impliedEntity = implicitConnectionLookup(ctDeclaration.getFacade(),
+                    entities[explicitIndex],  packs[explicitIndex], Optional.of(MatcherUsesProvidesMode.SAME_AS_STORED));
+
+            if (impliedEntity.isPresent()) {
+                endpoints.get(implicitIndex).setImplicitIdentifier(Optional.of(impliedEntity.get().getName()));
+                endpoints.get(explicitIndex).setImplicitIdentifier(Optional.<String>absent());
+            }
         }
 
         private void analyzeExplicitWiring() {
@@ -1366,6 +1382,12 @@ public final class NescAnalysis {
                     reportError(InvalidEqConnectionError.expectedOneUsedAndOneProvided(packs[0].endpointStr,
                             packs[1].endpointStr, entities[0].isProvided()));
                 }
+            }
+
+            // Update endpoints state
+
+            for (EndPoint endpoint : endpoints) {
+                endpoint.setImplicitIdentifier(Optional.<String>absent());
             }
         }
     }
