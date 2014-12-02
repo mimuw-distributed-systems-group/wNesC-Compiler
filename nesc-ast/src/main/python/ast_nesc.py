@@ -1303,10 +1303,18 @@ class ComponentRef(BasicASTNode):
 
 
 class Connection(BasicASTNode):
-    """ Wiring statement connecting two endpoints. """
+    """
+    <p>Wiring statement connecting two endpoints.</p>
+    <p>Call direction indicates provided interfaces and the implementation of bare
+    commands and events. If an error is detected during the semantic analysis, the
+    value of call direction can be <code>null</code>.</p>
+    @see pl.edu.mimuw.nesc.ast.CallDirection CallDirection
+    """
     superclass = Declaration
     endPoint1 = ReferenceField("EndPoint")
     endPoint2 = ReferenceField("EndPoint")
+    callDirection = ReferenceField("CallDirection", deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY,
+                                   constructor_variable=False)
 
 
 class RpConnection(BasicASTNode):

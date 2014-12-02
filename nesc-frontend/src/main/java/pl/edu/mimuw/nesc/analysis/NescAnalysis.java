@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
+import pl.edu.mimuw.nesc.ast.CallDirection;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.ArrayType;
@@ -935,6 +936,7 @@ public final class NescAnalysis {
             analyzeEndpoints();
             analyzeComponents();
             analyzeWiring();
+            setCallDirection();
         }
 
         private void analyzeEndpoints() {
@@ -1108,6 +1110,12 @@ public final class NescAnalysis {
             from.setImplicitIdentifier(Optional.<String>absent());
             to.setImplicitIdentifier(Optional.<String>absent());
         }
+
+        private void setCallDirection() {
+            /* The call in link wires is always towards the provided bare
+               command or event or the provided interface. */
+            connection.setCallDirection(CallDirection.FROM_1_TO_2);
+        }
     }
 
     /**
@@ -1152,6 +1160,7 @@ public final class NescAnalysis {
             finalEndpointsCheck();
             updateConfigurationTable();
             analyzeWiring();
+            setCallDirection();
         }
 
         private void initialEndpointsCheck() {
@@ -1355,6 +1364,7 @@ public final class NescAnalysis {
                     entities[explicitIndex],  packs[explicitIndex], Optional.of(MatcherUsesProvidesMode.SAME_AS_STORED));
 
             if (impliedEntity.isPresent()) {
+                entities[implicitIndex] = impliedEntity.get();
                 endpoints.get(implicitIndex).setImplicitIdentifier(Optional.of(impliedEntity.get().getName()));
                 endpoints.get(explicitIndex).setImplicitIdentifier(Optional.<String>absent());
             }
@@ -1389,6 +1399,27 @@ public final class NescAnalysis {
             for (EndPoint endpoint : endpoints) {
                 endpoint.setImplicitIdentifier(Optional.<String>absent());
             }
+        }
+
+        private void setCallDirection() {
+            if (!canContinue()) {
+                return;
+            }
+
+            final int externalIndex = declarations[0].getKind() == ObjectKind.COMPONENT
+                    ? 1
+                    : 0;
+
+            /* A call towards an external specification element appears if and
+               only if the external element is used. */
+            final boolean towardsExternal = !entities[externalIndex].isProvided();
+
+            final CallDirection direction =
+                      externalIndex == 0 && towardsExternal || externalIndex == 1 && !towardsExternal
+                    ? CallDirection.FROM_2_TO_1
+                    : CallDirection.FROM_1_TO_2;
+
+            this.connection.setCallDirection(direction);
         }
     }
 
