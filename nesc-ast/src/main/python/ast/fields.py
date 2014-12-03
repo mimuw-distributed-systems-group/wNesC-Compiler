@@ -42,8 +42,8 @@ class BasicASTNodeField:
 
         return code
 
-    #expected result is a list of lines with code for given language
-    def gen_set_paste_flag_deep(self, lang, field_name, nodes_names, value_param_name):
+    # expected result is a list of lines with code for given language
+    def gen_dfs_calls(self, lang, field_name, nodes_names, called_fun_name, *called_fun_args):
         return []
 
     def gen_mangling_code(self, lang, field_name, nodes_names, node_ref_name):
@@ -471,17 +471,19 @@ class ReferenceField(BasicASTNodeField):
 
         return code
 
-    def gen_set_paste_flag_deep(self, lang, field_name, nodes_names, value_param_name):
+    def gen_dfs_calls(self, lang, field_name, nodes_names, called_fun_name, *called_fun_args):
         if lang == DST_LANGUAGE.CPP:
-            return self.gen_set_paste_flag_deep_cpp(field_name, nodes_names, value_param_name)
+            return self.gen_dfs_calls_cpp(field_name, nodes_names, called_fun_name, *called_fun_args)
         elif lang == DST_LANGUAGE.JAVA:
-            return self.gen_set_paste_flag_deep_java(field_name, nodes_names, value_param_name)
+            return self.gen_dfs_calls_java(field_name, nodes_names, called_fun_name, *called_fun_args)
+        else:
+            raise Exception("unexpected destination language '{0}'", lang)
 
-    def gen_set_paste_flag_deep_cpp(self, field_name, nodes_names, value_param_name):
+    def gen_dfs_calls_cpp(self, field_name, nodes_names, called_fun_name, *called_fun_args):
         # FIXME
         raise NotImplementedError
 
-    def gen_set_paste_flag_deep_java(self, field_name, nodes_names, value_param_name):
+    def gen_dfs_calls_java(self, field_name, nodes_names, called_fun_name, *called_fun_args):
         if not self.visitable or self.ref_type not in nodes_names:
             return []
 
@@ -492,7 +494,7 @@ class ReferenceField(BasicASTNodeField):
             code = ["if (this.{0} != null && this.{0}.isPresent()) {{".format(field_name)]
             node_expr = "this.{0}.get()".format(field_name)
 
-        code.append(tab + "{0}.setPastedFlagDeep({1});".format(node_expr, value_param_name))
+        code.append(tab + "{0}.{1}({2});".format(node_expr, called_fun_name, ", ".join(called_fun_args)))
         code.append("}")
 
         return code
@@ -1059,19 +1061,19 @@ class ReferenceListField(BasicASTNodeField):
 
         return code
 
-    def gen_set_paste_flag_deep(self, lang, field_name, nodes_names, value_param_name):
+    def gen_dfs_calls(self, lang, field_name, nodes_names, called_fun_name, *called_fun_args):
         if lang == DST_LANGUAGE.CPP:
-            return self.gen_set_paste_flag_deep_cpp(field_name, nodes_names, value_param_name)
+            return self.gen_dfs_calls_cpp(field_name, nodes_names, called_fun_name, *called_fun_args)
         elif lang == DST_LANGUAGE.JAVA:
-            return self.gen_set_paste_flag_deep_java(field_name, nodes_names, value_param_name)
+            return self.gen_dfs_calls_java(field_name, nodes_names, called_fun_name, *called_fun_args)
         else:
             raise Exception("unexpected destination language '{0}'".format(lang))
 
-    def gen_set_paste_flag_deep_cpp(self, field_name, nodes_names, value_param_name):
+    def gen_dfs_calls_cpp(self, field_name, nodes_names, called_fun_name, *called_fun_args):
         # FIXME
         raise NotImplementedError
 
-    def gen_set_paste_flag_deep_java(self, field_name, nodes_names, value_param_name):
+    def gen_dfs_calls_java(self, field_name, nodes_names, called_fun_name, *called_fun_args):
         if not self.visitable or self.ref_type not in nodes_names:
             return []
 
@@ -1083,7 +1085,7 @@ class ReferenceListField(BasicASTNodeField):
             node_expr = "this.{0}.get()".format(field_name)
 
         code.append(tab + "for ({0} node : {1}) {{".format(self.ref_type, node_expr))
-        code.append(2 * tab + "node.setPastedFlagDeep({0});".format(value_param_name))
+        code.append(2 * tab + "node.{0}({1});".format(called_fun_name, ", ".join(called_fun_args)))
         code.append(tab + "}")
         code.append("}")
 

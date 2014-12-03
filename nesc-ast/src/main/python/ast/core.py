@@ -2,7 +2,7 @@ from os import path, makedirs
 from collections import OrderedDict
 
 from ast.util import first_to_cap, DST_LANGUAGE, tab, ast_nodes, ast_enums, \
-    generic_nodes, unique_nodes
+    generic_nodes, mangle_nodes, unique_nodes
 from ast.field_copy import *
 from ast.fields import BasicASTNodeField, BoolField, ReferenceField, \
     ReferenceListField, EnumField, EnumListField, StringField
@@ -40,8 +40,8 @@ class ASTElemMetaclass(type):
                 indicator = namespace["genericIndicator"]
                 if indicator.activated:
                     namespace[indicator.pasted_field_name] = BoolField(constructor_variable=False)
-            if "uniqueIndicator" in namespace:
-                indicator = namespace["uniqueIndicator"]
+            if "mangleIndicator" in namespace:
+                indicator = namespace["mangleIndicator"]
                 if indicator.activated:
                     namespace[indicator.unique_field_name] = StringField(constructor_variable=False,
                                                                          optional=indicator.optional)
@@ -59,10 +59,12 @@ class ASTElemMetaclass(type):
                 indicator = namespace["genericIndicator"]
                 if indicator.activated:
                     generic_nodes[name] = (newclass, indicator.pasted_field_name)
-            if "uniqueIndicator" in namespace:
-                indicator = namespace["uniqueIndicator"]
+            if "mangleIndicator" in namespace:
+                indicator = namespace["mangleIndicator"]
                 if indicator.activated:
-                    unique_nodes[name] = (newclass, indicator)
+                    mangle_nodes[name] = (newclass, indicator)
+            if "uniqueIndicator" in namespace:
+                unique_nodes[name] = namespace["uniqueIndicator"]
 
         return newclass
 
@@ -244,7 +246,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             if not isinstance(field, BasicASTNodeField):
                 continue
 
-            field_lines = field.gen_set_paste_flag_deep(DST_LANGUAGE.JAVA, name, ast_nodes.keys(), "value")
+            field_lines = field.gen_dfs_calls(DST_LANGUAGE.JAVA, name, ast_nodes.keys(), "setPastedFlagDeep", "value")
 
             if len(field_lines) > 0:
                 if len(body_lines) > 0:
@@ -290,8 +292,8 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             header = "this.visit{0}(node, arg);\n".format(self.superclass().__class__.__name__)
 
         # Perform the remangling if necessary
-        if classname in unique_nodes:
-            indicator = unique_nodes[classname][1]
+        if classname in mangle_nodes:
+            indicator = mangle_nodes[classname][1]
             getter_name = "get{0}".format(first_to_cap(indicator.unique_field_name))
             setter_name = "set{0}".format(first_to_cap(indicator.unique_field_name))
             flag_getter_name = "get{0}".format(first_to_cap(indicator.remangle_flag_name))
@@ -337,6 +339,54 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         code += "\n".join(body) + "\n" if len(body) > 0 else ""
         code += "\n" if len(body) > 0 else ""
         code += 2 * tab + "return null;\n"
+        code += tab + "}\n\n"
+
+        return code
+
+    def gen_traverse_unique(self, lang):
+        if lang == DST_LANGUAGE.CPP:
+            return self.gen_traverse_unique_cpp()
+        elif lang == DST_LANGUAGE.JAVA:
+            return self.gen_traverse_unique_java()
+        else:
+            raise Exception("unexpected destination language '{0}'".format(lang))
+
+    def gen_traverse_unique_cpp(self):
+        # FIXME
+        raise NotImplementedError
+
+    def gen_traverse_unique_java(self):
+        classname = self.__class__.__name__
+        body_lines = []
+
+        if classname in unique_nodes:
+            body_lines.append("uniqueProcessor.accept(this);")
+
+        for name, field in [(x, self.__getattribute__(x)) for x in dir(self)]:
+            if not isinstance(field, BasicASTNodeField):
+                continue
+
+            field_lines = field.gen_dfs_calls(DST_LANGUAGE.JAVA, name, ast_nodes.keys(), "traverseUnique", "uniqueProcessor")
+
+            if len(field_lines) > 0:
+                if len(body_lines) > 0:
+                    body_lines.append("")
+                body_lines.append("// {0}".format(name))
+                body_lines.extend(field_lines)
+
+        if len(body_lines) == 0 and hasattr(self, "superclass"):
+            return ""
+        elif len(body_lines) == 0:
+            return tab + "public void traverseUnique(UniqueProcessor uniqueProcessor) {}\n\n"
+
+        body = 2 * tab + "super.traverseUnique(uniqueProcessor);\n" if hasattr(self, "superclass") else ""
+        body += "\n" if len(body_lines) > 1 and len(body) > 0 else ""
+        body_lines = [2 * tab + s if len(s) > 0 else "" for s in body_lines]
+        body += "\n".join(body_lines) + "\n"
+
+        code = tab + "@Override\n" if hasattr(self, "superclass") else ""
+        code += tab + "public void traverseUnique(UniqueProcessor uniqueProcessor) {\n"
+        code += body
         code += tab + "}\n\n"
 
         return code
@@ -476,6 +526,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         deep_copy_method = self.gen_deep_copy(lang)
         substitute_method = self.gen_substitute(lang)
         set_paste_flag_deep_method = self.gen_set_paste_flag_deep(lang)
+        traverse_unique_method = self.gen_traverse_unique(lang)
 
         if lang == DST_LANGUAGE.CPP:
             res = "class " + class_name + superclass + " {\n"
@@ -519,6 +570,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             res += deep_copy_method
             res += substitute_method
             res += set_paste_flag_deep_method
+            res += traverse_unique_method
             res += self.gen_visitable_code(lang)
             res += "}\n"
 
@@ -533,7 +585,7 @@ class GenericIndicator:
         self.pasted_field_name = pasted_field_name
 
 
-class UniqueIndicator:
+class MangleIndicator:
     """Class that marks a node as containing information of name mangling."""
 
     def __init__(self, unique_field_name, remangle_flag_name, java_expr, activated=True, optional=False):
@@ -547,6 +599,11 @@ class UniqueIndicator:
         self.java_expr = java_expr
         self.activated = activated
         self.optional = optional
+
+
+class UniqueIndicator:
+    """Class that marks a node as representing a call to a NesC constant function."""
+    pass
 
 
 #TODO: add comments and cleanup code
@@ -713,6 +770,31 @@ def gen_remangling_visitor_java(directory):
         f.write("}\n")
 
 
+def gen_unique_processor(lang, directory):
+    if lang == DST_LANGUAGE.JAVA:
+        gen_unique_processor_java(directory)
+    elif lang == DST_LANGUAGE.CPP:
+        gen_unique_processor_cpp(directory)
+    else:
+        raise Exception("unexpected destination language '{0}".format(lang))
+
+
+def gen_unique_processor_cpp(directory):
+    # FIXME
+    raise NotImplementedError
+
+
+def gen_unique_processor_java(directory):
+    with open(path.join(directory, "UniqueProcessor.java"), "w") as f:
+        f.write("package pl.edu.mimuw.nesc.ast.gen;\n\n")
+        f.write("public interface UniqueProcessor {\n")
+
+        for classname in unique_nodes.keys():
+            f.write(tab + "void accept({0} arg);\n".format(classname))
+
+        f.write("}\n")
+
+
 def generate_code(lang, directory=""):
     #if dir is None, then the files will be generated in the
     #current working directory. Else dir should be a valid relative
@@ -776,3 +858,5 @@ def generate_java_code(directory):
     gen_subst_manager(DST_LANGUAGE.JAVA, directory)
 
     gen_remangling_visitor(DST_LANGUAGE.JAVA, directory)
+
+    gen_unique_processor(DST_LANGUAGE.JAVA, directory)
