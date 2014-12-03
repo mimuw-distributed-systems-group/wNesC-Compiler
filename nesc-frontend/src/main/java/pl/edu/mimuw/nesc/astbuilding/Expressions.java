@@ -12,6 +12,11 @@ import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.ast.util.AstUtils;
+import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.unique.UniqueCountDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.unique.UniqueDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.unique.UniqueNDeclaration;
+import pl.edu.mimuw.nesc.environment.Environment;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -139,14 +144,40 @@ public final class Expressions {
         return result;
     }
 
-    public static FunctionCall makeFunctionCall(Location location, Location endLocation, Expression function,
-                                                LinkedList<Expression> args) {
-        return makeFunctionCall(location, endLocation, function, args, NescCallKind.NORMAL_CALL);
+    public static FunctionCall makeFunctionCall(Environment environment, Location location, Location endLocation,
+                                                Expression function, LinkedList<Expression> args) {
+        return makeFunctionCall(environment, location, endLocation, function, args, NescCallKind.NORMAL_CALL);
     }
 
-    public static FunctionCall makeFunctionCall(Location location, Location endLocation, Expression function,
-                                                LinkedList<Expression> args, NescCallKind callKind) {
-        final FunctionCall result = new FunctionCall(location, function, args, callKind);
+    public static FunctionCall makeFunctionCall(Environment environment, Location location, Location endLocation,
+                                                Expression function, LinkedList<Expression> args, NescCallKind callKind) {
+        final FunctionCall result;
+
+        // Check if it is a call to a NesC constant function
+        if (function instanceof Identifier) {
+            final Identifier identifier = (Identifier) function;
+            final Optional<? extends ObjectDeclaration> optObjectDeclaration =
+                    environment.getObjects().get(identifier.getName());
+
+            if (optObjectDeclaration.isPresent()) {
+                final ObjectDeclaration objDeclaration = optObjectDeclaration.get();
+
+                if (objDeclaration == UniqueDeclaration.getInstance()) {
+                    result = new UniqueCall(location, args, callKind, function);
+                } else if (objDeclaration == UniqueNDeclaration.getInstance()) {
+                    result = new UniqueNCall(location, args, callKind, function);
+                } else if (objDeclaration == UniqueCountDeclaration.getInstance()) {
+                    result = new UniqueCountCall(location, args, callKind, function);
+                } else {
+                    result = new FunctionCall(location, function, args, callKind);
+                }
+            } else {
+                result = new FunctionCall(location, function, args, callKind);
+            }
+        } else {
+            result = new FunctionCall(location, function, args, callKind);
+        }
+
         result.setEndLocation(endLocation);
         return result;
     }

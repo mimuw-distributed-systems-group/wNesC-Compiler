@@ -5,6 +5,9 @@ import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.type.*;
 import pl.edu.mimuw.nesc.ast.util.NameMangler;
 import pl.edu.mimuw.nesc.declaration.object.*;
+import pl.edu.mimuw.nesc.declaration.object.unique.UniqueCountDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.unique.UniqueDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.unique.UniqueNDeclaration;
 import pl.edu.mimuw.nesc.symboltable.SymbolTable;
 
 import java.util.List;
@@ -17,66 +20,6 @@ import static com.google.common.base.Preconditions.*;
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
 public final class TranslationUnitEnvironment extends DefaultEnvironment {
-
-    /**
-     * Declaration object that represents the predefined function
-     * <code>unique</code>.
-     */
-    private static final FunctionDeclaration DECLARATION_UNIQUE;
-    static {
-        final Type[] argsTypes = { new PointerType(new CharType()) };
-        final Type uniqueType = new FunctionType(new UnsignedIntType(), argsTypes, false);
-        final FunctionDeclaration.Builder declBuilder = FunctionDeclaration.builder();
-
-        declBuilder.uniqueName(NameMangler.getInstance().mangle("unique"))
-                .type(uniqueType)
-                .linkage(Linkage.EXTERNAL)
-                .name("unique")
-                .startLocation(Location.getDummyLocation());
-
-        DECLARATION_UNIQUE = declBuilder.build();
-        DECLARATION_UNIQUE.setDefined(true);
-    }
-
-    /**
-     * Declaration object that represents the predefined function
-     * <code>uniqueN</code>.
-     */
-    private static final FunctionDeclaration DECLARATION_UNIQUEN;
-    static {
-        final Type[] argsTypes = { new PointerType(new CharType()), new UnsignedIntType() };
-        final Type uniqueNType = new FunctionType(new UnsignedIntType(), argsTypes, false);
-        final FunctionDeclaration.Builder declBuilder = FunctionDeclaration.builder();
-
-        declBuilder.uniqueName(NameMangler.getInstance().mangle("uniqueN"))
-                .type(uniqueNType)
-                .linkage(Linkage.EXTERNAL)
-                .name("uniqueN")
-                .startLocation(Location.getDummyLocation());
-
-        DECLARATION_UNIQUEN = declBuilder.build();
-        DECLARATION_UNIQUEN.setDefined(true);
-    }
-
-    /**
-     * Declaration object that represents the predefined function
-     * <code>uniqueCount</code>.
-     */
-    private static final FunctionDeclaration DECLARATION_UNIQUECOUNT;
-    static {
-        final Type[] argsTypes = { new PointerType(new CharType()) };
-        final Type uniqueCountType = new FunctionType(new UnsignedIntType(), argsTypes, false);
-        final FunctionDeclaration.Builder declBuilder = FunctionDeclaration.builder();
-
-        declBuilder.uniqueName(NameMangler.getInstance().mangle("uniqueCount"))
-                .type(uniqueCountType)
-                .linkage(Linkage.EXTERNAL)
-                .name("uniqueCount")
-                .startLocation(Location.getDummyLocation());
-
-        DECLARATION_UNIQUECOUNT = declBuilder.build();
-        DECLARATION_UNIQUECOUNT.setDefined(true);
-    }
 
     @Override
     public Optional<Environment> getParent() {
@@ -142,9 +85,13 @@ public final class TranslationUnitEnvironment extends DefaultEnvironment {
         final SymbolTable<ObjectDeclaration> objectsTable = getObjects();
         boolean ok;
 
-        ok = objectsTable.add(DECLARATION_UNIQUE.getName(), DECLARATION_UNIQUE);
-        ok = objectsTable.add(DECLARATION_UNIQUEN.getName(), DECLARATION_UNIQUEN) && ok;
-        ok = objectsTable.add(DECLARATION_UNIQUECOUNT.getName(), DECLARATION_UNIQUECOUNT) && ok;
+        final UniqueDeclaration uniqueDeclaration = UniqueDeclaration.getInstance();
+        final UniqueNDeclaration uniqueNDeclaration = UniqueNDeclaration.getInstance();
+        final UniqueCountDeclaration uniqueCountDeclaration = UniqueCountDeclaration.getInstance();
+
+        ok = objectsTable.add(uniqueDeclaration.getName(), uniqueDeclaration);
+        ok = objectsTable.add(uniqueNDeclaration.getName(), uniqueNDeclaration) && ok;
+        ok = objectsTable.add(uniqueCountDeclaration.getName(), uniqueCountDeclaration) && ok;
 
         checkState(ok, "the symbol table contains an object with the name of a NesC constant function");
     }

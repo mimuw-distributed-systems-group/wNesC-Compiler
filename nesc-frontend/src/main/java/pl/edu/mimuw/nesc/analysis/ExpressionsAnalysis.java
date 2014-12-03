@@ -13,11 +13,15 @@ import org.apache.log4j.Logger;
 
 import pl.edu.mimuw.nesc.ast.IntegerCstKind;
 import pl.edu.mimuw.nesc.ast.IntegerCstSuffix;
+import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.*;
 import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
 import pl.edu.mimuw.nesc.astbuilding.Declarations;
 import pl.edu.mimuw.nesc.declaration.object.*;
+import pl.edu.mimuw.nesc.declaration.object.unique.UniqueCountDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.unique.UniqueDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.unique.UniqueNDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.*;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
@@ -31,6 +35,7 @@ import static java.lang.String.format;
 import static pl.edu.mimuw.nesc.ast.type.TypeUtils.*;
 import static pl.edu.mimuw.nesc.ast.util.AstConstants.*;
 import static pl.edu.mimuw.nesc.ast.util.AstConstants.BinaryOp.*;
+import static pl.edu.mimuw.nesc.ast.util.AstConstants.ConstantFun.*;
 import static pl.edu.mimuw.nesc.ast.util.AstConstants.UnaryOp.*;
 import static pl.edu.mimuw.nesc.problem.issue.InvalidParameterTypeError.FunctionKind;
 import static pl.edu.mimuw.nesc.problem.issue.InvalidParameterTypeError.ParameterKind;
@@ -1129,6 +1134,21 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
     }
 
     @Override
+    public Optional<ExprData> visitUniqueCall(UniqueCall expr, Void arg) {
+        return analyzeConstantFunctionCall(expr, UNIQUE);
+    }
+
+    @Override
+    public Optional<ExprData> visitUniqueNCall(UniqueNCall expr, Void arg) {
+        return analyzeConstantFunctionCall(expr, UNIQUEN);
+    }
+
+    @Override
+    public Optional<ExprData> visitUniqueCountCall(UniqueCountCall expr, Void arg) {
+        return analyzeConstantFunctionCall(expr, UNIQUECOUNT);
+    }
+
+    @Override
     public Optional<ExprData> visitFieldRef(FieldRef expr, Void arg) {
         touch(expr);
         final UnaryExprDataCarrier cr = analyzeSubexpressions(expr);
@@ -1922,6 +1942,128 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
         errorHelper.error(initializer.getLocation(), initializer.getEndLocation(),
                 new InvalidInitializerUsageError());
         return Optional.absent();
+    }
+
+    /**
+     * Analysis of NesC builtin constant function calls:
+     *
+     * <pre>
+     *     unique("aaa")
+     *     uniqueN("bbb", 10)
+     *     uniqueCount("aaa")
+     * </pre>
+     */
+    private Optional<ExprData> analyzeConstantFunctionCall(ConstantFunctionCall expr, ConstantFun fun) {
+        touch(expr);
+        final ImmutableList<Optional<ExprData>> argsDatas = analyzeSubexpressions(expr.getArguments(), true);
+        final int providedParamsCount = argsDatas.size();
+        final int expectedParamsCount = fun == UNIQUEN
+                ? 2
+                : 1;
+        final Optional<InvalidConstantFunctionCallError> error;
+
+        if (expr.getCallKind() != NescCallKind.NORMAL_CALL) {
+            error = Optional.of(InvalidConstantFunctionCallError.invalidCallKind(fun));
+        } else if (providedParamsCount != expectedParamsCount) {
+            error = Optional.of(InvalidConstantFunctionCallError.invalidParametersCount(fun,
+                    providedParamsCount, expectedParamsCount));
+        } else {
+            // Check the first parameter
+            final Optional<InvalidConstantFunctionCallError> firstArgError =
+                    checkIdentifierForConstantFunction(expr.getArguments().getFirst(), argsDatas.get(0), fun);
+
+            if (firstArgError.isPresent()) {
+                error = firstArgError;
+            } else if (fun == UNIQUEN) {
+                final Optional<ExprData> numbersCountArgData = argsDatas.get(1);
+                if (numbersCountArgData.isPresent()) {
+                    final Type providedType = numbersCountArgData.get().getType();
+                    if (!providedType.isIntegerType()) {
+                        error = Optional.of(InvalidConstantFunctionCallError.invalidNumbersCountType(providedType));
+                    } else {
+                        error = Optional.absent();
+                    }
+                } else {
+                    error = Optional.absent();
+                }
+            } else {
+                error = Optional.absent();
+            }
+        }
+
+        if (error.isPresent()) {
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), error.get());
+            return Optional.absent();
+        }
+
+        updateConstantFunctionIdentifier((Identifier) expr.getFunction(), fun);
+
+        final ExprData result = ExprData.builder()
+                .type(new UnsignedIntType())
+                .isLvalue(false)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build()
+                .spread(expr);
+
+        return Optional.of(result);
+    }
+
+    private Optional<InvalidConstantFunctionCallError> checkIdentifierForConstantFunction(Expression firstArg,
+                Optional<ExprData> argData, ConstantFun fun) {
+        // Check the type of the first parameter
+
+        if (!argData.isPresent()) {
+            return Optional.absent();
+        }
+
+        final Type providedType = argData.get().getType();
+
+        if (providedType.isPointerType()) {
+            final PointerType ptrType = (PointerType) argData.get().getType();
+            if (!ptrType.getReferencedType().removeQualifiers().isCompatibleWith(new CharType())) {
+                return Optional.of(InvalidConstantFunctionCallError.invalidIdentifierType(fun, providedType));
+            }
+        } else {
+            return Optional.of(InvalidConstantFunctionCallError.invalidIdentifierType(fun, providedType));
+        }
+
+        // Check if a constant expression is provided
+
+        if (firstArg instanceof StringAst || firstArg instanceof StringCst) {
+            return Optional.absent();
+        } else if (firstArg instanceof Identifier) {
+            final Identifier identifier = (Identifier) firstArg;
+            return identifier.getIsGenericReference()
+                    ? Optional.<InvalidConstantFunctionCallError>absent()
+                    : Optional.of(InvalidConstantFunctionCallError.nonConstantIdentifier(fun, firstArg));
+        } else {
+            return Optional.of(InvalidConstantFunctionCallError.nonConstantIdentifier(fun, firstArg));
+        }
+    }
+
+    private void updateConstantFunctionIdentifier(Identifier identifier, ConstantFun fun) {
+        identifier.setIsGenericReference(false);
+        identifier.setUniqueName(Optional.of(fun.toString()));
+        identifier.setRefsDeclInThisNescEntity(false);
+
+        final FunctionDeclaration declarationToSet;
+
+        switch (fun) {
+            case UNIQUE:
+                declarationToSet = UniqueDeclaration.getInstance();
+                break;
+            case UNIQUEN:
+                declarationToSet = UniqueNDeclaration.getInstance();
+                break;
+            case UNIQUECOUNT:
+                declarationToSet = UniqueCountDeclaration.getInstance();
+                break;
+            default:
+                throw new RuntimeException("unexpected constant function '" + fun + "'");
+        }
+
+        identifier.setDeclaration(declarationToSet);
     }
 
     /**

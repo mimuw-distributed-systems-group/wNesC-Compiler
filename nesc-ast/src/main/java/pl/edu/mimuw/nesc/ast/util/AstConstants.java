@@ -122,6 +122,32 @@ public final class AstConstants {
     }
 
     /**
+     * Enumerated type that represents a NesC compile-time constant function.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    public enum ConstantFun {
+        UNIQUE("unique"),
+        UNIQUEN("uniqueN"),
+        UNIQUECOUNT("uniqueCount"),
+        ;
+
+        private final String textualRepresentation;
+
+        private ConstantFun(String textualRepresentation) {
+            checkNotNull(textualRepresentation, "textual representation of a NesC constant function cannot be null");
+            checkArgument(!textualRepresentation.isEmpty(), "textual representation of a NesC constant function cannot an empty string");
+
+            this.textualRepresentation = textualRepresentation;
+        }
+
+        @Override
+        public String toString() {
+            return textualRepresentation;
+        }
+    }
+
+    /**
      * Private constructor to prevent instantiating this class.
      */
     private AstConstants() {

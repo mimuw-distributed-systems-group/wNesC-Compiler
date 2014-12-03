@@ -781,6 +781,41 @@ class FunctionCall(BasicASTNode):
     callKind = ReferenceField("NescCallKind", deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
+class ConstantFunctionCall(BasicASTNode):
+    """
+    <p>Call to a NesC compile-time constant function</p>
+    <p>This node represents a call to one of NesC builtin, constant functions:</p>
+    <ul>
+        <li><code>unique</code></li>
+        <li><code>uniqueN</code></li>
+        <li><code>uniqueCount</code></li>
+    </ul>
+    """
+    superclass = FunctionCall
+    value = IntField(constructor_variable=False)
+
+
+class UniqueCall(BasicASTNode):
+    """
+    <p>Call to <code>unique</code> builtin, NesC constant function.</p>
+    """
+    superclass = ConstantFunctionCall
+
+
+class UniqueNCall(BasicASTNode):
+    """
+    <p>Call to <code>uniqueN</code> builtin, NesC constant function.</p>
+    """
+    superclass = ConstantFunctionCall
+
+
+class UniqueCountCall(BasicASTNode):
+    """
+    <p>Call to <code>uniqueCount</code> builtin, NesC constant function.</p>
+    """
+    superclass = ConstantFunctionCall
+
+
 class ArrayRef(BasicASTNode):
     """
     <p>Array reference</p>

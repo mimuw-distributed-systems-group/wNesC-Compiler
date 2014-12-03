@@ -1707,7 +1707,7 @@ fieldlist:
 
 function_call:
       primary LPAREN exprlist RPAREN
-    { $$ = Expressions.makeFunctionCall($1.getLocation(), $4.getEndLocation(), $1, $3); }
+    { $$ = Expressions.makeFunctionCall(environment, $1.getLocation(), $4.getEndLocation(), $1, $3); }
     ;
 
 nesc_call:
@@ -1715,7 +1715,7 @@ nesc_call:
       iface_callkind[kind] identifier[name] LPAREN exprlist[params] RPAREN[rparen]
     {
         final Identifier id = Expressions.makeIdentifier($name.getLocation(), $name.getEndLocation(), $name.getValue());
-        $$ = Expressions.makeFunctionCall($kind.getLocation(), $rparen.getEndLocation(), id, $params,
+        $$ = Expressions.makeFunctionCall(environment, $kind.getLocation(), $rparen.getEndLocation(), id, $params,
                 $kind.getCallKind());
     }
     /* bare command/event */
@@ -1724,7 +1724,7 @@ nesc_call:
         final Identifier id = Expressions.makeIdentifier($name.getLocation(), $name.getEndLocation(), $name.getValue());
         final GenericCall genericCall = NescExpressions.makeGenericCall($lbrack.getLocation(), $rbrack.getEndLocation(),
                 id, $generic_params);
-        $$ = Expressions.makeFunctionCall($kind.getLocation(), $rparen.getEndLocation(), genericCall, $params,
+        $$ = Expressions.makeFunctionCall(environment, $kind.getLocation(), $rparen.getEndLocation(), genericCall, $params,
                 $kind.getCallKind());
     }
     | iface_callkind[kind] identifier[iface] DOT identifier[name] LPAREN exprlist[params] RPAREN[rparen]
@@ -1733,7 +1733,7 @@ nesc_call:
                 $iface.getValue());
         final Word methodWord = makeWord($name.getLocation(), $name.getEndLocation(), $name.getValue());
         final InterfaceDeref ifaceDeref = NescExpressions.makeInterfaceDeref(ifaceId, methodWord);
-        $$ = Expressions.makeFunctionCall($kind.getLocation(), $rparen.getEndLocation(), ifaceDeref, $params,
+        $$ = Expressions.makeFunctionCall(environment, $kind.getLocation(), $rparen.getEndLocation(), ifaceDeref, $params,
                 $kind.getCallKind());
     }
     | iface_callkind[kind] identifier[iface] DOT identifier[name] LBRACK[lbrack] nonnull_exprlist[generic_params] RBRACK[rbrack] LPAREN exprlist[params] RPAREN[rparen]
@@ -1744,7 +1744,7 @@ nesc_call:
         final InterfaceDeref ifaceDeref = NescExpressions.makeInterfaceDeref(ifaceId, methodWord);
         final GenericCall genericCall = NescExpressions.makeGenericCall($lbrack.getLocation(), $rbrack.getEndLocation(),
                 ifaceDeref, $generic_params);
-        $$ = Expressions.makeFunctionCall($kind.getLocation(), $rparen.getEndLocation(), genericCall, $params,
+        $$ = Expressions.makeFunctionCall(environment, $kind.getLocation(), $rparen.getEndLocation(), genericCall, $params,
                 $kind.getCallKind());
     }
     ;

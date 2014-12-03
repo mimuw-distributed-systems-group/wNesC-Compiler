@@ -454,33 +454,25 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
 
     @Override
     public Void visitFunctionCall(FunctionCall expr, Void arg) {
-        printLeftParentheses(expr);
-        final AstType vaArgCall = expr.getVaArgCall();
+        printFunctionCall(expr);
+        return null;
+    }
 
-        if (vaArgCall == null) {
-            // Call keyword
-            final Optional<String> callKeyword = Optional.fromNullable(CALL_KEYWORDS.get(expr.getCallKind()));
-            if (callKeyword.isPresent()) {
-                strBuilder.append(callKeyword.get());
-                strBuilder.append(" ");
-            }
+    @Override
+    public Void visitUniqueCall(UniqueCall expr, Void arg) {
+        printFunctionCall(expr);
+        return null;
+    }
 
-            // Function identifier and parameters
-            expr.getFunction().accept(this, null);
-            strBuilder.append(LPAREN);
-            printCommaSepList(expr.getArguments());
-            strBuilder.append(RPAREN);
-        } else {
-            strBuilder.append(TEXT_BUILTIN_VA_ARG);
-            strBuilder.append(LPAREN);
-            printCommaSepList(expr.getArguments());
-            strBuilder.append(COMMA);
-            strBuilder.append(SPACE);
-            printType(vaArgCall.getType());
-            strBuilder.append(RPAREN);
-        }
+    @Override
+    public Void visitUniqueNCall(UniqueNCall expr, Void arg) {
+        printFunctionCall(expr);
+        return null;
+    }
 
-        printRightParentheses(expr);
+    @Override
+    public Void visitUniqueCountCall(UniqueCountCall expr, Void arg) {
+        printFunctionCall(expr);
         return null;
     }
 
@@ -696,6 +688,36 @@ public class PrettyPrint extends ExceptionVisitor<Void, Void> {
         strBuilder.append(fieldName.getName());
 
         printRightParentheses(unary);
+    }
+
+    private void printFunctionCall(FunctionCall expr) {
+        printLeftParentheses(expr);
+        final AstType vaArgCall = expr.getVaArgCall();
+
+        if (vaArgCall == null) {
+            // Call keyword
+            final Optional<String> callKeyword = Optional.fromNullable(CALL_KEYWORDS.get(expr.getCallKind()));
+            if (callKeyword.isPresent()) {
+                strBuilder.append(callKeyword.get());
+                strBuilder.append(" ");
+            }
+
+            // Function identifier and parameters
+            expr.getFunction().accept(this, null);
+            strBuilder.append(LPAREN);
+            printCommaSepList(expr.getArguments());
+            strBuilder.append(RPAREN);
+        } else {
+            strBuilder.append(TEXT_BUILTIN_VA_ARG);
+            strBuilder.append(LPAREN);
+            printCommaSepList(expr.getArguments());
+            strBuilder.append(COMMA);
+            strBuilder.append(SPACE);
+            printType(vaArgCall.getType());
+            strBuilder.append(RPAREN);
+        }
+
+        printRightParentheses(expr);
     }
 
     private void printCommaSepList(List<? extends Expression> expressions) {

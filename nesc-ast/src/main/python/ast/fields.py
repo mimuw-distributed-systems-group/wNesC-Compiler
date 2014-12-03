@@ -153,9 +153,9 @@ class BoolField(BasicASTNodeField):
 
 
 class IntField(BasicASTNodeField):
-    def __init__(self, name=None, width=INT_TYPE.NORMAL,
+    def __init__(self, name=None, width=INT_TYPE.NORMAL, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY,
                  signed=True, const=False, *args, **kwargs):
-        super(IntField, self).__init__(*args, **kwargs)
+        super(IntField, self).__init__(deep_copy_mode=deep_copy_mode, *args, **kwargs)
         self.name = name
         self.width = width
         self.signed = signed
