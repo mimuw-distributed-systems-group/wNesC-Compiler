@@ -17,19 +17,19 @@ class FieldCopyCodeGenerator:
         self.field_optional = field_optional
         self.type_fun = type_fun
 
-    def generate_code(self, lang, copy_name):
+    def generate_code(self, lang, copy_name, skip_param_name):
         """Returns a list with lines of code."""
         if lang == DST_LANGUAGE.JAVA:
-            return self.generate_code_java(copy_name)
+            return self.generate_code_java(copy_name, skip_param_name)
         elif lang == DST_LANGUAGE.CPP:
-            return self.generate_code_cpp(copy_name)
+            return self.generate_code_cpp(copy_name, skip_param_name)
         else:
             raise Exception("unexpected destination language {0}".format(lang))
 
-    def generate_code_java(self, copy_name):
+    def generate_code_java(self, copy_name, skip_param_name):
         raise NotImplementedError
 
-    def generate_code_cpp(self, copy_name):
+    def generate_code_cpp(self, copy_name, skip_param_name):
         raise NotImplementedError
 
 
@@ -37,7 +37,7 @@ class NullCopyCodeGenerator(FieldCopyCodeGenerator):
     def __init__(self, field_name, field_optional, type_fun):
         super().__init__(field_name, field_optional, type_fun)
 
-    def generate_code_java(self, copy_name):
+    def generate_code_java(self, copy_name, skip_param_name):
         return ["{0}.{1} = null;".format(copy_name, self.field_name)]
 
 
@@ -45,11 +45,11 @@ class DeepCopyCodeGenerator(FieldCopyCodeGenerator):
     def __init__(self, field_name, field_optional, type_fun):
         super().__init__(field_name, field_optional, type_fun)
 
-    def generate_code_java(self, copy_name):
+    def generate_code_java(self, copy_name, skip_param_name):
         if not self.field_optional:
             return [
                 "{0}.{1} = this.{1} != null".format(copy_name, self.field_name),
-                2 * tab + "? this.{0}.deepCopy()".format(self.field_name),
+                2 * tab + "? this.{0}.deepCopy({1})".format(self.field_name, skip_param_name),
                 2 * tab + ": null;",
             ]
         else:
@@ -63,7 +63,7 @@ class DeepCopyCodeGenerator(FieldCopyCodeGenerator):
             return [
                 "if (this.{0} != null) {{".format(self.field_name),
                 tab + "{0}.{1} = this.{1}.isPresent()".format(copy_name, self.field_name),
-                3 * tab + "? Optional.of(this.{0}.get().deepCopy())".format(self.field_name),
+                3 * tab + "? Optional.of(this.{0}.get().deepCopy({1}))".format(self.field_name, skip_param_name),
                 3 * tab + ": Optional.<{0}>absent();".format(nested_type),
                 "} else {",
                 tab + "{0}.{1} = null;".format(copy_name, self.field_name),
@@ -75,7 +75,7 @@ class ReferenceCopyCodeGenerator(FieldCopyCodeGenerator):
     def __init__(self, field_name, field_optional, type_fun):
         super().__init__(field_name, field_optional, type_fun)
 
-    def generate_code_java(self, copy_name):
+    def generate_code_java(self, copy_name, skip_param_name):
         return ["{0}.{1} = this.{1};".format(copy_name, self.field_name)]
 
 
@@ -83,10 +83,10 @@ class ListDeepCopyCodeGenerator(FieldCopyCodeGenerator):
     def __init__(self, field_name, field_optional, type_fun):
         super().__init__(field_name, field_optional, type_fun)
 
-    def generate_code_java(self, copy_name):
+    def generate_code_java(self, copy_name, skip_param_name):
         return [
             "{0}.{1} = this.{1} != null".format(copy_name, self.field_name),
-            2 * tab + "? AstUtils.deepCopyNodes(this.{0})".format(self.field_name),
+            2 * tab + "? AstUtils.deepCopyNodes(this.{0}, {1})".format(self.field_name, skip_param_name),
             2 * tab + ": null;",
         ]
 

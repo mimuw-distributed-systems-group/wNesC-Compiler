@@ -795,7 +795,7 @@ class ConstantFunctionCall(BasicASTNode):
     It is set in the process of folding constant functions calls.</p>
     """
     superclass = FunctionCall
-    value = IntField(constructor_variable=False)
+    value = ReferenceField("Long", constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
     identifier = StringField(constructor_variable=False)
 
 

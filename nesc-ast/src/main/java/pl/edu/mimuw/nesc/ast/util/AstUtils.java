@@ -297,19 +297,21 @@ public final class AstUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T extends Node> LinkedList<T> deepCopyNodes(LinkedList<T> toCopy) {
+    public static <T extends Node> LinkedList<T> deepCopyNodes(LinkedList<T> toCopy,
+            boolean skipConstantFunCalls) {
         final LinkedList<T> copy = new LinkedList<>();
 
         for (T node : toCopy) {
-            copy.add((T) node.deepCopy());
+            copy.add((T) node.deepCopy(skipConstantFunCalls));
         }
 
         return copy;
     }
 
-    public static <T extends Node> Optional<LinkedList<T>> deepCopyNodes(Optional<LinkedList<T>> toCopy) {
+    public static <T extends Node> Optional<LinkedList<T>> deepCopyNodes(Optional<LinkedList<T>> toCopy,
+            boolean skipConstantFunCalls) {
         return toCopy.isPresent()
-                ? Optional.of(deepCopyNodes(toCopy.get()))
+                ? Optional.of(deepCopyNodes(toCopy.get(), skipConstantFunCalls))
                 : Optional.<LinkedList<T>>absent();
     }
 

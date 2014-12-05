@@ -107,7 +107,7 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
             return Optional.absent();
         }
 
-        return Optional.of(expressions.get(identifier.getName()));
+        return Optional.of(expressions.get(identifier.getName()).deepCopy(true));
     }
 
     /**
@@ -134,7 +134,7 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
         // Make the substitution - prepare new nodes
         final Optional<AstType> pattern = Optional.fromNullable(types.get(referredParamName));
         checkState(pattern.isPresent(), "the substitution type for generic parameter '%s' is absent", referredParamName);
-        final AstType replacement = pattern.get().deepCopy();
+        final AstType replacement = pattern.get().deepCopy(true);
         replacement.setPastedFlagDeep(true);
 
         // Make the substitution - type elements
@@ -173,7 +173,7 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
         // Make the substitution - prepare new nodes
         final Optional<AstType> pattern = Optional.fromNullable(types.get(referredParamName));
         checkState(pattern.isPresent(), "the substitution type for generic parameter '%s' is absent", referredParamName);
-        final AstType replacement = pattern.get().deepCopy();
+        final AstType replacement = pattern.get().deepCopy(true);
         replacement.setPastedFlagDeep(true);
         final Supplier<Optional<Declarator>> declaratorSupplier =
                 new DeclaratorSupplier(Optional.fromNullable(replacement.getDeclarator()));
@@ -351,7 +351,7 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
                 result = origSpecimen.get();
                 origSupplied = true;
             } else {
-                result = origSpecimen.get().deepCopy();
+                result = origSpecimen.get().deepCopy(true);
             }
 
             result.setPastedFlagDeep(true);

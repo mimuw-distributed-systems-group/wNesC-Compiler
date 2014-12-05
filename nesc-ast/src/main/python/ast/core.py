@@ -149,7 +149,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         insert_empty_line = True
 
         for name, field_data in sorted(all_fields.items(), key=lambda x : x[0]):
-            field_lines = field_data[3].generate_code(DST_LANGUAGE.JAVA, "copy")
+            field_lines = field_data[3].generate_code(DST_LANGUAGE.JAVA, "copy", "skipConstantFunCalls")
 
             if insert_empty_line or len(field_lines) > 1:
                 fields_assigns.append("")
@@ -159,16 +159,24 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
 
         fields_assigns = map(lambda s : body_indent + s if len(s) > 0 else "", fields_assigns)
 
-        body = body_indent + "final {0} copy = new {0}();\n".format(classname)
+        if classname in unique_nodes:
+            body = body_indent + "if (skipConstantFunCalls) {\n"
+            body += body_indent + tab + "return this;\n"
+            body += body_indent + "}\n\n"
+        else:
+            body = ""
+
+        body += body_indent + "final {0} copy = new {0}();\n".format(classname)
         body += "\n".join(fields_assigns) + "\n"
         body += "\n" + body_indent + "return copy;\n"
 
-        code = ""
+        override_attr = tab + "@Override\n" if hasattr(self, "superclass") else ""
 
-        if hasattr(self, "superclass"):
-            code += tab + "@Override\n"
+        code = override_attr + tab + "public {0} deepCopy() {{\n".format(classname)
+        code += 2 * tab + "return deepCopy(false);\n"
+        code += tab + "}\n\n"
 
-        code += tab + "public {0} deepCopy() {{\n".format(classname)
+        code += override_attr + tab + "public {0} deepCopy(boolean skipConstantFunCalls) {{\n".format(classname)
         code += body
         code += tab + "}\n\n"
 

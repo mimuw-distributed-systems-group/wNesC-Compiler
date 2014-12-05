@@ -1104,7 +1104,8 @@ public final class Declarations extends AstBuildingBase {
             /*
              * Check previous declarations.
              */
-            final Optional<? extends ObjectDeclaration> previousDeclarationOpt = environment.getObjects().get(name.get());
+            final Optional<? extends ObjectDeclaration> previousDeclarationOpt =
+                    environment.getObjects().get(name.get(), true);
             final FunctionDeclaration.Builder builder = FunctionDeclaration.builder();
             builder.functionType(TypeElementUtils.getFunctionType(elements))
                     .instanceParameters(funDeclarator.getGenericParameters().orNull())
