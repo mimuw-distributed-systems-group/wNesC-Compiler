@@ -2,7 +2,7 @@ from os import path, makedirs
 from collections import OrderedDict
 
 from ast.util import first_to_cap, DST_LANGUAGE, tab, ast_nodes, ast_enums, \
-    generic_nodes, mangle_nodes, unique_nodes
+    generic_nodes, mangle_nodes, unique_nodes, language_dispatch
 from ast.field_copy import *
 from ast.fields import BasicASTNodeField, BoolField, ReferenceField, \
     ReferenceListField, EnumField, EnumListField, StringField
@@ -351,54 +351,6 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
 
         return code
 
-    def gen_traverse_unique(self, lang):
-        if lang == DST_LANGUAGE.CPP:
-            return self.gen_traverse_unique_cpp()
-        elif lang == DST_LANGUAGE.JAVA:
-            return self.gen_traverse_unique_java()
-        else:
-            raise Exception("unexpected destination language '{0}'".format(lang))
-
-    def gen_traverse_unique_cpp(self):
-        # FIXME
-        raise NotImplementedError
-
-    def gen_traverse_unique_java(self):
-        classname = self.__class__.__name__
-        body_lines = []
-
-        if classname in unique_nodes:
-            body_lines.append("uniqueProcessor.accept(this);")
-
-        for name, field in [(x, self.__getattribute__(x)) for x in dir(self)]:
-            if not isinstance(field, BasicASTNodeField):
-                continue
-
-            field_lines = field.gen_dfs_calls(DST_LANGUAGE.JAVA, name, ast_nodes.keys(), "traverseUnique", "uniqueProcessor")
-
-            if len(field_lines) > 0:
-                if len(body_lines) > 0:
-                    body_lines.append("")
-                body_lines.append("// {0}".format(name))
-                body_lines.extend(field_lines)
-
-        if len(body_lines) == 0 and hasattr(self, "superclass"):
-            return ""
-        elif len(body_lines) == 0:
-            return tab + "public void traverseUnique(UniqueProcessor uniqueProcessor) {}\n\n"
-
-        body = 2 * tab + "super.traverseUnique(uniqueProcessor);\n" if hasattr(self, "superclass") else ""
-        body += "\n" if len(body_lines) > 1 and len(body) > 0 else ""
-        body_lines = [2 * tab + s if len(s) > 0 else "" for s in body_lines]
-        body += "\n".join(body_lines) + "\n"
-
-        code = tab + "@Override\n" if hasattr(self, "superclass") else ""
-        code += tab + "public void traverseUnique(UniqueProcessor uniqueProcessor) {\n"
-        code += body
-        code += tab + "}\n\n"
-
-        return code
-
     def get_fields(self, lang):
         fields = []
         field_types = dict()
@@ -425,6 +377,9 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         return fields, field_types, field_defaults
 
     def gen_visitable_code(self, lang):
+        return self.gen_visit_code(lang) + "\n" + self.gen_traverse_code(lang)
+
+    def gen_visit_code(self, lang):
         header = ""
         if lang == DST_LANGUAGE.JAVA:
             header = tab + "@Override\n"
@@ -436,6 +391,53 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             header += tab * 2 + "v->"
 
         return header + "visit" + self.__class__.__name__ + "(this, arg);\n" + tab + "}\n"
+
+    def gen_traverse_code(self, lang):
+        return language_dispatch(lang, self.gen_traverse_code_java, self.gen_traverse_code_cpp)
+
+    def gen_traverse_code_cpp(self):
+        #FIXME
+        raise NotImplementedError
+
+    def gen_traverse_code_java(self):
+        # Build the fields dictionary
+        fields = { name : self.__getattribute__(name)
+                   for name in dir(self)
+                   if isinstance(self.__getattribute__(name), BasicASTNodeField) }
+        node = self
+        while hasattr(node, "superclass"):
+            node = node.superclass()
+            superfields = [(attr_name, node.__getattribute__(attr_name)) for attr_name in dir(node)]
+            for name, value in superfields:
+                if name not in fields and isinstance(value, BasicASTNodeField):
+                    fields[name] = value
+
+        # Process all fields
+        body = []
+        for name, fielddesc in fields.items():
+            newlines = fielddesc.gen_dfs_calls(DST_LANGUAGE.JAVA, name, ast_nodes.keys(), "traverse", "visitor", "arg")
+            if newlines:
+                if body:
+                    body.append("")
+                body.extend(newlines)
+
+        visit_call = "visitor.visit{0}(this, arg)".format(self.__class__.__name__)
+
+        if body:
+            body[0:0] = ["final R result = {0};".format(visit_call), ""]
+            body.extend(["", "return result;"])
+        else:
+            body = ["return {0};".format(visit_call)]
+
+        # Increase indentation
+        body = [2 * tab + line if line else "" for line in body]
+
+        code = tab + "@Override\n"
+        code += tab + "public <R, A> R traverse(Visitor<R, A> visitor, A arg) {\n"
+        code += "\n".join(body) + "\n" if body else ""
+        code += tab + "}\n"
+
+        return code
 
     def gen_field_printer_code(self, lang):
         res = self.superclass().gen_field_printer_code(lang) if hasattr(self, "superclass") else ""
@@ -534,7 +536,6 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         deep_copy_method = self.gen_deep_copy(lang)
         substitute_method = self.gen_substitute(lang)
         set_paste_flag_deep_method = self.gen_set_paste_flag_deep(lang)
-        traverse_unique_method = self.gen_traverse_unique(lang)
 
         if lang == DST_LANGUAGE.CPP:
             res = "class " + class_name + superclass + " {\n"
@@ -578,7 +579,6 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             res += deep_copy_method
             res += substitute_method
             res += set_paste_flag_deep_method
-            res += traverse_unique_method
             res += self.gen_visitable_code(lang)
             res += "}\n"
 
@@ -682,6 +682,7 @@ def gen_java_visitor(directory):
     visitable = "package pl.edu.mimuw.nesc.ast.gen;\n\n"
     visitable += "public interface Visitable {\n"
     visitable += tab + "<R, A> R accept(Visitor<R, A> v, A arg);\n"
+    visitable += tab + "<R, A> R traverse(Visitor<R, A> v, A arg);\n"
     visitable += "}\n"
 
     f = open(path.join(directory, "Visitable.java"), "w")
@@ -710,6 +711,20 @@ def gen_java_visitor(directory):
     f = open(path.join(directory, "ExceptionVisitor.java"), "w")
     f.write(exception_visitor)
     f.close()
+
+    with open(path.join(directory, "NullVisitor.java"), "w") as f:
+        f.write("package pl.edu.mimuw.nesc.ast.gen;\n\n")
+        f.write("public abstract class NullVisitor<R, A> implements Visitor<R, A> {\n")
+        methods = []
+
+        for classname in ast_nodes.keys():
+            method = tab + "public R visit{0}({0} node, A arg) {{\n".format(classname)
+            method += tab * 2 + "return null;\n"
+            method += tab + "}"
+            methods.append(method)
+
+        f.write("\n\n".join(methods))
+        f.write("\n}\n")
 
 
 def gen_subst_manager(lang, directory):
@@ -778,31 +793,6 @@ def gen_remangling_visitor_java(directory):
         f.write("}\n")
 
 
-def gen_unique_processor(lang, directory):
-    if lang == DST_LANGUAGE.JAVA:
-        gen_unique_processor_java(directory)
-    elif lang == DST_LANGUAGE.CPP:
-        gen_unique_processor_cpp(directory)
-    else:
-        raise Exception("unexpected destination language '{0}".format(lang))
-
-
-def gen_unique_processor_cpp(directory):
-    # FIXME
-    raise NotImplementedError
-
-
-def gen_unique_processor_java(directory):
-    with open(path.join(directory, "UniqueProcessor.java"), "w") as f:
-        f.write("package pl.edu.mimuw.nesc.ast.gen;\n\n")
-        f.write("public interface UniqueProcessor {\n")
-
-        for classname in unique_nodes.keys():
-            f.write(tab + "void accept({0} arg);\n".format(classname))
-
-        f.write("}\n")
-
-
 def generate_code(lang, directory=""):
     #if dir is None, then the files will be generated in the
     #current working directory. Else dir should be a valid relative
@@ -867,4 +857,3 @@ def generate_java_code(directory):
 
     gen_remangling_visitor(DST_LANGUAGE.JAVA, directory)
 
-    gen_unique_processor(DST_LANGUAGE.JAVA, directory)

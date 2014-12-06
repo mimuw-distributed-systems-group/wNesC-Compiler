@@ -9,12 +9,12 @@ import pl.edu.mimuw.nesc.ast.gen.CharacterCst;
 import pl.edu.mimuw.nesc.ast.gen.ConstantFunctionCall;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.IntegerCst;
+import pl.edu.mimuw.nesc.ast.gen.NullVisitor;
 import pl.edu.mimuw.nesc.ast.gen.StringAst;
 import pl.edu.mimuw.nesc.ast.gen.StringCst;
 import pl.edu.mimuw.nesc.ast.gen.UniqueCall;
 import pl.edu.mimuw.nesc.ast.gen.UniqueCountCall;
 import pl.edu.mimuw.nesc.ast.gen.UniqueNCall;
-import pl.edu.mimuw.nesc.ast.gen.UniqueProcessor;
 import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -36,7 +36,7 @@ import static java.lang.String.format;
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-final class ValuesProcessor implements UniqueProcessor {
+final class ValuesProcessor extends NullVisitor<Void, Void> {
     /**
      * Logger for unique value processors.
      */
@@ -48,23 +48,25 @@ final class ValuesProcessor implements UniqueProcessor {
     private final Map<String, Long> counters = new HashMap<>();
 
     @Override
-    public void accept(UniqueCall uniqueCall) {
+    public Void visitUniqueCall(UniqueCall uniqueCall, Void arg) {
         // Return if this 'unique' has been already evaluated
         if (uniqueCall.getValue() != null) {
-            return;
+            return null;
         }
 
         retrieveIdentifier(uniqueCall);
         evaluate(uniqueCall, 1);
+
+        return null;
     }
 
     @Override
-    public void accept(UniqueNCall uniqueNCall) {
+    public Void visitUniqueNCall(UniqueNCall uniqueNCall, Void arg) {
         // FIXME evaluating all kinds of constant expression as the 2nd argument
 
         // Return if this 'uniqueN' usage has been already evaluated
         if (uniqueNCall.getValue() != null) {
-            return;
+            return null;
         }
 
         // Get the numbers count
@@ -83,17 +85,21 @@ final class ValuesProcessor implements UniqueProcessor {
 
         retrieveIdentifier(uniqueNCall);
         evaluate(uniqueNCall, numbersCount);
+
+        return null;
     }
 
     @Override
-    public void accept(UniqueCountCall uniqueCountCall) {
+    public Void visitUniqueCountCall(UniqueCountCall uniqueCountCall, Void arg) {
         if (uniqueCountCall.getIdentifier() != null) {
-            return;
+            return null;
         }
 
         retrieveIdentifier(uniqueCountCall);
 
         // this unique processor does not evaluate 'uniqueCount'
+
+        return null;
     }
 
     /**

@@ -55,14 +55,14 @@ public final class FoldExecutor {
         // Evaluate 'unique' and 'uniqueN'
         final ValuesProcessor valuesProcessor = new ValuesProcessor();
         for (Node node : nodes) {
-            node.traverseUnique(valuesProcessor);
+            node.traverse(valuesProcessor, null);
         }
 
         // Evaluate 'uniqueCount'
         final ImmutableMap<String, Long> counters = valuesProcessor.getCounters();
         final CountsProcessor countsProcessor = new CountsProcessor(counters);
         for (Node node : nodes) {
-            node.traverseUnique(countsProcessor);
+            node.traverse(countsProcessor, null);
         }
 
         return counters;

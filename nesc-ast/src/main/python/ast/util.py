@@ -12,6 +12,16 @@ class DST_LANGUAGE:
     CPP = 0
     JAVA = 1
 
+
+def language_dispatch(lang, java_fun, cpp_fun, *args, **kwargs):
+    if lang == DST_LANGUAGE.JAVA:
+        return java_fun(*args, **kwargs)
+    elif lang == DST_LANGUAGE.CPP:
+        return cpp_fun(*args, **kwargs)
+    else:
+        raise Exception("unexpected destination language '{0}'".format(lang))
+
+
 #defines the width of the indentation in the generated code
 tab = " " * 4
 
