@@ -24,6 +24,8 @@ import pl.edu.mimuw.nesc.declaration.object.unique.UniqueDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.unique.UniqueNDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.*;
 import pl.edu.mimuw.nesc.environment.Environment;
+import pl.edu.mimuw.nesc.facade.component.reference.ComponentRefFacade;
+import pl.edu.mimuw.nesc.facade.component.reference.EnumerationConstant;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceRefFacade;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
@@ -1215,8 +1217,54 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
     @Override
     public Optional<ExprData> visitComponentDeref(ComponentDeref expr, Void arg) {
         touch(expr);
-        // FIXME
-        return Optional.absent();
+
+        final Identifier componentRefName = (Identifier) expr.getArgument();
+        final Optional<? extends ObjectDeclaration> optDeclaration =
+                environment.getObjects().get(componentRefName.getName());
+        final Optional<? extends ErroneousIssue> error;
+
+        componentRefName.setRefsDeclInThisNescEntity(false);
+        componentRefName.setIsGenericReference(false);
+
+        if (!optDeclaration.isPresent()) {
+            error = Optional.of(new UndeclaredIdentifierError(componentRefName.getName()));
+        } else if (optDeclaration.get().getKind() != ObjectKind.COMPONENT) {
+            error = Optional.of(InvalidComponentDerefExprError.invalidObjectKind(componentRefName.getName()));
+        } else {
+            final ComponentRefDeclaration refDeclaration = (ComponentRefDeclaration) optDeclaration.get();
+            final ComponentRefFacade facade = refDeclaration.getFacade();
+
+            if (!facade.goodComponentRef()) {
+                // error with the component reference or the component definition itself
+                error = Optional.absent();
+            } else {
+                final Optional<EnumerationConstant> constant =
+                        facade.getEnumerationConstant(expr.getFieldName().getName());
+
+                if (!constant.isPresent()) {
+                    error = Optional.of(InvalidComponentDerefExprError.nonexistentConstant(componentRefName.getName(),
+                            expr.getFieldName().getName()));
+                } else {
+                    componentRefName.setUniqueName(Optional.of(constant.get().getUniqueName()));
+                    error = Optional.absent();
+                }
+            }
+        }
+
+        if (error.isPresent()) {
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(), error.get());
+            return Optional.absent();
+        }
+
+        final ExprData result = ExprData.builder()
+                .type(new IntType())
+                .isLvalue(false)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build()
+                .spread(expr);
+
+        return Optional.of(result);
     }
 
     @Override

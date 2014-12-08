@@ -54,15 +54,16 @@ public interface ComponentRefFacade {
 
     /**
      * <p>Check if the specification of the referred component contains an
-     * enumeration constant with given name.</p>
+     * enumeration constant with given name. If so, an object that represents
+     * the constant is returned.</p>
      *
      * @param name Name of the enumeration constant.
-     * @return <code>true</code> if and only if the enumeration constant with
-     *         given name exists in the specification of the referred component.
+     * @return Object that represents the enumeration constant with give name.
+     *         If such constant does not exist, the object is absent.
      * @throws NullPointerException Name is null.
      * @throws IllegalArgumentException Name is an empty string.
      */
-    boolean containsConstant(String name);
+    Optional<EnumerationConstant> getEnumerationConstant(String name);
 
     /**
      * <p>Get the object that depicts an interface reference or a bare command

@@ -36,9 +36,9 @@ public final class InvalidComponentRefFacade extends AbstractComponentRefFacade 
     }
 
     @Override
-    public boolean containsConstant(String name) {
+    public Optional<EnumerationConstant> getEnumerationConstant(String name) {
         checkName(name);
-        return false;
+        return Optional.absent();
     }
 
     @Override

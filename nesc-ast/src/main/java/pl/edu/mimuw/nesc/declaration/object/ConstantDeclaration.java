@@ -69,7 +69,7 @@ public final class ConstantDeclaration extends ObjectDeclaration {
         protected void beforeBuild() {
             super.beforeBuild();
 
-            setType(Optional.<Type>of(new IntType(true, false)));
+            setType(Optional.<Type>of(new IntType()));
             setLinkage(Optional.of(Linkage.NONE));
             setKind(ObjectKind.CONSTANT);
         }

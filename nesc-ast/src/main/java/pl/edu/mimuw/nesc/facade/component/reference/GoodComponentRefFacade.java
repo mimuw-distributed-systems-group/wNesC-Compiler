@@ -40,7 +40,7 @@ public final class GoodComponentRefFacade extends AbstractComponentRefFacade {
      * Map with all enumeration constants declared in the specification of the
      * referred component.
      */
-    private final ImmutableMap<String, ConstantDeclaration> constants;
+    private final ImmutableMap<String, EnumerationConstant> constants;
 
     /**
      * Map with all type definitions from the specification of the referred
@@ -80,9 +80,9 @@ public final class GoodComponentRefFacade extends AbstractComponentRefFacade {
     }
 
     @Override
-    public boolean containsConstant(String name) {
+    public Optional<EnumerationConstant> getEnumerationConstant(String name) {
         checkName(name);
-        return constants.containsKey(name);
+        return Optional.fromNullable(constants.get(name));
     }
 
     @Override
@@ -124,7 +124,7 @@ public final class GoodComponentRefFacade extends AbstractComponentRefFacade {
          * Results of building process.
          */
         private ImmutableMap<String, SpecificationEntity> entities;
-        private ImmutableMap<String, ConstantDeclaration> constants;
+        private ImmutableMap<String, EnumerationConstant> constants;
         private ImmutableMap<String, Typedef> typedefs;
 
         /**
@@ -205,12 +205,13 @@ public final class GoodComponentRefFacade extends AbstractComponentRefFacade {
         private final class BuilderDeclarationVisitor implements ObjectDeclaration.Visitor<Void, Void> {
 
             private final ImmutableMap.Builder<String, SpecificationEntity> builderEntities = ImmutableMap.builder();
-            private final ImmutableMap.Builder<String, ConstantDeclaration> builderConstants = ImmutableMap.builder();
+            private final ImmutableMap.Builder<String, EnumerationConstant> builderConstants = ImmutableMap.builder();
             private final ImmutableMap.Builder<String, Typedef> builderTypedefs = ImmutableMap.builder();
 
             @Override
             public Void visit(ConstantDeclaration declaration, Void arg) {
-                builderConstants.put(declaration.getName(), declaration);
+                builderConstants.put(declaration.getName(), new EnumerationConstant(declaration.getName(),
+                        declaration.getUniqueName()));
                 return null;
             }
 

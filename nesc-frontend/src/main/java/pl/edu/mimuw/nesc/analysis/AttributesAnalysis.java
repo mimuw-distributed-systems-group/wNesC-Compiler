@@ -44,7 +44,7 @@ public final class AttributesAnalysis {
                 new SpecifiersSet(errorHelper), errorHelper)) {
             return false;
         }
-        
+
         // Extract the location of the attribute
         final CAttributePredicate predicate = new CAttributePredicate();
         predicate.apply(tagRef.getAttributes());

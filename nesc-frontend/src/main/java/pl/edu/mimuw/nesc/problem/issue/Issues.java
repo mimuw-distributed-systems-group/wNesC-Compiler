@@ -96,6 +96,7 @@ public final class Issues {
         INVALID_INITIALIZER_USAGE(65),
         INVALID_CONSTANT_FUNCTION_CALL(66),
         INVALID_CATTRIBUTE_USAGE(67),
+        INVALID_COMPONENTDEREF_EXPR(68),
         ;
 
         private final int codeNumber;
