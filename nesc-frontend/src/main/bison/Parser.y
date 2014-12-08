@@ -9,6 +9,7 @@ import org.apache.log4j.Logger;
 
 import pl.edu.mimuw.nesc.*;
 import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
+import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.util.AstUtils;
@@ -27,8 +28,10 @@ import pl.edu.mimuw.nesc.astbuilding.nesc.*;
 import pl.edu.mimuw.nesc.token.*;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import static java.lang.String.format;
 }
@@ -530,6 +533,7 @@ interface:
       interface_parms[params] nesc_attributes[attrs] LBRACE[lbrace]
     {
         pushLevel();
+        environment.setEnclosedInGenericNescEntity($params != null && !$params.isEmpty());
         environment.setScopeType(ScopeType.INTERFACE);
         environment.setStartLocation($lbrace.getLocation());
         final Interface iface = $<Interface>4;
@@ -643,6 +647,7 @@ module:
       generic[isGeneric] MODULE[keyword] idword[name]
     {
         pushLevel();
+        environment.setEnclosedInGenericNescEntity($isGeneric.getValue());
         environment.setScopeType(ScopeType.COMPONENT_PARAMETER);
         environment.setStartLocation($name.getEndLocation());
         entityStarted($name.getName());
@@ -693,6 +698,7 @@ configuration:
       generic[isGeneric] CONFIGURATION[keyword] idword[name]
     {
         pushLevel();
+        environment.setEnclosedInGenericNescEntity($isGeneric.getValue());
         environment.setScopeType(ScopeType.COMPONENT_PARAMETER);
         environment.setStartLocation($name.getEndLocation());
         entityStarted($name.getName());
@@ -4250,6 +4256,7 @@ string_chain:
     private NescEntityEnvironment nescEnvironment;
     private ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder;
     private ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder;
+    private final Map<String, String> globalNames = new HashMap<>();
     /**
      * Indicates whether parsing was successful.
      */
@@ -4278,6 +4285,15 @@ string_chain:
     private Statements statements;
     private NescDeclarations nescDeclarations;
     private NescComponents nescComponents;
+    
+    private final SemanticListener semanticListener = new SemanticListener() {
+        @Override
+        public void globalName(String uniqueName, String name) {
+            if (!globalNames.containsKey(uniqueName)) {
+                globalNames.put(uniqueName, name);
+            }
+        }
+    };
 
     /**
      * Creates parser.
@@ -4326,15 +4342,15 @@ string_chain:
         this.errorHelper = new ErrorHelper(this.issuesMultimapBuilder);
 
         this.declarations = new Declarations(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder);
+                this.tokensMultimapBuilder, semanticListener);
         this.initializers = new Initializers(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder);
+                this.tokensMultimapBuilder, semanticListener);
         this.statements = new Statements(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder);
+                this.tokensMultimapBuilder, semanticListener);
         this.nescDeclarations = new NescDeclarations(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder);
+                this.tokensMultimapBuilder, semanticListener);
         this.nescComponents = new NescComponents(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder);
+                this.tokensMultimapBuilder, semanticListener);
 
         switch (fileType) {
             case HEADER:
@@ -4389,6 +4405,17 @@ string_chain:
             return new LinkedList<>();
         }
         return this.extdefs;
+    }
+    
+    /**
+     * Get the unique names of objects that will appear in the global scope
+     * mapped to their unmangled names from the code.
+     *
+     * @return map with unique names of all global C entities (values are thier
+     *         normal names)
+     */
+    public Map<String, String> getGlobalNames() {
+        return this.globalNames;
     }
 
     /**

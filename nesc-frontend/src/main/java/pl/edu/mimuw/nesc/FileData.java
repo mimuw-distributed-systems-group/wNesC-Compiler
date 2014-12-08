@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.Multimap;
+import java.util.Map;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.environment.Environment;
@@ -24,6 +25,7 @@ public final class FileData {
     private final Optional<Node> entityRoot;
     private final List<Declaration> extdefs;
     private final List<Comment> comments;
+    private final Map<String, String> globalNames;
     private final List<PreprocessorDirective> preprocessorDirectives;
     private final Multimap<Integer, Token> tokens;
     private final Multimap<Integer, NescIssue> issues;
@@ -36,6 +38,7 @@ public final class FileData {
         this.entityRoot = cache.getEntityRoot();
         this.extdefs = cache.getExtdefs();
         this.comments = cache.getComments();
+        this.globalNames = cache.getGlobalNames();
         this.preprocessorDirectives = cache.getPreprocessorDirectives();
         this.tokens = cache.getTokens();
         this.issues = cache.getIssues();
@@ -56,6 +59,10 @@ public final class FileData {
 
     public List<Comment> getComments() {
         return comments;
+    }
+
+    public Map<String, String> getGlobalNames() {
+        return globalNames;
     }
 
     public List<PreprocessorDirective> getPreprocessorDirectives() {

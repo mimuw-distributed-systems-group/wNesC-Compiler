@@ -43,6 +43,7 @@ public class FileCache {
     private final List<Comment> comments;
     private final List<PreprocessorDirective> preprocessorDirectives;
     private final Map<String, PreprocessorMacro> macros;
+    private final Map<String, String> globalNames;
     /**
      * Macros that are visible for subsequently parsed files.
      */
@@ -60,6 +61,7 @@ public class FileCache {
         this.comments = builder.comments.build();
         this.preprocessorDirectives = builder.preprocessorDirectives.build();
         this.macros = builder.macros.build();
+        this.globalNames = builder.globalNames.build();
         this.endFileMacros = builder.endFileMacros.build();
         this.tokens = builder.tokens.build();
         this.issues = builder.issues.build();
@@ -96,6 +98,10 @@ public class FileCache {
 
     public Map<String, PreprocessorMacro> getMacros() {
         return macros;
+    }
+
+    public Map<String, String> getGlobalNames() {
+        return globalNames;
     }
 
     public Map<String, PreprocessorMacro> getEndFileMacros() {
@@ -142,6 +148,7 @@ public class FileCache {
         private ImmutableList.Builder<Comment> comments;
         private ImmutableList.Builder<PreprocessorDirective> preprocessorDirectives;
         private ImmutableMap.Builder<String, PreprocessorMacro> macros;
+        private ImmutableMap.Builder<String, String> globalNames;
         private ImmutableMap.Builder<String, PreprocessorMacro> endFileMacros;
         private ImmutableMultimap.Builder<Integer, Token> tokens;
         private ImmutableMultimap.Builder<Integer, NescIssue> issues;
@@ -152,6 +159,7 @@ public class FileCache {
             this.comments = ImmutableList.builder();
             this.preprocessorDirectives = ImmutableList.builder();
             this.macros = ImmutableMap.builder();
+            this.globalNames = ImmutableMap.builder();
             this.endFileMacros = ImmutableMap.builder();
             this.tokens = ImmutableMultimap.builder();
             this.issues = ImmutableMultimap.builder();
@@ -206,6 +214,12 @@ public class FileCache {
         public Builder endFileMacros(Map<String, PreprocessorMacro> macros) {
             checkNotNull(macros, "macros cannot be null");
             this.endFileMacros.putAll(macros);
+            return this;
+        }
+
+        public Builder globalNames(Map<String, String> globalNames) {
+            checkNotNull(globalNames, "global names cannot be null");
+            this.globalNames.putAll(globalNames);
             return this;
         }
 

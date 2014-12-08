@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import java.util.Map;
 import org.apache.log4j.Logger;
+import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
@@ -58,8 +59,9 @@ public final class NescComponents extends AstBuildingBase {
 
     public NescComponents(NescEntityEnvironment nescEnvironment,
                           ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
-                          ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder) {
-        super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder);
+                          ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
+                          SemanticListener semanticListener) {
+        super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder, semanticListener);
     }
 
     public Interface startInterface(Environment environment, Location startLocation, Word name) {

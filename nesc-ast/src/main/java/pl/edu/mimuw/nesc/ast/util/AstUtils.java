@@ -2,8 +2,10 @@ package pl.edu.mimuw.nesc.ast.util;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.gen.Attribute;
 import pl.edu.mimuw.nesc.ast.gen.DataDecl;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.ErrorDecl;
@@ -11,6 +13,7 @@ import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.InitList;
 import pl.edu.mimuw.nesc.ast.gen.InitSpecific;
 import pl.edu.mimuw.nesc.ast.gen.Node;
+import pl.edu.mimuw.nesc.ast.gen.TypeElement;
 import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
 import pl.edu.mimuw.nesc.ast.gen.Word;
 import pl.edu.mimuw.nesc.ast.type.Type;
@@ -255,6 +258,28 @@ public final class AstUtils {
         final Word word = new Word(startLocation, name);
         word.setEndLocation(endLocation);
         return word;
+    }
+
+    /**
+     * Returns a newly created linked list that contains attributes from the
+     * given type elements list and the given attributes list.
+     *
+     * @param typeElements Type elements that potentially contains some
+     *                     attributes that will be on the returned list.
+     * @param attributes List with attributes that will be in the returned list.
+     * @return Newly created list with attributes from the type elements first
+     *         and then the attributes from the second list.
+     */
+    public static LinkedList<Attribute> joinAttributes(LinkedList<TypeElement> typeElements,
+            LinkedList<Attribute> attributes) {
+        final LinkedList<Attribute> allAttributes = new LinkedList<>();
+
+        FluentIterable.from(typeElements)
+                .filter(Attribute.class)
+                .copyInto(allAttributes);
+        allAttributes.addAll(attributes);
+
+        return allAttributes;
     }
 
     /**

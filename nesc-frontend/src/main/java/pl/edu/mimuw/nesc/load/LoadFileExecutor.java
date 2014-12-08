@@ -232,7 +232,8 @@ public abstract class LoadFileExecutor implements LexerListener, ParserListener 
                 .fileType(fileType)
                 .entityRoot(entity.orNull())
                 .tokens(tokensMultimapBuilder.build())
-                .issues(issuesListBuilder.build());
+                .issues(issuesListBuilder.build())
+                .globalNames(parser.getGlobalNames());
 
         for (Declaration extdef : extdefs) {
             fileCacheBuilder.extdef(extdef);

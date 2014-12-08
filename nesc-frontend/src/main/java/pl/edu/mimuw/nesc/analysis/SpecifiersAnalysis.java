@@ -256,6 +256,20 @@ public class SpecifiersAnalysis {
         };
 
         /**
+         * Constructs an empty specifiers set.
+         */
+        public SpecifiersSet(ErrorHelper errorHelper) {
+            checkNotNull(errorHelper, "error helper cannot be null");
+
+            this.firstSpecifiers = ImmutableMap.of();
+            this.mainSpecifiers = ImmutableMap.of();
+            this.repeatedSpecifiers = ImmutableList.of();
+            this.firstMainSpecifier = Optional.absent();
+            this.maybeInterval = Optional.absent();
+            this.errorHelper = errorHelper;
+        }
+
+        /**
          * Collects the information about specifiers from given list. Does not
          * emit any error or warning. For such operation use other methods of
          * this class.

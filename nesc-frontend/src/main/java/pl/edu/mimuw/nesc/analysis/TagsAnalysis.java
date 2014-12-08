@@ -11,6 +11,7 @@ import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.*;
 import pl.edu.mimuw.nesc.declaration.tag.fieldtree.*;
 import pl.edu.mimuw.nesc.environment.Environment;
+import pl.edu.mimuw.nesc.environment.ScopeType;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 import pl.edu.mimuw.nesc.problem.issue.*;
 import pl.edu.mimuw.nesc.symboltable.SymbolTable;
@@ -23,6 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static pl.edu.mimuw.nesc.analysis.AttributesAnalysis.checkCAttribute;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveDeclaratorType;
 import static pl.edu.mimuw.nesc.ast.util.TypeElementUtils.getStructKind;
 import static pl.edu.mimuw.nesc.problem.issue.RedefinitionError.RedefinitionKind;
@@ -53,14 +55,15 @@ public final class TagsAnalysis {
      *                              (except <code>isStandalone</code>).
      */
     public static void processTagReference(TagRef tagReference, Environment environment,
-            boolean isStandalone, ErrorHelper errorHelper) {
+            boolean isStandalone, ErrorHelper errorHelper, SemanticListener semanticListener) {
         // Validate arguments
         checkNotNull(tagReference, "tag reference cannot be null");
         checkNotNull(environment, "environment cannot be null");
         checkNotNull(errorHelper, "error helper cannot be null");
 
         // Process tag references
-        final TagRefVisitor tagRefVisitor = new TagRefVisitor(environment, isStandalone, errorHelper);
+        final TagRefVisitor tagRefVisitor = new TagRefVisitor(environment, isStandalone,
+                errorHelper, semanticListener);
         tagReference.accept(tagRefVisitor, null);
     }
 
@@ -164,14 +167,19 @@ public final class TagsAnalysis {
      */
     private static class TagRefVisitor extends ExceptionVisitor<Void, Void> {
         /**
-         * Object that will be informed about each encountered error.
-         */
-        private final ErrorHelper errorHelper;
-
-        /**
          * Environment that will be modified by this Visitor.
          */
         private final Environment environment;
+
+        /**
+         * Semantic listener that will take generated events.
+         */
+        private final SemanticListener semanticListener;
+
+        /**
+         * Object that will be informed about each encountered error.
+         */
+        private final ErrorHelper errorHelper;
 
         /**
          * <p><code>true</code> if and only if the tag that will be encountered
@@ -186,7 +194,9 @@ public final class TagsAnalysis {
          */
         private final boolean isStandalone;
 
-        private TagRefVisitor(Environment environment, boolean isStandalone, ErrorHelper errorHelper) {
+        private TagRefVisitor(Environment environment, boolean isStandalone, ErrorHelper errorHelper,
+                SemanticListener semanticListener) {
+            this.semanticListener = semanticListener;
             this.errorHelper = errorHelper;
             this.environment = environment;
             this.isStandalone = isStandalone;
@@ -232,6 +242,8 @@ public final class TagsAnalysis {
 
         private void processTagRef(TagRef tagRef) {
             if (tagRef.getName() == null) {
+                // emit potential error
+                emitGlobalNameEvent(tagRef);
                 return;
             }
 
@@ -254,6 +266,7 @@ public final class TagsAnalysis {
 
             if (!sameTag.isPresent()) {
                 environment.getTags().add(name, TagDeclarationFactory.getInstance(tagRef, errorHelper));
+                emitGlobalNameEvent(tagRef);
             } else if (!sameTag.get()) {
                 tagRef.setIsInvalid(true);
                 errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(),
@@ -261,6 +274,7 @@ public final class TagsAnalysis {
             } else {
                 tagRef.setUniqueName(tagsTable.get(name).get().getUniqueName());
                 tagRef.setNestedInNescEntity(environment.isTagDeclaredInsideNescEntity(name));
+                emitGlobalNameEvent(tagRef);
             }
 
             // Check the correctness of an enumeration tag declaration
@@ -288,6 +302,7 @@ public final class TagsAnalysis {
 
             if (!oldDecl.isPresent()) {
                 tagsTable.add(name, TagDeclarationFactory.getInstance(tagRef, errorHelper));
+                emitGlobalNameEvent(tagRef);
             } else {
                 /* A tag declaration is present in the current scope with the
                    same name. */
@@ -310,10 +325,11 @@ public final class TagsAnalysis {
                     return;
                 }
 
-                // Update the declaration in the symbol table
+                // Update the declaration in the symbol table and emit global name
                 switch (tagRef.getSemantics()) {
                     case DEFINITION:
                         DefinitionTransition.transit(oldDeclPure, tagRef, errorHelper);
+                        emitGlobalNameEvent(tagRef);
                         break;
                     case PREDEFINITION:
                         PredefinitionNode.update(oldDeclPure, tagRef);
@@ -325,6 +341,15 @@ public final class TagsAnalysis {
                 // Set the unique name in the AST node if necessary
                 if (tagRef.getUniqueName() == null) {
                     tagRef.setUniqueName(oldDeclPure.getUniqueName());
+                }
+            }
+        }
+
+        private void emitGlobalNameEvent(TagRef tagRef) {
+            if (checkCAttribute(tagRef, environment, errorHelper)
+                    || environment.getScopeType() == ScopeType.GLOBAL) {
+                if (tagRef.getName() != null) {
+                    semanticListener.globalName(tagRef.getUniqueName().get(), tagRef.getName().getName());
                 }
             }
         }

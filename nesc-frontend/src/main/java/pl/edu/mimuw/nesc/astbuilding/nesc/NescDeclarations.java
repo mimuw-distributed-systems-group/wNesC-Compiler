@@ -2,6 +2,8 @@ package pl.edu.mimuw.nesc.astbuilding.nesc;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
+import pl.edu.mimuw.nesc.analysis.SemanticListener;
+import pl.edu.mimuw.nesc.ast.util.AstUtils;
 import pl.edu.mimuw.nesc.ast.util.NameMangler;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
@@ -28,6 +30,7 @@ import pl.edu.mimuw.nesc.token.Token;
 import java.util.LinkedList;
 
 import static java.lang.String.format;
+import static pl.edu.mimuw.nesc.analysis.AttributesAnalysis.checkCAttribute;
 import static pl.edu.mimuw.nesc.analysis.NescAnalysis.checkComponentInstantiation;
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.*;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveType;
@@ -42,8 +45,9 @@ public final class NescDeclarations extends AstBuildingBase {
 
     public NescDeclarations(NescEntityEnvironment nescEnvironment,
                             ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
-                            ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder) {
-        super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder);
+                            ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
+                            SemanticListener semanticListener) {
+        super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder, semanticListener);
     }
 
     /**
@@ -57,6 +61,7 @@ public final class NescDeclarations extends AstBuildingBase {
      */
     public TypeParmDecl declareTypeParameter(Environment environment, Location startLocation, Location endLocation,
                                              String name, LinkedList<Attribute> attributes) {
+        checkCAttribute(attributes, environment, new SpecifiersSet(errorHelper), errorHelper);
         final String uniqueName = NameMangler.getInstance().mangle(name);
 
         final TypeParmDecl decl = new TypeParmDecl(startLocation, name, attributes);
@@ -141,6 +146,9 @@ public final class NescDeclarations extends AstBuildingBase {
      */
     public DataDecl declareTemplateParameter(Environment environment, Optional<Declarator> declarator,
                                              LinkedList<TypeElement> elements, LinkedList<Attribute> attributes) {
+        final SpecifiersSet specifiers = new SpecifiersSet(elements, errorHelper);
+        checkCAttribute(AstUtils.joinAttributes(elements, attributes), environment, specifiers, errorHelper);
+
         /* Either declarator or elements is present. */
         final Location startLocation = declarator.isPresent()
                 ? declarator.get().getLocation()
@@ -164,7 +172,6 @@ public final class NescDeclarations extends AstBuildingBase {
         }
 
         // Check the non-type specifiers and emit errors and warnings
-        final SpecifiersSet specifiers = new SpecifiersSet(elements, errorHelper);
         checkGenericParameterSpecifiers(specifiers, specifiersCount,
                 Interval.of(getStartLocation(elements).get(), endLocation),
                 errorHelper);
@@ -189,7 +196,7 @@ public final class NescDeclarations extends AstBuildingBase {
                 variableDecl.setType(Optional.<Type>of(TypeDefinitionType.getInstance()));
             } else {
                 variableDecl.setType(resolveType(environment, elements, declarator,
-                        errorHelper, startLocation, endLocation));
+                        errorHelper, startLocation, endLocation, semanticListener));
                 builder = VariableDeclaration.builder().isGenericParameter(true)
                             .uniqueName(uniqueName)
                             .type(variableDecl.getType().orNull());

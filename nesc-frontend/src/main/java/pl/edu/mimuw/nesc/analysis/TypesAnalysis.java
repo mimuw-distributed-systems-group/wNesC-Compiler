@@ -33,6 +33,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import static pl.edu.mimuw.nesc.analysis.AttributesAnalysis.checkCAttribute;
 import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.*;
 import static pl.edu.mimuw.nesc.ast.util.DeclaratorUtils.getDeclaratorName;
 import static pl.edu.mimuw.nesc.problem.issue.InvalidTypeSpecifiersMixError.InvalidCombinationType.*;
@@ -169,10 +170,12 @@ public final class TypesAnalysis {
      */
     public static Optional<Type> resolveType(Environment environment,
             List<TypeElement> typeElements, Optional<Declarator> declarator,
-            ErrorHelper errorHelper, Location apxStartLoc, Location apxEndLoc) {
+            ErrorHelper errorHelper, Location apxStartLoc, Location apxEndLoc,
+            SemanticListener semanticListener) {
 
         final Optional<Type> maybeBaseType = resolveBaseType(environment,
-                typeElements, false, errorHelper, apxStartLoc, apxEndLoc);
+                typeElements, false, errorHelper, apxStartLoc, apxEndLoc,
+                semanticListener);
 
         return   maybeBaseType.isPresent() && declarator.isPresent()
                ? resolveDeclaratorType(declarator.get(), environment,
@@ -231,7 +234,8 @@ public final class TypesAnalysis {
      */
     public static Optional<Type> resolveBaseType(Environment environment,
             List<TypeElement> typeElements, boolean isStandalone,
-            ErrorHelper errorHelper, Location apxStartLoc, Location apxEndLoc) {
+            ErrorHelper errorHelper, Location apxStartLoc, Location apxEndLoc,
+            SemanticListener semanticListener) {
         // Validate arguments
         checkNotNull(environment, "environment cannot be null");
         checkNotNull(typeElements, "list of type elements cannot be null");
@@ -240,8 +244,8 @@ public final class TypesAnalysis {
         checkNotNull(apxEndLoc, "approximate end location cannot be null");
 
         // Resolve the type
-        final BaseTypeVisitor visitor = new BaseTypeVisitor(environment,
-                errorHelper, isStandalone, apxStartLoc, apxEndLoc);
+        final BaseTypeVisitor visitor = new BaseTypeVisitor(environment, errorHelper,
+                isStandalone, apxStartLoc, apxEndLoc, semanticListener);
         for (TypeElement typeElement : typeElements) {
             typeElement.accept(visitor, null);
         }
@@ -351,6 +355,11 @@ public final class TypesAnalysis {
         private final ErrorHelper errorHelper;
 
         /**
+         * Semantic listener that will be notified about events.
+         */
+        private final SemanticListener semanticListener;
+
+        /**
          * <code>true</code> if and only if the type elements processed by this
          * visitor are in a standalone declaration (that does not declare any
          * objects).
@@ -401,12 +410,14 @@ public final class TypesAnalysis {
         };
 
         private BaseTypeVisitor(Environment environment, ErrorHelper errorHelper,
-                                boolean isStandalone, Location startFuzzy, Location endFuzzy) {
+                                boolean isStandalone, Location startFuzzy, Location endFuzzy,
+                                SemanticListener semanticListener) {
             this.environment = environment;
             this.errorHelper = errorHelper;
             this.isStandalone = isStandalone;
             this.startFuzzy = startFuzzy;
             this.endFuzzy = endFuzzy;
+            this.semanticListener = semanticListener;
         }
 
         /**
@@ -516,6 +527,7 @@ public final class TypesAnalysis {
         }
 
         private Optional<TagDeclaration> finishUnnamedTagType() {
+            checkCAttribute(tagReference, environment, errorHelper);
             return Optional.of(TagDeclarationFactory.getInstance(tagReference, errorHelper));
         }
 
@@ -748,7 +760,7 @@ public final class TypesAnalysis {
             }
 
             if (tagRef.getSemantics() == TagRefSemantics.OTHER) {
-                processTagReference(tagRef, environment, isStandalone, errorHelper);
+                processTagReference(tagRef, environment, isStandalone, errorHelper, semanticListener);
             }
             tagReference = tagRef;
         }

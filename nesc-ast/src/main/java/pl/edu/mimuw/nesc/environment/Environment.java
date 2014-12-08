@@ -103,6 +103,25 @@ public interface Environment {
     boolean isEnclosedInNescEntity();
 
     /**
+     * Check if this environment is an environment of a NesC generic component
+     * or a generic interface.
+     *
+     * @return <code>true</code> if and only if this environment is an
+     *         environment located inside a NesC generic component or a generic
+     *         interface.
+     */
+    boolean isEnclosedInGenericNescEntity();
+
+    /**
+     * Set if this environment is an environment of a NesC generic component
+     * or a generic interface.
+     *
+     * @param isEnclosed Value to set, indicating if this environment is located
+     *                   inside a generic component or a generic interface.
+     */
+    void setEnclosedInGenericNescEntity(boolean isEnclosed);
+
+    /**
      * Check if there is an object declared in this environment or one of the
      * enclosing environments and if the declaration is located inside a NesC
      * entity.

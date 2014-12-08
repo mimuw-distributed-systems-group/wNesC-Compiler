@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import java.util.LinkedList;
 import java.util.List;
 import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
+import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.util.AstUtils;
 import pl.edu.mimuw.nesc.ast.Location;
@@ -22,8 +23,9 @@ public final class Initializers extends AstBuildingBase {
 
     public Initializers(NescEntityEnvironment nescEnvironment,
             ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
-            ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder) {
-        super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder);
+            ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
+            SemanticListener semanticListener) {
+        super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder, semanticListener);
     }
 
     public Designator setInitIndex(Environment environment, Location startLocation,

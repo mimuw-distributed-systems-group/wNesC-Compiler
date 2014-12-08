@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.astbuilding;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
+import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.environment.Environment;
@@ -26,8 +27,9 @@ public final class Statements extends AstBuildingBase {
 
     public Statements(NescEntityEnvironment nescEnvironment,
                       ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
-                      ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder) {
-        super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder);
+                      ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
+                      SemanticListener semanticListener) {
+        super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder, semanticListener);
     }
 
     public ErrorStmt makeErrorStmt() {

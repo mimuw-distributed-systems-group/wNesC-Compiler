@@ -26,6 +26,7 @@ public class DefaultEnvironment implements Environment {
     protected final SymbolTable<TagDeclaration> tags;
     protected final List<Environment> enclosedEnvironments;
 
+    protected boolean isNestedInGenericEntity;
     protected ScopeType type;
     protected Optional<Location> startLocation;
     protected Optional<Location> endLocation;
@@ -53,6 +54,8 @@ public class DefaultEnvironment implements Environment {
         this.startLocation = startLocation;
         this.endLocation = endLocation;
         this.enclosedEnvironments = new ArrayList<>();
+        this.isNestedInGenericEntity = parent.isPresent()
+                && parent.get().isEnclosedInGenericNescEntity();
         if (parent.isPresent()) {
             parent.get().addEnclosedEnvironment(this);
         }
@@ -126,6 +129,16 @@ public class DefaultEnvironment implements Environment {
             default:
                 return parent.isPresent() && parent.get().isEnclosedInNescEntity();
         }
+    }
+
+    @Override
+    public boolean isEnclosedInGenericNescEntity() {
+        return isNestedInGenericEntity;
+    }
+
+    @Override
+    public void setEnclosedInGenericNescEntity(boolean value) {
+        this.isNestedInGenericEntity = value;
     }
 
     @Override

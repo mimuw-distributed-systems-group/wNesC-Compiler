@@ -3,9 +3,11 @@ package pl.edu.mimuw.nesc.astbuilding;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
+import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.util.NameMangler;
 import pl.edu.mimuw.nesc.ast.util.AstUtils;
 import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
@@ -37,6 +39,7 @@ import java.util.LinkedList;
 
 import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
+import static pl.edu.mimuw.nesc.analysis.AttributesAnalysis.checkCAttribute;
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.determineLinkage;
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.NonTypeSpecifier;
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.SpecifiersSet;
@@ -96,8 +99,9 @@ public final class Declarations extends AstBuildingBase {
 
     public Declarations(NescEntityEnvironment nescEnvironment,
                         ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
-                        ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder) {
-        super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder);
+                        ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
+                        SemanticListener semanticListener) {
+        super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder, semanticListener);
     }
 
     public ErrorDecl makeErrorDecl() {
@@ -128,7 +132,7 @@ public final class Declarations extends AstBuildingBase {
         // Resolve and save type
         final Optional<Type> declaratorType = association.resolveType(Optional.of(declarator),
                 environment, errorHelper, variableDecl.getLocation(),
-                variableDecl.getLocation());
+                variableDecl.getLocation(), semanticListener);
         final Optional<Type> type = TypeElementUtils.isTypedef(association.getTypeElements())
                 ? Optional.<Type>of(TypeDefinitionType.getInstance())
                 : declaratorType;
@@ -170,7 +174,8 @@ public final class Declarations extends AstBuildingBase {
     public DataDecl makeDataDecl(Environment environment, Location startLocation, Location endLocation,
                                  TypeElementsAssociation association, LinkedList<Declaration> decls) {
         // Process potential tag declarations from the type specifiers
-        final Optional<Type> type = association.getType(environment, decls.isEmpty(), errorHelper, startLocation, startLocation);
+        final Optional<Type> type = association.getType(environment, decls.isEmpty(), errorHelper,
+                startLocation, startLocation, semanticListener);
         association.containsMainSpecifier(errorHelper);
 
         final DataDecl result = new DataDecl(startLocation, association.getTypeElements(), decls);
@@ -230,11 +235,11 @@ public final class Declarations extends AstBuildingBase {
         final FunctionDecl functionDecl = new FunctionDecl(startLocation, declarator, modifiers, attributes,
                 null, isNested);
         final Optional<Type> maybeType = resolveType(environment, modifiers, Optional.of(declarator),
-                errorHelper, startLocation, startLocation);
+                errorHelper, startLocation, startLocation, semanticListener);
         final SpecifiersSet specifiersSet = new SpecifiersSet(modifiers, errorHelper);
 
         final StartFunctionVisitor startVisitor = new StartFunctionVisitor(environment,
-                functionDecl, modifiers, specifiersSet, maybeType);
+                functionDecl, modifiers, attributes, specifiersSet, maybeType);
         try {
             declarator.accept(startVisitor, null);
         } catch (RuntimeException e) {
@@ -273,6 +278,8 @@ public final class Declarations extends AstBuildingBase {
          * elements [declarator] [attributes]
          */
         /* Create variable declarator. */
+        checkCAttribute(AstUtils.joinAttributes(elements, attributes), environment,
+                new SpecifiersSet(errorHelper), errorHelper);
         final Location varStartLocation;
         final Location varEndLocation;
         if (declarator.isPresent()) {
@@ -289,7 +296,7 @@ public final class Declarations extends AstBuildingBase {
 
         /* Resolve the type and adjust it if necessary. */
         final Optional<Type> declaratorType = resolveType(environment, elements, declarator,
-                errorHelper, varStartLocation, varEndLocation);
+                errorHelper, varStartLocation, varEndLocation, semanticListener);
         final Optional<Type> adjustedType = environment.getScopeType() == ScopeType.FUNCTION_PARAMETER
                 ? declaratorType.transform(DECAY_TRANSFORMATION)
                 : declaratorType;
@@ -354,7 +361,7 @@ public final class Declarations extends AstBuildingBase {
         final TagRef result = makeTagRef(environment, startLocation, endLocation, kind, Optional.of(tag),
                 Lists.<Declaration>newList(), Lists.<Attribute>newList(),
                 TagRefSemantics.PREDEFINITION);
-        processTagReference(result, environment, true, errorHelper);
+        processTagReference(result, environment, true, errorHelper, semanticListener);
         return result;
     }
 
@@ -364,7 +371,7 @@ public final class Declarations extends AstBuildingBase {
         tagRef.setAttributes(attributes);
         tagRef.setEndLocation(endLocation);
         tagRef.setSemantics(TagRefSemantics.DEFINITION);
-        processTagReference(tagRef, environment, true, errorHelper);
+        processTagReference(tagRef, environment, true, errorHelper, semanticListener);
     }
 
     public TagRef makeStruct(Environment environment, Location startLocation, Location endLocation,
@@ -413,7 +420,7 @@ public final class Declarations extends AstBuildingBase {
                                TypeElementsAssociation association, LinkedList<Attribute> attributes) {
         // Resolve the base type for this field if it has not been already done
         final Optional<Type> maybeBaseType = association.getType(environment, false, errorHelper,
-                startLocation, endLocation);
+                startLocation, endLocation, semanticListener);
 
         // FIXME: elements?
         endLocation = getEndLocation(endLocation, attributes);
@@ -466,7 +473,7 @@ public final class Declarations extends AstBuildingBase {
 
         // Resolve the type
         type.setType(resolveType(environment, elements, declarator, errorHelper,
-                                 startLocation, endLocation));
+                                 startLocation, endLocation, semanticListener));
 
         return type;
     }
@@ -564,6 +571,7 @@ public final class Declarations extends AstBuildingBase {
         private final Environment environment;
         private final FunctionDecl functionDecl;
         private final LinkedList<TypeElement> modifiers;
+        private final LinkedList<Attribute> attributes;
         private final SpecifiersSet specifiersSet;
         private final Optional<Type> maybeType;
 
@@ -574,11 +582,12 @@ public final class Declarations extends AstBuildingBase {
         private Supplier<String> uniqueNameSupplier;
 
         public StartFunctionVisitor(Environment environment, FunctionDecl functionDecl,
-                                    LinkedList<TypeElement> modifiers, SpecifiersSet specifiersSet,
-                                    Optional<Type> maybeType) {
+                                    LinkedList<TypeElement> modifiers, LinkedList<Attribute> attributes,
+                                    SpecifiersSet specifiersSet, Optional<Type> maybeType) {
             this.environment = environment;
             this.functionDecl = functionDecl;
             this.modifiers = modifiers;
+            this.attributes = AstUtils.joinAttributes(modifiers, attributes);
             this.specifiersSet = specifiersSet;
             this.maybeType = maybeType;
         }
@@ -701,6 +710,10 @@ public final class Declarations extends AstBuildingBase {
         }
 
         private void bareEntity(InterfaceEntity.Kind kind, String name, FunctionDeclarator funDeclarator) {
+
+            // Usage of @C() attribute
+
+            checkCAttribute(attributes, environment, specifiersSet, errorHelper);
 
             // Scope
 
@@ -837,6 +850,10 @@ public final class Declarations extends AstBuildingBase {
                 return Optional.of(InvalidInterfaceEntityDefinitionError.invalidScope());
             }
 
+            // Usage of the @C() attribute
+
+            checkCAttribute(attributes, environment, specifiersSet, errorHelper);
+
             // Everything is alright so mark the command or event as implemented
 
             if (!environment.getObjects().contains(name, true)) {
@@ -963,7 +980,9 @@ public final class Declarations extends AstBuildingBase {
             /* Check previous declaration. */
             final Optional<? extends ObjectDeclaration> previousDeclarationOpt = environment.getObjects().get(name, true);
             if (!previousDeclarationOpt.isPresent()) {
-                functionDeclaration = funDeclBuilder.uniqueName(uniqueNameSupplier.get()).build();
+                final String uniqueName = uniqueNameSupplier.get();
+                functionDeclaration = funDeclBuilder.uniqueName(uniqueName).build();
+                emitGlobalNameEvent(uniqueName, getDeclaratorName(funDeclarator).get());
                 define(functionDeclaration, funDeclarator);
             } else {
                 final ObjectDeclaration previousDeclaration = previousDeclarationOpt.get();
@@ -1004,6 +1023,7 @@ public final class Declarations extends AstBuildingBase {
                         functionDeclaration = tmpDecl;
                         functionDeclaration.setLocation(startLocation);
                         DeclaratorUtils.setUniqueName(funDeclarator, Optional.of(functionDeclaration.getUniqueName()));
+                        emitGlobalNameEvent(functionDeclaration.getUniqueName(), getDeclaratorName(funDeclarator).get());
                     }
                 }
             }
@@ -1066,6 +1086,13 @@ public final class Declarations extends AstBuildingBase {
             }
         }
 
+        private void emitGlobalNameEvent(String uniqueName, String name) {
+            if (checkCAttribute(attributes, environment, specifiersSet, errorHelper)
+                    || environment.getScopeType() == ScopeType.GLOBAL) {
+                Declarations.this.semanticListener.globalName(uniqueName, name);
+            }
+        }
+
         // TODO: adding tokens (e.g. for semantic colouring)
     }
 
@@ -1074,6 +1101,8 @@ public final class Declarations extends AstBuildingBase {
         private final Environment environment;
         private final VariableDecl variableDecl;
         private final LinkedList<TypeElement> elements;
+        private final SpecifiersSet nonTypeSpecifiers;
+        private final LinkedList<Attribute> attributes;
         private final Optional<Type> declaratorType;
         private final Optional<Linkage> linkage;
 
@@ -1085,6 +1114,8 @@ public final class Declarations extends AstBuildingBase {
             this.environment = environment;
             this.variableDecl = variableDecl;
             this.elements = elements;
+            this.nonTypeSpecifiers = new SpecifiersSet(elements, errorHelper);
+            this.attributes = AstUtils.joinAttributes(elements, attributes);
             this.linkage = linkage;
             this.declaratorType = declaratorType;
         }
@@ -1122,7 +1153,9 @@ public final class Declarations extends AstBuildingBase {
             };
 
             if (!previousDeclarationOpt.isPresent()) {
-                functionDeclaration = builder.uniqueName(uniqueNameSupplier.get()).build();
+                final String uniqueName = uniqueNameSupplier.get();
+                functionDeclaration = builder.uniqueName(uniqueName).build();
+                emitGlobalNameEvent(uniqueName, name.get());
                 declare(functionDeclaration, funDeclarator);
             } else {
                 final ObjectDeclaration previousDeclaration = previousDeclarationOpt.get();
@@ -1142,6 +1175,7 @@ public final class Declarations extends AstBuildingBase {
                     /* Update previous declaration. */
                     functionDeclaration.setLocation(funDeclarator.getLocation());
                     DeclaratorUtils.setUniqueName(funDeclarator, Optional.of(functionDeclaration.getUniqueName()));
+                    emitGlobalNameEvent(functionDeclaration.getUniqueName(), name.get());
 
                     // TODO: check if types match in declarations
                 }
@@ -1199,6 +1233,7 @@ public final class Declarations extends AstBuildingBase {
                     .startLocation(startLocation)
                     .build();
 
+            emitGlobalNameEvent(uniqueName, name);
             declare(declaration, declarator);
             variableDecl.setDeclaration(declaration);
             declarator.setUniqueName(Optional.of(uniqueName));
@@ -1217,6 +1252,21 @@ public final class Declarations extends AstBuildingBase {
                 Declarations.this.errorHelper.error(declarator.getLocation(),
                         declarator.getEndLocation(),
                         new RedeclarationError(declaration.getName(), RedeclarationKind.OTHER));
+            }
+        }
+
+        /**
+         * Checks the usage of the @C() attribute and emits the global event if
+         * it occurs (it happens also while declaring a function or variable in
+         * the global scope).
+         *
+         * @param uniqueName Unique name of the object.
+         * @param normalName Name from the declarator for the object.
+         */
+        private void emitGlobalNameEvent(String uniqueName, String normalName) {
+            if (checkCAttribute(attributes, environment, nonTypeSpecifiers, errorHelper)
+                    || environment.getScopeType() == ScopeType.GLOBAL) {
+                Declarations.this.semanticListener.globalName(uniqueName, normalName);
             }
         }
 
