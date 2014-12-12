@@ -51,6 +51,15 @@ public final class InvalidConstantFunctionCallError extends ErroneousIssue {
         return new InvalidConstantFunctionCallError(description);
     }
 
+    public static InvalidConstantFunctionCallError unsupportedIntegerExpression(Expression providedExpr) {
+        final String msg = format("Unsupported expression '%s' for the 2nd parameter of 'uniqueN'",
+                PrettyPrint.expression(providedExpr));
+        final String notice = format("implement checking and evaluating constant expressions and change class '%s' and method '%s'",
+                "pl.edu.mimuw.nesc.fold.UniqueValuesProcessor", "pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis.checkNumbersCountForUniqueN");
+        final String description = format("%s; %s", msg, notice);
+        return new InvalidConstantFunctionCallError(description);
+    }
+
     private InvalidConstantFunctionCallError(String description) {
         super(_CODE);
 

@@ -1968,24 +1968,14 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
             error = Optional.of(InvalidConstantFunctionCallError.invalidParametersCount(fun,
                     providedParamsCount, expectedParamsCount));
         } else {
-            // Check the first parameter
+            // Check the identifier
             final Optional<InvalidConstantFunctionCallError> firstArgError =
                     checkIdentifierForConstantFunction(expr.getArguments().getFirst(), argsDatas.get(0), fun);
 
             if (firstArgError.isPresent()) {
                 error = firstArgError;
             } else if (fun == UNIQUEN) {
-                final Optional<ExprData> numbersCountArgData = argsDatas.get(1);
-                if (numbersCountArgData.isPresent()) {
-                    final Type providedType = numbersCountArgData.get().getType();
-                    if (!providedType.isIntegerType()) {
-                        error = Optional.of(InvalidConstantFunctionCallError.invalidNumbersCountType(providedType));
-                    } else {
-                        error = Optional.absent();
-                    }
-                } else {
-                    error = Optional.absent();
-                }
+                error = checkNumbersCountForUniqueN(expr.getArguments().getLast(), argsDatas.get(1));
             } else {
                 error = Optional.absent();
             }
@@ -2040,6 +2030,32 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
         } else {
             return Optional.of(InvalidConstantFunctionCallError.nonConstantIdentifier(fun, firstArg));
         }
+    }
+
+    private Optional<InvalidConstantFunctionCallError> checkNumbersCountForUniqueN(Expression secondArg,
+                Optional<ExprData> argData) {
+
+        // FIXME check if the provided expression is an integer constant expression
+
+        if (!argData.isPresent()) {
+            return Optional.absent();
+        }
+
+        // Check the type of the parameter
+
+        final Type providedType = argData.get().getType();
+
+        if (!providedType.isIntegerType()) {
+            return Optional.of(InvalidConstantFunctionCallError.invalidNumbersCountType(providedType));
+        }
+
+        // Check if the provided value is an integer or character constant
+
+        if (!(secondArg instanceof IntegerCst) && !(secondArg instanceof CharacterCst)) {
+            return Optional.of(InvalidConstantFunctionCallError.unsupportedIntegerExpression(secondArg));
+        }
+
+        return Optional.absent();
     }
 
     private void updateConstantFunctionIdentifier(Identifier identifier, ConstantFun fun) {

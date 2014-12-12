@@ -791,9 +791,12 @@ class ConstantFunctionCall(BasicASTNode):
         <li><code>uniqueN</code></li>
         <li><code>uniqueCount</code></li>
     </ul>
+    <p>Identifier is the string that is the first parameter for a constant function.
+    It is set in the process of folding constant functions calls.</p>
     """
     superclass = FunctionCall
     value = IntField(constructor_variable=False)
+    identifier = StringField(constructor_variable=False)
 
 
 class UniqueCall(BasicASTNode):
