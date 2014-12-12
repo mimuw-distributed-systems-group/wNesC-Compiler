@@ -160,4 +160,11 @@ public class DefaultEnvironment implements Environment {
                 ? isEnclosedInNescEntity()
                 : parent.isPresent() && parent.get().isTagDeclaredInsideNescEntity(name);
     }
+
+    @Override
+    public boolean isEnclosedInScope(ScopeType scopeType) {
+        checkNotNull(scopeType, "scope type cannot be null");
+        return getScopeType() == scopeType
+                || parent.isPresent() && parent.get().isEnclosedInScope(scopeType);
+    }
 }

@@ -3,7 +3,6 @@ package pl.edu.mimuw.nesc.astbuilding;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
@@ -110,7 +109,7 @@ public final class Declarations extends AstBuildingBase {
 
     public VariableDecl startDecl(Environment environment, Declarator declarator, Optional<AsmStmt> asmStmt,
                                   TypeElementsAssociation association, LinkedList<Attribute> attributes,
-                                  boolean initialised) {
+                                  boolean initialised, boolean buildingUsesProvides) {
         /*
          * NOTE: This can be variable declaration, typedef declaration,
          * function declaration etc.
@@ -153,7 +152,8 @@ public final class Declarations extends AstBuildingBase {
         checkVariableType(type, linkage, identifier, markerArea, errorHelper);
 
         final StartDeclarationVisitor declarationVisitor = new StartDeclarationVisitor(environment, variableDecl,
-                declarator, asmStmt, association.getTypeElements(), attributes, linkage, declaratorType);
+                declarator, asmStmt, association.getTypeElements(), attributes, linkage, declaratorType,
+                buildingUsesProvides);
         declarator.accept(declarationVisitor, null);
         return variableDecl;
     }
@@ -799,7 +799,7 @@ public final class Declarations extends AstBuildingBase {
                     TypeElementUtils.getFunctionType(modifiers);
 
             if (providedInstanceParams.isPresent()) {
-                finishWithError(InvalidFunctionDefinitionError.instanceParametersPresent(name),
+                finishWithError(InvalidFunctionDeclarationError.instanceParametersPresent(name),
                         true, funDeclarator, funKind);
                 return;
             }
@@ -1002,10 +1002,10 @@ public final class Declarations extends AstBuildingBase {
                     final Optional<? extends ErroneousIssue> error;
 
                     if (!checkFunctionType(tmpDecl.getFunctionType(), funKind)) {
-                        error = Optional.of(InvalidFunctionDefinitionError.kindMismatch(name));
+                        error = Optional.of(InvalidFunctionDeclarationError.kindMismatch(name));
                     } else if (tmpDecl.getType().isPresent() && maybeType.isPresent()
                             && !maybeType.get().isCompatibleWith(tmpDecl.getType().get())) {
-                        error = Optional.of(InvalidFunctionDefinitionError.typeMismatch(name,
+                        error = Optional.of(InvalidFunctionDeclarationError.typeMismatch(name,
                                 tmpDecl.getType().get(), maybeType.get()));
                     } else if (tmpDecl.isDefined()) {
                         /* Function redefinition is forbidden. */
@@ -1105,12 +1105,14 @@ public final class Declarations extends AstBuildingBase {
         private final LinkedList<Attribute> attributes;
         private final Optional<Type> declaratorType;
         private final Optional<Linkage> linkage;
+        private final Interval errorInterval;
+        private final boolean buildingUsesProvides;
 
         @SuppressWarnings("UnusedParameters")
         StartDeclarationVisitor(Environment environment, VariableDecl variableDecl, Declarator declarator,
                                 Optional<AsmStmt> asmStmt, LinkedList<TypeElement> elements,
                                 LinkedList<Attribute> attributes, Optional<Linkage> linkage,
-                                Optional<Type> declaratorType) {
+                                Optional<Type> declaratorType, boolean buildingUsesProvides) {
             this.environment = environment;
             this.variableDecl = variableDecl;
             this.elements = elements;
@@ -1118,10 +1120,93 @@ public final class Declarations extends AstBuildingBase {
             this.attributes = AstUtils.joinAttributes(elements, attributes);
             this.linkage = linkage;
             this.declaratorType = declaratorType;
+            this.errorInterval = Interval.builder()
+                    .endLocation(declarator.getEndLocation())
+                    .startLocation(elements.isEmpty() ? declarator.getLocation() : elements.getFirst().getLocation())
+                    .build();
+            this.buildingUsesProvides = buildingUsesProvides;
         }
 
         @Override
         public Void visitFunctionDeclarator(final FunctionDeclarator funDeclarator, Void arg) {
+            if (!isFunctionDeclared(funDeclarator)) {
+                funDeclarator.getDeclarator().get().accept(this, null);
+                return null;
+            }
+
+            final Optional<NonTypeSpecifier> mainSpecifier = nonTypeSpecifiers.firstMainSpecifier();
+
+            if (!mainSpecifier.isPresent()) {
+                regularFunction(funDeclarator);
+            } else if (mainSpecifier.get() == NonTypeSpecifier.TASK) {
+                task(funDeclarator);
+            } else if (mainSpecifier.get() == NonTypeSpecifier.COMMAND
+                    || mainSpecifier.get() == NonTypeSpecifier.EVENT) {
+                bareEntity(funDeclarator);
+            } else {
+                // FIXME error if invalid specifier, e.g. register or auto
+                regularFunction(funDeclarator);
+            }
+
+            return null;
+        }
+
+        private void regularFunction(FunctionDeclarator funDeclarator) {
+            final Optional<? extends ErroneousIssue> error;
+
+            if (funDeclarator.getGenericParameters().isPresent()) {
+                error = Optional.of(InvalidFunctionDeclarationError.instanceParametersPresent(
+                        getDeclaratorName(funDeclarator).get()));
+            } else if (buildingUsesProvides) {
+                error = Optional.of(InvalidSpecificationDeclarationError.expectedBareEntity());
+            } else {
+                error = Optional.absent();
+            }
+
+            if (error.isPresent()) {
+                errorHelper.error(errorInterval.getLocation(), errorInterval.getEndLocation(),
+                        error.get());
+            }
+
+            finishFunction(funDeclarator);
+        }
+
+        private void task(FunctionDeclarator funDeclarator) {
+            final Optional<? extends ErroneousIssue> error;
+
+            if (buildingUsesProvides) {
+                error = Optional.of(InvalidSpecificationDeclarationError.expectedBareEntity());
+            } else if (!environment.isEnclosedInScope(ScopeType.MODULE_IMPLEMENTATION)) {
+                error = Optional.of(InvalidTaskDeclarationError.invalidDeclarationScope());
+            } else if (funDeclarator.getGenericParameters().isPresent()) {
+                error = Optional.of(InvalidTaskDeclarationError.instanceParametersPresent(
+                        funDeclarator.getGenericParameters().get().size()));
+            } else if (declaratorType.isPresent() && !declaratorType.get().isCompatibleWith(TYPE_TASK)) {
+                error = Optional.of(InvalidTaskDeclarationError.invalidType(
+                        getDeclaratorName(funDeclarator).get(), declaratorType.get()));
+            } else {
+                error = Optional.absent();
+            }
+
+            if (error.isPresent()) {
+                errorHelper.error(errorInterval.getLocation(), errorInterval.getEndLocation(),
+                        error.get());
+            }
+
+            finishFunction(funDeclarator);
+        }
+
+        private void bareEntity(FunctionDeclarator funDeclarator) {
+            if ((environment.getScopeType() != ScopeType.SPECIFICATION || !buildingUsesProvides)
+                    && environment.getScopeType() != ScopeType.INTERFACE) {
+                errorHelper.error(errorInterval.getLocation(), errorInterval.getEndLocation(),
+                        InvalidBareEntityDeclarationError.invalidScope());
+            }
+
+            finishFunction(funDeclarator);
+        }
+
+        private void finishFunction(final FunctionDeclarator funDeclarator) {
             // FIXME: refactoring needed
             /*
              * Function declaration (not definition!). There can be many
@@ -1183,7 +1268,6 @@ public final class Declarations extends AstBuildingBase {
 
             functionDeclaration.setAstFunctionDeclarator(funDeclarator);
             variableDecl.setDeclaration(functionDeclaration);
-            return null;
         }
 
         @Override
@@ -1218,6 +1302,11 @@ public final class Declarations extends AstBuildingBase {
             final ObjectDeclaration.Builder<? extends ObjectDeclaration> builder;
             final String uniqueName = NameMangler.getInstance().mangle(name);
 
+            if (buildingUsesProvides) {
+                errorHelper.error(errorInterval.getLocation(), errorInterval.getEndLocation(),
+                        InvalidSpecificationDeclarationError.expectedBareEntity());
+            }
+
             if (isTypedef) {
                 builder = TypenameDeclaration.builder()
                         .uniqueName(uniqueName)
@@ -1245,6 +1334,20 @@ public final class Declarations extends AstBuildingBase {
             Declarations.this.errorHelper.error(elem.getLocation(), Optional.of(elem.getEndLocation()),
                     "unexpected interface reference");
             return null;
+        }
+
+        private boolean isFunctionDeclared(FunctionDeclarator startDeclarator) {
+            Optional<Declarator> declarator = startDeclarator.getDeclarator();
+
+            while (declarator.isPresent() && declarator.get() instanceof NestedDeclarator) {
+                final NestedDeclarator nestedDeclarator = (NestedDeclarator) declarator.get();
+                if (!(nestedDeclarator instanceof QualifiedDeclarator)) {
+                    return false;
+                }
+                declarator = nestedDeclarator.getDeclarator();
+            }
+
+            return true;
         }
 
         private void declare(ObjectDeclaration declaration, Declarator declarator) {

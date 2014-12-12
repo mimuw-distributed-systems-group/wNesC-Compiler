@@ -1197,7 +1197,9 @@ public final class NescAnalysis {
                             InvalidEqConnectionError.invalidObjectReferenced(names[i].getName()));
                 } else if (optDeclaration.get().getKind() == ObjectKind.FUNCTION) {
                     final FunctionDeclaration declaration = (FunctionDeclaration) optDeclaration.get();
-                    if (!declaration.isProvided().isPresent()) {
+                    if (declaration.getFunctionType() != FunctionDeclaration.FunctionType.COMMAND
+                            && declaration.getFunctionType() != FunctionDeclaration.FunctionType.EVENT
+                            || !declaration.isProvided().isPresent()) {
                         errorDetected = true;
                         errorHelper.error(names[i].getLocation(), names[i].getEndLocation(),
                                 InvalidEqConnectionError.invalidObjectReferenced(names[i].getName()));

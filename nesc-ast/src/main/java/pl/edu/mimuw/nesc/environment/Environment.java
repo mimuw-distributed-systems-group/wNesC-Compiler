@@ -145,4 +145,15 @@ public interface Environment {
      *         declaration found is located inside a NesC entity.
      */
     boolean isTagDeclaredInsideNescEntity(String name);
+
+    /**
+     * Check if this environment is nested inside an environment with the given
+     * scope type.
+     *
+     * @param scopeType A type of a scope.
+     * @return <code>true</code> if and only if this environment is nested in an
+     *         environment with given scope type or has the given scope type.
+     * @throws NullPointerException Scope type is <code>null</code>.
+     */
+    boolean isEnclosedInScope(ScopeType scopeType);
 }

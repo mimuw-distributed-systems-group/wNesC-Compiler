@@ -66,6 +66,7 @@ class ParserState {
     public LinkedList<Attribute> attributes;
     public TypeElementsAssociation declspecs;
     public int stmtCount;
+    public boolean insideUsesProvides = false;
 
     public ParserState() {
         this.stack = new Stack<>();

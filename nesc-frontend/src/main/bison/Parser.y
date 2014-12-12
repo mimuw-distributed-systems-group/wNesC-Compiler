@@ -849,22 +849,32 @@ requires_or_provides:
     ;
 
 requires:
-      USES parameterised_interface_list
+      USES[keyword]
     {
-        final RequiresInterface requires = new RequiresInterface($1.getLocation(), $2);
+        pstate.insideUsesProvides = true;
+    }
+      parameterised_interface_list[ifaceList]
+    {
+        pstate.insideUsesProvides = false;
+        final RequiresInterface requires = new RequiresInterface($keyword.getLocation(), $ifaceList);
         // list maybe empty (erroneous but possible case)
-        final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), AstUtils.getEndLocation($2));
+        final Location endLocation = AstUtils.getEndLocation($keyword.getEndLocation(), AstUtils.getEndLocation($ifaceList));
         requires.setEndLocation(endLocation);
         $$ = requires;
     }
     ;
 
 provides:
-      PROVIDES parameterised_interface_list
+      PROVIDES[keyword]
     {
-        final ProvidesInterface provides = new ProvidesInterface($1.getLocation(), $2);
+        pstate.insideUsesProvides = true;
+    }
+      parameterised_interface_list[ifaceList]
+    {
+        pstate.insideUsesProvides = false;
+        final ProvidesInterface provides = new ProvidesInterface($keyword.getLocation(), $ifaceList);
         // list maybe empty (erroneous but possible case)
-        final Location endLocation = AstUtils.getEndLocation($1.getEndLocation(), AstUtils.getEndLocation($2));
+        final Location endLocation = AstUtils.getEndLocation($keyword.getEndLocation(), AstUtils.getEndLocation($ifaceList));
         provides.setEndLocation(endLocation);
         $$ = provides;
     }
@@ -2425,7 +2435,7 @@ initdcl:
       declarator maybeasm[asm] maybe_attribute[attrs] EQ
     {
         final VariableDecl decl = declarations.startDecl(environment, $declarator, Optional.fromNullable($asm),
-                pstate.declspecs, prefixAttr($attrs), true);
+                pstate.declspecs, prefixAttr($attrs), true, pstate.insideUsesProvides);
         $<VariableDecl>$ = decl;
     }
       init
@@ -2437,7 +2447,7 @@ initdcl:
     | declarator maybeasm[asm] maybe_attribute[attrs]
     {
         final VariableDecl decl = declarations.startDecl(environment, $declarator, Optional.fromNullable($asm),
-                pstate.declspecs, prefixAttr($attrs), false);
+                pstate.declspecs, prefixAttr($attrs), false, pstate.insideUsesProvides);
         $$ = declarations.finishDecl(decl, environment, Optional.<Expression>absent());
     }
     ;
@@ -2446,7 +2456,7 @@ notype_initdcl:
       notype_declarator[declarator] maybeasm[asm] maybe_attribute[attrs] EQ
     {
         final VariableDecl decl = declarations.startDecl(environment, $declarator, Optional.fromNullable($asm),
-                pstate.declspecs, prefixAttr($attrs), true);
+                pstate.declspecs, prefixAttr($attrs), true, pstate.insideUsesProvides);
         $<VariableDecl>$ = decl;
     }
       init
@@ -2458,7 +2468,7 @@ notype_initdcl:
     | notype_declarator[declarator] maybeasm[asm] maybe_attribute[attrs]
     {
         VariableDecl decl = declarations.startDecl(environment, $declarator, Optional.fromNullable($asm),
-                pstate.declspecs, prefixAttr($attrs), false);
+                pstate.declspecs, prefixAttr($attrs), false, pstate.insideUsesProvides);
         $$ = declarations.finishDecl(decl, environment, Optional.<Expression>absent());
     }
     ;

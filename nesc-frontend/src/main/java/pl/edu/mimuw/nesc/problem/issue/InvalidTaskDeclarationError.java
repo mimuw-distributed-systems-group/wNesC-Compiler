@@ -16,6 +16,11 @@ public final class InvalidTaskDeclarationError extends ErroneousIssue {
 
     private final String description;
 
+    public static InvalidTaskDeclarationError invalidDeclarationScope() {
+        final String description = "Tasks can only be declared inside implementation scopes of modules";
+        return new InvalidTaskDeclarationError(description);
+    }
+
     public static InvalidTaskDeclarationError invalidDefinitionScope() {
         final String description = "Tasks can only be defined in implementation scopes of modules";
         return new InvalidTaskDeclarationError(description);

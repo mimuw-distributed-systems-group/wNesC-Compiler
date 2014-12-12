@@ -11,6 +11,7 @@ import pl.edu.mimuw.nesc.ast.type.Type;
 import com.google.common.base.Optional;
 import java.util.LinkedList;
 import java.util.List;
+import pl.edu.mimuw.nesc.problem.issue.InvalidSpecifiersCombinationError;
 
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.NonTypeSpecifier;
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.SpecifiersSet;
@@ -102,9 +103,12 @@ public final class TypeElementsAssociation {
         }
 
         final SpecifiersSet specifiers = new SpecifiersSet(typeElements, errorHelper);
-        isMainSpecifierValid = Optional.of(specifiers.validateMainSpecifiers());
+        isMainSpecifierValid = Optional.of(specifiers.goodMainSpecifier());
+
         if (isMainSpecifierValid.get()) {
             mainSpecifier = specifiers.firstMainSpecifier();
+        } else {
+            specifiers.emitError(new InvalidSpecifiersCombinationError(specifiers.getMainSpecifiers()));
         }
     }
 }

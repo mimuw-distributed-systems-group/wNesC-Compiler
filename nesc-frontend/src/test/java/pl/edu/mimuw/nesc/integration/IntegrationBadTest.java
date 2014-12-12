@@ -72,7 +72,7 @@ public class IntegrationBadTest extends IntegrationTestBase {
             { "bad07", "C.nc", TypeSpecifierRepetitionError.CODE },
             { "bad08", "C.nc", RedefinitionError.CODE },
             { "bad09", "C.nc", InvalidTypeSpecifiersMixError.CODE },
-            { "bad10", "C.nc", ConflictingStorageSpecifierError.CODE },
+            { "bad10", "C.nc", InvalidSpecifiersCombinationError.CODE },
             { "bad11", "C.nc", RedefinitionError.CODE },
             { "bad12", "C.nc", IncompleteVariableTypeError.CODE },
             { "bad13", "M.nc", InvalidSimpleAssignExprError.CODE },
