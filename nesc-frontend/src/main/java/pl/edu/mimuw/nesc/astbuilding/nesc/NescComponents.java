@@ -22,7 +22,8 @@ import pl.edu.mimuw.nesc.declaration.object.ObjectKind;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
 import pl.edu.mimuw.nesc.facade.component.specification.ConfigurationTable;
-import pl.edu.mimuw.nesc.facade.component.specification.ImplementationElement;
+import pl.edu.mimuw.nesc.facade.component.specification.TaskElement;
+import pl.edu.mimuw.nesc.facade.component.specification.InterfaceEntityElement;
 import pl.edu.mimuw.nesc.facade.component.specification.ModuleTable;
 import pl.edu.mimuw.nesc.facade.component.specification.WiringElement;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceRefFacadeFactory;
@@ -187,17 +188,30 @@ public final class NescComponents extends AstBuildingBase {
      * Method is called right after {@link NescComponents#finishComponent}.
      */
     public void finishModule(Module module, Location endLocation) {
-        final ImmutableSet<Map.Entry<String, ImplementationElement>> elements =
+        final ImmutableSet<Map.Entry<String, InterfaceEntityElement>> elements =
                 module.getDeclaration().getModuleTable().getAll();
+        final Map<String, TaskElement> tasks =
+                module.getDeclaration().getModuleTable().getTasks();
 
         // Check if all required commands and events are implemented
-        for (Map.Entry<String, ImplementationElement> implEntry : elements) {
+        for (Map.Entry<String, InterfaceEntityElement> implEntry : elements) {
             final String name = implEntry.getKey();
-            final ImplementationElement implElement = implEntry.getValue();
+            final InterfaceEntityElement implElement = implEntry.getValue();
 
             if (implElement.isProvided() && !implElement.isImplemented()) {
-                final ErroneousIssue error = new MissingImplementationElementError(implElement.getKind(),
-                        name, implElement.getInterfaceName());
+                final ErroneousIssue error = MissingImplementationElementError.interfaceEntity(
+                        implElement.getKind(), name, implElement.getInterfaceName());
+                errorHelper.error(module.getLocation(), endLocation, error);
+            }
+        }
+
+        // Check if all declared tasks are implemented
+        for (Map.Entry<String, TaskElement> taskEntry : tasks.entrySet()) {
+            final String name = taskEntry.getKey();
+            final TaskElement taskElement = taskEntry.getValue();
+
+            if (!taskElement.isImplemented()) {
+                final ErroneousIssue error = MissingImplementationElementError.task(name);
                 errorHelper.error(module.getLocation(), endLocation, error);
             }
         }

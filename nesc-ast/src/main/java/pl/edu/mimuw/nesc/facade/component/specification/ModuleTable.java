@@ -3,6 +3,8 @@ package pl.edu.mimuw.nesc.facade.component.specification;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -70,7 +72,17 @@ import static java.lang.String.format;
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public final class ModuleTable extends ComponentTable<ImplementationElement> {
+public final class ModuleTable extends ComponentTable<InterfaceEntityElement> {
+    /**
+     * Map that contains information about declared tasks.
+     */
+    private final Map<String, TaskElement> tasks = new HashMap<>();
+
+    /**
+     * Unmodifiable view of tasks added to this table.
+     */
+    private final Map<String, TaskElement> unmodifiableTasks = Collections.unmodifiableMap(tasks);
+
     /**
      * Get the object that will create a module implementation analyzer.
      *
@@ -103,13 +115,63 @@ public final class ModuleTable extends ComponentTable<ImplementationElement> {
         checkNotNull(name, "name cannot be null");
         checkArgument(!name.isEmpty(), "name cannot be an empty string");
 
-        final Optional<ImplementationElement> optElement = get(name);
+        final Optional<InterfaceEntityElement> optElement = get(name);
         checkArgument(optElement.isPresent(), "'%s' is not a valid name of a command or event", name);
 
-        final ImplementationElement element = optElement.get();
+        final InterfaceEntityElement element = optElement.get();
 
         checkState(!element.isImplemented(), "element '%s' is already marked as implemented");
         element.implemented();
+    }
+
+    /**
+     * Adds information about a task with the given name to the module table. If
+     * the table contains a task with the given name, then calling this method
+     * has no effect. Otherwise, adds a task element with given name and marks
+     * it as not implemented.
+     *
+     * @param taskName Name of the task to declare in the module table.
+     * @throws NullPointerException Task name is null.
+     * @throws IllegalArgumentException Task name is an empty string.
+     */
+    public void addTask(String taskName) {
+        checkNotNull(taskName, "name of the task cannot be null");
+        checkArgument(!taskName.isEmpty(), "name of the task cannot be an empty string");
+
+        if (!tasks.containsKey(taskName)) {
+            tasks.put(taskName, new TaskElement());
+        }
+    }
+
+    /**
+     * Marks the task with given name as implemented.
+     *
+     * @param taskName Name of the task that has been implemented.
+     * @throws NullPointerException Name of the task is null.
+     * @throws IllegalArgumentException Name of the task is an empty string.
+     * @throws IllegalStateException This table does not contain a task with
+     *                               given name or it has been already marked
+     *                               as implemented.
+     */
+    public void taskImplemented(String taskName) {
+        checkNotNull(taskName, "name of the task cannot be null");
+        checkArgument(!taskName.isEmpty(), "name of the task cannot be an empty string");
+
+        final Optional<TaskElement> optTaskElement = Optional.fromNullable(tasks.get(taskName));
+        checkState(optTaskElement.isPresent(), "task '%s' has not been declared", taskName);
+
+        final TaskElement taskElement = optTaskElement.get();
+        checkState(!taskElement.isImplemented(), "task '%s' is already marked as implemented", taskName);
+        taskElement.implemented();
+    }
+
+    /**
+     * Get an unmodifiable view of the tasks contained in this table.
+     *
+     * @return Unmodifiable view of tasks from this table.
+     */
+    public Map<String, TaskElement> getTasks() {
+        return unmodifiableTasks;
     }
 
     /**
@@ -119,7 +181,7 @@ public final class ModuleTable extends ComponentTable<ImplementationElement> {
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
-    public static final class Builder extends ComponentTable.Builder<ImplementationElement, ModuleTable> {
+    public static final class Builder extends ComponentTable.Builder<InterfaceEntityElement, ModuleTable> {
         /**
          * Private constructor to prevent this class from an unauthorized
          * instantiation.
@@ -134,7 +196,7 @@ public final class ModuleTable extends ComponentTable<ImplementationElement> {
 
         @Override
         protected void addInterfaceElements(InterfaceRefDeclaration declaration,
-                ImmutableMap.Builder<String, ImplementationElement> builder) {
+                ImmutableMap.Builder<String, InterfaceEntityElement> builder) {
 
             final InterfaceRefFacade facade = declaration.getFacade();
 
@@ -146,7 +208,7 @@ public final class ModuleTable extends ComponentTable<ImplementationElement> {
                 final boolean isProvided = facade.isProvided() && ifaceEntity.getKind() == InterfaceEntity.Kind.COMMAND
                         || !facade.isProvided() && ifaceEntity.getKind() == InterfaceEntity.Kind.EVENT;
 
-                final ImplementationElement value = new ImplementationElement(isProvided,
+                final InterfaceEntityElement value = new InterfaceEntityElement(isProvided,
                         ifaceEntity.getKind(), Optional.of(facade.getInterfaceName()));
 
                 builder.put(name, value);
@@ -155,9 +217,9 @@ public final class ModuleTable extends ComponentTable<ImplementationElement> {
 
         @Override
         protected void addBareElements(FunctionDeclaration funDecl, InterfaceEntity.Kind kind,
-                ImmutableMap.Builder<String, ImplementationElement> builder) {
+                ImmutableMap.Builder<String, InterfaceEntityElement> builder) {
 
-            final ImplementationElement value = new ImplementationElement(funDecl.isProvided().get(),
+            final InterfaceEntityElement value = new InterfaceEntityElement(funDecl.isProvided().get(),
                     kind, Optional.<String>absent());
 
             builder.put(funDecl.getName(), value);

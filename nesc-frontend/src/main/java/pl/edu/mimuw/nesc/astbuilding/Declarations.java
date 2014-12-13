@@ -787,6 +787,14 @@ public final class Declarations extends AstBuildingBase {
                 error = Optional.absent();
             }
 
+            /* The task is accepted as implemented only if the location of its
+               definition is correct. */
+            if (environment.getScopeType() == ScopeType.MODULE_IMPLEMENTATION) {
+                checkState(moduleTable.isPresent(), "module table unexpectedly absent");
+                moduleTable.get().addTask(name);
+                moduleTable.get().taskImplemented(name);
+            }
+
             if (error.isPresent()) {
                 finishWithError(error.get(), true, funDeclarator, FunctionDeclaration.FunctionType.TASK);
             } else {
@@ -1173,6 +1181,9 @@ public final class Declarations extends AstBuildingBase {
 
         private void task(FunctionDeclarator funDeclarator) {
             final Optional<? extends ErroneousIssue> error;
+            final String name = getDeclaratorName(funDeclarator).get();
+            final Optional<? extends ObjectDeclaration> optPreviousDeclaration =
+                    environment.getObjects().get(name, true);
 
             if (buildingUsesProvides) {
                 error = Optional.of(InvalidSpecificationDeclarationError.expectedBareEntity());
@@ -1183,7 +1194,7 @@ public final class Declarations extends AstBuildingBase {
                         funDeclarator.getGenericParameters().get().size()));
             } else if (declaratorType.isPresent() && !declaratorType.get().isCompatibleWith(TYPE_TASK)) {
                 error = Optional.of(InvalidTaskDeclarationError.invalidType(
-                        getDeclaratorName(funDeclarator).get(), declaratorType.get()));
+                        name, declaratorType.get()));
             } else {
                 error = Optional.absent();
             }
@@ -1191,6 +1202,14 @@ public final class Declarations extends AstBuildingBase {
             if (error.isPresent()) {
                 errorHelper.error(errorInterval.getLocation(), errorInterval.getEndLocation(),
                         error.get());
+            }
+
+            /* Add the task only if it is the first declaration with the name in
+               this scope. If it is redeclaration, then invalid task will not be
+               added. If it is correct, then the task has been added when
+               processing the first declaration. */
+            if (moduleTable.isPresent() && !optPreviousDeclaration.isPresent()) {
+                moduleTable.get().addTask(name);
             }
 
             finishFunction(funDeclarator);
