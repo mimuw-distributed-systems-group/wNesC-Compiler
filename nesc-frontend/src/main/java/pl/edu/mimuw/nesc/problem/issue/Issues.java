@@ -99,6 +99,8 @@ public final class Issues {
         INVALID_COMPONENTDEREF_EXPR(68),
         INVALID_BARE_ENTITY_DECLARATION(69),
         INVALID_SPECIFICATION_DECLARATION(70),
+        INVALID_SCHEDULER(71),
+        INVALID_TASK_INTERFACE(72),
         ;
 
         private final int codeNumber;

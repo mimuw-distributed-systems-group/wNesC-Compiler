@@ -1,10 +1,11 @@
 package pl.edu.mimuw.nesc;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.Lists;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Logger;
+import pl.edu.mimuw.nesc.analysis.SchedulerAnalyzer;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.gen.Interface;
 import pl.edu.mimuw.nesc.common.NesCFileType;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 import pl.edu.mimuw.nesc.filesgraph.FilesGraph;
@@ -14,10 +15,16 @@ import pl.edu.mimuw.nesc.load.FileCache;
 import pl.edu.mimuw.nesc.load.LoadExecutor;
 import pl.edu.mimuw.nesc.option.OptionsHolder;
 import pl.edu.mimuw.nesc.option.OptionsParser;
+import pl.edu.mimuw.nesc.option.SchedulerSpecification;
 import pl.edu.mimuw.nesc.problem.NescError;
 
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.*;
+import pl.edu.mimuw.nesc.problem.NescIssue;
+import pl.edu.mimuw.nesc.problem.NescWarning;
+import pl.edu.mimuw.nesc.problem.issue.Issue;
+import pl.edu.mimuw.nesc.problem.issue.Issues;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -95,7 +102,7 @@ public final class NescFrontend implements Frontend {
         context.setWasInitialBuild(true);
 
         if (startFile.isPresent()) {
-            projectDataBuilder = _update(contextRef, startFile.get());
+            projectDataBuilder = _update(contextRef, startFile.get(), true);
         } else {
             final String msg = format("Cannot find main configuration '%s'", context.getOptions().getEntryEntityPath());
             LOG.error(msg);
@@ -113,7 +120,7 @@ public final class NescFrontend implements Frontend {
         final FrontendContext context = getContext(contextRef);
 
         if (context.wasInitialBuild()) {
-            return _update(contextRef, filePath).build();
+            return _update(contextRef, filePath, false).build();
         } else {
             final ProjectData projectData = build(contextRef);
             context.setWasInitialBuild(true);
@@ -125,7 +132,8 @@ public final class NescFrontend implements Frontend {
         }
     }
 
-    private ProjectData.Builder _update(ContextRef contextRef, String filePath) {
+    private ProjectData.Builder _update(ContextRef contextRef, String filePath,
+            boolean loadScheduler) {
         LOG.info("Update; contextRef=" + contextRef + "; filePath=" + filePath);
 
         final FrontendContext context = getContext(contextRef);
@@ -134,15 +142,19 @@ public final class NescFrontend implements Frontend {
         try {
             // FIXME: what if we would like to edit file included by default?
             List<FileCache> fileCacheList = new LoadExecutor(context).parse(filePath, false);
-            final List<FileData> fileDatas = Lists.newArrayList();
-            for (FileCache cache : fileCacheList) {
-                if (cache.isRoot()) {
-                    fileDatas.add(new FileData(cache));
-                }
+            final List<FileData> fileDatas = createRootFileDataList(fileCacheList);
+
+            final ProjectData.Builder result = loadScheduler && context.getSchedulerSpecification().isPresent()
+                    ? loadScheduler(context.getSchedulerSpecification().get(), fileDatas, context)
+                    : ProjectData.builder()
+                        .addFileDatas(fileDatas)
+                        .addRootFileData(fileDatas.get(0));
+
+            if (context.getSchedulerSpecification().isPresent()) {
+                result.addIssues(checkScheduler(context.getSchedulerSpecification().get(), fileDatas));
             }
-            return ProjectData.builder()
-                    .addFileDatas(fileDatas)
-                    .addRootFileData(fileDatas.get(0));
+
+            return result;
         } catch (IOException e) {
             // TODO
             e.printStackTrace();
@@ -210,7 +222,7 @@ public final class NescFrontend implements Frontend {
 
         context.resetDefaultMacros();
         context.resetDefaultSymbols();
-        
+
         for (String filePath : defaultIncludes) {
             try {
                 final List<FileCache> fileCacheList = new LoadExecutor(context).parse(filePath, true);
@@ -242,6 +254,140 @@ public final class NescFrontend implements Frontend {
         for (GraphFile graphFile : dirtyFiles) {
             context.getCache().remove(graphFile.getFilePath());
         }
+    }
+
+    /**
+     * Checks if the scheduler has been already loaded and if so, does nothing.
+     * Otherwise, loads the scheduler and returns a new list with all files for
+     * the project. The given list is modified to contain the data of new files
+     * required by the scheduler.
+     *
+     * @param schedulerSpec Specification of the scheduler to load.
+     * @param fileDatas List with data of files that constitute the whole
+     *                  project. It is modified, if the scheduler requires some
+     *                  new files.
+     * @return Builder of the project data after loading the scheduler.
+     */
+    private ProjectData.Builder loadScheduler(SchedulerSpecification schedulerSpec,
+                List<FileData> fileDatas, FrontendContext context) {
+        final ProjectData.Builder result = ProjectData.builder()
+                .addFileDatas(fileDatas)
+                .addRootFileData(fileDatas.get(0));
+
+        if (getSchedulerFileData(schedulerSpec.getComponentName(), fileDatas).isPresent()) {
+            return result;
+        }
+
+        // Get the path of the scheduler
+        final Optional<String> optPath = context.getPathsResolver().getEntityFile(schedulerSpec.getComponentName());
+        if (!optPath.isPresent()) {
+            final String errorMsg = format("Cannot find scheduler component '%s'",
+                    schedulerSpec.getComponentName());
+            LOG.error(errorMsg);
+            final NescError error = new NescError(Optional.<Location>absent(),
+                    Optional.<Location>absent(), errorMsg);
+            return result.addIssue(error);
+        }
+
+        // Load the scheduler
+        try {
+            final String schedulerFilePath = optPath.get();
+            final List<FileCache> newCaches = new LoadExecutor(context).parse(schedulerFilePath, false);
+            final List<FileData> newFileDatas = createRootFileDataList(newCaches);
+            fileDatas.addAll(newFileDatas);
+            return result.addFileDatas(newFileDatas);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return ProjectData.builder();
+    }
+
+    /**
+     * Check the correctness of the scheduler from the given file data. If it is
+     * present, then a list with errors is returned.
+     *
+     * @param fileData List with data of files that constitute the whole project
+     *                 after loading the scheduler.
+     * @return List with issues found in the scheduler and task interface.
+     */
+    private List<NescIssue> checkScheduler(SchedulerSpecification specification, List<FileData> fileData) {
+        final Optional<FileData> optSchedulerFileData = getSchedulerFileData(
+                specification.getComponentName(), fileData);
+
+        if (!optSchedulerFileData.isPresent() || !optSchedulerFileData.get().getIssues().isEmpty()
+                || !optSchedulerFileData.get().getEntityRoot().isPresent()) {
+            return new ArrayList<>();
+        }
+
+        final SchedulerAnalyzer analyzer = new SchedulerAnalyzer(specification);
+        analyzer.analyzeScheduler(optSchedulerFileData.get().getEntityRoot().get());
+
+        // Look for and check the task interface
+
+        for (FileData data : fileData) {
+            if (data.getEntityRoot().isPresent() && data.getEntityRoot().get() instanceof Interface) {
+                final Interface iface = (Interface) data.getEntityRoot().get();
+
+                if (iface.getName().getName().equals(specification.getTaskInterfaceName())) {
+                    if (data.getIssues().isEmpty()) {
+                        analyzer.analyzeTaskInterface(iface);
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Create the issues list
+
+        final List<Issue> issues = analyzer.getIssues();
+        final List<NescIssue> nescIssues = new ArrayList<>();
+
+        for (Issue issue : issues) {
+            switch (issue.getKind()) {
+                case ERROR:
+                    nescIssues.add(new NescError(Optional.<Location>absent(), Optional.<Location>absent(),
+                            Optional.of(issue.getCode()), issue.generateDescription()));
+                    break;
+                case WARNING:
+                    nescIssues.add(new NescWarning(Optional.<Location>absent(), Optional.<Location>absent(),
+                            Optional.of(issue.getCode()), issue.generateDescription()));
+                    break;
+                default:
+                    throw new RuntimeException("unexpected issue type");
+            }
+            LOG.error(issue.generateDescription());
+        }
+
+        return nescIssues;
+    }
+
+    private Optional<FileData> getSchedulerFileData(String schedulerComponentName,
+            List<FileData> fileData) {
+
+        final String expectedFileName = schedulerComponentName + ".nc";
+
+        // Look for the file with the scheduler component
+        for (FileData data : fileData) {
+            final String onlyFileName = Paths.get(data.getFilePath()).getFileName().toString();
+            if (onlyFileName.equals(expectedFileName)) {
+                return Optional.of(data);
+            }
+        }
+
+        return Optional.absent();
+    }
+
+    private List<FileData> createRootFileDataList(List<FileCache> fileCaches) {
+        final List<FileData> fileDatas = new ArrayList<>();
+
+        for (FileCache cache : fileCaches) {
+            if (cache.isRoot()) {
+                fileDatas.add(new FileData(cache));
+            }
+        }
+
+        return fileDatas;
     }
 
     private static class DirtyFileVisitor extends DefaultFileGraphVisitor {

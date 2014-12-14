@@ -1,12 +1,15 @@
 package pl.edu.mimuw.nesc.option;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
+import java.util.Iterator;
 import org.apache.commons.cli.CommandLine;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.cli.Option;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -14,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * Compiler's options holder.
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public class OptionsHolder {
 
@@ -23,6 +27,7 @@ public class OptionsHolder {
     public static final String NESC_SEARCH_PATH_NAME = "I";
     public static final String NESC_IQUOTE = "iquote";
     public static final String NESC_DEFINE = "D";
+    public static final String NESC_SCHEDULER = "scheduler";
 
     private final CommandLine cmd;
 
@@ -141,6 +146,13 @@ public class OptionsHolder {
         }
 
         return builder.build();
+    }
+
+    public Optional<SchedulerSpecification> getSchedulerSpecification() {
+        final String specification = getValue(NESC_SCHEDULER);
+        return specification != null
+                ? Optional.of(new SchedulerSpecification(specification))
+                : Optional.<SchedulerSpecification>absent();
     }
 
     private String[] parseArgWithValue(String str) {

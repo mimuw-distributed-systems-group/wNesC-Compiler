@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc;
 
+import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
 import pl.edu.mimuw.nesc.environment.TranslationUnitEnvironment;
 import pl.edu.mimuw.nesc.filesgraph.FilesGraph;
@@ -7,6 +8,7 @@ import pl.edu.mimuw.nesc.load.FileCache;
 import pl.edu.mimuw.nesc.load.MacroManager;
 import pl.edu.mimuw.nesc.load.PathsResolver;
 import pl.edu.mimuw.nesc.option.OptionsHolder;
+import pl.edu.mimuw.nesc.option.SchedulerSpecification;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 
@@ -30,6 +32,8 @@ public final class FrontendContext {
 
     private final FilesGraph filesGraph;
     private final Map<String, FileCache> cache;
+
+    private final Optional<SchedulerSpecification> scheduler;
 
     /**
      * Each file may contain at most one NesC entity. This map keeps the
@@ -82,6 +86,7 @@ public final class FrontendContext {
         this.fileToComponent = new HashMap<>();
         this.filesGraph = new FilesGraph();
         this.cache = new HashMap<>();
+        this.scheduler = options.getSchedulerSpecification();
         this.nescEntityEnvironment = new NescEntityEnvironment();
         this.environments = new HashMap<>();
         this.environment = new TranslationUnitEnvironment();
@@ -120,6 +125,10 @@ public final class FrontendContext {
 
     public Map<String, FileCache> getCache() {
         return cache;
+    }
+
+    public Optional<SchedulerSpecification> getSchedulerSpecification() {
+        return scheduler;
     }
 
     public Map<String, String> getPredefinedMacros() {

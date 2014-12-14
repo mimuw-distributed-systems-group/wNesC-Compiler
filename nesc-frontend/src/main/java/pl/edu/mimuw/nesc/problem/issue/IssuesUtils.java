@@ -86,6 +86,19 @@ final class IssuesUtils {
     }
 
     /**
+     * Get the conjugation of the verb 'to be' to be combined with a noun of
+     * plurality given by the argument.
+     *
+     * @param n Plurality of the noun to be combined with the verb 'to be'.
+     * @return 'is' is 'n' is equall to 1, 'are' otherwise.
+     */
+    static String getToBeConjugation(int n) {
+        return n == 1
+                ? "is"
+                : "are";
+    }
+
+    /**
      * Private constructor to prevent this class from being instantiated.
      */
     private IssuesUtils() {
