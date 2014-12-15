@@ -16,7 +16,6 @@ import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.NescDecl;
 import pl.edu.mimuw.nesc.ast.gen.Word;
-import pl.edu.mimuw.nesc.ast.util.NameMangler;
 import pl.edu.mimuw.nesc.ast.gen.BinaryComponent;
 import pl.edu.mimuw.nesc.ast.gen.Component;
 import pl.edu.mimuw.nesc.ast.gen.ComponentRef;
@@ -25,6 +24,9 @@ import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.ast.gen.RemanglingVisitor;
 import pl.edu.mimuw.nesc.ast.gen.SubstitutionManager;
+import pl.edu.mimuw.nesc.names.collecting.NescEntityNameCollector;
+import pl.edu.mimuw.nesc.names.mangling.CountingNameMangler;
+import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -86,7 +88,12 @@ public final class InstantiateExecutor {
      * Component name mangler used to create unique names for instantiated
      * components.
      */
-    private final ComponentNameMangler mangler;
+    private final CountingNameMangler componentNameMangler;
+
+    /**
+     * Function used for remangling names in instantiated components.
+     */
+    private final Function<String, String> remanglingFunction;
 
     /**
      * Get a builder that will create an instantiate executor.
@@ -104,7 +111,8 @@ public final class InstantiateExecutor {
      */
     private InstantiateExecutor(Builder builder) {
         this.components = builder.buildComponentsMap();
-        this.mangler = builder.buildMangler();
+        this.componentNameMangler = builder.buildMangler();
+        this.remanglingFunction = builder.buildRemanglingFunction();
     }
 
     /**
@@ -219,7 +227,7 @@ public final class InstantiateExecutor {
      */
     private Component copyComponent(Component specimen, ComponentRef genericRef) {
         final Component copy = specimen.deepCopy();
-        final RemanglingVisitor manglingVisitor = new RemanglingVisitor(NameMangler.FUNCTION);
+        final RemanglingVisitor manglingVisitor = new RemanglingVisitor(remanglingFunction);
         final SubstitutionManager substitution = GenericParametersSubstitution.builder()
                 .componentRef(genericRef)
                 .genericComponent(specimen)
@@ -227,7 +235,7 @@ public final class InstantiateExecutor {
 
         copy.setIsAbstract(false);
         copy.setParameters(Optional.<LinkedList<Declaration>>absent());
-        copy.getName().setName(mangler.mangle(copy.getName().getName()));
+        copy.getName().setName(componentNameMangler.mangle(copy.getName().getName()));
         copy.accept(manglingVisitor, null);
         copy.substitute(substitution);
 
@@ -281,6 +289,7 @@ public final class InstantiateExecutor {
          * Data needed to build an instantiate executor.
          */
         private final List<NescDecl> nescDeclarations = new ArrayList<>();
+        private NameMangler nameMangler;
 
         /**
          * Private constructor to limit its accessibility.
@@ -315,6 +324,19 @@ public final class InstantiateExecutor {
             return this;
         }
 
+        /**
+         * Set the name mangler that will be used to remangle names in
+         * instantiated components. It shall be the same mangler used to mangle
+         * the original names in generic components.
+         *
+         * @param nameMangler Name mangler to set.
+         * @return <code>this</code>
+         */
+        public Builder nameMangler(NameMangler nameMangler) {
+            this.nameMangler = nameMangler;
+            return this;
+        }
+
         private void validate() {
             final Set<String> names = new HashSet<>();
 
@@ -325,6 +347,8 @@ public final class InstantiateExecutor {
                     throw new IllegalStateException("names of added NesC declarations are not unique");
                 }
             }
+
+            checkNotNull(nameMangler, "name mangler not set or set to null");
         }
 
         public InstantiateExecutor build() {
@@ -348,10 +372,28 @@ public final class InstantiateExecutor {
             return builder.build();
         }
 
-        private ComponentNameMangler buildMangler() {
-            return ComponentNameMangler.builder()
-                    .addNescDeclarations(nescDeclarations)
-                    .build();
+        private CountingNameMangler buildMangler() {
+            final NescEntityNameCollector nameCollector = new NescEntityNameCollector();
+            nameCollector.collect(nescDeclarations);
+            return new CountingNameMangler(nameCollector.get());
+        }
+
+        private Function<String, String> buildRemanglingFunction() {
+            return new Function<String, String>() {
+                private final NameMangler mangler;
+
+                {
+                    /* Force using the mangler that is currently assigned in the
+                       builder so that potential further changes in the builder
+                       will not affect the returned remangling function. */
+                    this.mangler = Builder.this.nameMangler;
+                }
+
+                @Override
+                public String apply(String mangledName) {
+                    return this.mangler.remangle(mangledName);
+                }
+            };
         }
     }
 }

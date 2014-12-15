@@ -200,7 +200,7 @@ class EllipsisDecl(BasicASTNode):
 class Enumerator(BasicASTNode):
     """ The enumeration element. """
     superclass = Declaration
-    mangleIndicator = MangleIndicator("uniqueName", "nestedInNescEntity", "getName()")
+    mangleIndicator = MangleIndicator("uniqueName", "nestedInNescEntity")
     # name is optional.
     name = StringField()
     value = ReferenceField("Expression")
@@ -313,7 +313,7 @@ class Typename(BasicASTNode):
     parameters.</p>
     """
     superclass = TypeElement
-    mangleIndicator = MangleIndicator("uniqueName", "isDeclaredInThisNescEntity", "getName()")
+    mangleIndicator = MangleIndicator("uniqueName", "isDeclaredInThisNescEntity")
     name = StringField()
     isGenericReference = BoolField(constructor_variable=False)
     declaration = ReferenceField("TypenameDeclaration", constructor_variable=False, visitable=False,
@@ -371,7 +371,7 @@ class TagRef(BasicASTNode):
     the tag reference is invalid semantically, e.g. it conflicts with a previous declaration.</p>
     """
     superclass = TypeElement
-    mangleIndicator = MangleIndicator("uniqueName", "nestedInNescEntity", "getName().getName()", optional=True)
+    mangleIndicator = MangleIndicator("uniqueName", "nestedInNescEntity", optional=True)
     name = ReferenceField("Word")   # FIXME optional!
     attributes = ReferenceListField("Attribute")
     fields = ReferenceListField("Declaration")  # FIXME optional!
@@ -489,7 +489,7 @@ class IdentifierDeclarator(BasicASTNode):
     a structure or union (either external or not).
     """
     superclass = Declarator
-    mangleIndicator = MangleIndicator("uniqueName", "isNestedInNescEntity", "getName()", optional=True)
+    mangleIndicator = MangleIndicator("uniqueName", "isNestedInNescEntity", optional=True)
     name = StringField()
 
 
@@ -752,7 +752,7 @@ class Identifier(BasicASTNode):
     error is detected during the semantic analysis, the name can be <code>null</code>.</p>
     """
     superclass = Expression
-    mangleIndicator = MangleIndicator("uniqueName", "refsDeclInThisNescEntity", "getName()", optional=True)
+    mangleIndicator = MangleIndicator("uniqueName", "refsDeclInThisNescEntity", optional=True)
     name = StringField()
     isGenericReference = BoolField(constructor_variable=False)
     declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False,
@@ -1525,7 +1525,7 @@ class TypeParmDecl(BasicASTNode):
     </pre>
     """
     superclass = Declaration
-    mangleIndicator = MangleIndicator("uniqueName", "isNestedInNescEntity", "getName()")
+    mangleIndicator = MangleIndicator("uniqueName", "isNestedInNescEntity")
     name = StringField()
     attributes = ReferenceListField("Attribute")
     declaration = ReferenceField("TypenameDeclaration", constructor_variable=False, visitable=False,

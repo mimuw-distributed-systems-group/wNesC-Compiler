@@ -317,7 +317,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
                         .format(names_map, get_expr))
             body.append(tab + "final String mangledName = storedName.isPresent()")
             body.append(2 * tab + "? storedName.get()")
-            body.append(2 * tab + ": this.{0}.apply(node.{1});".format(mangler, indicator.java_expr))
+            body.append(2 * tab + ": this.{0}.apply({1});".format(mangler, get_expr))
             body.append(tab + "if (!storedName.isPresent()) {")
             body.append(2 * tab + "this.{0}.put({1}, mangledName);".format(names_map, get_expr))
             body.append(tab + "}")
@@ -596,15 +596,9 @@ class GenericIndicator:
 class MangleIndicator:
     """Class that marks a node as containing information of name mangling."""
 
-    def __init__(self, unique_field_name, remangle_flag_name, java_expr, activated=True, optional=False):
-        """Initializes the unique indicator.
-
-        'java_expr' shall be a string with Java expression that evaluates to the
-        name before mangling.
-        """
+    def __init__(self, unique_field_name, remangle_flag_name, activated=True, optional=False):
         self.unique_field_name = unique_field_name
         self.remangle_flag_name = remangle_flag_name
-        self.java_expr = java_expr
         self.activated = activated
         self.optional = optional
 
@@ -780,15 +774,18 @@ def gen_remangling_visitor_java(directory):
         f.write("\n")
         f.write("public final class RemanglingVisitor implements Visitor<Void, Void> {\n")
         f.write(tab + "private final Map<String, String> namesMap = new HashMap<>();\n")
-        f.write(tab + "private final Function<String, String> mangler;\n\n")
-        f.write(tab + "public RemanglingVisitor(Function<String, String> mangler) {\n")
-        f.write(2 * tab + 'checkNotNull(mangler, "the mangling function cannot be null");\n')
-        f.write(2 * tab + "this.mangler = mangler;\n")
+        f.write(tab + "private final Function<String, String> remangler;\n\n")
+        f.write(tab + "public RemanglingVisitor(Function<String, String> remangler) {\n")
+        f.write(2 * tab + 'checkNotNull(remangler, "the remangling function cannot be null");\n')
+        f.write(2 * tab + "this.remangler = remangler;\n")
+        f.write(tab + "}\n\n")
+        f.write(tab + "public Map<String, String> getNamesMap() {\n")
+        f.write(2 * tab + "return namesMap;\n")
         f.write(tab + "}\n\n")
 
         # Generate code for each node
         for node_cls in ast_nodes.values():
-            f.write(node_cls().gen_remangling_code(DST_LANGUAGE.JAVA, "namesMap", "mangler"))
+            f.write(node_cls().gen_remangling_code(DST_LANGUAGE.JAVA, "namesMap", "remangler"))
 
         f.write("}\n")
 

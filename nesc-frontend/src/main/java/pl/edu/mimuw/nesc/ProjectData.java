@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 
 import java.util.Collection;
@@ -22,6 +23,7 @@ public final class ProjectData {
     private final ImmutableMap<String, String> globalNames;
     private final Optional<FileData> rootFileData;
     private final ImmutableList<NescIssue> issues;
+    private final NameMangler nameMangler;
 
     private ProjectData(Builder builder) {
         builder.buildMaps();
@@ -30,6 +32,7 @@ public final class ProjectData {
         this.globalNames = builder.globalNames;
         this.rootFileData = Optional.fromNullable(builder.rootFileData);
         this.issues = builder.issueListBuilder.build();
+        this.nameMangler = builder.nameMangler;
     }
 
     public ImmutableMap<String, FileData> getFileDatas() {
@@ -56,6 +59,21 @@ public final class ProjectData {
     }
 
     /**
+     * <p>Get name mangler that has been used to mangle names in the NesC
+     * application and can be used to generate new unique names for it.
+     * If the frontend instance used to create this project data processes
+     * files, then the state of the mangler can change.</p>
+     *
+     * <p>If this project contains some errors, then the returned value may be
+     * <code>null</code>.</p>
+     *
+     * @return Name mangler for further unique names generation.
+     */
+    public NameMangler getNameMangler() {
+        return nameMangler;
+    }
+
+    /**
      * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
      */
     public static class Builder {
@@ -66,6 +84,8 @@ public final class ProjectData {
 
         private ImmutableMap<String, FileData> fileDatas;
         private ImmutableMap<String, String> globalNames;
+
+        private NameMangler nameMangler;
 
         public Builder() {
             this.fileDataBuilder = ImmutableMap.builder();
@@ -91,6 +111,11 @@ public final class ProjectData {
 
         public Builder addIssues(Collection<NescIssue> issues) {
             this.issueListBuilder.addAll(issues);
+            return this;
+        }
+
+        public Builder nameMangler(NameMangler nameMangler) {
+            this.nameMangler = nameMangler;
             return this;
         }
 

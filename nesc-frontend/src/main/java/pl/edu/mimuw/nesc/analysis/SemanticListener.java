@@ -19,4 +19,12 @@ public interface SemanticListener {
      *             from the code not the unique name.
      */
     void globalName(String uniqueName, String name);
+
+    /**
+     * <p>Called when name mangling of the given name is required.</p>
+     *
+     * @param unmangledName Name that requires mangling.
+     * @return String with the given name after mangling.
+     */
+    String nameManglingRequired(String unmangledName);
 }

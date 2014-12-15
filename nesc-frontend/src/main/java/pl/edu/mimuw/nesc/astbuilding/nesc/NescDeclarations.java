@@ -4,7 +4,6 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.util.AstUtils;
-import pl.edu.mimuw.nesc.ast.util.NameMangler;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.Type;
@@ -62,7 +61,7 @@ public final class NescDeclarations extends AstBuildingBase {
     public TypeParmDecl declareTypeParameter(Environment environment, Location startLocation, Location endLocation,
                                              String name, LinkedList<Attribute> attributes) {
         checkCAttribute(attributes, environment, new SpecifiersSet(errorHelper), errorHelper);
-        final String uniqueName = NameMangler.getInstance().mangle(name);
+        final String uniqueName = semanticListener.nameManglingRequired(name);
 
         final TypeParmDecl decl = new TypeParmDecl(startLocation, name, attributes);
         decl.setEndLocation(endLocation);
@@ -181,7 +180,7 @@ public final class NescDeclarations extends AstBuildingBase {
             final String name = DeclaratorUtils.getDeclaratorName(declarator.get()).get();
             final ObjectDeclaration.Builder<? extends ObjectDeclaration> builder;
             final String uniqueName = DeclaratorUtils.mangleDeclaratorName(declarator.get(),
-                    NameMangler.FUNCTION).get();
+                    manglingFunction).get();
 
             if (isTypedef) {
                 final UnknownType denotedType = UnknownTypeFactory.newInstance()

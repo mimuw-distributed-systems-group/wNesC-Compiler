@@ -528,7 +528,7 @@ public final class TypesAnalysis {
 
         private Optional<TagDeclaration> finishUnnamedTagType() {
             checkCAttribute(tagReference, environment, errorHelper);
-            return Optional.of(TagDeclarationFactory.getInstance(tagReference, errorHelper));
+            return Optional.of(TagDeclarationFactory.getInstance(tagReference, semanticListener, errorHelper));
         }
 
         private Optional<Type> finishTypename() {

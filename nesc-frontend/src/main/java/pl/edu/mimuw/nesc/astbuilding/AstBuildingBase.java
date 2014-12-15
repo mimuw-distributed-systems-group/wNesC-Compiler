@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.astbuilding;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
@@ -22,6 +23,12 @@ public abstract class AstBuildingBase {
      */
     protected final SemanticListener semanticListener;
 
+    /**
+     * Function that mangles names when applied to them. It actually generates
+     * a semantic event with mangling request.
+     */
+    protected final Function<String, String> manglingFunction;
+
     protected AstBuildingBase(NescEntityEnvironment nescEnvironment,
                               ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
                               ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
@@ -30,6 +37,12 @@ public abstract class AstBuildingBase {
         this.errorHelper = new ErrorHelper(issuesMultimapBuilder);
         this.tokensMultimapBuilder = tokensMultimapBuilder;
         this.semanticListener = semanticListener;
+        this.manglingFunction = new Function<String, String>() {
+            @Override
+            public String apply(String unmangledName) {
+                return AstBuildingBase.this.semanticListener.nameManglingRequired(unmangledName);
+            }
+        };
     }
 
 }

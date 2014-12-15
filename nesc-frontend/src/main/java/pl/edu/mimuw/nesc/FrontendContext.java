@@ -7,6 +7,8 @@ import pl.edu.mimuw.nesc.filesgraph.FilesGraph;
 import pl.edu.mimuw.nesc.load.FileCache;
 import pl.edu.mimuw.nesc.load.MacroManager;
 import pl.edu.mimuw.nesc.load.PathsResolver;
+import pl.edu.mimuw.nesc.names.mangling.AlphabeticNameMangler;
+import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.option.OptionsHolder;
 import pl.edu.mimuw.nesc.option.SchedulerSpecification;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
@@ -26,14 +28,14 @@ public final class FrontendContext {
     private Map<String, String> predefinedMacros;
     private List<String> defaultIncludeFiles;
     private PathsResolver pathsResolver;
+    private Optional<SchedulerSpecification> scheduler;
 
     private final boolean isStandalone;
     private final MacroManager macroManager;
 
     private final FilesGraph filesGraph;
     private final Map<String, FileCache> cache;
-
-    private final Optional<SchedulerSpecification> scheduler;
+    private final NameMangler nameMangler;
 
     /**
      * Each file may contain at most one NesC entity. This map keeps the
@@ -83,6 +85,7 @@ public final class FrontendContext {
 
         this.macroManager = new MacroManager();
 
+        this.nameMangler = new AlphabeticNameMangler();
         this.fileToComponent = new HashMap<>();
         this.filesGraph = new FilesGraph();
         this.cache = new HashMap<>();
@@ -113,6 +116,10 @@ public final class FrontendContext {
 
     public MacroManager getMacroManager() {
         return macroManager;
+    }
+
+    public NameMangler getNameMangler() {
+        return nameMangler;
     }
 
     public Map<String, String> getFileToComponent() {
@@ -188,6 +195,7 @@ public final class FrontendContext {
         this.pathsResolver = getPathsResolver(options);
         this.predefinedMacros = options.getPredefinedMacros();
         this.defaultIncludeFiles = options.getDefaultIncludeFiles();
+        this.scheduler = options.getSchedulerSpecification();
     }
 
     /**

@@ -4303,6 +4303,11 @@ string_chain:
                 globalNames.put(uniqueName, name);
             }
         }
+
+        @Override
+        public String nameManglingRequired(String unmangledName) {
+            return context.getNameMangler().mangle(unmangledName);
+        }
     };
 
     /**

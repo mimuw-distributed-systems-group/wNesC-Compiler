@@ -7,7 +7,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
-import pl.edu.mimuw.nesc.ast.util.NameMangler;
 import pl.edu.mimuw.nesc.ast.util.AstUtils;
 import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
 import pl.edu.mimuw.nesc.ast.util.Interval;
@@ -304,7 +303,7 @@ public final class Declarations extends AstBuildingBase {
 
         if (declarator.isPresent()) {
             final Optional<String> name = getDeclaratorName(declarator.get());
-            final Optional<String> uniqueName = mangleDeclaratorName(declarator.get(), NameMangler.FUNCTION);
+            final Optional<String> uniqueName = mangleDeclaratorName(declarator.get(), manglingFunction);
 
             if (name.isPresent()) {
                 final VariableDeclaration symbol = VariableDeclaration.builder()
@@ -441,7 +440,7 @@ public final class Declarations extends AstBuildingBase {
         enumerator.setEndLocation(endLocation);
 
         final ConstantDeclaration symbol = ConstantDeclaration.builder()
-                .uniqueName(NameMangler.getInstance().mangle(id))
+                .uniqueName(semanticListener.nameManglingRequired(id))
                 .name(id)
                 .startLocation(startLocation)
                 .build();
@@ -656,7 +655,7 @@ public final class Declarations extends AstBuildingBase {
             uniqueNameSupplier = new Supplier<String>() {
                 @Override
                 public String get() {
-                    return mangleDeclaratorName(funDeclarator, NameMangler.FUNCTION).get();
+                    return mangleDeclaratorName(funDeclarator, manglingFunction).get();
                 }
             };
 
@@ -693,7 +692,7 @@ public final class Declarations extends AstBuildingBase {
                 }
 
                 final FunctionDeclaration declaration = FunctionDeclaration.builder()
-                        .uniqueName(mangleDeclaratorName(funDeclarator, NameMangler.FUNCTION).get())
+                        .uniqueName(mangleDeclaratorName(funDeclarator, manglingFunction).get())
                         .instanceParameters(funDeclarator.getGenericParameters().orNull())
                         .interfaceName(ifaceName)
                         .type(maybeType.orNull())
@@ -1252,7 +1251,7 @@ public final class Declarations extends AstBuildingBase {
             final Supplier<String> uniqueNameSupplier = new Supplier<String> () {
                 @Override
                 public String get() {
-                    return mangleDeclaratorName(funDeclarator, NameMangler.FUNCTION).get();
+                    return mangleDeclaratorName(funDeclarator, manglingFunction).get();
                 }
             };
 
@@ -1319,7 +1318,7 @@ public final class Declarations extends AstBuildingBase {
             final Location startLocation = declarator.getLocation();
             final boolean isTypedef = TypeElementUtils.isTypedef(elements);
             final ObjectDeclaration.Builder<? extends ObjectDeclaration> builder;
-            final String uniqueName = NameMangler.getInstance().mangle(name);
+            final String uniqueName = semanticListener.nameManglingRequired(name);
 
             if (buildingUsesProvides) {
                 errorHelper.error(errorInterval.getLocation(), errorInterval.getEndLocation(),

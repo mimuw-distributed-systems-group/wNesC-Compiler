@@ -33,6 +33,7 @@ import static java.lang.String.format;
  * Frontend implementation for nesc language.
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class NescFrontend implements Frontend {
 
@@ -128,6 +129,7 @@ public final class NescFrontend implements Frontend {
                     .addFileDatas(projectData.getFileDatas().values())
                     .addRootFileData(projectData.getFileDatas().get(filePath))
                     .addIssues(projectData.getIssues())
+                    .nameMangler(context.getNameMangler())
                     .build();
         }
     }
@@ -143,14 +145,15 @@ public final class NescFrontend implements Frontend {
             // FIXME: what if we would like to edit file included by default?
             List<FileCache> fileCacheList = new LoadExecutor(context).parse(filePath, false);
             final List<FileData> fileDatas = createRootFileDataList(fileCacheList);
-
-            final ProjectData.Builder result = loadScheduler && context.getSchedulerSpecification().isPresent()
-                    ? loadScheduler(context.getSchedulerSpecification().get(), fileDatas, context)
-                    : ProjectData.builder()
-                        .addFileDatas(fileDatas)
-                        .addRootFileData(fileDatas.get(0));
+            final ProjectData.Builder result  = ProjectData.builder()
+                    .addFileDatas(fileDatas)
+                    .addRootFileData(fileDatas.get(0))
+                    .nameMangler(context.getNameMangler());
 
             if (context.getSchedulerSpecification().isPresent()) {
+                if (loadScheduler) {
+                    loadScheduler(context.getSchedulerSpecification().get(), fileDatas, context, result);
+                }
                 result.addIssues(checkScheduler(context.getSchedulerSpecification().get(), fileDatas));
             }
 
@@ -258,24 +261,20 @@ public final class NescFrontend implements Frontend {
 
     /**
      * Checks if the scheduler has been already loaded and if so, does nothing.
-     * Otherwise, loads the scheduler and returns a new list with all files for
-     * the project. The given list is modified to contain the data of new files
-     * required by the scheduler.
+     * Otherwise, loads the scheduler. The given list is modified to contain the
+     * data of new files required by the scheduler and so is the given project
+     * data builder.
      *
      * @param schedulerSpec Specification of the scheduler to load.
      * @param fileDatas List with data of files that constitute the whole
      *                  project. It is modified, if the scheduler requires some
      *                  new files.
-     * @return Builder of the project data after loading the scheduler.
      */
-    private ProjectData.Builder loadScheduler(SchedulerSpecification schedulerSpec,
-                List<FileData> fileDatas, FrontendContext context) {
-        final ProjectData.Builder result = ProjectData.builder()
-                .addFileDatas(fileDatas)
-                .addRootFileData(fileDatas.get(0));
+    private void loadScheduler(SchedulerSpecification schedulerSpec, List<FileData> fileDatas,
+            FrontendContext context, ProjectData.Builder builder) {
 
         if (getSchedulerFileData(schedulerSpec.getComponentName(), fileDatas).isPresent()) {
-            return result;
+            return;
         }
 
         // Get the path of the scheduler
@@ -286,7 +285,8 @@ public final class NescFrontend implements Frontend {
             LOG.error(errorMsg);
             final NescError error = new NescError(Optional.<Location>absent(),
                     Optional.<Location>absent(), errorMsg);
-            return result.addIssue(error);
+            builder.addIssue(error);
+            return;
         }
 
         // Load the scheduler
@@ -295,12 +295,10 @@ public final class NescFrontend implements Frontend {
             final List<FileCache> newCaches = new LoadExecutor(context).parse(schedulerFilePath, false);
             final List<FileData> newFileDatas = createRootFileDataList(newCaches);
             fileDatas.addAll(newFileDatas);
-            return result.addFileDatas(newFileDatas);
+            builder.addFileDatas(newFileDatas);
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-        return ProjectData.builder();
     }
 
     /**

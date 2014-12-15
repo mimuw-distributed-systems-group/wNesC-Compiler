@@ -2,8 +2,6 @@ package pl.edu.mimuw.nesc.environment;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.type.*;
-import pl.edu.mimuw.nesc.ast.util.NameMangler;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.declaration.object.unique.UniqueCountDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.unique.UniqueDeclaration;

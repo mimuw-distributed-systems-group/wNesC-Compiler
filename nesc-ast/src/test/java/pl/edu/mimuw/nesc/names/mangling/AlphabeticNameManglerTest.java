@@ -1,17 +1,24 @@
-package pl.edu.mimuw.nesc.ast.util;
+package pl.edu.mimuw.nesc.names.mangling;
 
+import org.junit.Before;
 import org.junit.Test;
-import pl.edu.mimuw.nesc.ast.util.NameMangler;
 
 import static org.junit.Assert.assertEquals;
 
 /**
- * Tests for the name mangling class.
+ * Tests for the alphabetic name mangling class.
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
- * @see pl.edu.mimuw.nesc.ast.util.NameMangler
+ * @see AlphabeticNameMangler
  */
-public final class NameManglerTest {
+public final class AlphabeticNameManglerTest {
+    private AlphabeticNameMangler mangler;
+
+    @Before
+    public void setUp() {
+        this.mangler = new AlphabeticNameMangler();
+    }
+
     @Test
     public void correctMangling() {
         final String[] unmangledNames = {
@@ -253,8 +260,6 @@ public final class NameManglerTest {
             "gyqqg__zo", "hdiamyb__zp", "hdiamyb__zq", "punyzyrr__zr", "ozaavu__zs", "lfbg__zt",
             "punyzyrr__zu", "hdiamyb__zv", "xfdwyefzr__zw", "punyzyrr__zx", "d__zy", "punyzyrr__zz",
         };
-
-        final NameMangler mangler = NameMangler.getInstance();
 
         // Check the mangling
 

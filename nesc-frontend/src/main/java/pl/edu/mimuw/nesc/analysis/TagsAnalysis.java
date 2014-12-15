@@ -6,7 +6,6 @@ import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.FieldTagType;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
-import pl.edu.mimuw.nesc.ast.util.NameMangler;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.*;
 import pl.edu.mimuw.nesc.declaration.tag.fieldtree.*;
@@ -265,7 +264,7 @@ public final class TagsAnalysis {
             assert onlyCurrentScope || sameTag.isPresent() : "unexpected result of a test on a tag in the symbol table during a declaration";
 
             if (!sameTag.isPresent()) {
-                environment.getTags().add(name, TagDeclarationFactory.getInstance(tagRef, errorHelper));
+                environment.getTags().add(name, TagDeclarationFactory.getInstance(tagRef, semanticListener, errorHelper));
                 emitGlobalNameEvent(tagRef);
             } else if (!sameTag.get()) {
                 tagRef.setIsInvalid(true);
@@ -301,7 +300,7 @@ public final class TagsAnalysis {
             final Optional<? extends TagDeclaration> oldDecl = tagsTable.get(name, true);
 
             if (!oldDecl.isPresent()) {
-                tagsTable.add(name, TagDeclarationFactory.getInstance(tagRef, errorHelper));
+                tagsTable.add(name, TagDeclarationFactory.getInstance(tagRef, semanticListener, errorHelper));
                 emitGlobalNameEvent(tagRef);
             } else {
                 /* A tag declaration is present in the current scope with the
@@ -582,16 +581,20 @@ public final class TagsAnalysis {
      */
     static class TagDeclarationFactory extends ExceptionVisitor<TagDeclaration, Void> {
         private final ErrorHelper errorHelper;
+        private final SemanticListener semanticListener;
 
-        public static TagDeclaration getInstance(TagRef tagRef, ErrorHelper errorHelper) {
+        public static TagDeclaration getInstance(TagRef tagRef, SemanticListener semanticListener,
+                ErrorHelper errorHelper) {
             checkNotNull(tagRef, "tag reference cannot be null");
+            checkNotNull(semanticListener, "semantic listener cannot be null");
             checkNotNull(errorHelper, "error helper cannot be null");
 
-            final TagDeclarationFactory factory = new TagDeclarationFactory(errorHelper);
+            final TagDeclarationFactory factory = new TagDeclarationFactory(semanticListener, errorHelper);
             return tagRef.accept(factory, null);
         }
 
-        private TagDeclarationFactory(ErrorHelper errorHelper) {
+        private TagDeclarationFactory(SemanticListener semanticListener, ErrorHelper errorHelper) {
+            this.semanticListener = semanticListener;
             this.errorHelper = errorHelper;
         }
 
@@ -609,7 +612,7 @@ public final class TagsAnalysis {
             final String name = attrRef.getName().getName();
             final AttributeDeclaration result = builder
                     .astNode(attrRef)
-                    .name(name, NameMangler.getInstance().mangle(name))
+                    .name(name, semanticListener.nameManglingRequired(name))
                     .startLocation(attrRef.getLocation())
                     .build();
 
@@ -641,9 +644,12 @@ public final class TagsAnalysis {
             }
 
             final Optional<String> name = getTagName(enumRef);
+            final Optional<String> uniqueName = name.isPresent()
+                    ? Optional.of(semanticListener.nameManglingRequired(name.get()))
+                    : Optional.<String>absent();
             final EnumDeclaration result = builder
                     .astNode(enumRef)
-                    .name(name.orNull(), name.transform(NameMangler.FUNCTION).orNull())
+                    .name(name.orNull(), uniqueName.orNull())
                     .startLocation(enumRef.getLocation())
                     .build();
 
@@ -674,10 +680,13 @@ public final class TagsAnalysis {
             }
 
             final Optional<String> name = getTagName(structRef);
+            final Optional<String> uniqueName = name.isPresent()
+                    ? Optional.of(semanticListener.nameManglingRequired(name.get()))
+                    : Optional.<String>absent();
             final StructDeclaration result = builder
                     .isExternal(isExternal)
                     .astNode(structRef)
-                    .name(name.orNull(), name.transform(NameMangler.FUNCTION).orNull())
+                    .name(name.orNull(), uniqueName.orNull())
                     .startLocation(structRef.getLocation())
                     .build();
 
@@ -698,10 +707,13 @@ public final class TagsAnalysis {
             }
 
             final Optional<String> name = getTagName(unionRef);
+            final Optional<String> uniqueName = name.isPresent()
+                    ? Optional.of(semanticListener.nameManglingRequired(name.get()))
+                    : Optional.<String>absent();
             final UnionDeclaration result = builder
                     .isExternal(isExternal)
                     .astNode(unionRef)
-                    .name(name.orNull(), name.transform(NameMangler.FUNCTION).orNull())
+                    .name(name.orNull(), uniqueName.orNull())
                     .startLocation(unionRef.getLocation())
                     .build();
 
