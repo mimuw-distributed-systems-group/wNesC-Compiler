@@ -2,14 +2,13 @@ package pl.edu.mimuw.nesc.option;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
-import java.util.Iterator;
 import org.apache.commons.cli.CommandLine;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import org.apache.commons.cli.Option;
+import pl.edu.mimuw.nesc.common.SchedulerSpecification;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 

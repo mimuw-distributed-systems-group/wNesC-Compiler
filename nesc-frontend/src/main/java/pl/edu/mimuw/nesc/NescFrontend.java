@@ -15,7 +15,7 @@ import pl.edu.mimuw.nesc.load.FileCache;
 import pl.edu.mimuw.nesc.load.LoadExecutor;
 import pl.edu.mimuw.nesc.option.OptionsHolder;
 import pl.edu.mimuw.nesc.option.OptionsParser;
-import pl.edu.mimuw.nesc.option.SchedulerSpecification;
+import pl.edu.mimuw.nesc.common.SchedulerSpecification;
 import pl.edu.mimuw.nesc.problem.NescError;
 
 import java.io.IOException;
@@ -24,7 +24,6 @@ import java.util.*;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.problem.NescWarning;
 import pl.edu.mimuw.nesc.problem.issue.Issue;
-import pl.edu.mimuw.nesc.problem.issue.Issues;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -130,6 +129,7 @@ public final class NescFrontend implements Frontend {
                     .addRootFileData(projectData.getFileDatas().get(filePath))
                     .addIssues(projectData.getIssues())
                     .nameMangler(context.getNameMangler())
+                    .schedulerSpecification(context.getSchedulerSpecification().orNull())
                     .build();
         }
     }
@@ -148,7 +148,8 @@ public final class NescFrontend implements Frontend {
             final ProjectData.Builder result  = ProjectData.builder()
                     .addFileDatas(fileDatas)
                     .addRootFileData(fileDatas.get(0))
-                    .nameMangler(context.getNameMangler());
+                    .nameMangler(context.getNameMangler())
+                    .schedulerSpecification(context.getSchedulerSpecification().orNull());
 
             if (context.getSchedulerSpecification().isPresent()) {
                 if (loadScheduler) {

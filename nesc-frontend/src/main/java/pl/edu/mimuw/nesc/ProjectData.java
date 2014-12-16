@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import pl.edu.mimuw.nesc.common.SchedulerSpecification;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 
@@ -24,6 +25,7 @@ public final class ProjectData {
     private final Optional<FileData> rootFileData;
     private final ImmutableList<NescIssue> issues;
     private final NameMangler nameMangler;
+    private final Optional<SchedulerSpecification> schedulerSpecification;
 
     private ProjectData(Builder builder) {
         builder.buildMaps();
@@ -33,6 +35,7 @@ public final class ProjectData {
         this.rootFileData = Optional.fromNullable(builder.rootFileData);
         this.issues = builder.issueListBuilder.build();
         this.nameMangler = builder.nameMangler;
+        this.schedulerSpecification = builder.schedulerSpecification;
     }
 
     public ImmutableMap<String, FileData> getFileDatas() {
@@ -74,6 +77,20 @@ public final class ProjectData {
     }
 
     /**
+     * <p>Get the specification of the scheduler to use for this NesC project.
+     * It is absent if the scheduler has not been set by an appropriate option
+     * to the compiler.</p>
+     *
+     * <p>If this project contains some errors, the returned scheduler may be
+     * absent even if specified by a compiler option.</p>
+     *
+     * @return Specification of the scheduler to use for this NesC application.
+     */
+    public Optional<SchedulerSpecification> getSchedulerSpecification() {
+        return schedulerSpecification;
+    }
+
+    /**
      * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
      */
     public static class Builder {
@@ -86,6 +103,7 @@ public final class ProjectData {
         private ImmutableMap<String, String> globalNames;
 
         private NameMangler nameMangler;
+        private Optional<SchedulerSpecification> schedulerSpecification = Optional.absent();
 
         public Builder() {
             this.fileDataBuilder = ImmutableMap.builder();
@@ -116,6 +134,11 @@ public final class ProjectData {
 
         public Builder nameMangler(NameMangler nameMangler) {
             this.nameMangler = nameMangler;
+            return this;
+        }
+
+        public Builder schedulerSpecification(SchedulerSpecification schedulerSpec) {
+            this.schedulerSpecification = Optional.fromNullable(schedulerSpec);
             return this;
         }
 

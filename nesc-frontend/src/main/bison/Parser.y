@@ -3899,12 +3899,14 @@ nonnull_asm_operands:
 asm_operand:
       string_chain[str] LPAREN expr RPAREN[rparen]
     {
+        analyzeExpression(Optional.of($expr));
         final AsmOperand operand = new AsmOperand($str.getLocation(), Optional.<Word>absent(), $str, $expr);
         operand.setEndLocation($rparen.getEndLocation());
         $$ = operand;
     }
     | LBRACK[lbrack] idword RBRACK string_chain[str] LPAREN expr RPAREN[rparen]
     {
+        analyzeExpression(Optional.of($expr));
         final AsmOperand operand = new AsmOperand($lbrack.getLocation(), Optional.of($idword), $str, $expr);
         operand.setEndLocation($rparen.getEndLocation());
         $$ = operand;

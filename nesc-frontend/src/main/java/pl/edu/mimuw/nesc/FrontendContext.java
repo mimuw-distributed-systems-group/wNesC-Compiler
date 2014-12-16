@@ -10,7 +10,7 @@ import pl.edu.mimuw.nesc.load.PathsResolver;
 import pl.edu.mimuw.nesc.names.mangling.AlphabeticNameMangler;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.option.OptionsHolder;
-import pl.edu.mimuw.nesc.option.SchedulerSpecification;
+import pl.edu.mimuw.nesc.common.SchedulerSpecification;
 import pl.edu.mimuw.nesc.preprocessor.PreprocessorMacro;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 

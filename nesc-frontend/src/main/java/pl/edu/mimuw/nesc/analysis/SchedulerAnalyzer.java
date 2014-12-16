@@ -16,7 +16,7 @@ import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.InterfaceRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectKind;
-import pl.edu.mimuw.nesc.option.SchedulerSpecification;
+import pl.edu.mimuw.nesc.common.SchedulerSpecification;
 import pl.edu.mimuw.nesc.problem.issue.ErroneousIssue;
 import pl.edu.mimuw.nesc.problem.issue.InvalidSchedulerError;
 import pl.edu.mimuw.nesc.problem.issue.InvalidTaskInterfaceError;

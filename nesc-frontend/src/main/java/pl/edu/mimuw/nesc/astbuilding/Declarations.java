@@ -421,6 +421,11 @@ public final class Declarations extends AstBuildingBase {
         final Optional<Type> maybeBaseType = association.getType(environment, false, errorHelper,
                 startLocation, endLocation, semanticListener);
 
+        // Names of fields are not mangled so set a unique name that is absent
+        if (declarator.isPresent()) {
+            DeclaratorUtils.setUniqueName(declarator.get(), Optional.<String>absent());
+        }
+
         // FIXME: elements?
         endLocation = getEndLocation(endLocation, attributes);
         final FieldDecl decl = new FieldDecl(startLocation, declarator, attributes, bitfield);

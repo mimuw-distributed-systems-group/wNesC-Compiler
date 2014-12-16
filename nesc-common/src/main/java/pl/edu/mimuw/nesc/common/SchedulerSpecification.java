@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.option;
+package pl.edu.mimuw.nesc.common;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
