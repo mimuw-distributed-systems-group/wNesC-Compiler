@@ -7,16 +7,20 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import pl.edu.mimuw.nesc.ast.gen.Component;
+import pl.edu.mimuw.nesc.ast.gen.Configuration;
 import pl.edu.mimuw.nesc.ast.gen.Interface;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.ast.type.FunctionType;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.ast.type.VoidType;
+import pl.edu.mimuw.nesc.declaration.nesc.ModuleDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.InterfaceRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectKind;
 import pl.edu.mimuw.nesc.common.SchedulerSpecification;
+import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.problem.issue.ErroneousIssue;
 import pl.edu.mimuw.nesc.problem.issue.InvalidSchedulerError;
 import pl.edu.mimuw.nesc.problem.issue.InvalidTaskInterfaceError;
@@ -111,6 +115,10 @@ public final class SchedulerAnalyzer {
             issues.add(InvalidSchedulerError.absentTaskInterfaceInScheduler(specification.getComponentName(),
                     specification.getInterfaceNameInScheduler()));
         }
+
+        /* Check if the scheduler instantiates a module with tasks (if it is
+           configuration). */
+        analyzeSchedulerComponents((Component) schedulerNode);
     }
 
     private boolean analyzeTaskInterfaceInScheduler(ObjectDeclaration declaration) {
@@ -146,6 +154,35 @@ public final class SchedulerAnalyzer {
         }
 
         return true;
+    }
+
+    private void analyzeSchedulerComponents(Component schedulerComponent) {
+        if (!(schedulerComponent instanceof Configuration)) {
+            return;
+        }
+
+        final Environment implEnvironment = schedulerComponent.getImplementation().getEnvironment();
+
+        for (Map.Entry<String, ObjectDeclaration> envEntry : implEnvironment.getObjects().getAll()) {
+            if (envEntry.getValue().getKind() != ObjectKind.COMPONENT) {
+                continue;
+            }
+
+            final ComponentRefDeclaration declaration = (ComponentRefDeclaration) envEntry.getValue();
+
+            if (!(declaration.getComponentDeclaration().get() instanceof ModuleDeclaration)) {
+                continue;
+            }
+
+            final ModuleDeclaration moduleDeclaration = (ModuleDeclaration) declaration.getComponentDeclaration().get();
+
+            if (declaration.getAstComponentRef().getIsAbstract()
+                    && !moduleDeclaration.getModuleTable().getTasks().isEmpty()) {
+                issues.add(InvalidSchedulerError.configurationWithGenericModuleWithTask(specification.getComponentName(),
+                        moduleDeclaration.getName()));
+                return;
+            }
+        }
     }
 
     public void analyzeTaskInterface(Interface iface) {

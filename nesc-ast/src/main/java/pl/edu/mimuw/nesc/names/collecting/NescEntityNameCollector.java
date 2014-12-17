@@ -2,12 +2,8 @@ package pl.edu.mimuw.nesc.names.collecting;
 
 import com.google.common.collect.FluentIterable;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 import pl.edu.mimuw.nesc.ast.gen.NescDecl;
-import pl.edu.mimuw.nesc.ast.gen.Node;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -15,12 +11,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public final class NescEntityNameCollector implements NameCollector<NescDecl> {
-    /**
-     * Set of currently collected names.
-     */
-    private final Set<String> names = new HashSet<>();
-
+public final class NescEntityNameCollector extends AbstractNameCollector<NescDecl> {
     @Override
     public void collect(NescDecl nescDecl) {
         checkNotNull(nescDecl, "NesC declaration AST node cannot be null");
@@ -28,22 +19,14 @@ public final class NescEntityNameCollector implements NameCollector<NescDecl> {
     }
 
     @Override
-    public void collect(Collection<? extends Node> declarations) {
-        checkNotNull(declarations, "the collection cannot be null");
-        for (Node object : declarations) {
-            checkArgument(object != null, "an object in the collection is null");
-        }
+    public void collect(Collection<?> objects) {
+        checkCollection(objects);
 
-        final Iterable<NescDecl> nescDeclIt = FluentIterable.from(declarations)
+        final Iterable<NescDecl> nescDeclIt = FluentIterable.from(objects)
                 .filter(NescDecl.class);
 
         for (NescDecl nescDeclaration : nescDeclIt) {
             names.add(nescDeclaration.getName().getName());
         }
-    }
-
-    @Override
-    public Set<String> get() {
-        return names;
     }
 }

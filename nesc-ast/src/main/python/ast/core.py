@@ -415,7 +415,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         # Process all fields
         body = []
         for name, fielddesc in fields.items():
-            newlines = fielddesc.gen_dfs_calls(DST_LANGUAGE.JAVA, name, ast_nodes.keys(), "traverse", "visitor", "arg")
+            newlines = fielddesc.gen_dfs_calls(DST_LANGUAGE.JAVA, name, ast_nodes.keys(), "traverse", "visitor", "newArg")
             if newlines:
                 if body:
                     body.append("")
@@ -424,8 +424,8 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         visit_call = "visitor.visit{0}(this, arg)".format(self.__class__.__name__)
 
         if body:
-            body[0:0] = ["final R result = {0};".format(visit_call), ""]
-            body.extend(["", "return result;"])
+            body[0:0] = ["final A newArg = {0};".format(visit_call), ""]
+            body.extend(["", "return newArg;"])
         else:
             body = ["return {0};".format(visit_call)]
 
@@ -433,7 +433,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         body = [2 * tab + line if line else "" for line in body]
 
         code = tab + "@Override\n"
-        code += tab + "public <R, A> R traverse(Visitor<R, A> visitor, A arg) {\n"
+        code += tab + "public <A> A traverse(Visitor<A, A> visitor, A arg) {\n"
         code += "\n".join(body) + "\n" if body else ""
         code += tab + "}\n"
 
@@ -673,16 +673,26 @@ def gen_cpp_visitor(directory):
 
 
 def gen_java_visitor(directory):
+    gen_java_visitable(directory)
+    gen_java_visitor_interface(directory)
+    gen_java_exception_visitor(directory)
+    gen_java_null_visitor(directory)
+    gen_java_identity_visitor(directory)
+
+
+def gen_java_visitable(directory):
     visitable = "package pl.edu.mimuw.nesc.ast.gen;\n\n"
     visitable += "public interface Visitable {\n"
     visitable += tab + "<R, A> R accept(Visitor<R, A> v, A arg);\n"
-    visitable += tab + "<R, A> R traverse(Visitor<R, A> v, A arg);\n"
+    visitable += tab + "<A> A traverse(Visitor<A, A> v, A arg);\n"
     visitable += "}\n"
 
     f = open(path.join(directory, "Visitable.java"), "w")
     f.write(visitable)
     f.close()
 
+
+def gen_java_visitor_interface(directory):
     visitor = "package pl.edu.mimuw.nesc.ast.gen;\n\n"
     visitor += "public interface Visitor <R, A> {\n"
     for cl in ast_nodes.keys():
@@ -693,6 +703,8 @@ def gen_java_visitor(directory):
     f.write(visitor)
     f.close()
 
+
+def gen_java_exception_visitor(directory):
     exception_visitor = "package pl.edu.mimuw.nesc.ast.gen;\n\n"
     exception_visitor += "public abstract class ExceptionVisitor <R, A> implements Visitor <R, A> {\n"
     for cl in ast_nodes.keys():
@@ -706,6 +718,8 @@ def gen_java_visitor(directory):
     f.write(exception_visitor)
     f.close()
 
+
+def gen_java_null_visitor(directory):
     with open(path.join(directory, "NullVisitor.java"), "w") as f:
         f.write("package pl.edu.mimuw.nesc.ast.gen;\n\n")
         f.write("public abstract class NullVisitor<R, A> implements Visitor<R, A> {\n")
@@ -719,6 +733,23 @@ def gen_java_visitor(directory):
 
         f.write("\n\n".join(methods))
         f.write("\n}\n")
+
+
+def gen_java_identity_visitor(directory):
+    with open(path.join(directory, "IdentityVisitor.java"), "w") as f:
+        f.write("package pl.edu.mimuw.nesc.ast.gen;\n\n")
+        f.write("public abstract class IdentityVisitor<A> implements Visitor<A, A> {\n")
+        first = True
+
+        for classname in ast_nodes.keys():
+            if not first:
+                f.write("\n")
+            first = False
+            f.write(tab + "public A visit{0}({0} node, A arg) {{\n".format(classname))
+            f.write(tab * 2 + "return arg;\n")
+            f.write(tab + "}\n")
+
+        f.write("}\n")
 
 
 def gen_subst_manager(lang, directory):

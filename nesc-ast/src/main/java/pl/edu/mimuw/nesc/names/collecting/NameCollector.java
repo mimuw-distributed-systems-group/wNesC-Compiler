@@ -10,7 +10,7 @@ import pl.edu.mimuw.nesc.ast.gen.Node;
  * @param <T> Node type with names that will be collected.
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public interface NameCollector<T extends Node> {
+public interface NameCollector<T> {
     /**
      * Adds name of the given object to the internal collection of names.
      *
@@ -30,7 +30,7 @@ public interface NameCollector<T extends Node> {
      * @throws IllegalArgumentException One of the objects in the collection is
      *                                  <code>null</code>.
      */
-    void collect(Collection<? extends Node> objects);
+    void collect(Collection<?> objects);
 
     /**
      * Get the collection with names currently collected by this collector.

@@ -60,7 +60,7 @@ final class AliasesResolver {
         checkArgument(!name.isEmpty(), "internal component name cannot be an empty string");
 
         final Optional<String> globalName = Optional.fromNullable(namesMap.get(name));
-        checkArgument(globalName.isPresent(), "a component with given internal name does not exist");
+        checkArgument(globalName.isPresent(), "a component with internal name '%s' does not exist", name);
 
         return globalName.get();
     }

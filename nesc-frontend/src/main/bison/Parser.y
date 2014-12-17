@@ -1133,6 +1133,7 @@ imodule:
         impl.setEndLocation($rbrace.getEndLocation());
 
         environment.setEndLocation($rbrace.getEndLocation());
+        impl.setEnvironment(environment);
         popLevel();
 
         $$ = impl;

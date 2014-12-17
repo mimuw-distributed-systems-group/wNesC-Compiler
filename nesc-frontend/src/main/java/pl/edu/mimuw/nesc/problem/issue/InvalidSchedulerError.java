@@ -56,6 +56,13 @@ public final class InvalidSchedulerError extends ErroneousIssue {
         return new InvalidSchedulerError(description);
     }
 
+    public static InvalidSchedulerError configurationWithGenericModuleWithTask(String schedulerName,
+            String moduleName) {
+        final String description = format("Scheduler component '%s' cannot instantiate component '%s' because it contains a task",
+                schedulerName, moduleName);
+        return new InvalidSchedulerError(description);
+    }
+
     private InvalidSchedulerError(String description) {
         super(_CODE);
 
