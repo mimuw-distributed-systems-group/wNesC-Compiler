@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.ast.type;
 
+import pl.edu.mimuw.nesc.ast.gen.AstType;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -153,5 +155,12 @@ public abstract class AbstractType implements Type {
         final PrintVisitor visitor = new PrintVisitor();
         accept(visitor, false);
         return visitor.get();
+    }
+
+    @Override
+    public final AstType toAstType() {
+        final AstTypeBuildingVisitor visitor = new AstTypeBuildingVisitor();
+        accept(visitor, null);
+        return visitor.getAstType();
     }
 }

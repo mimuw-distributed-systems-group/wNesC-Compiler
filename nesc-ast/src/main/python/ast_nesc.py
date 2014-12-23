@@ -300,7 +300,7 @@ class FieldDecl(BasicASTNode):
 class AstType(BasicASTNode):
     superclass = Node
     genericIndicator = GenericIndicator(True, "isPasted")
-    declarator = ReferenceField("Declarator")
+    declarator = ReferenceField("Declarator", optional=True)
     qualifiers = ReferenceListField("TypeElement")
     type = ReferenceField("Type", optional=True, constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
 

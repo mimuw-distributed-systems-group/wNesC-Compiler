@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.ast.type;
 
+import pl.edu.mimuw.nesc.ast.gen.AstType;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -199,5 +201,10 @@ public abstract class ArtificialType implements Type {
         final PrintVisitor visitor = new PrintVisitor();
         accept(visitor, false);
         return visitor.get();
+    }
+
+    @Override
+    public final AstType toAstType() {
+        throw new UnsupportedOperationException("cannot get an AST node representing an artificial type");
     }
 }

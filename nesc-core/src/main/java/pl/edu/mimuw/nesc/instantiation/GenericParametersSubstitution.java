@@ -81,11 +81,11 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
     public Optional<AstType> substitute(AstType astType) {
         final Optional<Declarator> newDeclarator = performSimpleTypeSubstitution(
                 astType.getQualifiers(),
-                Optional.fromNullable(astType.getDeclarator())
+                astType.getDeclarator()
         );
 
         if (newDeclarator.isPresent()) {
-            astType.setDeclarator(newDeclarator.get());
+            astType.setDeclarator(newDeclarator);
         }
 
         return Optional.absent();
@@ -142,8 +142,8 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
         cleanSpecifiers(specifiers);
 
         // Make the substitution - declarator
-        if (combineDeclarators(Optional.fromNullable(replacement.getDeclarator()), declarator)) {
-            return Optional.of(replacement.getDeclarator());
+        if (combineDeclarators(replacement.getDeclarator(), declarator)) {
+            return replacement.getDeclarator();
         } else {
             return Optional.absent();
         }
@@ -176,7 +176,7 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
         final AstType replacement = pattern.get().deepCopy(true);
         replacement.setPastedFlagDeep(true);
         final Supplier<Optional<Declarator>> declaratorSupplier =
-                new DeclaratorSupplier(Optional.fromNullable(replacement.getDeclarator()));
+                new DeclaratorSupplier(replacement.getDeclarator());
 
         // Make the substitution - type elements
         specifiers.addAll(replacement.getQualifiers());

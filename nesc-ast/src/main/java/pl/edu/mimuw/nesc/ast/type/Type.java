@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.ast.type;
 
+import pl.edu.mimuw.nesc.ast.gen.AstType;
+
 /**
  * Interface that represents a C or nesC type. Objects of all classes that
  * implement this interface shall be immutable.
@@ -345,4 +347,12 @@ public interface Type {
      * @return Value returned by the given visitor.
      */
     <R, A> R accept(TypeVisitor<R, A> visitor, A arg);
+
+    /**
+     * Get an equivalent representation of this type as an AST node.
+     *
+     * @return Newly created AST node that represents the same type as this.
+     * @throws UnsupportedOperationException Invoked on an artificial type.
+     */
+    AstType toAstType();
 }

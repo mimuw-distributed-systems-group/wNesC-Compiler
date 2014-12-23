@@ -472,7 +472,7 @@ public final class Declarations extends AstBuildingBase {
             startLocation = getStartLocation(elements).get();
             endLocation = getEndLocation(elements).get();
         }
-        final AstType type = new AstType(startLocation, declarator.orNull(), elements);
+        final AstType type = new AstType(startLocation, declarator, elements);
         type.setEndLocation(endLocation);
 
         // Resolve the type
