@@ -1,19 +1,25 @@
 package pl.edu.mimuw.nesc.basicreduce;
 
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import pl.edu.mimuw.nesc.ast.CallDirection;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.RID;
+import pl.edu.mimuw.nesc.ast.TagRefSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.ast.util.AstUtils;
 import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
+import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.SchedulerSpecification;
+import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.nesc.ComponentDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.ModuleDeclaration;
@@ -24,6 +30,7 @@ import pl.edu.mimuw.nesc.names.collecting.ObjectEnvironmentNameCollector;
 import pl.edu.mimuw.nesc.names.mangling.CountingNameMangler;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
@@ -34,6 +41,18 @@ import static com.google.common.base.Preconditions.checkState;
  * @see BasicReduceExecutor
  */
 final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
+    /**
+     * Name that will be mangled to create unique names for variables that
+     * will be used to store the result of the atomic start function.
+     */
+    private static final String ATOMIC_VARIABLE_BASE_NAME = "atomic_data";
+
+    /**
+     * Name used for variables that are assigned the returned value before
+     * ending the atomic block.
+     */
+    private static final String ATOMIC_RETURN_VARIABLE_BASE_NAME = "atomic_ret";
+
     /**
      * Set with all not mangled names that are to be located in the global scope
      * at the end of compiling.
@@ -66,6 +85,51 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
     private final Configuration taskWiringConfiguration;
 
     /**
+     * Information necessary to transform 'atomic' statements.
+     */
+    private final AtomicSpecification atomicSpecification;
+
+    /**
+     * Unique names used for transformation of 'atomic' statements.
+     */
+    private final String atomicTypeUniqueName;
+    private final String atomicStartFunUniqueName;
+    private final String atomicEndFunUniqueName;
+
+    /**
+     * Visitor that modifies visited type elements of the return type of
+     * a function for new variable that has assigned a returned expression
+     * in an atomic block.
+     */
+    private final AtomicReturnTypeVisitor atomicReturnTypeVisitor = new AtomicReturnTypeVisitor();
+
+    /**
+     * Visitor that is used for detecting statements that may need a change
+     * because of <code>atomic</code> usage.
+     */
+    private final NullVisitor<LinkedList<Statement>, BlockData> atomicTransformGateway = new NullVisitor<LinkedList<Statement>, BlockData>() {
+        @Override
+        public LinkedList<Statement> visitAtomicStmt(AtomicStmt atomicStmt, BlockData atomicStmtData) {
+            return atomizeAtomicStmt(atomicStmt, atomicStmtData);
+        }
+
+        @Override
+        public LinkedList<Statement> visitReturnStmt(ReturnStmt retStmt, BlockData retStmtData) {
+            return atomizeReturnStmt(retStmt, retStmtData);
+        }
+
+        @Override
+        public LinkedList<Statement> visitContinueStmt(ContinueStmt contStmt, BlockData contStmtData) {
+            return atomizeContinueStmt(contStmt, contStmtData);
+        }
+
+        @Override
+        public LinkedList<Statement> visitBreakStmt(BreakStmt breakStmt, BlockData breakStmtData) {
+            return atomizeBreakStmt(breakStmt, breakStmtData);
+        }
+    };
+
+    /**
      * Get a new builder that will build a basic reduce visitor.
      *
      * @return Newly created builder that will build a basic reduce visitor.
@@ -80,12 +144,19 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
      * @param builder Builder with information necessary to initialize this
      *                visitor.
      */
-    private BasicReduceVisitor(Builder builder) {
+    private BasicReduceVisitor(Builder builder, String atomicTypeUniqueName,
+                String atomicStartFunUniqueName, String atomicEndFunUniqueName) {
+
         this.globalNames = builder.buildGlobalNames();
-        this.uniqueNamesMap = builder.buildUniqueNamesMap();
+        this.uniqueNamesMap = builder.buildUniqueNamesMap(atomicTypeUniqueName,
+                atomicStartFunUniqueName, atomicEndFunUniqueName);
         this.mangler = builder.mangler;
         this.schedulerSpecification = builder.schedulerSpecification;
         this.taskWiringConfiguration = builder.buildInitialTaskWiringConfiguration();
+        this.atomicSpecification = builder.atomicSpecification;
+        this.atomicTypeUniqueName = atomicTypeUniqueName;
+        this.atomicStartFunUniqueName = atomicStartFunUniqueName;
+        this.atomicEndFunUniqueName = atomicEndFunUniqueName;
     }
 
     /**
@@ -376,8 +447,12 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
 
     @Override
     public BlockData visitFunctionDecl(FunctionDecl funDecl, BlockData arg) {
+        final BlockData returnData = BlockData.builder(arg)
+                .functionReturnType(AstUtils.extractReturnType(funDecl))
+                .build();
+
         if (!taskKeywordToEventKeyword(funDecl.getModifiers())) {
-            return arg;
+            return returnData;
         }
 
         // Change the declarator
@@ -395,7 +470,7 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
         identDeclarator.setName(schedulerSpecification.getTaskRunEventName());
         funDeclarator.setDeclarator(Optional.<Declarator>of(ifaceRefDeclarator));
 
-        return arg;
+        return returnData;
     }
 
     /**
@@ -526,6 +601,420 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
         }
     }
 
+    @Override
+    public BlockData visitCompoundStmt(CompoundStmt stmt, BlockData arg) {
+        if (stmt.getAtomicVariableUniqueName() == null) {
+            stmt.setAtomicVariableUniqueName(Optional.<String>absent());
+        }
+
+        checkState(!stmt.getAtomicVariableUniqueName().isPresent() || !arg.getAtomicVariableUniqueName().isPresent(),
+                "block executed atomically inside such block encountered");
+
+        final BlockData result = BlockData.builder(arg)
+                .atomicVariableUniqueName(arg.getAtomicVariableUniqueName().or(stmt.getAtomicVariableUniqueName()).orNull())
+                .insideBreakableAtomic(!arg.isInsideAtomicBlock() && arg.isInsideLoopOrSwitch()
+                        && stmt.getAtomicVariableUniqueName().isPresent()
+                        || arg.isInsideBreakableAtomic())
+                .build();
+        replaceTransformedStatements(stmt.getStatements(), result);
+
+        return result;
+    }
+
+    @Override
+    public BlockData visitIfStmt(IfStmt stmt, BlockData arg) {
+        stmt.setTrueStatement(performAtomicSmallTransformationCompact(stmt.getTrueStatement(), arg));
+        stmt.setFalseStatement(stmt.getFalseStatement().transform(new AtomicTransformFunction(arg)));
+        return arg;
+    }
+
+    @Override
+    public BlockData visitLabeledStmt(LabeledStmt stmt, BlockData arg) {
+        stmt.setStatement(stmt.getStatement().transform(new AtomicTransformFunction(arg)));
+        return arg;
+    }
+
+    @Override
+    public BlockData visitWhileStmt(WhileStmt stmt, BlockData arg) {
+        return conditionalStmtAtomicTransformation(stmt, arg);
+    }
+
+    @Override
+    public BlockData visitDoWhileStmt(DoWhileStmt stmt, BlockData arg) {
+        return conditionalStmtAtomicTransformation(stmt, arg);
+    }
+
+    @Override
+    public BlockData visitSwitchStmt(SwitchStmt stmt, BlockData arg) {
+        return conditionalStmtAtomicTransformation(stmt, arg);
+    }
+
+    @Override
+    public BlockData visitForStmt(ForStmt stmt, BlockData arg) {
+        final BlockData newBlockData = BlockData.builder(arg)
+                .insideLoopOrSwitch(true)
+                .insideBreakableAtomic(false)
+                .build();
+        stmt.setStatement(performAtomicSmallTransformationCompact(stmt.getStatement(), newBlockData));
+        return newBlockData;
+    }
+
+    @Override
+    public BlockData visitCompoundExpr(CompoundExpr expr, BlockData arg) {
+        expr.setStatement(performAtomicSmallTransformationCompact(expr.getStatement(), arg));
+        return arg;
+    }
+
+    @Override
+    public BlockData visitAtomicStmt(AtomicStmt stmt, BlockData arg) {
+        throw new IllegalStateException("entered atomic statement - it implies it hasn't been processed earlier");
+    }
+
+    private BlockData conditionalStmtAtomicTransformation(ConditionalStmt stmt, BlockData arg) {
+        final BlockData newData = BlockData.builder(arg)
+                .insideLoopOrSwitch(true)
+                .insideBreakableAtomic(false)
+                .build();
+        stmt.setStatement(performAtomicSmallTransformationCompact(stmt.getStatement(), newData));
+        return newData;
+    }
+
+    /**
+     * Loop over statements in the given list and perform atomic small
+     * transformation for each of them. Transformed statements are replaced
+     * by the new ones.
+     *
+     * @param stmts Statements to iterate over.
+     * @param stmtsArg Block data for each of the statements in given list.
+     */
+    private void replaceTransformedStatements(List<Statement> stmts, BlockData stmtsArg) {
+        final ListIterator<Statement> stmtIt = stmts.listIterator();
+
+        while (stmtIt.hasNext()) {
+            final Statement stmt = stmtIt.next();
+            final LinkedList<Statement> replacement = performAtomicSmallTransformationList(stmt, stmtsArg);
+
+            if (replacement.isEmpty()) {
+                stmtIt.remove();
+            } else {
+                final Iterator<Statement> newStmtIt = replacement.iterator();
+                final Statement first = newStmtIt.next();
+
+                if (first != stmt) {
+                    stmtIt.set(first);
+                }
+
+                while (newStmtIt.hasNext()) {
+                    stmtIt.add(newStmtIt.next());
+                }
+            }
+        }
+    }
+
+    /**
+     * Get statements that are the result of atomic transformation for given
+     * statement.
+     *
+     * @param stmt A statement from an AST node.
+     * @param stmtArg Block data depicting the given statement.
+     * @return List of statements that is to replace the given one in the
+     *         containing node. Never null.
+     */
+    private LinkedList<Statement> performAtomicSmallTransformationList(Statement stmt, BlockData stmtArg) {
+        return Optional.fromNullable(stmt.accept(atomicTransformGateway, stmtArg)).or(Lists.newList(stmt));
+    }
+
+    /**
+     * Get statement that is the result of atomic transformation for given
+     * statement.
+     *
+     * @param stmt A statement from an AST node.
+     * @param stmtArg Block data depicting the given statement.
+     * @return Statement that is to replace the given one in the containing
+     *         node. Never <code>null</code>.
+     */
+    private Statement performAtomicSmallTransformationCompact(Statement stmt, BlockData stmtArg) {
+        final Optional<LinkedList<Statement>> optResult = Optional.fromNullable(stmt.accept(atomicTransformGateway, stmtArg));
+
+        if (!optResult.isPresent()) {
+            return stmt;
+        }
+
+        final LinkedList<Statement> result = optResult.get();
+
+        if (result.isEmpty()) {
+            return new EmptyStmt(Location.getDummyLocation());
+        } else if (result.size() == 1) {
+            return result.getFirst();
+        } else {
+            return new CompoundStmt(
+                    Location.getDummyLocation(),
+                    Lists.<IdLabel>newList(),
+                    Lists.<Declaration>newList(),
+                    result
+            );
+        }
+    }
+
+    /**
+     * Perform the small transformation on a single atomic statement.
+     *
+     * @param stmt Atomic statement to transform.
+     * @param stmtData Data about the atomic statement.
+     * @return List with statements that will replace the given atomic
+     *         statement. If it is empty, the atomic statement will be removed
+     *         and no other statement takes its place.
+     */
+    private LinkedList<Statement> atomizeAtomicStmt(AtomicStmt stmt, BlockData stmtData) {
+        return stmtData.isInsideAtomicBlock()
+                ? atomizeAtomicInsideAtomic(stmt, stmtData)
+                : atomizeRealAtomic(stmt);
+    }
+
+    private LinkedList<Statement> atomizeAtomicInsideAtomic(AtomicStmt stmt, BlockData stmtData) {
+        /* 'atomic' is removed from an atomic statement nested in an atomic
+           block. We need to continue transforming the statement inside atomic
+           because it wouldn't happen if the statement was returned. */
+        return performAtomicSmallTransformationList(stmt.getStatement(), stmtData);
+    }
+
+    private LinkedList<Statement> atomizeRealAtomic(AtomicStmt stmt) {
+        final CompoundStmt result = stmt.getStatement() instanceof CompoundStmt
+                ? (CompoundStmt) stmt.getStatement()
+                : new CompoundStmt(
+                    Location.getDummyLocation(),
+                    Lists.<IdLabel>newList(),
+                    Lists.<Declaration>newList(),
+                    Lists.newList(stmt.getStatement())
+                );
+
+        final String atomicVariableUniqueName = mangler.mangle(ATOMIC_VARIABLE_BASE_NAME);
+
+        result.setAtomicVariableUniqueName(Optional.of(atomicVariableUniqueName));
+        result.getDeclarations().addFirst(createAtomicInitialCall(atomicVariableUniqueName));
+        result.getStatements().addLast(createAtomicFinalCall(atomicVariableUniqueName));
+
+        return Lists.<Statement>newList(result);
+    }
+
+    private DataDecl createAtomicInitialCall(String atomicVariableUniqueName) {
+        // Type name
+
+        final Typename atomicVarTypename = new Typename(
+                Location.getDummyLocation(),
+                atomicSpecification.getTypename()
+        );
+
+        atomicVarTypename.setIsGenericReference(false);
+        atomicVarTypename.setUniqueName(atomicTypeUniqueName);
+        atomicVarTypename.setIsDeclaredInThisNescEntity(false);
+
+        // Call to the atomic start function
+
+        final Identifier funIdentifier = new Identifier(
+                Location.getDummyLocation(), atomicSpecification.getStartFunctionName()
+        );
+        funIdentifier.setUniqueName(Optional.of(atomicStartFunUniqueName));
+        funIdentifier.setIsGenericReference(false);
+        funIdentifier.setRefsDeclInThisNescEntity(false);
+
+        final FunctionCall atomicStartCall = new FunctionCall(
+                Location.getDummyLocation(),
+                funIdentifier,
+                Lists.<Expression>newList(),
+                NescCallKind.NORMAL_CALL
+        );
+
+        // Variable declaration
+
+        final IdentifierDeclarator declarator = new IdentifierDeclarator(
+                Location.getDummyLocation(),
+                ATOMIC_VARIABLE_BASE_NAME
+        );
+
+        declarator.setIsNestedInNescEntity(true);
+        declarator.setUniqueName(Optional.of(atomicVariableUniqueName));
+
+        final VariableDecl atomicVariableDecl = new VariableDecl(
+                Location.getDummyLocation(),
+                Optional.<Declarator>of(declarator),
+                Lists.<Attribute>newList(),
+                Optional.<AsmStmt>absent()
+        );
+
+        atomicVariableDecl.setInitializer(Optional.<Expression>of(atomicStartCall));
+
+        // Final declaration
+
+        return new DataDecl(
+                Location.getDummyLocation(),
+                Lists.<TypeElement>newList(atomicVarTypename),
+                Lists.<Declaration>newList(atomicVariableDecl)
+        );
+    }
+
+    private ExpressionStmt createAtomicFinalCall(String atomicVariableUniqueName) {
+        // Prepare identifiers
+
+        final Identifier funIdentifier = new Identifier(
+                Location.getDummyLocation(), atomicSpecification.getEndFunctionName()
+        );
+        funIdentifier.setRefsDeclInThisNescEntity(false);
+        funIdentifier.setUniqueName(Optional.of(atomicEndFunUniqueName));
+        funIdentifier.setIsGenericReference(false);
+
+        final Identifier argIdentifier = new Identifier(
+                Location.getDummyLocation(), ATOMIC_VARIABLE_BASE_NAME
+        );
+        argIdentifier.setRefsDeclInThisNescEntity(true);
+        argIdentifier.setUniqueName(Optional.of(atomicVariableUniqueName));
+        argIdentifier.setIsGenericReference(false);
+
+        // Prepare the call to the atomic end function
+
+        final FunctionCall finalCall = new FunctionCall(
+                Location.getDummyLocation(),
+                funIdentifier,
+                Lists.<Expression>newList(argIdentifier),
+                NescCallKind.NORMAL_CALL
+        );
+
+        return new ExpressionStmt(
+                Location.getDummyLocation(),
+                finalCall
+        );
+    }
+
+    private LinkedList<Statement> atomizeReturnStmt(ReturnStmt stmt, BlockData stmtData) {
+        if (!stmtData.isInsideAtomicBlock() || VariousUtils.getBooleanValue(stmt.getIsAtomicSafe())) {
+            return Lists.<Statement>newList(stmt);
+        }
+
+        stmt.setIsAtomicSafe(true);
+
+        return stmt.getValue().isPresent()
+                ? atomizeExprReturnStmt(stmt.getValue().get(), stmtData)
+                : atomizeVoidReturnStmt(stmt, stmtData);
+    }
+
+    private LinkedList<Statement> atomizeExprReturnStmt(Expression retExpr, BlockData stmtData) {
+        final String retVariableUniqueName = mangler.mangle(ATOMIC_RETURN_VARIABLE_BASE_NAME);
+
+        // Prepare the identifier of the returned variable
+
+        final Identifier retIdentifier = new Identifier(
+                Location.getDummyLocation(),
+                ATOMIC_RETURN_VARIABLE_BASE_NAME
+        );
+        retIdentifier.setIsGenericReference(false);
+        retIdentifier.setRefsDeclInThisNescEntity(true);
+        retIdentifier.setUniqueName(Optional.of(retVariableUniqueName));
+
+        // Prepare the new 'return' statement
+
+        final ReturnStmt newRetStmt = new ReturnStmt(
+                Location.getDummyLocation(),
+                Optional.<Expression>of(retIdentifier)
+        );
+        newRetStmt.setIsAtomicSafe(true);
+
+        // Prepare statements in the created block
+
+        final LinkedList<Statement> stmts = new LinkedList<>();
+        stmts.add(createAtomicFinalCall(stmtData.getAtomicVariableUniqueName().get()));
+        stmts.add(newRetStmt);
+
+        // Prepare the block
+
+        final CompoundStmt resultStmt = new CompoundStmt(
+                Location.getDummyLocation(),
+                Lists.<IdLabel>newList(),
+                Lists.<Declaration>newList(createReturnExprEvalVariable(stmtData.getFunctionReturnType().get(),
+                        retVariableUniqueName, retExpr)),
+                stmts
+        );
+
+        return Lists.<Statement>newList(resultStmt);
+    }
+
+    private DataDecl createReturnExprEvalVariable(AstType retType, String retVarUniqueName, Expression retExpr) {
+        // Prepare the type
+
+        final AstType usedType = retType.deepCopy(true);
+        for (TypeElement typeElement : usedType.getQualifiers()) {
+            typeElement.accept(atomicReturnTypeVisitor, null);
+        }
+
+        // Create and assign the identifier declarator
+
+        final IdentifierDeclarator identifierDeclarator = new IdentifierDeclarator(
+                Location.getDummyLocation(),
+                ATOMIC_RETURN_VARIABLE_BASE_NAME
+        );
+        identifierDeclarator.setUniqueName(Optional.of(retVarUniqueName));
+
+        /* Set to 'true' even if we aren't in a NesC entity to remangle the name
+           if it appears in a generic component. If no, it has no effect. */
+        identifierDeclarator.setIsNestedInNescEntity(true);
+
+        if (!usedType.getDeclarator().isPresent()) {
+            usedType.setDeclarator(Optional.<Declarator>of(identifierDeclarator));
+        } else {
+            final NestedDeclarator deepestDeclarator = DeclaratorUtils.getDeepestNestedDeclarator(
+                    usedType.getDeclarator().get()).get();
+            deepestDeclarator.setDeclarator(Optional.<Declarator>of(identifierDeclarator));
+        }
+
+        // Create the inner declaration
+
+        final VariableDecl variableDecl = new VariableDecl(
+                Location.getDummyLocation(),
+                usedType.getDeclarator(),
+                Lists.<Attribute>newList(),
+                Optional.<AsmStmt>absent()
+        );
+        variableDecl.setInitializer(Optional.of(retExpr));
+
+        // Return the final declaration
+
+        return new DataDecl(
+                Location.getDummyLocation(),
+                usedType.getQualifiers(),
+                Lists.<Declaration>newList(variableDecl)
+        );
+    }
+
+    private LinkedList<Statement> atomizeVoidReturnStmt(ReturnStmt stmt, BlockData stmtData) {
+        final LinkedList<Statement> result = new LinkedList<>();
+        result.add(createAtomicFinalCall(stmtData.getAtomicVariableUniqueName().get()));
+        result.add(stmt);
+        return result;
+    }
+
+    private LinkedList<Statement> atomizeBreakStmt(BreakStmt stmt, BlockData stmtData) {
+        final boolean isAtomicSafe = VariousUtils.getBooleanValue(stmt.getIsAtomicSafe());
+        stmt.setIsAtomicSafe(true);
+        return atomizeBreakingStmt(stmt, stmtData, isAtomicSafe);
+    }
+
+    private LinkedList<Statement> atomizeContinueStmt(ContinueStmt stmt, BlockData stmtData) {
+        final boolean isAtomicSafe = VariousUtils.getBooleanValue(stmt.getIsAtomicSafe());
+        stmt.setIsAtomicSafe(true);
+        return atomizeBreakingStmt(stmt, stmtData, isAtomicSafe);
+    }
+
+    private LinkedList<Statement> atomizeBreakingStmt(Statement breakingStmt, BlockData stmtData,
+            boolean isAtomicSafe) {
+        if (!stmtData.isInsideBreakableAtomic() || isAtomicSafe) {
+            return Lists.newList(breakingStmt);
+        }
+
+        final LinkedList<Statement> result = new LinkedList<>();
+        result.add(createAtomicFinalCall(stmtData.getAtomicVariableUniqueName().get()));
+        result.add(breakingStmt);
+        return result;
+    }
+
     /**
      * Builder for the basic reduce visitor.
      *
@@ -539,6 +1028,7 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
         private NameMangler mangler;
         private SchedulerSpecification schedulerSpecification;
         private String taskWiringConfigurationName;
+        private AtomicSpecification atomicSpecification;
 
         /**
          * Private constructor to limit its accessibility.
@@ -598,10 +1088,23 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
             return this;
         }
 
+        /**
+         * Set the atomic specification with information necessary to strip the
+         * atomic statements.
+         *
+         * @param atomicSpec Atomic specification to set.
+         * @return <code>this</code>
+         */
+        public Builder atomicSpecification(AtomicSpecification atomicSpec) {
+            this.atomicSpecification = atomicSpec;
+            return this;
+        }
+
         private void validate() {
             checkState(mangler != null, "mangler has not been set or is set to null");
             checkState(schedulerSpecification != null, "the scheduler specification has not been set or is set to null");
             checkState(taskWiringConfigurationName != null, "name of the task wiring configuration has not been set or is set to null");
+            checkState(atomicSpecification != null, "the atomic specification has not been set or set to null");
             checkState(!globalNames.containsKey(null), "a mapping from null has been added");
             checkState(!globalNames.containsValue(null), "a mapping to a null value has been added");
             checkState(!globalNames.containsKey(""), "a mapping from an empty string has been added");
@@ -610,15 +1113,24 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
 
         public BasicReduceVisitor build() {
             validate();
-            return new BasicReduceVisitor(this);
+            return new BasicReduceVisitor(this, mangler.mangle(atomicSpecification.getTypename()),
+                    mangler.mangle(atomicSpecification.getStartFunctionName()),
+                    mangler.mangle(atomicSpecification.getEndFunctionName()));
         }
 
         private ImmutableSet<String> buildGlobalNames() {
             return ImmutableSet.copyOf(globalNames.values());
         }
 
-        private Map<String, String> buildUniqueNamesMap() {
-            return new HashMap<>(globalNames);
+        private Map<String, String> buildUniqueNamesMap(String atomicTypeUniqueName,
+                String atomicStartFunUniqueName, String atomicEndFunUniqueName) {
+            final Map<String, String> result = new HashMap<>(globalNames);
+
+            result.put(atomicTypeUniqueName, atomicSpecification.getTypename());
+            result.put(atomicStartFunUniqueName, atomicSpecification.getStartFunctionName());
+            result.put(atomicEndFunUniqueName, atomicSpecification.getEndFunctionName());
+
+            return result;
         }
 
         private Configuration buildInitialTaskWiringConfiguration() {
@@ -647,6 +1159,117 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
                     false,
                     Optional.<LinkedList<Declaration>>absent()
             );
+        }
+    }
+
+    /**
+     * Class to simplify atomic transformation of statements that are wrapped by
+     * <code>Optional</code>.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private final class AtomicTransformFunction implements Function<Statement, Statement> {
+        private final BlockData blockData;
+
+        /**
+         * Initializes this function by storing the argument in a member field.
+         *
+         * @param blockData Block data to use for transformations.
+         * @throws NullPointerException The block data is <code>null</code>.
+         */
+        private AtomicTransformFunction(BlockData blockData) {
+            checkNotNull(blockData, "block data object cannot be null");
+            this.blockData = blockData;
+        }
+
+        @Override
+        public Statement apply(Statement stmt) {
+            checkNotNull(stmt, "statement cannot be null");
+            return BasicReduceVisitor.this.performAtomicSmallTransformationCompact(stmt, blockData);
+        }
+    }
+
+    /**
+     * Visitor that modifies visited type elements and declarators for usage
+     * as the type for the variable that holds the returned expression before
+     * ending an atomic block.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private final class AtomicReturnTypeVisitor extends ExceptionVisitor<Void, Void> {
+        @Override
+        public Void visitTypeofType(TypeofType typeElement, Void arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitTypeofExpr(TypeofExpr typeElement, Void arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitTypename(Typename typeElement, Void arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitComponentTyperef(ComponentTyperef typeElement, Void arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitStructRef(StructRef typeElement, Void arg) {
+            modifyFieldTagRef(typeElement);
+            return null;
+        }
+
+        @Override
+        public Void visitNxStructRef(NxStructRef typeElement, Void arg) {
+            modifyFieldTagRef(typeElement);
+            return null;
+        }
+
+        @Override
+        public Void visitUnionRef(UnionRef typeElement, Void arg) {
+            modifyFieldTagRef(typeElement);
+            return null;
+        }
+
+        @Override
+        public Void visitNxUnionRef(NxUnionRef typeElement, Void arg) {
+            modifyFieldTagRef(typeElement);
+            return null;
+        }
+
+        @Override
+        public Void visitEnumRef(EnumRef typeElement, Void arg) {
+            for (Declaration enumerator : typeElement.getFields()) {
+                enumerator.accept(this, null);
+            }
+
+            return null;
+        }
+
+        @Override
+        public Void visitRid(Rid typeElement, Void arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitQualifier(Qualifier typeElement, Void arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitEnumerator(Enumerator enumerator, Void arg) {
+            enumerator.setUniqueName(BasicReduceVisitor.this.mangler.remangle(enumerator.getUniqueName()));
+            return null;
+        }
+
+        private void modifyFieldTagRef(TagRef fieldTagRef) {
+            // Transform the tag reference not to be the definition
+            fieldTagRef.setFields(Lists.<Declaration>newList());
+            fieldTagRef.setSemantics(TagRefSemantics.OTHER);
         }
     }
 }

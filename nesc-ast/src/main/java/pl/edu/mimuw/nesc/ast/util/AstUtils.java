@@ -5,17 +5,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.gen.Attribute;
-import pl.edu.mimuw.nesc.ast.gen.DataDecl;
-import pl.edu.mimuw.nesc.ast.gen.Declaration;
-import pl.edu.mimuw.nesc.ast.gen.ErrorDecl;
-import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.gen.InitList;
-import pl.edu.mimuw.nesc.ast.gen.InitSpecific;
-import pl.edu.mimuw.nesc.ast.gen.Node;
-import pl.edu.mimuw.nesc.ast.gen.TypeElement;
-import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
-import pl.edu.mimuw.nesc.ast.gen.Word;
+import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 
@@ -50,6 +40,25 @@ public final class AstUtils {
         public boolean apply(Expression expr) {
             checkNotNull(expr, "the expression cannot be null");
             return expr instanceof InitList || expr instanceof InitSpecific;
+        }
+    };
+
+    /**
+     * <p>Predicate that is fulfilled if and only if the type element is a core
+     * type element (e.g. an attribute is not a core type element.</p>
+     *
+     * @see CoreTypeElementVisitor
+     */
+    public static final Predicate<TypeElement> IS_CORE_TYPE_ELEMENT = new Predicate<TypeElement>() {
+        /**
+         * Visitor that checks if the element is a core type element.
+         */
+        private final CoreTypeElementVisitor coreTypeElementVisitor = new CoreTypeElementVisitor();
+
+        @Override
+        public boolean apply(TypeElement typeElement) {
+            checkNotNull(typeElement, "type element cannot be null");
+            return typeElement.accept(coreTypeElementVisitor, null);
         }
     };
 
@@ -340,6 +349,157 @@ public final class AstUtils {
                 : Optional.<LinkedList<T>>absent();
     }
 
+    /**
+     * Create an AST node that represents the return type of the function with
+     * given definition.
+     *
+     * @param functionDecl AST node of the definition of a function to extract
+     *                     the return type from.
+     * @return Newly created AST node that represents the return type of the
+     *         function with given definition.
+     */
+    public static AstType extractReturnType(FunctionDecl functionDecl) {
+        checkNotNull(functionDecl, "function definition AST node cannot be null");
+
+        // Type elements
+
+        final LinkedList<TypeElement> typeElements = new LinkedList<>();
+        for (TypeElement typeElement : functionDecl.getModifiers()) {
+            if (IS_CORE_TYPE_ELEMENT.apply(typeElement)) {
+                typeElements.add(typeElement.deepCopy(true));
+            }
+        }
+
+        // Declarator
+
+        final Optional<Declarator> typeDeclarator;
+        if (functionDecl.getDeclarator() instanceof FunctionDeclarator) {
+            typeDeclarator = Optional.absent();
+        } else {
+            NestedDeclarator declarator = (NestedDeclarator) functionDecl.getDeclarator();
+            while (!(declarator.getDeclarator().get() instanceof FunctionDeclarator)) {
+                declarator = (NestedDeclarator) declarator.getDeclarator().get();
+            }
+
+            final Optional<Declarator> funDeclarator = declarator.getDeclarator();
+            declarator.setDeclarator(Optional.<Declarator>absent());
+            typeDeclarator = Optional.of(functionDecl.getDeclarator().deepCopy(true));
+            declarator.setDeclarator(funDeclarator);
+        }
+
+        return new AstType(
+                Location.getDummyLocation(),
+                typeDeclarator,
+                typeElements
+        );
+    }
+
     private AstUtils() {
+    }
+
+    /**
+     * <p>Visitor that returns <code>true</code> if it visits a type element that
+     * is essential to determine the type, e.g. it filters the attributes type
+     * elements.</p>
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class CoreTypeElementVisitor extends ExceptionVisitor<Boolean, Void> {
+        @Override
+        public Boolean visitTypeofType(TypeofType typeElement, Void arg) {
+            return true;
+        }
+
+        @Override
+        public Boolean visitTypeofExpr(TypeofExpr typeElement, Void arg) {
+            return true;
+        }
+
+        @Override
+        public Boolean visitTypename(Typename typeElement, Void arg) {
+            return true;
+        }
+
+        @Override
+        public Boolean visitComponentTyperef(ComponentTyperef typeElement, Void arg) {
+            return true;
+        }
+
+        @Override
+        public Boolean visitAttributeRef(AttributeRef typeElement, Void arg) {
+            return false;
+        }
+
+        @Override
+        public Boolean visitStructRef(StructRef typeElement, Void arg) {
+            return true;
+        }
+
+        @Override
+        public Boolean visitNxStructRef(NxStructRef typeElement, Void arg) {
+            return true;
+        }
+
+        @Override
+        public Boolean visitEnumRef(EnumRef typeElement, Void arg) {
+            return true;
+        }
+
+        @Override
+        public Boolean visitUnionRef(UnionRef typeElement, Void arg) {
+            return true;
+        }
+
+        @Override
+        public Boolean visitNxUnionRef(NxUnionRef typeElement, Void arg) {
+            return true;
+        }
+
+        @Override
+        public Boolean visitRid(Rid typeElement, Void arg) {
+            switch (typeElement.getId()) {
+                case INT:
+                case SHORT:
+                case UNSIGNED:
+                case SIGNED:
+                case CHAR:
+                case DOUBLE:
+                case FLOAT:
+                case LONG:
+                case VOID:
+                case COMPLEX:
+                case CONST:
+                case VOLATILE:
+                case RESTRICT:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        @Override
+        public Boolean visitQualifier(Qualifier typeElement, Void arg) {
+            return true;
+        }
+
+        @Override
+        public Boolean visitAttribute(Attribute attribute, Void arg) {
+            return false;
+        }
+
+        @Override
+        public Boolean visitGccAttribute(GccAttribute attribute, Void arg) {
+            return false;
+        }
+
+        @Override
+        public Boolean visitTargetAttribute(TargetAttribute attribute, Void arg) {
+            return false;
+        }
+
+        @Override
+        public Boolean visitNescAttribute(NescAttribute attribute, Void arg) {
+            return false;
+        }
     }
 }

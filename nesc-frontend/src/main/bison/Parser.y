@@ -3598,7 +3598,7 @@ labeled_stmt:
     { $$ = $1; }
     | label labeled_stmt
     {
-        final LabeledStmt stmt = new LabeledStmt($1.getLocation(), $1, $2);
+        final LabeledStmt stmt = new LabeledStmt($1.getLocation(), $1, Optional.of($2));
         stmt.setEndLocation($2.getEndLocation());
         $$ = stmt;
     }
@@ -3611,7 +3611,7 @@ stmt_or_label:
     }
     | label
     {
-        final LabeledStmt stmt = new LabeledStmt($1.getLocation(), $1, null);
+        final LabeledStmt stmt = new LabeledStmt($1.getLocation(), $1, Optional.<Statement>absent());
         stmt.setEndLocation($1.getEndLocation());
         $$ = new ValueStatement(stmt, 1);
     }

@@ -19,6 +19,7 @@ public final class DeclaratorUtils {
     private static final FunctionDeclaratorExtractor FUNCTION_DECLARATOR_EXTRACTOR = new FunctionDeclaratorExtractor();
     private static final IdentifierIntervalVisitor IDENTIFIER_INTERVAL_VISITOR = new IdentifierIntervalVisitor();
     private static final SetUniqueNameVisitor SET_UNIQUE_NAME_VISITOR = new SetUniqueNameVisitor();
+    private static final DeepestNestedDeclaratorVisitor DEEPEST_NESTED_DECLARATOR_VISITOR = new DeepestNestedDeclaratorVisitor();
 
     /**
      * Gets declarator's name.
@@ -82,6 +83,40 @@ public final class DeclaratorUtils {
     public static void setUniqueName(Declarator declarator, Optional<String> nameToSet) {
         checkNotNull(nameToSet, "name to set in the declarator cannot be null");
         declarator.accept(SET_UNIQUE_NAME_VISITOR, nameToSet);
+    }
+
+    /**
+     * Get the deepest nested declarator contained in the given declarator.
+     *
+     * @param declarator Declarator that contains the necessary nested
+     *                   declarator.
+     * @return The deepest nested declarator contained in the given one (or the
+     *         argument itself if it does not have nested declarators). The
+     *         object is absent if the given declarator is an identifier
+     *         declarator.
+     * @throws NullPointerException Declarator is <code>null</code>.
+     */
+    public static Optional<NestedDeclarator> getDeepestNestedDeclarator(Declarator declarator) {
+        checkNotNull(declarator, "declarator cannot be null");
+        return declarator.accept(DEEPEST_NESTED_DECLARATOR_VISITOR, null);
+    }
+
+    /**
+     * Acts as {@link DeclaratorUtils#getDeepestNestedDeclarator} if the given
+     * declarator is present. If not, the returned object is absent.
+     *
+     * @param declarator Declarator that contains the necessary nested
+     *                   declarator.
+     * @return If the declarator in the argument is absent, then the returned
+     *         object is absent. Otherwise, the result is the same if
+     *         {@link DeclaratorUtils#getDeepestNestedDeclarator} is invoked.
+     * @throws NullPointerException Declarator is <code>null</code>.
+     */
+    public static Optional<NestedDeclarator> getDeepestNestedDeclarator(Optional<Declarator> declarator) {
+        checkNotNull(declarator, "declarator cannot be null");
+        return declarator.isPresent()
+                ? getDeepestNestedDeclarator(declarator.get())
+                : Optional.<NestedDeclarator>absent();
     }
 
     private DeclaratorUtils() {
@@ -361,6 +396,50 @@ public final class DeclaratorUtils {
             }
 
             return null;
+        }
+    }
+
+    /**
+     * Visitor that returns the deepest nested declarator of a visited
+     * declarator (if it exists).
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class DeepestNestedDeclaratorVisitor extends ExceptionVisitor<Optional<NestedDeclarator>, Void> {
+        @Override
+        public Optional<NestedDeclarator> visitIdentifierDeclarator(IdentifierDeclarator declarator, Void arg) {
+            return Optional.absent();
+        }
+
+        @Override
+        public Optional<NestedDeclarator> visitInterfaceRefDeclarator(InterfaceRefDeclarator declarator, Void arg) {
+            return jump(declarator.getDeclarator()).or(Optional.of(declarator));
+        }
+
+        @Override
+        public Optional<NestedDeclarator> visitArrayDeclarator(ArrayDeclarator declarator, Void arg) {
+            return jump(declarator.getDeclarator()).or(Optional.of(declarator));
+        }
+
+        @Override
+        public Optional<NestedDeclarator> visitQualifiedDeclarator(QualifiedDeclarator declarator, Void arg) {
+            return jump(declarator.getDeclarator()).or(Optional.of(declarator));
+        }
+
+        @Override
+        public Optional<NestedDeclarator> visitFunctionDeclarator(FunctionDeclarator declarator, Void arg) {
+            return jump(declarator.getDeclarator()).or(Optional.of(declarator));
+        }
+
+        @Override
+        public Optional<NestedDeclarator> visitPointerDeclarator(PointerDeclarator declarator, Void arg) {
+            return jump(declarator.getDeclarator()).or(Optional.of(declarator));
+        }
+
+        private Optional<NestedDeclarator> jump(Optional<Declarator> nextDeclarator) {
+            return nextDeclarator.isPresent()
+                    ? nextDeclarator.get().accept(this, null)
+                    : Optional.<NestedDeclarator>absent();
         }
     }
 

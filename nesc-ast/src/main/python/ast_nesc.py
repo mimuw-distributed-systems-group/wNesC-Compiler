@@ -522,6 +522,10 @@ class CompoundStmt(BasicASTNode):
     """
     <p>Represents a block with its own environment.</p>
     <p>It can be body of function or statement.</p>
+    <p><code>atomicVariableUniqueName</code> is present if and only if this compound statement
+    has replaced an atomic statement. Otherwise, it is absent or <code>null</code>. If the
+    object is present, it is the unique name of the variable created to store the result of
+    the atomic start function call for this compound statement.</p>
     """
     superclass = Statement
     idLabels = ReferenceListField("IdLabel")
@@ -529,6 +533,7 @@ class CompoundStmt(BasicASTNode):
     statements = ReferenceListField("Statement")
     environment = ReferenceField("Environment", constructor_variable=False, visitable=False,
                                  deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+    atomicVariableUniqueName = StringField(constructor_variable=False, optional=True)
 
 
 class IfStmt(BasicASTNode):
@@ -547,7 +552,7 @@ class LabeledStmt(BasicASTNode):
     """
     superclass = Statement
     label = ReferenceField("Label")
-    statement = ReferenceField("Statement")
+    statement = ReferenceField("Statement", optional=True)
 
 
 class ExpressionStmt(BasicASTNode):
@@ -607,6 +612,7 @@ class BreakStmt(BasicASTNode):
     <p>Break statement.</p>
     """
     superclass = Statement
+    isAtomicSafe = BoolField(constructor_variable=False)
 
 
 class ContinueStmt(BasicASTNode):
@@ -614,6 +620,7 @@ class ContinueStmt(BasicASTNode):
     <p>Continue statement.</p>
     """
     superclass = Statement
+    isAtomicSafe = BoolField(constructor_variable=False)
 
 
 class ReturnStmt(BasicASTNode):
@@ -622,6 +629,7 @@ class ReturnStmt(BasicASTNode):
     """
     superclass = Statement
     value = ReferenceField("Expression", optional=True)
+    isAtomicSafe = BoolField(constructor_variable=False)
 
 
 class GotoStmt(BasicASTNode):

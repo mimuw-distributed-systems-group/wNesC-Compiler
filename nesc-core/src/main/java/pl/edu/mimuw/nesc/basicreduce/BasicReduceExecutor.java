@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.Map;
 import pl.edu.mimuw.nesc.ast.gen.Configuration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
+import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.SchedulerSpecification;
 import pl.edu.mimuw.nesc.names.collecting.NescEntityNameCollector;
 import pl.edu.mimuw.nesc.names.mangling.CountingNameMangler;
@@ -110,6 +111,7 @@ public final class BasicReduceExecutor {
                 .putGlobalNames(globalNames)
                 .schedulerSpecification(schedulerSpecification)
                 .taskWiringConfigurationName(taskWiringConfigurationName)
+                .atomicSpecification(AtomicSpecification.DEFAULT_SPECIFICATION)
                 .build();
 
         final BlockData initialData = BlockData.builder()
