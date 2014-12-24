@@ -350,6 +350,36 @@ public final class TagsAnalysis {
                 if (tagRef.getName() != null) {
                     semanticListener.globalName(tagRef.getUniqueName().get(), tagRef.getName().getName());
                 }
+
+                /* Handle names of enumeration constants from enumerations
+                   with @C() attribute. Global enumeration constants are handled
+                   in 'Declarations.makeEnumerator' method. Currently, @C()
+                   attribute is forbidden for anonymous tags so constants from
+                   anonymous enumerations have unmangled names only if they are
+                   declared in the global scope. */
+                if (environment.getScopeType() != ScopeType.GLOBAL
+                        && getStructKind(tagRef) == StructKind.ENUM
+                        && tagRef.getSemantics() == TagRefSemantics.DEFINITION) {
+                    emitEnumeratorsGlobalNameEvents((EnumRef) tagRef);
+                }
+            }
+        }
+
+        /**
+         * Unconditionally emits global name events for enumeration constants of
+         * given enumerated type.
+         *
+         * @param enumDefinition Definition of an enumerated type (with
+         *                       constants present).
+         */
+        private void emitEnumeratorsGlobalNameEvents(EnumRef enumDefinition) {
+            for (Declaration enumDecl : enumDefinition.getFields()) {
+                if (!(enumDecl instanceof Enumerator)) {
+                    continue;
+                }
+
+                final Enumerator enumerator = (Enumerator) enumDecl;
+                semanticListener.globalName(enumerator.getUniqueName(), enumerator.getName());
             }
         }
 

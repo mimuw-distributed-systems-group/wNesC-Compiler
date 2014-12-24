@@ -450,6 +450,11 @@ public final class Declarations extends AstBuildingBase {
                 .startLocation(startLocation)
                 .build();
 
+        // Emit a global name event for enumeration constants in global scope
+        if (environment.getScopeType() == ScopeType.GLOBAL) {
+            semanticListener.globalName(symbol.getUniqueName(), id);
+        }
+
         if (!environment.getObjects().add(id, symbol)) {
             errorHelper.error(startLocation, Optional.of(endLocation), format("redeclaration of '%s'", id));
         }

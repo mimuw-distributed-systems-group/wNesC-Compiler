@@ -41,7 +41,7 @@ public final class InvalidCAttributeUsageError extends ErroneousIssue {
     }
 
     public static InvalidCAttributeUsageError appliedToUnnamedTag() {
-        final String description = "NesC attribute '@C()' cannot be applied to an unnamed tag declaration";
+        final String description = "NesC attribute '@C()' cannot be applied to an anonymous tag";
         return new InvalidCAttributeUsageError(description);
     }
 
