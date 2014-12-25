@@ -179,74 +179,105 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
 
     @Override
     public BlockData visitEnumerator(Enumerator node, BlockData arg) {
-        node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        if (!arg.isInsideNotMangledArea()) {
+            node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        }
         return arg;
     }
 
     @Override
     public BlockData visitTypename(Typename node, BlockData arg) {
-        node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        if (!arg.isInsideNotMangledArea()) {
+            node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        }
         return arg;
     }
 
     @Override
     public BlockData visitComponentTyperef(ComponentTyperef node, BlockData arg) {
-        node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        if (!arg.isInsideNotMangledArea()) {
+            node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        }
         return arg;
     }
 
     @Override
     public BlockData visitAttributeRef(AttributeRef node, BlockData arg) {
-        node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        if (!arg.isInsideNotMangledArea()) {
+            node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        }
         return arg;
     }
 
     @Override
     public BlockData visitStructRef(StructRef node, BlockData arg) {
-        node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        if (!arg.isInsideNotMangledArea()) {
+            node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        }
         return arg;
     }
 
     @Override
     public BlockData visitNxStructRef(NxStructRef node, BlockData arg) {
-        node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        if (!arg.isInsideNotMangledArea()) {
+            node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        }
         return arg;
     }
 
     @Override
     public BlockData visitUnionRef(UnionRef node, BlockData arg) {
-        node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        if (!arg.isInsideNotMangledArea()) {
+            node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        }
         return arg;
     }
 
     @Override
     public BlockData visitNxUnionRef(NxUnionRef node, BlockData arg) {
-        node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        if (!arg.isInsideNotMangledArea()) {
+            node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        }
         return arg;
     }
 
     @Override
     public BlockData visitEnumRef(EnumRef node, BlockData arg) {
-        node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        if (!arg.isInsideNotMangledArea()) {
+            node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        }
         return arg;
     }
 
     @Override
     public BlockData visitIdentifierDeclarator(IdentifierDeclarator node, BlockData arg) {
-        node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        if (!arg.isInsideNotMangledArea()) {
+            node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        }
         return arg;
     }
 
     @Override
     public BlockData visitIdentifier(Identifier node, BlockData arg) {
-        node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        if (!arg.isInsideNotMangledArea()) {
+            node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        }
         return arg;
     }
 
     @Override
     public BlockData visitTypeParmDecl(TypeParmDecl node, BlockData arg) {
-        node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        if (!arg.isInsideNotMangledArea()) {
+            node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
+        }
         return arg;
+    }
+
+    @Override
+    public BlockData visitGccAttribute(GccAttribute node, BlockData arg) {
+        return BlockData.builder(arg)
+                .insideNotMangledArea(true)
+                .build();
     }
 
     private String getFinalUniqueName(String currentUniqueName) {

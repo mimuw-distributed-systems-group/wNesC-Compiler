@@ -46,6 +46,12 @@ final class BlockData {
     private final Optional<AstType> functionReturnType;
 
     /**
+     * Value indicating if the current node is located inside a node excluded
+     * from mangling names.
+     */
+    private final boolean insideNotMangledArea;
+
+    /**
      * Get a new builder that will build a block data object.
      *
      * @return Newly created builder that will build a block data object.
@@ -80,6 +86,7 @@ final class BlockData {
         this.insideLoopOrSwitch = builder.insideLoopOrSwitch;
         this.insideBreakableAtomic = builder.insideBreakableAtomic;
         this.functionReturnType = builder.functionReturnType;
+        this.insideNotMangledArea = builder.insideNotMangledArea;
     }
 
     /**
@@ -151,6 +158,17 @@ final class BlockData {
     }
 
     /**
+     * Check if this node is located inside an area of the program (i.e. a node)
+     * that is excluded from name mangling.
+     *
+     * @return <code>true</code> if and only if the node is located inside an
+     *         area excluded from names mangling.
+     */
+    public boolean isInsideNotMangledArea() {
+        return insideNotMangledArea;
+    }
+
+    /**
      * Builder for a block data object.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -164,6 +182,7 @@ final class BlockData {
         private Optional<AstType> functionReturnType = Optional.absent();
         private boolean insideLoopOrSwitch = false;
         private boolean insideBreakableAtomic = false;
+        private boolean insideNotMangledArea = false;
 
         /**
          * Private constructor to limit its accessibility.
@@ -182,6 +201,7 @@ final class BlockData {
             this.insideLoopOrSwitch = specimen.insideLoopOrSwitch;
             this.insideBreakableAtomic = specimen.insideBreakableAtomic;
             this.functionReturnType = specimen.functionReturnType;
+            this.insideNotMangledArea = specimen.insideNotMangledArea;
         }
 
         /**
@@ -246,6 +266,17 @@ final class BlockData {
          */
         public Builder functionReturnType(AstType functionReturnType) {
             this.functionReturnType = Optional.fromNullable(functionReturnType);
+            return this;
+        }
+
+        /**
+         * Set if the node is located inside an area that is not mangled.
+         *
+         * @param insideNotMangledArea Value to set.
+         * @return <code>this</code>
+         */
+        public Builder insideNotMangledArea(boolean insideNotMangledArea) {
+            this.insideNotMangledArea = insideNotMangledArea;
             return this;
         }
 
