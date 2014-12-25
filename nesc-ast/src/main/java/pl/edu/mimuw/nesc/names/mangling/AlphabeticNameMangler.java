@@ -61,7 +61,8 @@ public class AlphabeticNameMangler extends AbstractNameMangler {
         checkName(mangledName);
 
         final int separatorIndex = mangledName.lastIndexOf(SEPARATOR);
-        checkArgument(separatorIndex != -1, "the given name is not the result of mangling a name by this mangler");
+        checkArgument(separatorIndex != -1, "name '%s' is not the result of mangling a name by this mangler",
+                mangledName);
 
         return mangle(mangledName.substring(0, separatorIndex));
     }

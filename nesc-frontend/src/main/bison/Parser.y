@@ -475,7 +475,10 @@ dispatch:
     | DISPATCH_NESC component
     { entityRoot = $2; }
     | DISPATCH_C extdefs
-    { entityRoot = null; }
+    {
+        entityRoot = null;
+        this.extdefs = $extdefs;
+    }
     | DISPATCH_C
     { entityRoot = null; }
     | DISPATCH_PARM parm

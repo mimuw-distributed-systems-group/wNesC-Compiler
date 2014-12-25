@@ -98,11 +98,12 @@ public final class NescFrontend implements Frontend {
         final ProjectData.Builder projectDataBuilder;
         final Optional<String> startFile = getStartFile(context);
 
-        parseFilesIncludedByDefault(context);
+        final List<FileData> defaultIncludeFilesData = parseFilesIncludedByDefault(context);
         context.setWasInitialBuild(true);
 
         if (startFile.isPresent()) {
             projectDataBuilder = _update(contextRef, startFile.get(), true);
+            projectDataBuilder.addFileDatas(defaultIncludeFilesData);
         } else {
             final String msg = format("Cannot find main configuration '%s'", context.getOptions().getEntryEntityPath());
             LOG.error(msg);
