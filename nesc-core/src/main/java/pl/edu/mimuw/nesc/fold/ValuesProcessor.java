@@ -15,6 +15,7 @@ import pl.edu.mimuw.nesc.ast.gen.StringCst;
 import pl.edu.mimuw.nesc.ast.gen.UniqueCall;
 import pl.edu.mimuw.nesc.ast.gen.UniqueCountCall;
 import pl.edu.mimuw.nesc.ast.gen.UniqueNCall;
+import pl.edu.mimuw.nesc.ast.util.AstUtils;
 import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -115,14 +116,7 @@ final class ValuesProcessor extends NullVisitor<Void, Void> {
         checkState(firstParam instanceof StringAst, "identifier for a constant function has unexpected class '%s'",
                 firstParam.getClass());
 
-        final StringAst identifierString = (StringAst) firstParam;
-        final StringBuilder strBuilder = new StringBuilder();
-
-        for (StringCst stringCst : identifierString.getStrings()) {
-            strBuilder.append(stringCst.getString());
-        }
-
-        constantFunCall.setIdentifier(strBuilder.toString());
+        constantFunCall.setIdentifier(AstUtils.concatenateStrings((StringAst) firstParam));
     }
 
     private void evaluate(ConstantFunctionCall constantFunCall, long numbersCount) {

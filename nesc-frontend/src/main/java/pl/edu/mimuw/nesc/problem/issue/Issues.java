@@ -101,6 +101,7 @@ public final class Issues {
         INVALID_SPECIFICATION_DECLARATION(70),
         INVALID_SCHEDULER(71),
         INVALID_TASK_INTERFACE(72),
+        INVALID_COMBINE_ATTRIBUTE_USAGE(73),
         ;
 
         private final int codeNumber;

@@ -33,7 +33,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import static pl.edu.mimuw.nesc.analysis.AttributesAnalysis.checkCAttribute;
 import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.*;
 import static pl.edu.mimuw.nesc.ast.util.DeclaratorUtils.getDeclaratorName;
 import static pl.edu.mimuw.nesc.problem.issue.InvalidTypeSpecifiersMixError.InvalidCombinationType.*;
@@ -171,11 +170,11 @@ public final class TypesAnalysis {
     public static Optional<Type> resolveType(Environment environment,
             List<TypeElement> typeElements, Optional<Declarator> declarator,
             ErrorHelper errorHelper, Location apxStartLoc, Location apxEndLoc,
-            SemanticListener semanticListener) {
+            SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer) {
 
         final Optional<Type> maybeBaseType = resolveBaseType(environment,
                 typeElements, false, errorHelper, apxStartLoc, apxEndLoc,
-                semanticListener);
+                semanticListener, attributeAnalyzer);
 
         return   maybeBaseType.isPresent() && declarator.isPresent()
                ? resolveDeclaratorType(declarator.get(), environment,
@@ -235,17 +234,18 @@ public final class TypesAnalysis {
     public static Optional<Type> resolveBaseType(Environment environment,
             List<TypeElement> typeElements, boolean isStandalone,
             ErrorHelper errorHelper, Location apxStartLoc, Location apxEndLoc,
-            SemanticListener semanticListener) {
+            SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer) {
         // Validate arguments
         checkNotNull(environment, "environment cannot be null");
         checkNotNull(typeElements, "list of type elements cannot be null");
         checkNotNull(errorHelper, "error helper cannot be null");
         checkNotNull(apxStartLoc, "approximate start location cannot be null");
         checkNotNull(apxEndLoc, "approximate end location cannot be null");
+        checkNotNull(attributeAnalyzer, "attribute analyzer cannot be null");
 
         // Resolve the type
         final BaseTypeVisitor visitor = new BaseTypeVisitor(environment, errorHelper,
-                isStandalone, apxStartLoc, apxEndLoc, semanticListener);
+                isStandalone, apxStartLoc, apxEndLoc, semanticListener, attributeAnalyzer);
         for (TypeElement typeElement : typeElements) {
             typeElement.accept(visitor, null);
         }
@@ -360,6 +360,11 @@ public final class TypesAnalysis {
         private final SemanticListener semanticListener;
 
         /**
+         * Object responsible for attributes analysis.
+         */
+        private final AttributeAnalyzer attributeAnalyzer;
+
+        /**
          * <code>true</code> if and only if the type elements processed by this
          * visitor are in a standalone declaration (that does not declare any
          * objects).
@@ -411,13 +416,14 @@ public final class TypesAnalysis {
 
         private BaseTypeVisitor(Environment environment, ErrorHelper errorHelper,
                                 boolean isStandalone, Location startFuzzy, Location endFuzzy,
-                                SemanticListener semanticListener) {
+                                SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer) {
             this.environment = environment;
             this.errorHelper = errorHelper;
             this.isStandalone = isStandalone;
             this.startFuzzy = startFuzzy;
             this.endFuzzy = endFuzzy;
             this.semanticListener = semanticListener;
+            this.attributeAnalyzer = attributeAnalyzer;
         }
 
         /**
@@ -527,8 +533,10 @@ public final class TypesAnalysis {
         }
 
         private Optional<TagDeclaration> finishUnnamedTagType() {
-            checkCAttribute(tagReference, environment, errorHelper);
-            return Optional.of(TagDeclarationFactory.getInstance(tagReference, semanticListener, errorHelper));
+            final TagDeclaration result = TagDeclarationFactory.getInstance(tagReference,
+                    semanticListener, errorHelper);
+            attributeAnalyzer.analyzeAttributes(tagReference.getAttributes(), result, environment);
+            return Optional.of(result);
         }
 
         private Optional<Type> finishTypename() {
@@ -760,7 +768,8 @@ public final class TypesAnalysis {
             }
 
             if (tagRef.getSemantics() == TagRefSemantics.OTHER) {
-                processTagReference(tagRef, environment, isStandalone, errorHelper, semanticListener);
+                processTagReference(tagRef, environment, isStandalone, errorHelper,
+                        semanticListener, attributeAnalyzer);
             }
             tagReference = tagRef;
         }

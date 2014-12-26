@@ -22,6 +22,7 @@ public final class ProjectData {
 
     private final ImmutableMap<String, FileData> fileDatas;
     private final ImmutableMap<String, String> globalNames;
+    private final ImmutableMap<String, String> combiningFunctions;
     private final Optional<FileData> rootFileData;
     private final ImmutableList<NescIssue> issues;
     private final NameMangler nameMangler;
@@ -32,6 +33,7 @@ public final class ProjectData {
 
         this.fileDatas = builder.fileDatas;
         this.globalNames = builder.globalNames;
+        this.combiningFunctions = builder.combiningFunctions;
         this.rootFileData = Optional.fromNullable(builder.rootFileData);
         this.issues = builder.issueListBuilder.build();
         this.nameMangler = builder.nameMangler;
@@ -51,6 +53,18 @@ public final class ProjectData {
      */
     public ImmutableMap<String, String> getGlobalNames() {
         return globalNames;
+    }
+
+    /**
+     * Get the map with unique names of type definitions as keys and names of
+     * combining functions associated with them as values. The map contains
+     * information about combining functions from the entire project.
+     *
+     * @return Mapping of unique names of typedefs to names of combining
+     *         functions associated with them.
+     */
+    public ImmutableMap<String, String> getCombiningFunctions() {
+        return combiningFunctions;
     }
 
     public Optional<FileData> getRootFileData() {
@@ -101,6 +115,7 @@ public final class ProjectData {
 
         private ImmutableMap<String, FileData> fileDatas;
         private ImmutableMap<String, String> globalNames;
+        private ImmutableMap<String, String> combiningFunctions;
 
         private NameMangler nameMangler;
         private Optional<SchedulerSpecification> schedulerSpecification = Optional.absent();
@@ -154,11 +169,15 @@ public final class ProjectData {
             this.fileDatas = fileDataBuilder.build();
 
             final ImmutableMap.Builder<String, String> globalNamesBuilder = ImmutableMap.builder();
+            final ImmutableMap.Builder<String, String> combiningFunctionsBuilder = ImmutableMap.builder();
+
             for (FileData fileData : this.fileDatas.values()) {
                 globalNamesBuilder.putAll(fileData.getGlobalNames());
+                combiningFunctionsBuilder.putAll(fileData.getCombiningFunctions());
             }
 
             this.globalNames = globalNamesBuilder.build();
+            this.combiningFunctions = combiningFunctionsBuilder.build();
         }
     }
 }

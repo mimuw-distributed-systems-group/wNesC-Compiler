@@ -8,6 +8,7 @@ import com.google.common.io.Files;
 import org.apache.log4j.Logger;
 
 import pl.edu.mimuw.nesc.*;
+import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.*;
@@ -4273,6 +4274,7 @@ string_chain:
     private ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder;
     private ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder;
     private final Map<String, String> globalNames = new HashMap<>();
+    private final Map<String, String> combiningFunctions = new HashMap<>();
     /**
      * Indicates whether parsing was successful.
      */
@@ -4313,6 +4315,11 @@ string_chain:
         @Override
         public String nameManglingRequired(String unmangledName) {
             return context.getNameMangler().mangle(unmangledName);
+        }
+
+        @Override
+        public void combiningFunction(String typedefUniqueName, String functionName) {
+            combiningFunctions.put(typedefUniqueName, functionName);
         }
     };
 
@@ -4361,17 +4368,18 @@ string_chain:
         this.pstate = new ParserState();
 
         this.errorHelper = new ErrorHelper(this.issuesMultimapBuilder);
+        final AttributeAnalyzer attributeAnalyzer = new AttributeAnalyzer(semanticListener, errorHelper);
 
         this.declarations = new Declarations(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder, semanticListener);
+                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
         this.initializers = new Initializers(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder, semanticListener);
+                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
         this.statements = new Statements(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder, semanticListener);
+                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
         this.nescDeclarations = new NescDeclarations(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder, semanticListener);
+                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
         this.nescComponents = new NescComponents(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder, semanticListener);
+                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
 
         switch (fileType) {
             case HEADER:
@@ -4437,6 +4445,16 @@ string_chain:
      */
     public Map<String, String> getGlobalNames() {
         return this.globalNames;
+    }
+
+    /**
+     * Get the map with detected combining functions.
+     *
+     * @return Map with unique names of type definitions as keys and names of
+     *         combining functions associated with them as values.
+     */
+    public Map<String, String> getCombiningFunctions() {
+        return this.combiningFunctions;
     }
 
     /**

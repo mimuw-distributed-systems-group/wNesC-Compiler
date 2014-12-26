@@ -23,7 +23,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static pl.edu.mimuw.nesc.analysis.AttributesAnalysis.checkCAttribute;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveDeclaratorType;
 import static pl.edu.mimuw.nesc.ast.util.TypeElementUtils.getStructKind;
 import static pl.edu.mimuw.nesc.problem.issue.RedefinitionError.RedefinitionKind;
@@ -54,15 +53,17 @@ public final class TagsAnalysis {
      *                              (except <code>isStandalone</code>).
      */
     public static void processTagReference(TagRef tagReference, Environment environment,
-            boolean isStandalone, ErrorHelper errorHelper, SemanticListener semanticListener) {
+            boolean isStandalone, ErrorHelper errorHelper, SemanticListener semanticListener,
+            AttributeAnalyzer attributeAnalyzer) {
         // Validate arguments
         checkNotNull(tagReference, "tag reference cannot be null");
         checkNotNull(environment, "environment cannot be null");
         checkNotNull(errorHelper, "error helper cannot be null");
+        checkNotNull(attributeAnalyzer, "attribute analyzer cannot be null");
 
         // Process tag references
         final TagRefVisitor tagRefVisitor = new TagRefVisitor(environment, isStandalone,
-                errorHelper, semanticListener);
+                errorHelper, semanticListener, attributeAnalyzer);
         tagReference.accept(tagRefVisitor, null);
     }
 
@@ -171,6 +172,11 @@ public final class TagsAnalysis {
         private final Environment environment;
 
         /**
+         * Object responsible for analysis of attributes.
+         */
+        private final AttributeAnalyzer attributeAnalyzer;
+
+        /**
          * Semantic listener that will take generated events.
          */
         private final SemanticListener semanticListener;
@@ -194,7 +200,8 @@ public final class TagsAnalysis {
         private final boolean isStandalone;
 
         private TagRefVisitor(Environment environment, boolean isStandalone, ErrorHelper errorHelper,
-                SemanticListener semanticListener) {
+                    SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer) {
+            this.attributeAnalyzer = attributeAnalyzer;
             this.semanticListener = semanticListener;
             this.errorHelper = errorHelper;
             this.environment = environment;
@@ -262,18 +269,25 @@ public final class TagsAnalysis {
             final boolean onlyCurrentScope = isStandalone || !tagsTable.contains(name);
             final Optional<Boolean> sameTag = tagsTable.test(name, predicate, onlyCurrentScope);
             assert onlyCurrentScope || sameTag.isPresent() : "unexpected result of a test on a tag in the symbol table during a declaration";
+            final Optional<TagDeclaration> tagDeclaration;
 
             if (!sameTag.isPresent()) {
-                environment.getTags().add(name, TagDeclarationFactory.getInstance(tagRef, semanticListener, errorHelper));
-                emitGlobalNameEvent(tagRef);
+                tagDeclaration = Optional.of(TagDeclarationFactory.getInstance(tagRef, semanticListener, errorHelper));
+                environment.getTags().add(name, tagDeclaration.get());
             } else if (!sameTag.get()) {
+                tagDeclaration = Optional.absent();
                 tagRef.setIsInvalid(true);
                 errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(),
                                   new ConflictingTagKindError(name));
             } else {
-                tagRef.setUniqueName(tagsTable.get(name).get().getUniqueName());
+                tagDeclaration = Optional.of(tagsTable.get(name).get());
+                tagRef.setUniqueName(tagDeclaration.get().getUniqueName());
                 tagRef.setNestedInNescEntity(environment.isTagDeclaredInsideNescEntity(name));
+            }
+
+            if (tagDeclaration.isPresent()) {
                 emitGlobalNameEvent(tagRef);
+                attributeAnalyzer.analyzeAttributes(tagRef.getAttributes(), tagDeclaration.get(), environment);
             }
 
             // Check the correctness of an enumeration tag declaration
@@ -298,10 +312,11 @@ public final class TagsAnalysis {
             final StructKind kind = getStructKind(tagRef);
             final SymbolTable<TagDeclaration> tagsTable = environment.getTags();
             final Optional<? extends TagDeclaration> oldDecl = tagsTable.get(name, true);
+            final Optional<TagDeclaration> tagDeclaration;
 
             if (!oldDecl.isPresent()) {
-                tagsTable.add(name, TagDeclarationFactory.getInstance(tagRef, semanticListener, errorHelper));
-                emitGlobalNameEvent(tagRef);
+                tagDeclaration = Optional.of(TagDeclarationFactory.getInstance(tagRef, semanticListener, errorHelper));
+                tagsTable.add(name, tagDeclaration.get());
             } else {
                 /* A tag declaration is present in the current scope with the
                    same name. */
@@ -328,10 +343,11 @@ public final class TagsAnalysis {
                 switch (tagRef.getSemantics()) {
                     case DEFINITION:
                         DefinitionTransition.transit(oldDeclPure, tagRef, errorHelper);
-                        emitGlobalNameEvent(tagRef);
+                        tagDeclaration = Optional.of(oldDeclPure);
                         break;
                     case PREDEFINITION:
                         PredefinitionNode.update(oldDeclPure, tagRef);
+                        tagDeclaration = Optional.absent();
                         break;
                     default:
                         throw new RuntimeException("unexpected tag reference semantics");
@@ -342,44 +358,18 @@ public final class TagsAnalysis {
                     tagRef.setUniqueName(oldDeclPure.getUniqueName());
                 }
             }
-        }
 
-        private void emitGlobalNameEvent(TagRef tagRef) {
-            if (checkCAttribute(tagRef, environment, errorHelper)
-                    || environment.getScopeType() == ScopeType.GLOBAL) {
-                if (tagRef.getName() != null) {
-                    semanticListener.globalName(tagRef.getUniqueName().get(), tagRef.getName().getName());
-                }
-
-                /* Handle names of enumeration constants from enumerations
-                   with @C() attribute. Global enumeration constants are handled
-                   in 'Declarations.makeEnumerator' method. Currently, @C()
-                   attribute is forbidden for anonymous tags so constants from
-                   anonymous enumerations have unmangled names only if they are
-                   declared in the global scope. */
-                if (environment.getScopeType() != ScopeType.GLOBAL
-                        && getStructKind(tagRef) == StructKind.ENUM
-                        && tagRef.getSemantics() == TagRefSemantics.DEFINITION) {
-                    emitEnumeratorsGlobalNameEvents((EnumRef) tagRef);
-                }
+            if (tagDeclaration.isPresent() && tagRef.getSemantics() == TagRefSemantics.DEFINITION) {
+                emitGlobalNameEvent(tagRef);
+                attributeAnalyzer.analyzeAttributes(tagRef.getAttributes(), tagDeclaration.get(), environment);
             }
         }
 
-        /**
-         * Unconditionally emits global name events for enumeration constants of
-         * given enumerated type.
-         *
-         * @param enumDefinition Definition of an enumerated type (with
-         *                       constants present).
-         */
-        private void emitEnumeratorsGlobalNameEvents(EnumRef enumDefinition) {
-            for (Declaration enumDecl : enumDefinition.getFields()) {
-                if (!(enumDecl instanceof Enumerator)) {
-                    continue;
+        private void emitGlobalNameEvent(TagRef tagRef) {
+            if (environment.getScopeType() == ScopeType.GLOBAL) {
+                if (tagRef.getName() != null) {
+                    semanticListener.globalName(tagRef.getUniqueName().get(), tagRef.getName().getName());
                 }
-
-                final Enumerator enumerator = (Enumerator) enumDecl;
-                semanticListener.globalName(enumerator.getUniqueName(), enumerator.getName());
             }
         }
 

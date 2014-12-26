@@ -31,6 +31,9 @@ import static java.lang.String.format;
 /**
  * Frontend implementation for nesc language.
  *
+ * TODO: check presence and correctness of definitions for 'atomic'
+ * (__nesc_atomic_t, ...) and declared combining functions
+ *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */

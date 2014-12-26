@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.astbuilding;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableListMultimap;
+import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
@@ -29,10 +30,15 @@ public abstract class AstBuildingBase {
      */
     protected final Function<String, String> manglingFunction;
 
+    /**
+     * Object responsible for analysis of attributes.
+     */
+    protected final AttributeAnalyzer attributeAnalyzer;
+
     protected AstBuildingBase(NescEntityEnvironment nescEnvironment,
                               ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
                               ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
-                              SemanticListener semanticListener) {
+                              SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer) {
         this.nescEnvironment = nescEnvironment;
         this.errorHelper = new ErrorHelper(issuesMultimapBuilder);
         this.tokensMultimapBuilder = tokensMultimapBuilder;
@@ -43,6 +49,7 @@ public abstract class AstBuildingBase {
                 return AstBuildingBase.this.semanticListener.nameManglingRequired(unmangledName);
             }
         };
+        this.attributeAnalyzer = attributeAnalyzer;
     }
 
 }

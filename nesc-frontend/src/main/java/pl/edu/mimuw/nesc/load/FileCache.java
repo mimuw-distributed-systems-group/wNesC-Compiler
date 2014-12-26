@@ -44,6 +44,7 @@ public class FileCache {
     private final List<PreprocessorDirective> preprocessorDirectives;
     private final Map<String, PreprocessorMacro> macros;
     private final Map<String, String> globalNames;
+    private final Map<String, String> combiningFunctions;
     /**
      * Macros that are visible for subsequently parsed files.
      */
@@ -62,6 +63,7 @@ public class FileCache {
         this.preprocessorDirectives = builder.preprocessorDirectives.build();
         this.macros = builder.macros.build();
         this.globalNames = builder.globalNames.build();
+        this.combiningFunctions = builder.combiningFunctions.build();
         this.endFileMacros = builder.endFileMacros.build();
         this.tokens = builder.tokens.build();
         this.issues = builder.issues.build();
@@ -102,6 +104,10 @@ public class FileCache {
 
     public Map<String, String> getGlobalNames() {
         return globalNames;
+    }
+
+    public Map<String, String> getCombiningFunctions() {
+        return combiningFunctions;
     }
 
     public Map<String, PreprocessorMacro> getEndFileMacros() {
@@ -149,6 +155,7 @@ public class FileCache {
         private ImmutableList.Builder<PreprocessorDirective> preprocessorDirectives;
         private ImmutableMap.Builder<String, PreprocessorMacro> macros;
         private ImmutableMap.Builder<String, String> globalNames;
+        private ImmutableMap.Builder<String, String> combiningFunctions;
         private ImmutableMap.Builder<String, PreprocessorMacro> endFileMacros;
         private ImmutableMultimap.Builder<Integer, Token> tokens;
         private ImmutableMultimap.Builder<Integer, NescIssue> issues;
@@ -160,6 +167,7 @@ public class FileCache {
             this.preprocessorDirectives = ImmutableList.builder();
             this.macros = ImmutableMap.builder();
             this.globalNames = ImmutableMap.builder();
+            this.combiningFunctions = ImmutableMap.builder();
             this.endFileMacros = ImmutableMap.builder();
             this.tokens = ImmutableMultimap.builder();
             this.issues = ImmutableMultimap.builder();
@@ -220,6 +228,12 @@ public class FileCache {
         public Builder globalNames(Map<String, String> globalNames) {
             checkNotNull(globalNames, "global names cannot be null");
             this.globalNames.putAll(globalNames);
+            return this;
+        }
+
+        public Builder combiningFunctions(Map<String, String> combiningFunctions) {
+            checkNotNull(combiningFunctions, "combining functions cannot be null");
+            this.combiningFunctions.putAll(combiningFunctions);
             return this;
         }
 

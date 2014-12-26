@@ -292,6 +292,24 @@ public final class AstUtils {
     }
 
     /**
+     * Get a string that is the value of given AST node.
+     *
+     * @param strings AST node with strings.
+     * @return String that is the result of concatenation of all strings in
+     *         given AST node in proper order.
+     */
+    public static String concatenateStrings(StringAst strings) {
+        checkNotNull(strings, "string AST cannot be null");
+
+        final StringBuilder builder = new StringBuilder();
+        for (StringCst stringCst : strings.getStrings()) {
+            builder.append(stringCst.getString());
+        }
+
+        return builder.toString();
+    }
+
+    /**
      * Extracts type from each declaration from the given list. The method can
      * be used only if all declarations from the list are <code>DataDecl</code>
      * objects and each such object contains exactly one declaration that is

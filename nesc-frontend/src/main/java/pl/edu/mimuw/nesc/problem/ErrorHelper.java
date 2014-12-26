@@ -74,4 +74,9 @@ public final class ErrorHelper {
         _error(startLocation, Optional.of(endLocation), Optional.of(error.getCode()),
                error.generateDescription());
     }
+
+    public void error(Location startLocation, Optional<Location> endLocation, ErroneousIssue error) {
+        _error(startLocation, endLocation, Optional.of(error.getCode()),
+                error.generateDescription());
+    }
 }

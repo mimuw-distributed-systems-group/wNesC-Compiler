@@ -26,6 +26,7 @@ public final class FileData {
     private final List<Declaration> extdefs;
     private final List<Comment> comments;
     private final Map<String, String> globalNames;
+    private final Map<String, String> combiningFunctions;
     private final List<PreprocessorDirective> preprocessorDirectives;
     private final Multimap<Integer, Token> tokens;
     private final Multimap<Integer, NescIssue> issues;
@@ -39,6 +40,7 @@ public final class FileData {
         this.extdefs = cache.getExtdefs();
         this.comments = cache.getComments();
         this.globalNames = cache.getGlobalNames();
+        this.combiningFunctions = cache.getCombiningFunctions();
         this.preprocessorDirectives = cache.getPreprocessorDirectives();
         this.tokens = cache.getTokens();
         this.issues = cache.getIssues();
@@ -63,6 +65,10 @@ public final class FileData {
 
     public Map<String, String> getGlobalNames() {
         return globalNames;
+    }
+
+    public Map<String, String> getCombiningFunctions() {
+        return combiningFunctions;
     }
 
     public List<PreprocessorDirective> getPreprocessorDirectives() {

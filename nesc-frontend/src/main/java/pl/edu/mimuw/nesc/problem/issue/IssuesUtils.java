@@ -90,10 +90,10 @@ final class IssuesUtils {
      * plurality given by the argument.
      *
      * @param n Plurality of the noun to be combined with the verb 'to be'.
-     * @return 'is' is 'n' is equall to 1, 'are' otherwise.
+     * @return 'is' if 'n' is equal to 1 or 0, 'are' otherwise.
      */
     static String getToBeConjugation(int n) {
-        return n == 1
+        return n == 0 || n == 1
                 ? "is"
                 : "are";
     }

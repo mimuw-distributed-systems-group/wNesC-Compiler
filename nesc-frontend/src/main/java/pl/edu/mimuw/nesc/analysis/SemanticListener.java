@@ -27,4 +27,14 @@ public interface SemanticListener {
      * @return String with the given name after mangling.
      */
     String nameManglingRequired(String unmangledName);
+
+    /**
+     * <p>Called when a type definition that contains information about
+     * associated combining function is detected.</p>
+     *
+     * @param typedefUniqueName Unique name of the type definition.
+     * @param functionName Name of the combining function associated with the
+     *                     type definition with name from the first parameter.
+     */
+    void combiningFunction(String typedefUniqueName, String functionName);
 }

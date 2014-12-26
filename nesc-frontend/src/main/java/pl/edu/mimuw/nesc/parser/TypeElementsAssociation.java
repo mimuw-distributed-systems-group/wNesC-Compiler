@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.parser;
 
+import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Declarator;
@@ -51,10 +52,11 @@ public final class TypeElementsAssociation {
 
     public Optional<Type> getType(Environment environment, boolean isStandalone,
                                   ErrorHelper errorHelper, Location apxStartLoc,
-                                  Location apxEndLoc, SemanticListener semanticListener) {
+                                  Location apxEndLoc, SemanticListener semanticListener,
+                                  AttributeAnalyzer attributeAnalyzer) {
         if (type == null) {
             type = resolveBaseType(environment, typeElements, isStandalone, errorHelper,
-                                   apxStartLoc, apxEndLoc, semanticListener);
+                                   apxStartLoc, apxEndLoc, semanticListener, attributeAnalyzer);
         }
 
         return type;
@@ -68,10 +70,11 @@ public final class TypeElementsAssociation {
     public Optional<Type> resolveType(Optional<Declarator> maybeDeclarator,
             Environment environment, ErrorHelper errorHelper,
             Location apxStartLoc, Location apxEndLoc,
-            SemanticListener semanticListener) {
+            SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer) {
 
         final Optional<Type> maybeType = getType(environment, false, errorHelper,
-                                                 apxStartLoc, apxEndLoc, semanticListener);
+                                                 apxStartLoc, apxEndLoc, semanticListener,
+                                                 attributeAnalyzer);
 
         return   maybeType.isPresent() && maybeDeclarator.isPresent()
                ? resolveDeclaratorType(maybeDeclarator.get(), environment,

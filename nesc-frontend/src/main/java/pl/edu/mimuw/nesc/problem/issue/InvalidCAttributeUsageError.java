@@ -45,6 +45,11 @@ public final class InvalidCAttributeUsageError extends ErroneousIssue {
         return new InvalidCAttributeUsageError(description);
     }
 
+    public static InvalidCAttributeUsageError appliedToInvalidEntity() {
+        final String description = "NesC attribute '@C()' cannot be used in this context; it must be applied to a variable, a function, a tag or a type definition";
+        return new InvalidCAttributeUsageError(description);
+    }
+
     private InvalidCAttributeUsageError(String description) {
         super(_CODE);
 
