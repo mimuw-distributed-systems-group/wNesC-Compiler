@@ -29,6 +29,7 @@ import pl.edu.mimuw.nesc.ast.gen.SubstitutionManager;
 import pl.edu.mimuw.nesc.names.collecting.NescEntityNameCollector;
 import pl.edu.mimuw.nesc.names.mangling.CountingNameMangler;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
+import pl.edu.mimuw.nesc.substitution.GenericParametersSubstitution;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -230,7 +231,7 @@ public final class InstantiateExecutor {
     private Component copyComponent(Component specimen, ComponentRef genericRef) {
         final Component copy = specimen.deepCopy();
         final RemanglingVisitor manglingVisitor = new RemanglingVisitor(remanglingFunction);
-        final SubstitutionManager substitution = GenericParametersSubstitution.builder()
+        final SubstitutionManager substitution = GenericParametersSubstitution.forComponent()
                 .componentRef(genericRef)
                 .genericComponent(specimen)
                 .build();

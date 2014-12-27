@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.instantiation;
+package pl.edu.mimuw.nesc.substitution;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
@@ -41,8 +41,19 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
      * @return Newly created builder that will build a generic parameters
      *         substitution.
      */
-    public static Builder builder() {
-        return new Builder();
+    public static FromComponentRefBuilder forComponent() {
+        return new FromComponentRefPrivateBuilder();
+    }
+
+    /**
+     * Get a builder that will create a generic parameters substitution for
+     * a generic interface.
+     *
+     * @return Newly created builder that will build a generic parameters
+     *         substitution for a generic interface.
+     */
+    public static FromInterfaceRefBuilder forInterface() {
+        return new FromInterfaceRefPrivateBuilder();
     }
 
     /**
@@ -50,7 +61,7 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
      *
      * @param builder Builder with information necessary to build the object.
      */
-    private GenericParametersSubstitution(Builder builder) {
+    private GenericParametersSubstitution(PrivateBuilder builder) {
         builder.buildSubstitutions();
 
         this.types = builder.getTypesSubstitution();
@@ -360,27 +371,32 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
     }
 
     /**
+     * Builder for particular elements of the substitution.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private interface PrivateBuilder {
+        void buildSubstitutions();
+        ImmutableMap<String, AstType> getTypesSubstitution();
+        ImmutableMap<String, Expression> getExpressionsSubstitution();
+    }
+
+    /**
      * Builder for the substitution.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
-    public static final class Builder {
+    public static abstract class FromComponentRefBuilder {
         /**
          * Data needed to build a generic parameters substitution.
          */
-        private ComponentRef componentRef;
-        private Component genericComponent;
-
-        /**
-         * Data for the building process.
-         */
-        private ImmutableMap.Builder<String, AstType> typesBuilder;
-        private ImmutableMap.Builder<String, Expression> expressionsBuilder;
+        protected ComponentRef componentRef;
+        protected Component genericComponent;
 
         /**
          * Private constructor to limit its accessibility.
          */
-        private Builder() {
+        private FromComponentRefBuilder() {
         }
 
         /**
@@ -390,7 +406,7 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
          * @param componentReference Value to set.
          * @return <code>this</code>
          */
-        public Builder componentRef(ComponentRef componentReference) {
+        public FromComponentRefBuilder componentRef(ComponentRef componentReference) {
             this.componentRef = componentReference;
             return this;
         }
@@ -402,7 +418,7 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
          * @param component Value to set.
          * @return <code>this</code>
          */
-        public Builder genericComponent(Component component) {
+        public FromComponentRefBuilder genericComponent(Component component) {
             this.genericComponent = component;
             return this;
         }
@@ -419,12 +435,39 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
                     "counts of the parameters in the component and the reference differ");
         }
 
-        public GenericParametersSubstitution build() {
+        /**
+         * Get the new instance of the substitution.
+         *
+         * @return Newly created instance of the class.
+         */
+        protected abstract GenericParametersSubstitution create();
+
+        public final GenericParametersSubstitution build() {
             validate();
+            return create();
+        }
+    }
+
+    /**
+     * Class that implements methods for creating the substitution from
+     * component reference.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class FromComponentRefPrivateBuilder extends FromComponentRefBuilder implements PrivateBuilder {
+        /**
+         * Data for the building process.
+         */
+        private ImmutableMap.Builder<String, AstType> typesBuilder;
+        private ImmutableMap.Builder<String, Expression> expressionsBuilder;
+
+        @Override
+        protected GenericParametersSubstitution create() {
             return new GenericParametersSubstitution(this);
         }
 
-        private void buildSubstitutions() {
+        @Override
+        public void buildSubstitutions() {
             typesBuilder = ImmutableMap.builder();
             expressionsBuilder = ImmutableMap.builder();
 
@@ -458,14 +501,122 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
             }
         }
 
-        private ImmutableMap<String, AstType> getTypesSubstitution() {
+        @Override
+        public ImmutableMap<String, AstType> getTypesSubstitution() {
             checkState(typesBuilder != null, "the substitution has not been built yet");
             return typesBuilder.build();
         }
 
-        private ImmutableMap<String, Expression> getExpressionsSubstitution() {
+        @Override
+        public ImmutableMap<String, Expression> getExpressionsSubstitution() {
             checkState(expressionsBuilder != null, "the substitution has not been built yet");
             return expressionsBuilder.build();
+        }
+    }
+
+    /**
+     * Builder for a substitution of generic parameters in an interface.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    public static abstract class FromInterfaceRefBuilder {
+        /**
+         * Data needed to build a generic parameters substitution for a generic
+         * interface.
+         */
+        protected InterfaceRef interfaceRef;
+        protected Interface interfaceAst;
+
+        /**
+         * Private constructor to limit its accessibility.
+         */
+        private FromInterfaceRefBuilder() {
+        }
+
+        /**
+         * Set the interface reference with type parameters to substitute.
+         *
+         * @param interfaceRef Interface reference to set.
+         * @return <code>this</code>
+         */
+        public FromInterfaceRefBuilder interfaceRef(InterfaceRef interfaceRef) {
+            this.interfaceRef = interfaceRef;
+            return this;
+        }
+
+        /**
+         * Set the interface AST node (with the definition of the interface).
+         *
+         * @param interfaceAst AST node to set.
+         * @return <code>this</code>
+         */
+        public FromInterfaceRefBuilder interfaceAstNode(Interface interfaceAst) {
+            this.interfaceAst = interfaceAst;
+            return this;
+        }
+
+        private void validate() {
+            checkNotNull(interfaceRef, "interface reference cannot be null");
+            checkNotNull(interfaceAst, "interface AST node cannot be null");
+            checkState(interfaceRef.getArguments().isPresent(), "interface reference contains no generic parameters to substitute");
+            checkState(interfaceAst.getParameters().isPresent(), "interface that has been set is not generic");
+            checkState(interfaceRef.getArguments().get().size() == interfaceAst.getParameters().get().size(),
+                    "count of parameters provided in the interface reference and in the AST node is different");;
+        }
+
+        protected abstract GenericParametersSubstitution create();
+
+        public final GenericParametersSubstitution build() {
+            validate();
+            return create();
+        }
+    }
+
+    /**
+     * Builder from interface reference with implementation of methods that
+     * build particular elements of the substitution.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class FromInterfaceRefPrivateBuilder extends FromInterfaceRefBuilder implements PrivateBuilder {
+        private ImmutableMap.Builder<String, AstType> typesSubstitutionBuilder;
+
+        @Override
+        protected GenericParametersSubstitution create() {
+            return new GenericParametersSubstitution(this);
+        }
+
+        @Override
+        public void buildSubstitutions() {
+            typesSubstitutionBuilder = ImmutableMap.builder();
+
+            final Iterator<Declaration> paramDeclIt = interfaceAst.getParameters().get().iterator();
+            final Iterator<Expression> providedTypesIt = interfaceRef.getArguments().get().iterator();
+
+            while (paramDeclIt.hasNext()) {
+                final Declaration declaration = paramDeclIt.next();
+                final Expression providedType = providedTypesIt.next();
+
+                checkState(declaration instanceof TypeParmDecl, "declaration of the type parameter has unexpected class '%s'",
+                        declaration.getClass());
+                checkState(providedType instanceof TypeArgument, "type for generic interface reference has unexpected class '%s'",
+                        providedType.getClass());
+
+                final TypeParmDecl typeParmDecl = (TypeParmDecl) declaration;
+                final TypeArgument typeArgument = (TypeArgument) providedType;
+
+                typesSubstitutionBuilder.put(typeParmDecl.getName(), typeArgument.getAsttype());
+            }
+        }
+
+        @Override
+        public ImmutableMap<String, AstType> getTypesSubstitution() {
+            return typesSubstitutionBuilder.build();
+        }
+
+        @Override
+        public ImmutableMap<String, Expression> getExpressionsSubstitution() {
+            return ImmutableMap.of();
         }
     }
 }
