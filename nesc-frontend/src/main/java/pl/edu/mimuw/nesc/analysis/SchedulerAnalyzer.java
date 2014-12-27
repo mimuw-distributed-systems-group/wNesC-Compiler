@@ -177,7 +177,7 @@ public final class SchedulerAnalyzer {
             final ModuleDeclaration moduleDeclaration = (ModuleDeclaration) declaration.getComponentDeclaration().get();
 
             if (declaration.getAstComponentRef().getIsAbstract()
-                    && !moduleDeclaration.getModuleTable().getTasks().isEmpty()) {
+                    && !moduleDeclaration.getAstComponent().getModuleTable().getTasks().isEmpty()) {
                 issues.add(InvalidSchedulerError.configurationWithGenericModuleWithTask(specification.getComponentName(),
                         moduleDeclaration.getName()));
                 return;

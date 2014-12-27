@@ -564,6 +564,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             res += "import pl.edu.mimuw.nesc.declaration.object.*;\n"
             res += "import pl.edu.mimuw.nesc.declaration.tag.*;\n"
             res += "import pl.edu.mimuw.nesc.environment.*;\n"
+            res += "import pl.edu.mimuw.nesc.facade.component.specification.ModuleTable;\n"
 
             # Include docstring if present.
             if cls.__doc__ is not None:

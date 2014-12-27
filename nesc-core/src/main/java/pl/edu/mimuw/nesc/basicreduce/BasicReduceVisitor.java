@@ -310,7 +310,7 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
         wireTaskInterfaceRefs(node);
 
         return BlockData.builder(arg)
-                .moduleTable(node.getDeclaration().getModuleTable())
+                .moduleTable(node.getModuleTable())
                 .build();
     }
 
@@ -327,10 +327,13 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
         // Create the task interface references
 
         final LinkedList<Declaration> specificationDeclarations = module.getDeclarations();
-        final Map<String, TaskElement> tasks = module.getDeclaration().getModuleTable().getTasks();
+        final ModuleTable moduleTable = module.getModuleTable();
+        final Map<String, TaskElement> tasks = moduleTable.getTasks();
 
-        for (TaskElement taskElement : tasks.values()) {
-            taskElement.setInterfaceRefName(nameMangler.mangle(schedulerSpecification.getTaskInterfaceName()));
+        for (Map.Entry<String, TaskElement> taskEntry : tasks.entrySet()) {
+            final TaskElement taskElement = taskEntry.getValue();
+            final String taskInterfaceRefName = nameMangler.mangle(schedulerSpecification.getTaskInterfaceName());
+            moduleTable.associateTaskWithInterfaceRef(taskEntry.getKey(), taskInterfaceRefName);
             specificationDeclarations.add(createTaskInterfaceRef(taskElement.getInterfaceRefName().get()));
         }
     }
@@ -353,7 +356,7 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
     }
 
     private void wireTaskInterfaceRefs(Module module) {
-        final Map<String, TaskElement> tasks = module.getDeclaration().getModuleTable().getTasks();
+        final Map<String, TaskElement> tasks = module.getModuleTable().getTasks();
 
         if (module.getIsAbstract() || tasks.isEmpty()) {
             return;
@@ -584,7 +587,7 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
                 final ModuleDeclaration moduleDeclaration = (ModuleDeclaration) componentRef.getDeclaration()
                         .getComponentDeclaration().get();
 
-                if (!moduleDeclaration.getModuleTable().getTasks().isEmpty()) {
+                if (!moduleDeclaration.getAstComponent().getModuleTable().getTasks().isEmpty()) {
                     result.add(componentRef);
                 }
             }
@@ -624,7 +627,7 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
             return;
         }
         final ModuleDeclaration moduleDeclaration = (ModuleDeclaration) declaration;
-        final ModuleTable moduleTable = moduleDeclaration.getModuleTable();
+        final ModuleTable moduleTable = moduleDeclaration.getAstComponent().getModuleTable();
         final String moduleRefName = componentRef.getDeclaration().getName();
 
         for (TaskElement taskElement : moduleTable.getTasks().values()) {

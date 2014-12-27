@@ -1253,9 +1253,16 @@ class Configuration(BasicASTNode):
 
 
 class Module(BasicASTNode):
+    """
+    Module table contains information about commands and events that this
+    module must or can implement. The field is not <code>null</code> after
+    parsing and analyzing the specification of this module.
+    """
     superclass = Component
     declaration = ReferenceField("ModuleDeclaration", constructor_variable=False, visitable=False,
                                  deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+    moduleTable = ReferenceField("ModuleTable", constructor_variable=False, visitable=False,
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_EXTERNAL_DEEP_COPY)
 
 
 class BinaryComponent(BasicASTNode):

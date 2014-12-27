@@ -154,7 +154,7 @@ public final class NescComponents extends AstBuildingBase {
                 .addDeclarations(specification)
                 .build();
 
-        module.getDeclaration().setModuleTable(result);
+        module.setModuleTable(result);
         return result;
     }
 
@@ -191,9 +191,8 @@ public final class NescComponents extends AstBuildingBase {
      */
     public void finishModule(Module module, Location endLocation) {
         final ImmutableSet<Map.Entry<String, InterfaceEntityElement>> elements =
-                module.getDeclaration().getModuleTable().getAll();
-        final Map<String, TaskElement> tasks =
-                module.getDeclaration().getModuleTable().getTasks();
+                module.getModuleTable().getAll();
+        final Map<String, TaskElement> tasks = module.getModuleTable().getTasks();
 
         // Check if all required commands and events are implemented
         for (Map.Entry<String, InterfaceEntityElement> implEntry : elements) {

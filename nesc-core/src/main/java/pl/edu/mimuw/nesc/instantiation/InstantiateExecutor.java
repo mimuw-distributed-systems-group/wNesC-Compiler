@@ -14,6 +14,8 @@ import java.util.Set;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
+import pl.edu.mimuw.nesc.ast.gen.Module;
+import pl.edu.mimuw.nesc.ast.gen.ModuleImpl;
 import pl.edu.mimuw.nesc.ast.gen.NescDecl;
 import pl.edu.mimuw.nesc.ast.gen.Word;
 import pl.edu.mimuw.nesc.ast.gen.BinaryComponent;
@@ -238,6 +240,11 @@ public final class InstantiateExecutor {
         copy.getName().setName(componentNameMangler.mangle(copy.getName().getName()));
         copy.accept(manglingVisitor, null);
         copy.substitute(substitution);
+
+        if (copy instanceof Module) {
+            final Module moduleCopy = (Module) copy;
+            moduleCopy.getModuleTable().collectUniqueNames((ModuleImpl) moduleCopy.getImplementation());
+        }
 
         return copy;
     }

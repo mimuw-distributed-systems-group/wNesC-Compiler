@@ -32,7 +32,7 @@ public final class ConfigurationTable extends ComponentTable<WiringElement> {
      * @param builder Builder with necessary data.
      */
     private ConfigurationTable(Builder builder) {
-        super(builder);
+        super(builder.getComponentTablePrivateBuilder());
     }
 
     /**
@@ -61,7 +61,7 @@ public final class ConfigurationTable extends ComponentTable<WiringElement> {
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
-    public static final class Builder extends ComponentTable.Builder<WiringElement, ConfigurationTable> {
+    public static final class Builder extends ComponentTable.FromSpecificationBuilder<WiringElement, ConfigurationTable> {
         /**
          * Private constructor to limit its accessibility.
          */

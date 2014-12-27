@@ -51,6 +51,21 @@ public final class InterfaceEntityElement extends ImplementationElement {
         this.interfaceName = interfaceName;
     }
 
+    @Override
+    InterfaceEntityElement deepCopy() {
+        final InterfaceEntityElement result = new InterfaceEntityElement(isProvided, kind, interfaceName);
+
+        if (isImplemented()) {
+            result.implemented();
+        }
+
+        if (getUniqueName().isPresent()) {
+            result.setUniqueName(getUniqueName().get());
+        }
+
+        return result;
+    }
+
     /**
      * Check if the command or event must be implemented in a module in order to
      * satisfy specification requirements.

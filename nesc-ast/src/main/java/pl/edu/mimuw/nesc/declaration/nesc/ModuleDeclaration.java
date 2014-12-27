@@ -15,12 +15,6 @@ public class ModuleDeclaration extends ComponentDeclaration {
 
     private Module astModule;
 
-    /**
-     * Table that contains information about commands and events that this
-     * module must or can implement.
-     */
-    private ModuleTable moduleTable;
-
     public ModuleDeclaration(String name, Location location) {
         super(name, location);
     }
@@ -47,24 +41,6 @@ public class ModuleDeclaration extends ComponentDeclaration {
 
     public void setAstModule(Module astModule) {
         this.astModule = astModule;
-    }
-
-    /**
-     * <p>Get the table of this module with information about commands and
-     * events that this module must or can implement. It contains full
-     * information after parsing and analyzing the whole module.</p>
-     *
-     * <p>The object is present after parsing and analyzing the specification of
-     * this module.</p>
-     *
-     * @return Module table object for this module.
-     */
-    public ModuleTable getModuleTable() {
-        return moduleTable;
-    }
-
-    public void setModuleTable(ModuleTable moduleTable) {
-        this.moduleTable = moduleTable;
     }
 
     @Override

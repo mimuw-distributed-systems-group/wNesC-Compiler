@@ -17,6 +17,23 @@ public final class TaskElement extends ImplementationElement {
      */
     private Optional<String> interfaceRefName = Optional.absent();
 
+    @Override
+    TaskElement deepCopy() {
+        final TaskElement result = new TaskElement();
+
+        result.interfaceRefName = this.interfaceRefName;
+
+        if (isImplemented()) {
+            result.implemented();
+        }
+
+        if (getUniqueName().isPresent()) {
+            result.setUniqueName(getUniqueName().get());
+        }
+
+        return result;
+    }
+
     /**
      * Set the name of the task interface reference created for this task.
      * It can be set exactly once.
@@ -26,7 +43,7 @@ public final class TaskElement extends ImplementationElement {
      * @throws IllegalArgumentException Name is an empty string.
      * @throws IllegalStateException The alias has been already set.
      */
-    public void setInterfaceRefName(String name) {
+    void setInterfaceRefName(String name) {
         checkNotNull(name, "name cannot be null");
         checkArgument(!name.isEmpty(), "name cannot be an empty string");
         checkState(!interfaceRefName.isPresent(), "interface alias has been already set");

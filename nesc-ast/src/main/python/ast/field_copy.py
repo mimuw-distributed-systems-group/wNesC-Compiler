@@ -7,6 +7,7 @@ class DEEP_COPY_MODE:
     ASSIGN_DEEP_COPY = 1
     ASSIGN_REFERENCE_COPY = 2
     ASSIGN_LIST_DEEP_COPY = 3
+    ASSIGN_EXTERNAL_DEEP_COPY = 4
 
 
 class FieldCopyCodeGenerator:
@@ -42,14 +43,17 @@ class NullCopyCodeGenerator(FieldCopyCodeGenerator):
 
 
 class DeepCopyCodeGenerator(FieldCopyCodeGenerator):
-    def __init__(self, field_name, field_optional, type_fun):
+    def __init__(self, field_name, field_optional, type_fun, external):
+        self.external = external
         super().__init__(field_name, field_optional, type_fun)
 
     def generate_code_java(self, copy_name, skip_param_name):
+        deep_copy_call = self.get_deep_copy_call(skip_param_name)
+
         if not self.field_optional:
             return [
                 "{0}.{1} = this.{1} != null".format(copy_name, self.field_name),
-                2 * tab + "? this.{0}.deepCopy({1})".format(self.field_name, skip_param_name),
+                2 * tab + "? this.{0}.{1}".format(self.field_name, deep_copy_call),
                 2 * tab + ": null;",
             ]
         else:
@@ -63,12 +67,15 @@ class DeepCopyCodeGenerator(FieldCopyCodeGenerator):
             return [
                 "if (this.{0} != null) {{".format(self.field_name),
                 tab + "{0}.{1} = this.{1}.isPresent()".format(copy_name, self.field_name),
-                3 * tab + "? Optional.of(this.{0}.get().deepCopy({1}))".format(self.field_name, skip_param_name),
+                3 * tab + "? Optional.of(this.{0}.get().{1})".format(self.field_name, deep_copy_call),
                 3 * tab + ": Optional.<{0}>absent();".format(nested_type),
                 "} else {",
                 tab + "{0}.{1} = null;".format(copy_name, self.field_name),
                 "}",
             ]
+
+    def get_deep_copy_call(self, skip_param_name):
+        return "deepCopy()" if self.external else "deepCopy({})".format(skip_param_name)
 
 
 class ReferenceCopyCodeGenerator(FieldCopyCodeGenerator):
@@ -100,10 +107,12 @@ def get_field_copy_gen(field_name, field):
     if mode == DEEP_COPY_MODE.ASSIGN_NULL:
         return NullCopyCodeGenerator(field_name, field_optional, type_fun)
     elif mode == DEEP_COPY_MODE.ASSIGN_DEEP_COPY:
-        return DeepCopyCodeGenerator(field_name, field_optional, type_fun)
+        return DeepCopyCodeGenerator(field_name, field_optional, type_fun, False)
     elif mode == DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY:
         return ReferenceCopyCodeGenerator(field_name, field_optional, type_fun)
     elif mode == DEEP_COPY_MODE.ASSIGN_LIST_DEEP_COPY:
         return ListDeepCopyCodeGenerator(field_name, field_optional, type_fun)
+    elif mode == DEEP_COPY_MODE.ASSIGN_EXTERNAL_DEEP_COPY:
+        return DeepCopyCodeGenerator(field_name, field_optional, type_fun, True)
     else:
         raise Exception("invalid field deep copy mode {0}".format(mode))
