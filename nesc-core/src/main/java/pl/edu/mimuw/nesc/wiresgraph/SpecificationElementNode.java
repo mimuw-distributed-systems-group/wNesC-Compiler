@@ -37,6 +37,11 @@ public final class SpecificationElementNode {
     private final String entityName;
 
     /**
+     * Data for the generation of intermediate functions.
+     */
+    private final EntityData entityData;
+
+    /**
      * List with all successors of this node, i.e. nodes that provide command or
      * event this node represents.
      */
@@ -57,10 +62,12 @@ public final class SpecificationElementNode {
      * @throws NullPointerException One of the arguments is null.
      * @throws IllegalArgumentException One of the arguments is an empty string.
      */
-    SpecificationElementNode(String componentName, Optional<String> interfaceRefName, String entityName) {
+    SpecificationElementNode(String componentName, Optional<String> interfaceRefName, String entityName,
+            EntityData entityData) {
         checkNotNull(componentName, "name of the component cannot be null");
         checkNotNull(interfaceRefName, "name of the interface reference cannot be null");
         checkNotNull(entityName, "name of the specification element cannot be null");
+        checkNotNull(entityData, "entity data cannot be null");
         checkArgument(!componentName.isEmpty(), "name of the component cannot be an empty string");
         checkArgument(!interfaceRefName.isPresent() || !interfaceRefName.get().isEmpty(),
                 "name of the interface reference cannot be null");
@@ -69,6 +76,7 @@ public final class SpecificationElementNode {
         this.componentName = componentName;
         this.interfaceRefName = interfaceRefName;
         this.entityName = entityName;
+        this.entityData = entityData;
     }
 
     /**
@@ -99,6 +107,16 @@ public final class SpecificationElementNode {
      */
     public String getEntityName() {
         return entityName;
+    }
+
+    /**
+     * <p>Get the data of the function that corresponds to this node.</p>
+     *
+     * @return Entity data object with information about the function that
+     *         corresponds to this node.
+     */
+    public EntityData getEntityData() {
+        return entityData;
     }
 
     /**

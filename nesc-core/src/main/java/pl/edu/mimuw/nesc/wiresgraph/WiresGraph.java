@@ -2,32 +2,28 @@ package pl.edu.mimuw.nesc.wiresgraph;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import pl.edu.mimuw.nesc.ast.gen.Component;
-import pl.edu.mimuw.nesc.ast.gen.DataDecl;
-import pl.edu.mimuw.nesc.ast.gen.Declaration;
-import pl.edu.mimuw.nesc.ast.gen.ExceptionVisitor;
-import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.gen.FunctionDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.IdentifierDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.Interface;
-import pl.edu.mimuw.nesc.ast.gen.InterfaceRef;
-import pl.edu.mimuw.nesc.ast.gen.Node;
-import pl.edu.mimuw.nesc.ast.gen.PointerDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.QualifiedDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.RpInterface;
-import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
+import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.ast.util.AstUtils;
 import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
 import pl.edu.mimuw.nesc.ast.util.TypeElementUtils;
+import pl.edu.mimuw.nesc.common.util.list.Lists;
+import pl.edu.mimuw.nesc.facade.component.specification.InterfaceEntityElement;
+import pl.edu.mimuw.nesc.facade.component.specification.ModuleTable;
+import pl.edu.mimuw.nesc.facade.component.specification.TaskElement;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
+import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.substitution.GenericParametersSubstitution;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -69,10 +65,14 @@ public final class WiresGraph {
      * <p>Get a builder that will build an initial version of the graph with no
      * edges.</p>
      *
+     * @param nameMangler Name mangler that will be used for mangling names of
+     *                    parameters for intermediate functions.
      * @return Newly created builder of a graph with no edges.
+     * @throws NullPointerException Name mangler is <code>null</code>.
      */
-    public static Builder builder() {
-        return new Builder();
+    public static Builder builder(NameMangler nameMangler) {
+        checkNotNull(nameMangler, "name mangler cannot be null");
+        return new Builder(nameMangler);
     }
 
     /**
@@ -204,11 +204,13 @@ public final class WiresGraph {
          */
         private final List<Component> components = new ArrayList<>();
         private final List<Interface> interfaces = new ArrayList<>();
+        private final NameMangler nameMangler;
 
         /**
          * Private constructor to limit its accessibility.
          */
-        private Builder() {
+        private Builder(NameMangler nameMangler) {
+            this.nameMangler = nameMangler;
         }
 
         /**
@@ -300,6 +302,9 @@ public final class WiresGraph {
 
             private void buildComponentNodes(Component component) {
                 final String componentName = component.getName().getName();
+                final Optional<ModuleTable> moduleTable = component instanceof Module
+                        ? Optional.of(((Module) component).getModuleTable())
+                        : Optional.<ModuleTable>absent();
 
                 // Iterate over all specification elements of the given component
 
@@ -310,15 +315,16 @@ public final class WiresGraph {
                 for (RpInterface usesProvides : specificationElements) {
                     for (Declaration declaration : usesProvides.getDeclarations()) {
                         if (declaration instanceof InterfaceRef) {
-                            buildFromInterfaceRef((InterfaceRef) declaration, componentName);
+                            buildFromInterfaceRef((InterfaceRef) declaration, componentName, moduleTable);
                         } else if (declaration instanceof DataDecl) {
-                            buildFromDataDecl((DataDecl) declaration, componentName);
+                            buildFromDataDecl((DataDecl) declaration, componentName, moduleTable);
                         }
                     }
                 }
             }
 
-            private void buildFromInterfaceRef(InterfaceRef interfaceRef, String componentName) {
+            private void buildFromInterfaceRef(InterfaceRef interfaceRef, String componentName,
+                    Optional<ModuleTable> moduleTable) {
 
                 final String interfaceRefName = interfaceRef.getAlias().isPresent()
                         ? interfaceRef.getAlias().get().getName()
@@ -328,8 +334,12 @@ public final class WiresGraph {
 
                 // Collect all commands and events from the interface
                 final Interface interfaceCopy = copyInterfaceAst(interfaceRef);
-                final InterfaceEntitiesVisitor interfaceVisitor =
-                        new InterfaceEntitiesVisitor(componentName, interfaceRefName);
+                final InterfaceEntitiesVisitor interfaceVisitor = new InterfaceEntitiesVisitor(
+                        componentName,
+                        interfaceRefName,
+                        interfaceRef.getGenericParameters(),
+                        moduleTable
+                );
                 interfaceCopy.accept(interfaceVisitor, null);
 
                 if (!interfacesContentMap.containsKey(interfaceName)) {
@@ -355,7 +365,8 @@ public final class WiresGraph {
                 return interfaceCopy;
             }
 
-            private void buildFromDataDecl(DataDecl dataDecl, String componentName) {
+            private void buildFromDataDecl(DataDecl dataDecl, String componentName,
+                    Optional<ModuleTable> moduleTable) {
 
                 for (Declaration innerDeclaration : dataDecl.getDeclarations()) {
                     if (!(innerDeclaration instanceof VariableDecl)) {
@@ -368,10 +379,123 @@ public final class WiresGraph {
                     checkState(optEntityName.isPresent(), "declarator of a specification element does not contain name");
 
                     final String entityName = optEntityName.get();
+                    final EntityData entityData = createBareEntityData(dataDecl.getModifiers(),
+                            variableDecl, entityName, moduleTable);
                     final SpecificationElementNode newNode = new SpecificationElementNode(componentName,
-                            Optional.<String>absent(), entityName);
+                            Optional.<String>absent(), entityName, entityData);
                     nodesMapBuilder.put(newNode.getName(), newNode);
                 }
+            }
+
+            private EntityData createBareEntityData(LinkedList<TypeElement> typeElements, VariableDecl variableDecl,
+                        String entityName, Optional<ModuleTable> moduleTable) {
+                // Handle the case of a sink
+                if (moduleTable.isPresent()) {
+                    final InterfaceEntityElement bareElement = moduleTable.get().get(entityName).get();
+                    if (bareElement.isProvided()) {
+                        return new SinkFunctionData(bareElement.getUniqueName().get());
+                    }
+                }
+
+                final boolean voidOccurred = removeKeywords(typeElements);
+                boolean containsNotVoidDeclarator = false;
+                Declarator declarator = variableDecl.getDeclarator().get();
+
+                while (!(declarator instanceof FunctionDeclarator)) {
+                    containsNotVoidDeclarator = containsNotVoidDeclarator
+                            || declarator instanceof PointerDeclarator;
+                    declarator = ((NestedDeclarator) declarator).getDeclarator().get();
+                }
+
+                final boolean returnsVoid = voidOccurred && !containsNotVoidDeclarator;
+
+                // Move the instance parameters to the function parameters
+                final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
+                if (funDeclarator.getGenericParameters().isPresent()) {
+                    final LinkedList<Declaration> finalParams = funDeclarator.getGenericParameters().get();
+                    finalParams.addAll(funDeclarator.getParameters());
+                    funDeclarator.setGenericParameters(Optional.<LinkedList<Declaration>>absent());
+                    funDeclarator.setParameters(finalParams);
+                }
+
+                final FunctionDecl funDecl = new FunctionDecl(
+                        Location.getDummyLocation(),
+                        variableDecl.getDeclarator().get(),
+                        typeElements,
+                        Lists.<Attribute>newList(),
+                        AstUtils.newEmptyCompoundStmt(),
+                        false
+                );
+
+                return new IntermediateFunctionData(prepareParametersNames(funDeclarator.getParameters()),
+                        returnsVoid, funDecl);
+            }
+
+            /**
+             * Mangle names of parameters and create list of their names in
+             * proper order.
+             *
+             * @param paramsDecls List with declarations of parameters.
+             * @return Newly created list with names of consecutive parameters.
+             */
+            private ImmutableList<String> prepareParametersNames(LinkedList<Declaration> paramsDecls) {
+                final ImmutableList.Builder<String> paramsNamesListBuilder = ImmutableList.builder();
+                int counter = 0;
+
+                for (Declaration declaration : paramsDecls) {
+                    ++counter;
+                    final DataDecl dataDecl = (DataDecl) declaration;
+                    final VariableDecl variableDecl = (VariableDecl) dataDecl.getDeclarations().getFirst();
+                    final Optional<NestedDeclarator> deepestDeclarator =
+                            DeclaratorUtils.getDeepestNestedDeclarator(variableDecl.getDeclarator());
+                    final String paramName = format("arg%d", counter);
+                    final IdentifierDeclarator identDeclarator = new IdentifierDeclarator(
+                            Location.getDummyLocation(),
+                            paramName
+                    );
+                    identDeclarator.setUniqueName(Optional.of(nameMangler.mangle(paramName)));
+                    paramsNamesListBuilder.add(identDeclarator.getUniqueName().get());
+
+                    if (deepestDeclarator.isPresent()) {
+                        deepestDeclarator.get().setDeclarator(Optional.<Declarator>of(identDeclarator));
+                    } else {
+                        variableDecl.setDeclarator(Optional.<Declarator>of(identDeclarator));
+                    }
+                }
+
+                return paramsNamesListBuilder.build();
+            }
+
+            /**
+             * Remove 'command' and 'event' keywords from the given list.
+             *
+             * @param typeElements List with type elements to filter.
+             * @return <code>true</code> if and only if the given list contains
+             *         'void' keyword.
+             */
+            private boolean removeKeywords(LinkedList<TypeElement> typeElements) {
+                final Iterator<TypeElement> typeElementsIt = typeElements.iterator();
+                boolean voidOccurred = false;
+
+                while (typeElementsIt.hasNext()) {
+                    final TypeElement typeElement = typeElementsIt.next();
+                    if (!(typeElement instanceof Rid)) {
+                        continue;
+                    }
+
+                    final Rid rid = (Rid) typeElement;
+                    switch (rid.getId()) {
+                        case VOID:
+                            voidOccurred = true;
+                            break;
+                        case COMMAND:
+                        case EVENT:
+                            typeElementsIt.remove();
+                            break;
+                    }
+                }
+
+                return voidOccurred;
             }
 
             /**
@@ -382,14 +506,30 @@ public final class WiresGraph {
             private final class InterfaceEntitiesVisitor extends ExceptionVisitor<Void, Void> {
                 private final String componentName;
                 private final String interfaceRefName;
+                private final Optional<LinkedList<Declaration>> instanceParameters;
+                private final Optional<ModuleTable> moduleTable;
                 private final Map<String, SpecificationElementNode> nodes = new HashMap<>();
                 private final ImmutableSet.Builder<String> commandsNamesBuilder = ImmutableSet.builder();
                 private final ImmutableSet.Builder<String> eventsNamesBuilder = ImmutableSet.builder();
                 private InterfaceEntity.Kind interfaceEntityKind;
 
-                private InterfaceEntitiesVisitor(String componentName, String interfaceRefName) {
+                /**
+                 * Data needed for the creation of
+                 * {@link IntermediateFunctionData} object collected
+                 * incrementally.
+                 */
+                private LinkedList<TypeElement> typeElements;
+                private Declarator intermediateDeclarator;
+                private boolean returnsVoid;
+                private ImmutableList<String> parametersNames;
+
+                private InterfaceEntitiesVisitor(String componentName, String interfaceRefName,
+                        Optional<LinkedList<Declaration>> instanceParameters,
+                        Optional<ModuleTable> moduleTable) {
                     this.componentName = componentName;
                     this.interfaceRefName = interfaceRefName;
+                    this.instanceParameters = instanceParameters;
+                    this.moduleTable = moduleTable;
                 }
 
                 @Override
@@ -413,7 +553,11 @@ public final class WiresGraph {
                             throw new RuntimeException("declaration other than command or event inside an interface");
                     }
 
+                    typeElements = dataDecl.getModifiers();
+                    final boolean returnsVoid = removeKeywords(typeElements);
+
                     for (Declaration declaration : dataDecl.getDeclarations()) {
+                        this.returnsVoid = returnsVoid;
                         declaration.accept(this, null);
                     }
                     return null;
@@ -421,18 +565,21 @@ public final class WiresGraph {
 
                 @Override
                 public Void visitVariableDecl(VariableDecl variableDecl, Void arg) {
+                    intermediateDeclarator = variableDecl.getDeclarator().get();
                     variableDecl.getDeclarator().get().accept(this, null);
                     return null;
                 }
 
                 @Override
                 public Void visitIdentifierDeclarator(IdentifierDeclarator declarator, Void arg) {
-                    final String elementName = format("%s.%s.%s", componentName, interfaceRefName, declarator.getName());
+                    final String entityName = declarator.getName();
+                    final String elementName = format("%s.%s.%s", componentName, interfaceRefName, entityName);
                     checkState(!nodes.containsKey(elementName), "duplicate command or event in an interface");
 
                     // Update data
                     nodes.put(elementName, new SpecificationElementNode(componentName,
-                            Optional.of(interfaceRefName), declarator.getName()));
+                            Optional.of(interfaceRefName), declarator.getName(),
+                            createInterfaceEntityData(entityName)));
                     switch (interfaceEntityKind) {
                         case COMMAND:
                             commandsNamesBuilder.add(declarator.getName());
@@ -447,6 +594,57 @@ public final class WiresGraph {
                     return null;
                 }
 
+                private EntityData createInterfaceEntityData(String entityName) {
+                    final Optional<String> sinkUniqueName;
+
+                    // Check if the element is implemented in a module
+                    if (moduleTable.isPresent()) {
+                        final Optional<InterfaceEntityElement> optInterfaceEntityElement =
+                                moduleTable.get().get(format("%s.%s", interfaceRefName, entityName));
+                        final Optional<TaskElement> optTaskElement = Optional.fromNullable(
+                                moduleTable.get().getTasksInterfaceRefs().get(interfaceRefName));
+                        checkState(optTaskElement.isPresent() || optInterfaceEntityElement.isPresent(),
+                                "lack of information for a specification element in the module table");
+                        checkState(!optTaskElement.isPresent() || !optInterfaceEntityElement.isPresent(),
+                                "task interface reference with the same name as normal element");
+
+                        if (optInterfaceEntityElement.isPresent()) {
+                            sinkUniqueName = optInterfaceEntityElement.get().isProvided()
+                                    ? Optional.of(optInterfaceEntityElement.get().getUniqueName().get())
+                                    : Optional.<String>absent();
+                        } else {
+                            sinkUniqueName = interfaceEntityKind == InterfaceEntity.Kind.EVENT
+                                    ? Optional.of(optTaskElement.get().getUniqueName().get())
+                                    : Optional.<String>absent();
+                        }
+                    } else {
+                        sinkUniqueName = Optional.absent();
+                    }
+
+                    if (sinkUniqueName.isPresent()) {
+                        return new SinkFunctionData(sinkUniqueName.get());
+                    }
+
+                    /* Make template of function definition for intermediate
+                       function. */
+                    final FunctionDecl functionDecl = new FunctionDecl(
+                            Location.getDummyLocation(),
+                            intermediateDeclarator,
+                            typeElements,
+                            Lists.<Attribute>newList(),
+                            AstUtils.newEmptyCompoundStmt(),
+                            false
+                    );
+
+                    final EntityData result = new IntermediateFunctionData(parametersNames,
+                            returnsVoid, functionDecl);
+
+                    intermediateDeclarator = null;
+                    parametersNames = null;
+
+                    return result;
+                }
+
                 @Override
                 public Void visitQualifiedDeclarator(QualifiedDeclarator declarator, Void arg) {
                     declarator.getDeclarator().get().accept(this, null);
@@ -455,12 +653,27 @@ public final class WiresGraph {
 
                 @Override
                 public Void visitFunctionDeclarator(FunctionDeclarator declarator, Void arg) {
+                    // Prepare parameters for the potential intermediate function
+                    if (instanceParameters.isPresent()) {
+                        final LinkedList<Declaration> params = AstUtils.deepCopyNodes(instanceParameters.get(), true);
+                        params.addAll(declarator.getParameters());
+                        declarator.setParameters(params);
+                    }
+                    parametersNames = prepareParametersNames(declarator.getParameters());
+
                     declarator.getDeclarator().get().accept(this, null);
                     return null;
                 }
 
                 @Override
                 public Void visitPointerDeclarator(PointerDeclarator declarator, Void arg) {
+                    returnsVoid = false;
+                    declarator.getDeclarator().get().accept(this, null);
+                    return null;
+                }
+
+                @Override
+                public Void visitArrayDeclarator(ArrayDeclarator declarator, Void arg) {
                     declarator.getDeclarator().get().accept(this, null);
                     return null;
                 }

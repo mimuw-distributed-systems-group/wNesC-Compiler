@@ -16,8 +16,10 @@ import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.NescDecl;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.ast.gen.ParameterisedIdentifier;
+import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.wiresgraph.WiresGraph;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 
@@ -46,10 +48,14 @@ public final class ConnectExecutor {
     /**
      * <p>Get the builder that will build a connect executor.</p>
      *
+     * @param nameMangler Name mangler that will be used for mangling names of
+     *                    parameters for intermediate functions.
      * @return Newly created builder that will build a connect executor.
+     * @throws NullPointerException Name mangler is <code>null</code>.
      */
-    public static Builder builder() {
-        return new Builder();
+    public static Builder builder(NameMangler nameMangler) {
+        checkNotNull(nameMangler, "name mangler cannot be null");
+        return new Builder(nameMangler);
     }
 
     /**
@@ -180,11 +186,13 @@ public final class ConnectExecutor {
          * Data needed to build a connect executor.
          */
         private final List<NescDecl> nescDeclarations = new ArrayList<>();
+        private final NameMangler nameMangler;
 
         /**
          * Private constructor to limit its accessibility.
          */
-        private Builder() {
+        private Builder(NameMangler nameMangler) {
+            this.nameMangler = nameMangler;
         }
 
         /**
@@ -220,7 +228,7 @@ public final class ConnectExecutor {
         }
 
         private WiresGraph buildInitialGraph() {
-            return WiresGraph.builder()
+            return WiresGraph.builder(nameMangler)
                     .addNescDeclarations(nescDeclarations)
                     .build();
         }

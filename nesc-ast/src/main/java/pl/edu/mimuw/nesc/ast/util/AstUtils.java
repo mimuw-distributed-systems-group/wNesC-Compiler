@@ -412,6 +412,22 @@ public final class AstUtils {
         );
     }
 
+    /**
+     * Create an empty compound statement that may be used, i.e. as an empty
+     * function body.
+     *
+     * @return Newly created compound statement without declarations or
+     *         statements (empty lists are used).
+     */
+    public static CompoundStmt newEmptyCompoundStmt() {
+        return new CompoundStmt(
+                Location.getDummyLocation(),
+                Lists.<IdLabel>newList(),
+                Lists.<Declaration>newList(),
+                Lists.<Statement>newList()
+        );
+    }
+
     private AstUtils() {
     }
 
