@@ -1,7 +1,6 @@
 package pl.edu.mimuw.nesc.wiresgraph;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -10,12 +9,13 @@ import pl.edu.mimuw.nesc.ast.gen.Expression;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 
 /**
  * <p>Class that represents a single node in the wires graph. It is associated
- * with a single specification element from a component.</p>
+ * with a single command or event from a component, i.e. bare commands and
+ * events are represented directly and for each command and event from each
+ * interface reference there is a separate node.</p>
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
@@ -27,32 +27,25 @@ public final class SpecificationElementNode {
     private final String componentName;
 
     /**
-     * Name of this specification element in the component indicated by
-     * {@link SpecificationElementNode#componentName}.
+     * Name of the interface reference this command or event comes from.
+     */
+    private final Optional<String> interfaceRefName;
+
+    /**
+     * Name of this command or event.
      */
     private final String entityName;
 
     /**
-     * List with all successors of this node, i.e. nodes that provide interface
-     * or bare command or event this node represents.
+     * List with all successors of this node, i.e. nodes that provide command or
+     * event this node represents.
      */
     private final List<WiringEdge> successors = new ArrayList<>();
-
-    /**
-     * List with all predecessors of this node, i.e. nodes the use the interface
-     * or bare command or event this node represents.
-     */
-    private final List<WiringEdge> predecessors = new ArrayList<>();
 
     /**
      * Unmodifiable view of the successors list.
      */
     private final List<WiringEdge> unmodifiableSuccessors = Collections.unmodifiableList(successors);
-
-    /**
-     * Unmodifiable view of the predecessors list.
-     */
-    private final List<WiringEdge> unmodifiablePredecessors = Collections.unmodifiableList(predecessors);
 
     /**
      * <p>Initializes this node by storing values from given parameters in
@@ -64,13 +57,17 @@ public final class SpecificationElementNode {
      * @throws NullPointerException One of the arguments is null.
      * @throws IllegalArgumentException One of the arguments is an empty string.
      */
-    SpecificationElementNode(String componentName, String entityName) {
+    SpecificationElementNode(String componentName, Optional<String> interfaceRefName, String entityName) {
         checkNotNull(componentName, "name of the component cannot be null");
+        checkNotNull(interfaceRefName, "name of the interface reference cannot be null");
         checkNotNull(entityName, "name of the specification element cannot be null");
         checkArgument(!componentName.isEmpty(), "name of the component cannot be an empty string");
+        checkArgument(!interfaceRefName.isPresent() || !interfaceRefName.get().isEmpty(),
+                "name of the interface reference cannot be null");
         checkArgument(!entityName.isEmpty(), "name of the specification element cannot be an empty string");
 
         this.componentName = componentName;
+        this.interfaceRefName = interfaceRefName;
         this.entityName = entityName;
     }
 
@@ -85,24 +82,37 @@ public final class SpecificationElementNode {
     }
 
     /**
-     * <p>Get the name of the specification element this node represents in the
-     * component.</p>
+     * <p>Get the name of the interface reference this command or event comes
+     * from.</p>
      *
-     * @return Name of the specification element.
+     * @return Name of the interface reference if this command or event comes
+     *         from an interface.
+     */
+    public Optional<String> getInterfaceRefName() {
+        return interfaceRefName;
+    }
+
+    /**
+     * <p>Get the name of the command or event represented by this node.</p>
+     *
+     * @return Name of the command or event.
      */
     public String getEntityName() {
         return entityName;
     }
 
     /**
-     * <p>Get the name of this node in the following format: "{0}.{1}" where {0}
-     * is the name of the component and {1} is the name of the specification
-     * element.</p>
+     * <p>Get the name of this node in the following format: "{0}[.{1}].{2}"
+     * where {0} is the name of the component, {2} is the name of the command or
+     * event and ".{1}" appears if and only if this element comes from an
+     * interface.</p>
      *
      * @return Name of this node depicted above.
      */
     public String getName() {
-        return format("%s.%s", componentName, entityName);
+        return interfaceRefName.isPresent()
+                ? format("%s.%s.%s", componentName, interfaceRefName.get(), entityName)
+                : format("%s.%s", componentName, entityName);
     }
 
     /**
@@ -121,36 +131,11 @@ public final class SpecificationElementNode {
     }
 
     /**
-     * <p>Create and add a new edge to a predecessor of this node.</p>
-     *
-     * @param predecessor Predecessor of this node and simultaneously the
-     *                    destination node of the edge to add.
-     * @param sourceParameters Parameters for this node.
-     * @param destinationParameters Parameters for the destination node.
-     */
-    void addPredecessor(SpecificationElementNode predecessor, Optional<LinkedList<Expression>> sourceParameters,
-            Optional<LinkedList<Expression>> destinationParameters) {
-
-        final WiringEdge newEdge = new WiringEdge(predecessor, sourceParameters, destinationParameters);
-        predecessors.add(newEdge);
-    }
-
-    /**
      * <p>Get the unmodifiable view of the list of successors of this node.</p>
      *
      * @return Unmodifiable view of list with successors of this node.
      */
     public List<WiringEdge> getSuccessors() {
         return unmodifiableSuccessors;
-    }
-
-    /**
-     * <p>Get the unmodifiable view of the list of predecessors of this
-     * node.</p>
-     *
-     * @return Unmodifiable view of the list with predecessors of this node.
-     */
-    public List<WiringEdge> getPredecessors() {
-        return unmodifiablePredecessors;
     }
 }

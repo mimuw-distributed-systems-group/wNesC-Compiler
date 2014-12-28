@@ -13,6 +13,7 @@ import pl.edu.mimuw.nesc.ast.gen.ConfigurationImpl;
 import pl.edu.mimuw.nesc.ast.gen.Connection;
 import pl.edu.mimuw.nesc.ast.gen.EndPoint;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
+import pl.edu.mimuw.nesc.ast.gen.NescDecl;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.ast.gen.ParameterisedIdentifier;
 import pl.edu.mimuw.nesc.wiresgraph.WiresGraph;
@@ -87,7 +88,7 @@ public final class ConnectExecutor {
                     .addImplementationDeclarations(impl.getDeclarations())
                     .build();
 
-            addEdges(impl, configuration.getName().getName(), aliasesResolver);
+            addConnections(impl, configuration.getName().getName(), aliasesResolver);
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Connections from '" + configuration.getName().getName() + "' successfully added");
@@ -97,7 +98,7 @@ public final class ConnectExecutor {
         return graph;
     }
 
-    private void addEdges(ConfigurationImpl confImpl, String confName, AliasesResolver aliasesResolver) {
+    private void addConnections(ConfigurationImpl confImpl, String confName, AliasesResolver aliasesResolver) {
         // Iterate over all connections
 
         final FluentIterable<Connection> connectionsIterable =
@@ -105,11 +106,11 @@ public final class ConnectExecutor {
                         .filter(Connection.class);
 
         for (Connection connection : connectionsIterable) {
-            addEdge(connection, confName, aliasesResolver);
+            addConnection(connection, confName, aliasesResolver);
         }
     }
 
-    private void addEdge(Connection connection, String confName, AliasesResolver aliasesResolver) {
+    private void addConnection(Connection connection, String confName, AliasesResolver aliasesResolver) {
         final EndPoint edgeTail, edgeHead;
 
         switch (connection.getCallDirection()) {
@@ -132,11 +133,14 @@ public final class ConnectExecutor {
 
         // Add the edge
 
+        final int newEdgesCount = graph.connectElements(edgeTailName, edgeHeadName,
+                tailParameters, headParameters);
+
         if (LOG.isDebugEnabled()) {
-            LOG.debug(format("Add edge %s -> %s", edgeTailName, edgeHeadName));
+            LOG.debug(format("Add connection %s -> %s (%d new edge(s))", edgeTailName,
+                    edgeHeadName, newEdgesCount));
         }
 
-        graph.addEdge(edgeTailName, edgeHeadName, tailParameters, headParameters);
     }
 
     private String resolveEndpoint(EndPoint endpoint, String confName, AliasesResolver aliasesResolver) {
@@ -175,7 +179,7 @@ public final class ConnectExecutor {
         /**
          * Data needed to build a connect executor.
          */
-        private final List<Component> components = new ArrayList<>();
+        private final List<NescDecl> nescDeclarations = new ArrayList<>();
 
         /**
          * Private constructor to limit its accessibility.
@@ -194,16 +198,19 @@ public final class ConnectExecutor {
          */
         public Builder addComponents(List<? extends Node> nodes) {
             FluentIterable.from(nodes)
-                    .filter(Component.class)
-                    .copyInto(components);
+                    .filter(NescDecl.class)
+                    .copyInto(nescDeclarations);
             return this;
         }
 
         private void validate() {
             // Check if no added components are generic
 
-            for (Component component : components) {
-                checkState(!component.getIsAbstract(), "a generic component has been added");
+            for (NescDecl nescDecl : nescDeclarations) {
+                if (nescDecl instanceof Component) {
+                    final Component component = (Component) nescDecl;
+                    checkState(!component.getIsAbstract(), "a generic component has been added");
+                }
             }
         }
 
@@ -214,12 +221,12 @@ public final class ConnectExecutor {
 
         private WiresGraph buildInitialGraph() {
             return WiresGraph.builder()
-                    .addComponents(components)
+                    .addNescDeclarations(nescDeclarations)
                     .build();
         }
 
         private ImmutableList<Configuration> buildConfigurationsList() {
-            return FluentIterable.from(components)
+            return FluentIterable.from(nescDeclarations)
                     .filter(Configuration.class)
                     .toList();
         }
