@@ -380,7 +380,7 @@ public final class WiresGraph {
 
                     final String entityName = optEntityName.get();
                     final EntityData entityData = createBareEntityData(dataDecl.getModifiers(),
-                            variableDecl, entityName, moduleTable);
+                            variableDecl, componentName, entityName, moduleTable);
                     final SpecificationElementNode newNode = new SpecificationElementNode(componentName,
                             Optional.<String>absent(), entityName, entityData);
                     nodesMapBuilder.put(newNode.getName(), newNode);
@@ -388,7 +388,7 @@ public final class WiresGraph {
             }
 
             private EntityData createBareEntityData(LinkedList<TypeElement> typeElements, VariableDecl variableDecl,
-                        String entityName, Optional<ModuleTable> moduleTable) {
+                        String componentName, String entityName, Optional<ModuleTable> moduleTable) {
                 // Handle the case of a sink
                 if (moduleTable.isPresent()) {
                     final InterfaceEntityElement bareElement = moduleTable.get().get(entityName).get();
@@ -418,6 +418,10 @@ public final class WiresGraph {
                     funDeclarator.setParameters(finalParams);
                 }
 
+                // Generate and set the unique name of the intermediate function
+                final String uniqueName = generateIntermediateFunctionName(componentName, Optional.<String>absent(),
+                        entityName, (IdentifierDeclarator) funDeclarator.getDeclarator().get());
+
                 final FunctionDecl funDecl = new FunctionDecl(
                         Location.getDummyLocation(),
                         variableDecl.getDeclarator().get(),
@@ -427,8 +431,30 @@ public final class WiresGraph {
                         false
                 );
 
-                return new IntermediateFunctionData(prepareParametersNames(funDeclarator.getParameters()),
+                return new IntermediateFunctionData(uniqueName, prepareParametersNames(funDeclarator.getParameters()),
                         returnsVoid, funDecl);
+            }
+
+            /**
+             * Generates and sets in the given declarator name of the
+             * intermediate function for a command or event depicted by other
+             * arguments.
+             *
+             * @return Generated and set unique name.
+             */
+            private String generateIntermediateFunctionName(String componentName,
+                        Optional<String> interfaceRefName, String entityName,
+                        IdentifierDeclarator identifierDeclarator) {
+                final String funName = interfaceRefName.isPresent()
+                        ? format("%s__%s__%s", componentName, interfaceRefName.get(), entityName)
+                        : format("%s__%s", componentName, entityName);
+                final String funUniqueName = nameMangler.mangle(funName);
+
+                // Set names in the declarator
+                identifierDeclarator.setName(funName);
+                identifierDeclarator.setUniqueName(Optional.of(funUniqueName));
+
+                return funUniqueName;
             }
 
             /**
@@ -577,15 +603,17 @@ public final class WiresGraph {
                     checkState(!nodes.containsKey(elementName), "duplicate command or event in an interface");
 
                     // Update data
+                    final String uniqueName = generateIntermediateFunctionName(componentName,
+                            Optional.of(interfaceRefName), entityName, declarator);
                     nodes.put(elementName, new SpecificationElementNode(componentName,
-                            Optional.of(interfaceRefName), declarator.getName(),
-                            createInterfaceEntityData(entityName)));
+                            Optional.of(interfaceRefName), entityName,
+                            createInterfaceEntityData(entityName, uniqueName)));
                     switch (interfaceEntityKind) {
                         case COMMAND:
-                            commandsNamesBuilder.add(declarator.getName());
+                            commandsNamesBuilder.add(entityName);
                             break;
                         case EVENT:
-                            eventsNamesBuilder.add(declarator.getName());
+                            eventsNamesBuilder.add(entityName);
                             break;
                         default:
                             throw new RuntimeException("unexpected interface entity kind '" + interfaceEntityKind + "'");
@@ -594,7 +622,7 @@ public final class WiresGraph {
                     return null;
                 }
 
-                private EntityData createInterfaceEntityData(String entityName) {
+                private EntityData createInterfaceEntityData(String entityName, String uniqueName) {
                     final Optional<String> sinkUniqueName;
 
                     // Check if the element is implemented in a module
@@ -636,7 +664,7 @@ public final class WiresGraph {
                             false
                     );
 
-                    final EntityData result = new IntermediateFunctionData(parametersNames,
+                    final EntityData result = new IntermediateFunctionData(uniqueName, parametersNames,
                             returnsVoid, functionDecl);
 
                     intermediateDeclarator = null;

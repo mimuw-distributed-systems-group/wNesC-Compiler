@@ -34,20 +34,21 @@ public final class IntermediateFunctionData extends EntityData {
     private final FunctionDecl intermediateFunction;
 
     /**
-     * Name of the intermediate function.
-     */
-    private Optional<String> uniqueName = Optional.absent();
-
-    /**
      * Saves the values from parameters in member fields.
      *
+     * @param uniqueName Unique name of the intermediate function.
      * @param argumentsNames Names of arguments for the intermediate function.
      * @param returnsVoid Value indicating if the function returns void.
      * @param intermediateFunTemplate AST node for the creation of intermediate
      *                                function.
+     * @throws NullPointerException One of the reference arguments is
+     *                              <code>null</code>.
+     * @throws IllegalArgumentException Unique name is an empty string.
      */
-    IntermediateFunctionData(ImmutableList<String> argumentsNames, boolean returnsVoid,
-            FunctionDecl intermediateFunTemplate) {
+    IntermediateFunctionData(String uniqueName, ImmutableList<String> argumentsNames,
+            boolean returnsVoid, FunctionDecl intermediateFunTemplate) {
+        super(uniqueName);  // throws if 'uniqueName' is null or empty
+
         checkNotNull(argumentsNames, "names of parameters cannot be null");
         checkNotNull(intermediateFunTemplate, "the template of intermediate function cannot be null");
 
@@ -87,31 +88,5 @@ public final class IntermediateFunctionData extends EntityData {
      */
     public FunctionDecl getIntermediateFunction() {
         return intermediateFunction;
-    }
-
-    /**
-     * Get the unique name of the intermediate function.
-     *
-     * @return Unique name of the intermediate function if it has been set.
-     */
-    public Optional<String> getUniqueName() {
-        return uniqueName;
-    }
-
-    /**
-     * Set the unique name of the intermediate function. It can be done exactly
-     * once.
-     *
-     * @param uniqueName Unique name to set.
-     * @throws NullPointerException Unique name is <code>null</code>.
-     * @throws IllegalArgumentException Unique name is an empty string.
-     * @throws IllegalStateException Unique name has been already set.
-     */
-    public void setUniqueName(String uniqueName) {
-        checkNotNull(uniqueName, "unique name cannot be null");
-        checkArgument(!uniqueName.isEmpty(), "unique name cannot be an empty string");
-        checkState(!this.uniqueName.isPresent(), "unique name has been already set");
-
-        this.uniqueName = Optional.of(uniqueName);
     }
 }

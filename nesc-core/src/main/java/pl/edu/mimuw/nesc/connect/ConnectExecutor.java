@@ -196,15 +196,15 @@ public final class ConnectExecutor {
         }
 
         /**
-         * <p>Add components that define the graph that will be built. Only
-         * components from the given list are used, other nodes are ignored.
-         * If one of the components is generic, an exception is thrown during
-         * building.</p>
+         * <p>Add NesC declarations that define the graph that will be built.
+         * Only components and interfaces from the given list are used, other
+         * nodes are ignored. If one of the components is generic, an exception
+         * is thrown during building.</p>
          *
          * @param nodes List with nodes to add.
          * @return <code>this</code>
          */
-        public Builder addComponents(List<? extends Node> nodes) {
+        public Builder addNescDeclarations(List<? extends Node> nodes) {
             FluentIterable.from(nodes)
                     .filter(NescDecl.class)
                     .copyInto(nescDeclarations);
