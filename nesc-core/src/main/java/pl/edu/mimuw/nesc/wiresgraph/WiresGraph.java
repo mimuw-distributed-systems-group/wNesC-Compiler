@@ -181,6 +181,15 @@ public final class WiresGraph {
     }
 
     /**
+     * Get the map with all nodes that constitute this graph.
+     *
+     * @return Map with all nodes of this graph.
+     */
+    public ImmutableMap<String, SpecificationElementNode> getNodes() {
+        return nodes;
+    }
+
+    /**
      * Private builder that creates particular elements of the graph.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>

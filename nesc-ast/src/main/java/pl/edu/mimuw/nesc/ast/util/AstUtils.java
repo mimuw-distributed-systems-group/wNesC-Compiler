@@ -394,15 +394,21 @@ public final class AstUtils {
         if (functionDecl.getDeclarator() instanceof FunctionDeclarator) {
             typeDeclarator = Optional.absent();
         } else {
-            NestedDeclarator declarator = (NestedDeclarator) functionDecl.getDeclarator();
-            while (!(declarator.getDeclarator().get() instanceof FunctionDeclarator)) {
-                declarator = (NestedDeclarator) declarator.getDeclarator().get();
+            NestedDeclarator firstDeclarator = (NestedDeclarator) functionDecl.getDeclarator();
+            NestedDeclarator secondDeclarator = (NestedDeclarator) firstDeclarator.getDeclarator().get();
+
+            while (!(secondDeclarator.getDeclarator().get() instanceof IdentifierDeclarator)
+                    && !(secondDeclarator.getDeclarator().get() instanceof InterfaceRefDeclarator)) {
+                firstDeclarator = secondDeclarator;
+                secondDeclarator = (NestedDeclarator) secondDeclarator.getDeclarator().get();
             }
 
-            final Optional<Declarator> funDeclarator = declarator.getDeclarator();
-            declarator.setDeclarator(Optional.<Declarator>absent());
+            checkArgument(secondDeclarator instanceof FunctionDeclarator,
+                    "unexpected type of a nested declarator");
+
+            firstDeclarator.setDeclarator(Optional.<Declarator>absent());
             typeDeclarator = Optional.of(functionDecl.getDeclarator().deepCopy(true));
-            declarator.setDeclarator(funDeclarator);
+            firstDeclarator.setDeclarator(Optional.<Declarator>of(secondDeclarator));
         }
 
         return new AstType(
@@ -410,6 +416,38 @@ public final class AstUtils {
                 typeDeclarator,
                 typeElements
         );
+    }
+
+    /**
+     * Check if the return type of the given function is purely defined by the
+     * type elements.
+     *
+     * @param functionDecl AST node of a function definition.
+     * @return <code>true</code> if and only if the declarator has an impact on
+     *         the return type of the given function.
+     */
+    public static boolean declaratorAffectsReturnType(FunctionDecl functionDecl) {
+        checkNotNull(functionDecl, "function AST node cannot be null");
+
+        if (functionDecl.getDeclarator() instanceof FunctionDeclarator) {
+            return false;
+        }
+
+        NestedDeclarator firstDeclarator = (NestedDeclarator) functionDecl.getDeclarator();
+        NestedDeclarator secondDeclarator = (NestedDeclarator) firstDeclarator.getDeclarator().get();
+
+        while (!(secondDeclarator.getDeclarator().get() instanceof IdentifierDeclarator)
+                && !(secondDeclarator.getDeclarator().get() instanceof InterfaceRefDeclarator)) {
+            if (firstDeclarator instanceof ArrayDeclarator || firstDeclarator instanceof FunctionDeclarator
+                    || firstDeclarator instanceof PointerDeclarator) {
+                return true;
+            }
+
+            firstDeclarator = secondDeclarator;
+            secondDeclarator = (NestedDeclarator) secondDeclarator.getDeclarator().get();
+        }
+
+        return false;
     }
 
     /**

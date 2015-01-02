@@ -53,6 +53,12 @@ public final class SpecificationElementNode {
     private final List<WiringEdge> unmodifiableSuccessors = Collections.unmodifiableList(successors);
 
     /**
+     * Value indicating if there exists an edge that starts in this node and
+     * contains instance parameters for this node.
+     */
+    private boolean hasParameterisedEdge = false;
+
+    /**
      * <p>Initializes this node by storing values from given parameters in
      * member fields.</p>
      *
@@ -146,6 +152,7 @@ public final class SpecificationElementNode {
 
         final WiringEdge newEdge = new WiringEdge(successor, sourceParameters, destinationParameters);
         successors.add(newEdge);
+        hasParameterisedEdge = hasParameterisedEdge || sourceParameters.isPresent();
     }
 
     /**
@@ -155,5 +162,16 @@ public final class SpecificationElementNode {
      */
     public List<WiringEdge> getSuccessors() {
         return unmodifiableSuccessors;
+    }
+
+    /**
+     * <p>Check if there exists an edge from this node that contains values of
+     * instance parameters for it.</p>
+     *
+     * @return <code>true</code> if and only if there exists an edge that starts
+     *         in this node and contains instance parameters for it.
+     */
+    public boolean hasParameterisedEdge() {
+        return hasParameterisedEdge;
     }
 }

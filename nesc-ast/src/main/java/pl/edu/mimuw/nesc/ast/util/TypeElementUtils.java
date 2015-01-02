@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.ast.util;
 
+import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.*;
@@ -66,6 +67,25 @@ public final class TypeElementUtils {
     public static StructKind getStructKind(TagRef tagRef) {
         checkNotNull(tagRef, "tag reference cannot be null");
         return tagRef.accept(STRUCT_KIND_VISITOR, null);
+    }
+
+    /**
+     * Get unique name of the type definition referred in given list.
+     *
+     * @param typeElements List with potential typename.
+     * @return Unique name of the typename from the given list or absent if it
+     *         does not contain a typename.
+     */
+    public static Optional<String> getTypedefUniqueName(List<? extends TypeElement> typeElements) {
+        checkNotNull(typeElements, "type elements cannot be null");
+
+        for (TypeElement typeElement : typeElements) {
+            if (typeElement instanceof Typename) {
+                return Optional.of(((Typename) typeElement).getUniqueName());
+            }
+        }
+
+        return Optional.absent();
     }
 
     private TypeElementUtils() {
