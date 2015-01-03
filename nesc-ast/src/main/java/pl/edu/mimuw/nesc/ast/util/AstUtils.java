@@ -4,7 +4,14 @@ import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import java.math.BigInteger;
+import java.util.Iterator;
+import java.util.ListIterator;
+import pl.edu.mimuw.nesc.ast.IntegerCstKind;
+import pl.edu.mimuw.nesc.ast.IntegerCstSuffix;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.NescCallKind;
+import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
@@ -349,8 +356,7 @@ public final class AstUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T extends Node> LinkedList<T> deepCopyNodes(LinkedList<T> toCopy,
-            boolean skipConstantFunCalls) {
+    public static <T extends Node> LinkedList<T> deepCopyNodes(List<T> toCopy, boolean skipConstantFunCalls) {
         final LinkedList<T> copy = new LinkedList<>();
 
         for (T node : toCopy) {
@@ -360,7 +366,7 @@ public final class AstUtils {
         return copy;
     }
 
-    public static <T extends Node> Optional<LinkedList<T>> deepCopyNodes(Optional<LinkedList<T>> toCopy,
+    public static <T extends Node> Optional<LinkedList<T>> deepCopyNodes(Optional<? extends List<T>> toCopy,
             boolean skipConstantFunCalls) {
         return toCopy.isPresent()
                 ? Optional.of(deepCopyNodes(toCopy.get(), skipConstantFunCalls))
@@ -464,6 +470,319 @@ public final class AstUtils {
                 Lists.<Declaration>newList(),
                 Lists.<Statement>newList()
         );
+    }
+
+    /**
+     * Creates an identifier with name and unique name set as the parameter and
+     * fields <code>isGenericReference</code> and
+     * <code>refsDeclInThisNescEntity</code> set to <code>false</code>.
+     *
+     * @param name Name and unique name of the created identifier.
+     * @return Newly created identifier with fields properly set.
+     */
+    public static Identifier newIdentifier(String name) {
+        return newIdentifier(name, name, false, false);
+    }
+
+    /**
+     * Creates an identifier with fields set as specified by parameters.
+     *
+     * @param name Name to be set in the returned identifier.
+     * @param uniqueName Unique name to be set in the returned identifier.
+     * @param isGenericReference Value of the field with the same name to be set
+     *                           in the identifier.
+     * @param refsDeclInThisNescEntity Value of the field with the same name to
+     *                                 be set in the identifier.
+     * @return Newly created identifier with fields set the same as parameters.
+     */
+    public static Identifier newIdentifier(String name, String uniqueName, boolean isGenericReference,
+            boolean refsDeclInThisNescEntity) {
+        checkNotNull(name, "name cannot be null");
+        checkNotNull(uniqueName, "unique name cannot be null");
+        checkArgument(!name.isEmpty(), "name cannot be an empty string");
+        checkArgument(!uniqueName.isEmpty(), "unique name cannot be an empty string");
+
+        final Identifier identifier = new Identifier(
+                Location.getDummyLocation(),
+                name
+        );
+
+        identifier.setUniqueName(Optional.of(uniqueName));
+        identifier.setIsGenericReference(isGenericReference);
+        identifier.setRefsDeclInThisNescEntity(refsDeclInThisNescEntity);
+
+        return identifier;
+    }
+
+    /**
+     * Creates a list of identifiers with strings from the given list used as
+     * names and unique names of the identifiers.
+     *
+     * @param names List with names to use in identifiers.
+     * @return Newly created list with identifiers specified by parameters.
+     */
+    public static LinkedList<Expression> newIdentifiersList(List<String> names) {
+        checkNotNull(names, "names cannot be null");
+
+        final LinkedList<Expression> identifiers = new LinkedList<>();
+        for (String name : names) {
+            identifiers.add(newIdentifier(name));
+        }
+        return identifiers;
+    }
+
+    /**
+     * Create a list of type elements that consist only of the given rids.
+     *
+     * @param rids Rids to be contained on the returned list.
+     * @return Newly created type elements list with given rids.
+     */
+    public static LinkedList<TypeElement> newRidsList(RID... rids) {
+        final LinkedList<TypeElement> result = new LinkedList<>();
+        for (RID rid : rids) {
+            result.add(new Rid(Location.getDummyLocation(), rid));
+        }
+        return result;
+    }
+
+    /**
+     * Create a simple variable declaration.
+     *
+     * @param name Name of the created variable.
+     * @param uniqueName Unique name of the created variable.
+     * @param isDeclaredInsideNescEntity Value for the declarator.
+     * @param initializer Expression set as the initializer of the variable.
+     * @param rids Elements that define the type of the variable.
+     * @return Newly created declaration of a variable specified by parameters.
+     */
+    public static DataDecl newSimpleDeclaration(String name, String uniqueName, boolean isDeclaredInsideNescEntity,
+            Optional<Expression> initializer, RID... rids) {
+        return newSimpleDeclaration(name, uniqueName, isDeclaredInsideNescEntity, initializer,
+                new AstType(Location.getDummyLocation(), Optional.<Declarator>absent(), newRidsList(rids)));
+    }
+
+    public static DataDecl newSimpleDeclaration(String name, String uniqueName, boolean isDeclaredInsideNescEntity,
+            Optional<Expression> initializer, AstType astType) {
+        // Declarator with variable name
+
+        final IdentifierDeclarator identDeclarator = new IdentifierDeclarator(
+                Location.getDummyLocation(),
+                name
+        );
+        identDeclarator.setIsNestedInNescEntity(isDeclaredInsideNescEntity);
+        identDeclarator.setUniqueName(Optional.of(uniqueName));
+
+        // Declarator of the variable
+
+        final Optional<NestedDeclarator> deepestNestedDeclarator =
+                DeclaratorUtils.getDeepestNestedDeclarator(astType.getDeclarator());
+        final Declarator declarator;
+        if (deepestNestedDeclarator.isPresent()) {
+            deepestNestedDeclarator.get().setDeclarator(Optional.<Declarator>of(identDeclarator));
+            declarator = deepestNestedDeclarator.get();
+        } else {
+            declarator = identDeclarator;
+        }
+
+        // Variable declaration
+
+        final VariableDecl variableDecl = new VariableDecl(
+                Location.getDummyLocation(),
+                Optional.of(declarator),
+                Lists.<Attribute>newList(),
+                Optional.<AsmStmt>absent()
+        );
+        variableDecl.setInitializer(initializer);
+
+        return new DataDecl(
+                Location.getDummyLocation(),
+                astType.getQualifiers(),
+                Lists.<Declaration>newList(variableDecl)
+        );
+    }
+
+    /**
+     * Creates a function call AST node.
+     *
+     * @param funName Name of the function identifier (use also as its unique
+     *                name).
+     * @param parametersNames Names of identifiers used as parameters for the
+     *                        returned function call (the identifiers have the
+     *                        same names and unique names).
+     * @return Newly created function call specified by given parameters.
+     */
+    public static FunctionCall newNormalCall(String funName, List<String> parametersNames) {
+        return new FunctionCall(
+                Location.getDummyLocation(),
+                newIdentifier(funName),
+                newIdentifiersList(parametersNames),
+                NescCallKind.NORMAL_CALL
+        );
+    }
+
+    /**
+     * Creates a function call AST node using the given name for the identifier
+     * (that is created for the node) and directly the given list of parameters.
+     *
+     * @param funName Name to be used for the function identifier.
+     * @param parameters List that will be used for parameters.
+     * @return Newly created AST node of function call.
+     */
+    public static FunctionCall newNormalCall(String funName, LinkedList<Expression> parameters) {
+        return new FunctionCall(
+                Location.getDummyLocation(),
+                newIdentifier(funName),
+                parameters,
+                NescCallKind.NORMAL_CALL
+        );
+    }
+
+    /**
+     * Creates an constant integer expression that evaluates to the given value.
+     *
+     * @param value Value of the integer constant expression to create.
+     * @return Newly created integer constant expression that evaluates to the
+     *         given value.
+     */
+    public static Expression newIntegerConstant(int value) {
+        final boolean negation = value < 0;
+        value = Math.abs(value);
+
+        final IntegerCst constant = new IntegerCst(
+                Location.getDummyLocation(),
+                Integer.toString(value),
+                Optional.of(BigInteger.valueOf(value)),
+                IntegerCstKind.DECIMAL,
+                IntegerCstSuffix.NO_SUFFIX
+        );
+
+        return negation
+                ? new UnaryMinus(Location.getDummyLocation(), constant)
+                : constant;
+    }
+
+    /**
+     * Creates a new return statement that causes returning of the given
+     * constant.
+     *
+     * @param value Integer constant to be returned by the created statement.
+     * @return Newly created statement that causes returning the given constant
+     *         value.
+     */
+    public static ReturnStmt newReturnStmt(int value) {
+        return new ReturnStmt(
+                Location.getDummyLocation(),
+                Optional.of(newIntegerConstant(value))
+        );
+    }
+
+    /**
+     * Method for quickly creating a return statement that causes returning
+     * value of a variable with given name. The name is also used as the unique
+     * name of the created identifier.
+     *
+     * @param name Name and unique name of the identifier in the created
+     *             'return' statement.
+     * @return Newly created return statement that causes returning the value of
+     *         the variable with name and unique name as given parameter.
+     */
+    public static ReturnStmt newReturnStmt(String name) {
+        return newReturnStmt(name, name, false, false);
+    }
+
+    /**
+     * Creates a return statement that causes returning an identifier specified
+     * by given parameters.
+     *
+     * @param identifierName Name to set in the identifier.
+     * @param identifierUniqueName Unique name to set in the identifier.
+     * @param isGenericReference Value to set as 'isGenericReference' in the
+     *                           identifier.
+     * @param refsDeclInNescEntity Value to set as 'refsDeclInNescEntity' in
+     *                             the identifier.
+     * @return Newly created return statement that causes returning an
+     *         identifier specified by given parameters.
+     */
+    public static ReturnStmt newReturnStmt(String identifierName, String identifierUniqueName,
+            boolean isGenericReference, boolean refsDeclInNescEntity) {
+        final Identifier identifier = newIdentifier(identifierName, identifierUniqueName,
+                isGenericReference, refsDeclInNescEntity);
+        return new ReturnStmt(
+                Location.getDummyLocation(),
+                Optional.<Expression>of(identifier)
+        );
+    }
+
+    /**
+     * Create a logical and expression that contains as arguments expressions
+     * from given list.
+     *
+     * @param expressions List with expressions that will be elements of
+     *                    the returned logical and expression.
+     * @return Newly created logical and expression that contains expressions
+     *         from the given list as elements.
+     */
+    public static Expression newLogicalAnd(List<? extends Expression> expressions) {
+        checkNotNull(expressions, "expressions list cannot be null");
+        checkArgument(!expressions.isEmpty(), "expressions list cannot be empty");
+
+        if (expressions.size() == 1) {
+            return expressions.get(0);
+        }
+
+        Andand accumulator = new Andand(
+                Location.getDummyLocation(),
+                expressions.get(expressions.size() - 2),
+                expressions.get(expressions.size() - 1)
+        );
+
+        final ListIterator<? extends Expression> exprsIt =
+                expressions.listIterator(expressions.size() - 2);
+
+        while (exprsIt.hasPrevious()) {
+            accumulator = new Andand(
+                    Location.getDummyLocation(),
+                    exprsIt.previous(),
+                    accumulator
+            );
+        }
+
+        return accumulator;
+    }
+
+    /**
+     * <p>Creates a list of '==' expressions from lists of left and right sides
+     * for the operator. The returned list has the same size as the given lists.
+     * </p>
+     *
+     * <p>Example:
+     * <code>newEqualsExpressions([2 + x, 10 * y], [10, 20])</code>
+     * returns <code>[2 + x == 10, 10 * y == 20]</code>.</p>
+     *
+     * @param leftSides List with left sides for the '==' operator.
+     * @param rightSides List with right sides for the '==' operator.
+     * @return Newly created list with equality expressions.
+     */
+    public static LinkedList<Expression> zipWithEq(List<? extends Expression> leftSides,
+            List<? extends Expression> rightSides) {
+        checkNotNull(leftSides, "left sides cannot be null");
+        checkNotNull(rightSides, "right sides cannot be null");
+        checkArgument(leftSides.size() == rightSides.size(), "sizes of the lists cannot differ");
+        checkArgument(!leftSides.isEmpty(), "lists cannot be empty");
+
+        final LinkedList<Expression> result = new LinkedList<>();
+        final Iterator<? extends Expression> leftExprIt = leftSides.iterator();
+        final Iterator<? extends Expression> rightExprIt = rightSides.iterator();
+
+        while (leftExprIt.hasNext()) {
+            result.add(new Eq(
+                    Location.getDummyLocation(),
+                    leftExprIt.next(),
+                    rightExprIt.next()
+            ));
+        }
+
+        return result;
     }
 
     private AstUtils() {

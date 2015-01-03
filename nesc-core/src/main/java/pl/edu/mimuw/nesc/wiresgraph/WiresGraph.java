@@ -398,12 +398,19 @@ public final class WiresGraph {
 
             private EntityData createBareEntityData(LinkedList<TypeElement> typeElements, VariableDecl variableDecl,
                         String componentName, String entityName, Optional<ModuleTable> moduleTable) {
-                // Handle the case of a sink
+                final Optional<String> defaultImplementationUniqueName;
+
+                // Handle the case of a sink and default implementation
                 if (moduleTable.isPresent()) {
                     final InterfaceEntityElement bareElement = moduleTable.get().get(entityName).get();
                     if (bareElement.isProvided()) {
                         return new SinkFunctionData(bareElement.getUniqueName().get());
                     }
+                    defaultImplementationUniqueName = bareElement.isImplemented()
+                            ? Optional.of(bareElement.getUniqueName().get())
+                            : Optional.<String>absent();
+                } else {
+                    defaultImplementationUniqueName = Optional.absent();
                 }
 
                 final boolean voidOccurred = removeKeywords(typeElements);
@@ -420,6 +427,9 @@ public final class WiresGraph {
 
                 // Move the instance parameters to the function parameters
                 final FunctionDeclarator funDeclarator = (FunctionDeclarator) declarator;
+                final int instanceParametersCount = funDeclarator.getGenericParameters().isPresent()
+                        ? funDeclarator.getGenericParameters().get().size()
+                        : 0;
                 if (funDeclarator.getGenericParameters().isPresent()) {
                     final LinkedList<Declaration> finalParams = funDeclarator.getGenericParameters().get();
                     finalParams.addAll(funDeclarator.getParameters());
@@ -441,7 +451,7 @@ public final class WiresGraph {
                 );
 
                 return new IntermediateFunctionData(uniqueName, prepareParametersNames(funDeclarator.getParameters()),
-                        returnsVoid, funDecl);
+                        instanceParametersCount, returnsVoid, funDecl, defaultImplementationUniqueName);
             }
 
             /**
@@ -633,6 +643,7 @@ public final class WiresGraph {
 
                 private EntityData createInterfaceEntityData(String entityName, String uniqueName) {
                     final Optional<String> sinkUniqueName;
+                    final Optional<String> defaultImplementationUniqueName;
 
                     // Check if the element is implemented in a module
                     if (moduleTable.isPresent()) {
@@ -649,13 +660,19 @@ public final class WiresGraph {
                             sinkUniqueName = optInterfaceEntityElement.get().isProvided()
                                     ? Optional.of(optInterfaceEntityElement.get().getUniqueName().get())
                                     : Optional.<String>absent();
+                            defaultImplementationUniqueName = !optInterfaceEntityElement.get().isProvided()
+                                            && optInterfaceEntityElement.get().isImplemented()
+                                    ? Optional.of(optInterfaceEntityElement.get().getUniqueName().get())
+                                    : Optional.<String>absent();
                         } else {
                             sinkUniqueName = interfaceEntityKind == InterfaceEntity.Kind.EVENT
                                     ? Optional.of(optTaskElement.get().getUniqueName().get())
                                     : Optional.<String>absent();
+                            defaultImplementationUniqueName = Optional.absent();
                         }
                     } else {
                         sinkUniqueName = Optional.absent();
+                        defaultImplementationUniqueName = Optional.absent();
                     }
 
                     if (sinkUniqueName.isPresent()) {
@@ -674,7 +691,8 @@ public final class WiresGraph {
                     );
 
                     final EntityData result = new IntermediateFunctionData(uniqueName, parametersNames,
-                            returnsVoid, functionDecl);
+                            instanceParameters.isPresent() ? instanceParameters.get().size() : 0,
+                            returnsVoid, functionDecl, defaultImplementationUniqueName);
 
                     intermediateDeclarator = null;
                     parametersNames = null;
