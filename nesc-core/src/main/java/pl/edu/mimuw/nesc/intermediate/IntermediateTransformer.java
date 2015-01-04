@@ -42,8 +42,6 @@ import static java.lang.String.format;
  *     <li>removing <code>InterfaceRefDeclarator</code> AST nodes</li>
  *     <li>moving instance parameters of functions definitions to the beginning
  *     of the list of normal parameters</li>
- *     <li>adding definitions of implemented commands and events to the multimap
- *     of specification elements</li>
  * </ol>
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -55,25 +53,15 @@ public final class IntermediateTransformer extends IdentityVisitor<Optional<Stri
     private final WiresGraph wiresGraph;
 
     /**
-     * Map with functions that are implementation of specification elements.
-     */
-    private final Multimap<String, FunctionDecl> specificationElements;
-
-    /**
      * Initializes this transformer to use the given graph and extend the given
      * map of specification elements.
      *
      * @param graph Graph with names of intermediate functions.
-     * @param specificationElements Map to be extended with information about
-     *                              encountered implementations of commands and
-     *                              events.
      */
-    public IntermediateTransformer(WiresGraph graph, Multimap<String, FunctionDecl> specificationElements) {
+    public IntermediateTransformer(WiresGraph graph) {
         checkNotNull(graph, "the wires graph cannot be null");
-        checkNotNull(specificationElements, "specification elements cannot be null");
 
         this.wiresGraph = graph;
-        this.specificationElements = specificationElements;
     }
 
     @Override
@@ -92,14 +80,6 @@ public final class IntermediateTransformer extends IdentityVisitor<Optional<Stri
                 first = (NestedDeclarator) second;
                 second = first.getDeclarator().get();
             }
-
-            // Add the definition to the specification elements map
-
-            final String specificationElementName = second instanceof InterfaceRefDeclarator
-                    ? ((InterfaceRefDeclarator) second).getName().getName()
-                    : ((IdentifierDeclarator) second).getName();
-            final String fullName = format("%s.%s", componentName.get(), specificationElementName);
-            specificationElements.put(fullName, functionDecl);
 
             // Remove the potential interface reference declarator
 

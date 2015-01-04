@@ -785,6 +785,29 @@ public final class AstUtils {
         return result;
     }
 
+    /**
+     * Creates a forward declaration for the definition of the given function.
+     *
+     * @param functionDecl Definition of a function.
+     * @return Newly created forward declaration of the given function.
+     */
+    public static DataDecl createForwardDeclaration(FunctionDecl functionDecl) {
+        checkNotNull(functionDecl, "function definition cannot be null");
+
+        final VariableDecl variableDecl = new VariableDecl(
+                Location.getDummyLocation(),
+                Optional.of(functionDecl.getDeclarator().deepCopy(true)),
+                Lists.<Attribute>newList(),
+                Optional.<AsmStmt>absent()
+        );
+
+        return new DataDecl(
+                Location.getDummyLocation(),
+                deepCopyNodes(functionDecl.getModifiers(), true),
+                Lists.<Declaration>newList(variableDecl)
+        );
+    }
+
     private AstUtils() {
     }
 

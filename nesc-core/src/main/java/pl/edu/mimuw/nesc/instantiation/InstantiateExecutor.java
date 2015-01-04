@@ -236,6 +236,7 @@ public final class InstantiateExecutor {
                 .genericComponent(specimen)
                 .build();
 
+        copy.setInstantiatedComponentName(Optional.of(specimen.getName().getName()));
         copy.setIsAbstract(false);
         copy.setParameters(Optional.<LinkedList<Declaration>>absent());
         copy.getName().setName(componentNameMangler.mangle(copy.getName().getName()));

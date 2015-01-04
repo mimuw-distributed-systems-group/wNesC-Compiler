@@ -134,6 +134,7 @@ public final class NescFrontend implements Frontend {
                     .addIssues(projectData.getIssues())
                     .nameMangler(context.getNameMangler())
                     .schedulerSpecification(context.getSchedulerSpecification().orNull())
+                    .addDefaultIncludeFiles(context.getDefaultIncludeFiles())
                     .build();
         }
     }
@@ -151,9 +152,10 @@ public final class NescFrontend implements Frontend {
             final List<FileData> fileDatas = createRootFileDataList(fileCacheList);
             final ProjectData.Builder result  = ProjectData.builder()
                     .addFileDatas(fileDatas)
-                    .addRootFileData(fileDatas.get(0))
+                    .addRootFileData(findRootFileData(fileDatas, filePath))
                     .nameMangler(context.getNameMangler())
-                    .schedulerSpecification(context.getSchedulerSpecification().orNull());
+                    .schedulerSpecification(context.getSchedulerSpecification().orNull())
+                    .addDefaultIncludeFiles(context.getDefaultIncludeFiles());
 
             if (context.getSchedulerSpecification().isPresent()) {
                 if (loadScheduler) {
@@ -391,6 +393,16 @@ public final class NescFrontend implements Frontend {
         }
 
         return fileDatas;
+    }
+
+    private FileData findRootFileData(List<FileData> fileDatas, String rootFilePath) {
+        for (FileData fileData : fileDatas) {
+            if (fileData.getFilePath().equals(rootFilePath)) {
+                return fileData;
+            }
+        }
+
+        throw new IllegalArgumentException("the list does not contain the root file data");
     }
 
     private static class DirtyFileVisitor extends DefaultFileGraphVisitor {

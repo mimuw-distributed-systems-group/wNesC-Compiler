@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.util.List;
 import pl.edu.mimuw.nesc.common.SchedulerSpecification;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.problem.NescIssue;
@@ -13,6 +14,7 @@ import java.util.Collection;
  * Contains the result of parsing process for entire project.
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class ProjectData {
 
@@ -21,6 +23,7 @@ public final class ProjectData {
     }
 
     private final ImmutableMap<String, FileData> fileDatas;
+    private final ImmutableList<String> defaultIncludeFiles;
     private final ImmutableMap<String, String> globalNames;
     private final ImmutableMap<String, String> combiningFunctions;
     private final Optional<FileData> rootFileData;
@@ -32,6 +35,7 @@ public final class ProjectData {
         builder.buildMaps();
 
         this.fileDatas = builder.fileDatas;
+        this.defaultIncludeFiles = builder.defaultIncludedFilesBuilder.build();
         this.globalNames = builder.globalNames;
         this.combiningFunctions = builder.combiningFunctions;
         this.rootFileData = Optional.fromNullable(builder.rootFileData);
@@ -42,6 +46,17 @@ public final class ProjectData {
 
     public ImmutableMap<String, FileData> getFileDatas() {
         return fileDatas;
+    }
+
+    /**
+     * Get the list with names of files that are included by default for this
+     * project. They are not necessarily present in the map of file datas of
+     * this object.
+     *
+     * @return List with paths of files included by default.
+     */
+    public ImmutableList<String> getDefaultIncludeFiles() {
+        return defaultIncludeFiles;
     }
 
     /**
@@ -110,6 +125,7 @@ public final class ProjectData {
     public static class Builder {
 
         private ImmutableMap.Builder<String, FileData> fileDataBuilder;
+        private ImmutableList.Builder<String> defaultIncludedFilesBuilder;
         private ImmutableList.Builder<NescIssue> issueListBuilder;
         private FileData rootFileData;
 
@@ -122,6 +138,7 @@ public final class ProjectData {
 
         public Builder() {
             this.fileDataBuilder = ImmutableMap.builder();
+            this.defaultIncludedFilesBuilder = ImmutableList.builder();
             this.issueListBuilder = ImmutableList.builder();
         }
 
@@ -134,6 +151,11 @@ public final class ProjectData {
             for (FileData data : fileDatas) {
                 this.fileDataBuilder.put(data.getFilePath(), data);
             }
+            return this;
+        }
+
+        public Builder addDefaultIncludeFiles(List<String> filePaths) {
+            this.defaultIncludedFilesBuilder.addAll(filePaths);
             return this;
         }
 

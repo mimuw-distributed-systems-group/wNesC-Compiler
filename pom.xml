@@ -38,6 +38,7 @@
         <module>nesc-ast</module>
         <module>nesc-frontend</module>
         <module>nesc-core</module>
+        <module>nesc-default-backend</module>
     </modules>
 
     <properties>

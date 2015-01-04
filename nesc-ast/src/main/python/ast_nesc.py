@@ -1234,7 +1234,12 @@ class Interface(BasicASTNode):
 
 
 class Component(BasicASTNode):
-    """ Base class for nesc component. """
+    """
+    <p>Base class for nesc component.</p>
+    <p><code>instantiatedComponentName</code> is the name of the component that
+    has been instantiated to create this component. The object is absent if this
+    component is not the result of instantiation of another component.</p>
+    """
     superclass = NescDecl
     isAbstract = BoolField()
     parameters = ReferenceListField("Declaration", optional=True)
@@ -1244,6 +1249,7 @@ class Component(BasicASTNode):
                                           deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
     specificationEnvironment = ReferenceField("Environment", constructor_variable=False, visitable=False,
                                               deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+    instantiatedComponentName = StringField(constructor_variable=False, optional=True)
 
 
 class Configuration(BasicASTNode):
