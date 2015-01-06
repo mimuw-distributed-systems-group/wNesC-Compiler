@@ -1,14 +1,11 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.PointerType;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.*;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.BinaryOp.*;
 
 /**
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -36,18 +33,18 @@ public final class NotModifiableLvalueError extends ErroneousIssue {
     public String generateDescription() {
         if (!isLvalue) {
             return format("Cannot assign to '%s' because it is not an lvalue",
-                    PrettyPrint.expression(expr));
+                    ASTWriter.writeToString(expr));
         } else if (!type.isComplete()) {
             return format("Cannot assign to '%s' because it has incomplete type '%s'",
-                    PrettyPrint.expression(expr), type);
+                    ASTWriter.writeToString(expr), type);
         } else if (type.isArrayType()) {
             return format("Cannot assign to '%s' because it has array type '%s'",
-                    PrettyPrint.expression(expr), type);
+                    ASTWriter.writeToString(expr), type);
         } else if (!type.isModifiable()) {
             return format("Cannot assign to '%s' because it violates a 'const' qualifier",
-                    PrettyPrint.expression(expr));
+                    ASTWriter.writeToString(expr));
         }
 
-        return format("Cannot assign to '%s'", PrettyPrint.expression(expr));
+        return format("Cannot assign to '%s'", ASTWriter.writeToString(expr));
     }
 }

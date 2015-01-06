@@ -2,7 +2,7 @@ package pl.edu.mimuw.nesc.problem.issue;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
 
 /**

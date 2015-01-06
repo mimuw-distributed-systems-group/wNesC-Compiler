@@ -557,14 +557,14 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             res += "import java.util.ListIterator;\n"
             res += "import com.google.common.base.Optional;\n"
             res += "import pl.edu.mimuw.nesc.ast.*;\n"
-            res += "import pl.edu.mimuw.nesc.ast.type.Type;\n"
-            res += "import pl.edu.mimuw.nesc.ast.util.AstUtils;\n"
+            res += "import pl.edu.mimuw.nesc.astutil.AstUtils;\n"
             res += "import pl.edu.mimuw.nesc.declaration.label.*;\n"
             res += "import pl.edu.mimuw.nesc.declaration.nesc.*;\n"
             res += "import pl.edu.mimuw.nesc.declaration.object.*;\n"
             res += "import pl.edu.mimuw.nesc.declaration.tag.*;\n"
             res += "import pl.edu.mimuw.nesc.environment.*;\n"
             res += "import pl.edu.mimuw.nesc.facade.component.specification.ModuleTable;\n"
+            res += "import pl.edu.mimuw.nesc.type.*;\n"
 
             # Include docstring if present.
             if cls.__doc__ is not None:

@@ -1,10 +1,10 @@
 package pl.edu.mimuw.nesc.declaration.object.unique;
 
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.type.CharType;
-import pl.edu.mimuw.nesc.ast.type.PointerType;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.type.UnsignedIntType;
+import pl.edu.mimuw.nesc.type.CharType;
+import pl.edu.mimuw.nesc.type.PointerType;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.type.UnsignedIntType;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.Linkage;
 
@@ -40,7 +40,7 @@ public final class UniqueDeclaration extends FunctionDeclaration {
 
     private static Builder getConfiguredBuilder() {
         final Type[] argsTypes = { new PointerType(new CharType()) };
-        final Type uniqueType = new pl.edu.mimuw.nesc.ast.type.FunctionType(new UnsignedIntType(), argsTypes, false);
+        final Type uniqueType = new pl.edu.mimuw.nesc.type.FunctionType(new UnsignedIntType(), argsTypes, false);
 
         final Builder builder = builder();
         builder.interfaceName(null)

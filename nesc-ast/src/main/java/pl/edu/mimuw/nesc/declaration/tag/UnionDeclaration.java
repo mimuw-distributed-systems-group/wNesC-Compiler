@@ -1,16 +1,10 @@
 package pl.edu.mimuw.nesc.declaration.tag;
 
-import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.UnionRef;
-import pl.edu.mimuw.nesc.ast.type.ExternalUnionType;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.type.UnionType;
-import pl.edu.mimuw.nesc.declaration.tag.fieldtree.TreeElement;
-
-import com.google.common.base.Optional;
-
-import java.util.List;
+import pl.edu.mimuw.nesc.type.ExternalUnionType;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.type.UnionType;
 
 
 /**

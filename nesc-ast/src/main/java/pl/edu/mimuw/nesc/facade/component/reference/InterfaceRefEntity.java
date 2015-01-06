@@ -2,8 +2,8 @@ package pl.edu.mimuw.nesc.facade.component.reference;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import pl.edu.mimuw.nesc.ast.type.InterfaceType;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.InterfaceType;
+import pl.edu.mimuw.nesc.type.Type;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 

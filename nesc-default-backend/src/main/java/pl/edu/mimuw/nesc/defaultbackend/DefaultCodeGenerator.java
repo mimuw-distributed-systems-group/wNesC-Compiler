@@ -20,7 +20,7 @@ import java.util.Set;
 import pl.edu.mimuw.nesc.FileData;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
-import pl.edu.mimuw.nesc.ast.util.AstUtils;
+import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.preprocessor.directive.IncludeDirective;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
 

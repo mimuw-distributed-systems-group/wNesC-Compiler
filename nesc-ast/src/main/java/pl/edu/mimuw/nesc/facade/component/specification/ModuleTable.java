@@ -17,7 +17,7 @@ import pl.edu.mimuw.nesc.ast.gen.InterfaceRefDeclarator;
 import pl.edu.mimuw.nesc.ast.gen.ModuleImpl;
 import pl.edu.mimuw.nesc.ast.gen.PointerDeclarator;
 import pl.edu.mimuw.nesc.ast.gen.QualifiedDeclarator;
-import pl.edu.mimuw.nesc.ast.util.TypeElementUtils;
+import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.InterfaceRefDeclaration;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;

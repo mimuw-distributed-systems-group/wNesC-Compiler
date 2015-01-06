@@ -1,9 +1,9 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.type.VoidType;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.type.VoidType;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
@@ -38,7 +38,7 @@ public final class InvalidCastExprError extends ErroneousIssue {
                           new VoidType());
         } else if (!argType.isGeneralizedScalarType()) {
             return format("Cannot cast expression '%s' of type '%s'; expecting a scalar type",
-                         PrettyPrint.expression(argExpr), argType);
+                         ASTWriter.writeToString(argExpr), argType);
         } else if (argType.isPointerType() && destType.isFloatingType()) {
             return format("Cannot cast expression of a pointer type to a floating type ('%s' to '%s')",
                           argType, destType);
@@ -59,6 +59,6 @@ public final class InvalidCastExprError extends ErroneousIssue {
         }
 
         return format("Invalid cast of expression '%s' of type '%s' to '%s'",
-                      PrettyPrint.expression(argExpr), argType, destType);
+                      ASTWriter.writeToString(argExpr), argType, destType);
     }
 }

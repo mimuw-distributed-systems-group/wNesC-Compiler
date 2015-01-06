@@ -1,12 +1,12 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.PointerType;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.PointerType;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.BinaryOp;
+import static pl.edu.mimuw.nesc.astwriting.Tokens.BinaryOp;
 
 /**
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -34,6 +34,6 @@ public final class VoidPointerArithmeticsWarning extends CautionaryIssue {
     @Override
     public String generateDescription() {
         return format("Pointer '%s' to '%s' used for an arithmetic operation with operator %s",
-                PrettyPrint.expression(ptrExpr), ptrType.getReferencedType(), op);
+                ASTWriter.writeToString(ptrExpr), ptrType.getReferencedType(), op);
     }
 }

@@ -15,9 +15,9 @@ import pl.edu.mimuw.nesc.ast.IntegerCstKind;
 import pl.edu.mimuw.nesc.ast.IntegerCstSuffix;
 import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.gen.*;
-import pl.edu.mimuw.nesc.ast.type.*;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.*;
 import pl.edu.mimuw.nesc.astbuilding.Declarations;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.declaration.object.unique.UniqueCountDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.unique.UniqueDeclaration;
@@ -34,11 +34,11 @@ import pl.edu.mimuw.nesc.problem.issue.*;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
-import static pl.edu.mimuw.nesc.ast.type.TypeUtils.*;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.*;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.BinaryOp.*;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.ConstantFun.*;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.UnaryOp.*;
+import static pl.edu.mimuw.nesc.type.TypeUtils.*;
+import static pl.edu.mimuw.nesc.astwriting.Tokens.*;
+import static pl.edu.mimuw.nesc.astwriting.Tokens.BinaryOp.*;
+import static pl.edu.mimuw.nesc.astwriting.Tokens.ConstantFun.*;
+import static pl.edu.mimuw.nesc.astwriting.Tokens.UnaryOp.*;
 import static pl.edu.mimuw.nesc.problem.issue.InvalidParameterTypeError.FunctionKind;
 import static pl.edu.mimuw.nesc.problem.issue.InvalidParameterTypeError.ParameterKind;
 import static pl.edu.mimuw.nesc.problem.issue.InvalidPostTaskExprError.PostProblemKind;
@@ -149,7 +149,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
     /**
      * Analyze the given expression and report all detected errors to the given
      * error helper. This method shall not be called if
-     * {@link pl.edu.mimuw.nesc.ast.util.AstUtils#IS_INITIALIZER IS_INITIALIZER}
+     * {@link pl.edu.mimuw.nesc.astutil.AstUtils#IS_INITIALIZER IS_INITIALIZER}
      * predicate is fulfilled for the expression.
      *
      * @param expr Expression to be analyzed.
@@ -2600,7 +2600,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
                 anotherProblem = true;
                 if (LOG.isDebugEnabled()) {
                     LOG.debug(format("Finish analysis of NesC call '%s' because the interface reference is not good",
-                            PrettyPrint.expression(callExpr)));
+                            ASTWriter.writeToString(callExpr)));
                 }
                 return;
             }
@@ -2646,7 +2646,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
                 anotherProblem = true;
                 if (LOG.isDebugEnabled()) {
                     LOG.debug(format("Finish analysis of NesC call '%s' because the type is absent in the function declaration object",
-                              PrettyPrint.expression(callExpr)));
+                              ASTWriter.writeToString(callExpr)));
                 }
                 return;
             }

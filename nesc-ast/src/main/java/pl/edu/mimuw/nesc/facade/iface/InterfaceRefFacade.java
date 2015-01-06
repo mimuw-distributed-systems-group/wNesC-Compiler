@@ -5,7 +5,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.Type;
 
 /**
  * <p>Interface with common operations that are related to interface references

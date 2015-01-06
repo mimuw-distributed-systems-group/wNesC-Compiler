@@ -4,10 +4,8 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.gen.NullVisitor;
-import pl.edu.mimuw.nesc.ast.gen.UniqueCall;
 import pl.edu.mimuw.nesc.ast.gen.UniqueCountCall;
-import pl.edu.mimuw.nesc.ast.gen.UniqueNCall;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -50,7 +48,7 @@ final class CountsProcessor extends NullVisitor<Void, Void> {
         uniqueCountCall.setValue(value);
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug(format("Evaluate '%s' to %d", PrettyPrint.expression(uniqueCountCall), value));
+            LOG.debug(format("Evaluate '%s' to %d", ASTWriter.writeToString(uniqueCountCall), value));
         }
 
         return null;

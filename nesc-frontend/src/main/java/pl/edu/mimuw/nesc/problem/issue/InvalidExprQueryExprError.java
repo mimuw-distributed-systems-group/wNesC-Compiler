@@ -1,12 +1,12 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.*;
+import static pl.edu.mimuw.nesc.astwriting.Tokens.*;
 
 /**
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -39,16 +39,16 @@ public final class InvalidExprQueryExprError extends ErroneousIssue {
     public String generateDescription() {
         if (isBitField) {
             return format("Operator %s cannot be applied to bit-field designated by expression '%s'",
-                          op, PrettyPrint.expression(arg));
+                          op, ASTWriter.writeToString(arg));
         } else if (argType.isFunctionType()) {
             return format("Operator %s cannot be applied to expression '%s' which has function type '%s'.",
-                          op, PrettyPrint.expression(arg), argType);
+                          op, ASTWriter.writeToString(arg), argType);
         } else if (!argType.isComplete()) {
             return format("Operator %s cannot be applied to expression '%s' which has incomplete type '%s'",
-                          op, PrettyPrint.expression(arg), argType);
+                          op, ASTWriter.writeToString(arg), argType);
         }
 
         return format("Operator %s cannot be applied to expression '%s'",
-                      op, PrettyPrint.expression(arg));
+                      op, ASTWriter.writeToString(arg));
     }
 }

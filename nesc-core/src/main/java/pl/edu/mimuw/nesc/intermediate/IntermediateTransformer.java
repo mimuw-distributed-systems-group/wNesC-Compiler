@@ -1,7 +1,6 @@
 package pl.edu.mimuw.nesc.intermediate;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.Multimap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -23,7 +22,7 @@ import pl.edu.mimuw.nesc.ast.gen.Module;
 import pl.edu.mimuw.nesc.ast.gen.NestedDeclarator;
 import pl.edu.mimuw.nesc.ast.gen.Rid;
 import pl.edu.mimuw.nesc.ast.gen.TypeElement;
-import pl.edu.mimuw.nesc.ast.util.AstUtils;
+import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.wiresgraph.SpecificationElementNode;
 import pl.edu.mimuw.nesc.wiresgraph.WiresGraph;
 

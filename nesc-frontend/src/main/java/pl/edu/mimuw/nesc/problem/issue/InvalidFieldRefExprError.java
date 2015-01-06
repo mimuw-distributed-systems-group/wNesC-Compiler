@@ -1,9 +1,8 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.PointerType;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
@@ -40,13 +39,13 @@ public final class InvalidFieldRefExprError extends ErroneousIssue {
     public String generateDescription() {
         if (!tagType.isFieldTagType()) {
             return format("'%s' has type '%s' but expecting a structure or union because of field reference",
-                          PrettyPrint.expression(tagExpr), tagType);
+                          ASTWriter.writeToString(tagExpr), tagType);
         } else if (!isTypeComplete) {
             return format("Cannot refer to a field of incomplete type '%s' which is the type of expression '%s'",
-                          tagType, PrettyPrint.expression(tagExpr));
+                          tagType, ASTWriter.writeToString(tagExpr));
         } else if (!isFieldPresent) {
             return format("Field '%s' does not exist in '%s' which is the type of expression '%s'",
-                    fieldName, tagType, PrettyPrint.expression(tagExpr));
+                    fieldName, tagType, ASTWriter.writeToString(tagExpr));
         }
 
         return format("Invalid reference of field '%s'", fieldName);

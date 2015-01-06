@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import pl.edu.mimuw.nesc.ast.type.*;
+import pl.edu.mimuw.nesc.type.*;
 
 import static com.google.common.base.Preconditions.*;
 

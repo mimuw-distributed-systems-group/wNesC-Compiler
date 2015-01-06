@@ -1,9 +1,9 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.PointerType;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.PointerType;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
@@ -37,7 +37,7 @@ public final class InvalidArrayRefExprError extends ErroneousIssue {
     public String generateDescription() {
         if (!typeArray.isPointerType() && !typeIndex.isPointerType()) {
             return format("Operands '%s' and '%s' for operator [] have types '%s' and '%s' but expecting an operand with array or pointer type",
-                    PrettyPrint.expression(exprArray), PrettyPrint.expression(exprIndex), typeArray, typeIndex);
+                    ASTWriter.writeToString(exprArray), ASTWriter.writeToString(exprIndex), typeArray, typeIndex);
         } else {
             final PointerType ptrType = typeArray.isPointerType()
                     ? (PointerType) typeArray
@@ -55,13 +55,13 @@ public final class InvalidArrayRefExprError extends ErroneousIssue {
 
             if (!otherType.isGeneralizedIntegerType()) {
                 return format("Operand '%s' for operator [] has type '%s' but expecting an integer type as the other operand is a pointer",
-                              PrettyPrint.expression(otherExpr), otherType);
+                              ASTWriter.writeToString(otherExpr), otherType);
             } else if (!refType.isComplete()) {
                 return format("Operand '%s' for operator [] is a pointer to incomplete type '%s'",
-                              PrettyPrint.expression(ptrExpr), refType);
+                              ASTWriter.writeToString(ptrExpr), refType);
             } else if (!refType.isObjectType()) {
                 return format("Operand '%s' for operator [] is not a pointer to an object; expecting a pointer to an object type",
-                              PrettyPrint.expression(ptrExpr));
+                              ASTWriter.writeToString(ptrExpr));
             }
         }
 

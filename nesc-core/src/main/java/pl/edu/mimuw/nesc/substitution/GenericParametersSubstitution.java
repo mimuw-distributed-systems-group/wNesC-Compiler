@@ -9,8 +9,8 @@ import java.util.List;
 import java.util.Set;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
-import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
-import pl.edu.mimuw.nesc.ast.util.TypeElementUtils;
+import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
+import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;

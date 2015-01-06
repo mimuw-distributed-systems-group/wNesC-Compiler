@@ -4,7 +4,6 @@ import com.google.common.base.Optional;
 import org.junit.Before;
 import org.junit.Test;
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.type.Type;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.VariableDeclaration;
 

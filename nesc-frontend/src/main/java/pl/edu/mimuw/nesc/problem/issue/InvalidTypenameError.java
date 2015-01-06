@@ -1,6 +1,6 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.Type;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;

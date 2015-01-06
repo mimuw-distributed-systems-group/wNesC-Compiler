@@ -1,14 +1,14 @@
 package pl.edu.mimuw.nesc.analysis;
 
-import pl.edu.mimuw.nesc.ast.util.Interval;
-import pl.edu.mimuw.nesc.ast.TagRefSemantics;
+import pl.edu.mimuw.nesc.astutil.Interval;
+import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.Linkage;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectKind;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.TagDeclaration;
-import pl.edu.mimuw.nesc.ast.type.*;
+import pl.edu.mimuw.nesc.type.*;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Set;
 
 import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.*;
-import static pl.edu.mimuw.nesc.ast.util.DeclaratorUtils.getDeclaratorName;
+import static pl.edu.mimuw.nesc.astutil.DeclaratorUtils.getDeclaratorName;
 import static pl.edu.mimuw.nesc.problem.issue.InvalidTypeSpecifiersMixError.InvalidCombinationType.*;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -767,7 +767,7 @@ public final class TypesAnalysis {
                 return;
             }
 
-            if (tagRef.getSemantics() == TagRefSemantics.OTHER) {
+            if (tagRef.getSemantics() == StructSemantics.OTHER) {
                 processTagReference(tagRef, environment, isStandalone, errorHelper,
                         semanticListener, attributeAnalyzer);
             }

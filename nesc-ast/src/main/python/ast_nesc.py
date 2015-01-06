@@ -345,7 +345,7 @@ class GccAttribute(BasicASTNode):
     <p><code>arguments</code> of attribute may be empty and may not be semantically valid.</p>
     """
     superclass = Attribute
-    arguments = ReferenceListField("Expression")
+    arguments = ReferenceListField("Expression", optional=True)
 
 
 # Storage class specifier, type specifier or type qualifier ID (see RID_xxx)
@@ -375,7 +375,7 @@ class TagRef(BasicASTNode):
     name = ReferenceField("Word")   # FIXME optional!
     attributes = ReferenceListField("Attribute")
     fields = ReferenceListField("Declaration")  # FIXME optional!
-    semantics = ReferenceField("TagRefSemantics", deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
+    semantics = ReferenceField("StructSemantics", deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
     isInvalid = BoolField(constructor_variable=False)
 
 
@@ -756,8 +756,9 @@ class Identifier(BasicASTNode):
     """
     <p><code>isGenericReference</code> is <code>true</code> after semantic analysis if and only if this identifier
     occurs inside a generic component definition and refers to one of its generic non-type parameters.</p>
-    <p><code>uniqueName</code> is absent if and only if this identifier refers to a name of a command or event. If an
-    error is detected during the semantic analysis, the name can be <code>null</code>.</p>
+    <p><code>uniqueName</code> is absent if and only if this identifier refers to a name of a command or event or
+    appears inside a GCC attribute. If an error is detected during the semantic analysis, the name can be
+    <code>null</code>.</p>
     """
     superclass = Expression
     mangleIndicator = MangleIndicator("uniqueName", "refsDeclInThisNescEntity", optional=True)
@@ -1161,6 +1162,7 @@ class StringAst(BasicASTNode):
 class IdLabel(BasicASTNode):
     superclass = Label
     id = StringField()
+    isColonTerminated = BoolField(constructor_variable=False)
     declaration = ReferenceField("LabelDeclaration", constructor_variable=False, visitable=False,
                                  deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
 

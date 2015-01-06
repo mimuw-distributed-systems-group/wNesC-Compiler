@@ -1,8 +1,8 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
@@ -47,8 +47,8 @@ public final class InvalidParameterTypeError extends ErroneousIssue {
     @Override
     public String generateDescription() {
         return format("Cannot use '%s' of type '%s' as the %s %s of type '%s' for %s '%s'",
-                PrettyPrint.expression(parameterExpr), actualType, getOrdinalForm(), paramKind,
-                expectedType, funKind, PrettyPrint.expression(funExpr));
+                ASTWriter.writeToString(parameterExpr), actualType, getOrdinalForm(), paramKind,
+                expectedType, funKind, ASTWriter.writeToString(funExpr));
     }
 
     private String getOrdinalForm() {

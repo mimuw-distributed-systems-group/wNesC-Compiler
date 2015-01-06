@@ -4,8 +4,8 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDeclarator;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.AstUtils;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astutil.AstUtils;
 
 import java.util.LinkedList;
 

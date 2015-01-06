@@ -7,7 +7,7 @@ import pl.edu.mimuw.nesc.ast.gen.Declarator;
 import pl.edu.mimuw.nesc.ast.gen.TypeElement;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.Type;
 
 import com.google.common.base.Optional;
 import java.util.LinkedList;

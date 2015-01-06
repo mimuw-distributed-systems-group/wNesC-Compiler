@@ -1,7 +1,7 @@
 package pl.edu.mimuw.nesc.facade.iface;
 
 import com.google.common.base.Optional;
-import pl.edu.mimuw.nesc.ast.type.FunctionType;
+import pl.edu.mimuw.nesc.type.FunctionType;
 
 import static com.google.common.base.Preconditions.*;
 

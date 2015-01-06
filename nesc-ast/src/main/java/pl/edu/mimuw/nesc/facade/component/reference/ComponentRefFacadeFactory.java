@@ -12,7 +12,7 @@ import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.TypeArgument;
 import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
-import pl.edu.mimuw.nesc.ast.type.UnknownType;
+import pl.edu.mimuw.nesc.type.UnknownType;
 import pl.edu.mimuw.nesc.declaration.nesc.ComponentDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;

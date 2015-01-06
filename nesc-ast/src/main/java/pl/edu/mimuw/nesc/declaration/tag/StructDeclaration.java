@@ -2,9 +2,9 @@ package pl.edu.mimuw.nesc.declaration.tag;
 
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.StructRef;
-import pl.edu.mimuw.nesc.ast.type.ExternalStructureType;
-import pl.edu.mimuw.nesc.ast.type.StructureType;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.ExternalStructureType;
+import pl.edu.mimuw.nesc.type.StructureType;
+import pl.edu.mimuw.nesc.type.Type;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>

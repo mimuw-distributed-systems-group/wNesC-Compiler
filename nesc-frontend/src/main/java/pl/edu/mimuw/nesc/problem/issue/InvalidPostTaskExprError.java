@@ -1,8 +1,8 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
 import pl.edu.mimuw.nesc.astbuilding.Declarations;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
@@ -37,16 +37,16 @@ public final class InvalidPostTaskExprError extends ErroneousIssue {
         switch (problemKind) {
             case IDENTIFER_NOT_PROVIDED:
                 return format("Posting a task requires an identifier but '%s' encountered",
-                        PrettyPrint.expression(functionExpr));
+                        ASTWriter.writeToString(functionExpr));
             case PARAMETERS_GIVEN:
                 return format("Tasks do not take any parameters but %d arguments given",
                         argumentsCount);
             case INVALID_OBJECT_REFERENCED:
                 return format("Cannot post '%s' because it is not a task",
-                        PrettyPrint.expression(functionExpr));
+                        ASTWriter.writeToString(functionExpr));
             case INVALID_TASK_TYPE:
                 return format("Task '%s' is not of type '%s'; correct its declaration and/or definition",
-                        PrettyPrint.expression(functionExpr), Declarations.TYPE_TASK);
+                        ASTWriter.writeToString(functionExpr), Declarations.TYPE_TASK);
             default:
                 return "Invalid task posting expression";
         }

@@ -1,13 +1,12 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.PointerType;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.PointerType;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static java.lang.String.format;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.*;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.BinaryOp.*;
+import static pl.edu.mimuw.nesc.astwriting.Tokens.*;
 
 /**
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -30,10 +29,10 @@ public final class InvalidAssignAdditiveExprError extends BinaryExprErroneousIss
 
             if (!refType.isComplete()) {
                 return format("Cannot advance pointer '%s' because it points to incomplete type '%s'",
-                              PrettyPrint.expression(leftExpr), refType);
+                              ASTWriter.writeToString(leftExpr), refType);
             } else if (!refType.isObjectType()) {
                 return format("Cannot advance pointer '%s' because it does not point to an object",
-                              PrettyPrint.expression(leftExpr));
+                              ASTWriter.writeToString(leftExpr));
             }
         }
 

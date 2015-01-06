@@ -1,9 +1,9 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.Type;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.*;
+import static pl.edu.mimuw.nesc.astwriting.Tokens.*;
 
 /**
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>

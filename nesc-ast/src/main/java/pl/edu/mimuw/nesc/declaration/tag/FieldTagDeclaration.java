@@ -6,7 +6,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import pl.edu.mimuw.nesc.ast.TagRefSemantics;
+import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.TagRef;
 import pl.edu.mimuw.nesc.declaration.tag.fieldtree.TreeElement;
 
@@ -92,9 +92,9 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
      */
     public final void setPredefinitionNode(T node) {
         checkNotNull(node, "the AST node cannot be null");
-        checkArgument(node.getSemantics() != TagRefSemantics.OTHER,
+        checkArgument(node.getSemantics() != StructSemantics.OTHER,
                 "given nodes is not a pre-definition or definition node");
-        checkState(astTagRef.getSemantics() == TagRefSemantics.OTHER,
+        checkState(astTagRef.getSemantics() == StructSemantics.OTHER,
                 "the pre-definition node has been already set");
 
         this.astTagRef = node;

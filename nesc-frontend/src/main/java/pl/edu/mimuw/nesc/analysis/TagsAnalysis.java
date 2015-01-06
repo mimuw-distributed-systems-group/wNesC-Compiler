@@ -1,11 +1,11 @@
 package pl.edu.mimuw.nesc.analysis;
 
 import pl.edu.mimuw.nesc.ast.StructKind;
-import pl.edu.mimuw.nesc.ast.TagRefSemantics;
+import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
-import pl.edu.mimuw.nesc.ast.type.FieldTagType;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
+import pl.edu.mimuw.nesc.type.FieldTagType;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.*;
 import pl.edu.mimuw.nesc.declaration.tag.fieldtree.*;
@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Set;
 
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveDeclaratorType;
-import static pl.edu.mimuw.nesc.ast.util.TypeElementUtils.getStructKind;
+import static pl.edu.mimuw.nesc.astutil.TypeElementUtils.getStructKind;
 import static pl.edu.mimuw.nesc.problem.issue.RedefinitionError.RedefinitionKind;
 import static pl.edu.mimuw.nesc.problem.issue.RedeclarationError.RedeclarationKind;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -98,7 +98,7 @@ public final class TagsAnalysis {
 
     private static List<ConstantDeclaration> getEnumerators(EnumRef enumRef) {
         checkNotNull(enumRef, "enum reference cannot be null");
-        checkArgument(enumRef.getSemantics() == TagRefSemantics.DEFINITION,
+        checkArgument(enumRef.getSemantics() == StructSemantics.DEFINITION,
                 "enumeration type must be defined");
 
         final List<ConstantDeclaration> result = new ArrayList<>();
@@ -234,7 +234,7 @@ public final class TagsAnalysis {
 
         @Override
         public Void visitAttributeRef(AttributeRef attrRef, Void v) {
-            checkState(attrRef.getSemantics() != TagRefSemantics.OTHER, "attribute reference that is not definition of an attribute");
+            checkState(attrRef.getSemantics() != StructSemantics.OTHER, "attribute reference that is not definition of an attribute");
             checkState(attrRef.getName() != null, "name of an attribute in its definition is null");
             processTagRef(attrRef);
             return null;
@@ -253,7 +253,7 @@ public final class TagsAnalysis {
                 return;
             }
 
-            if (tagRef.getSemantics() == TagRefSemantics.OTHER) {
+            if (tagRef.getSemantics() == StructSemantics.OTHER) {
                 declare(tagRef);
             } else {
                 define(tagRef);
@@ -328,12 +328,12 @@ public final class TagsAnalysis {
                     error = Optional.of(new ConflictingTagKindError(name));
                 } else if (oldDeclPure.isDefined()) {
                     error = Optional.of(new RedefinitionError(name, RedefinitionKind.TAG));
-                } else if (oldDeclPure.getAstNode().getSemantics() == TagRefSemantics.PREDEFINITION) {
+                } else if (oldDeclPure.getAstNode().getSemantics() == StructSemantics.PREDEFINITION) {
                     error = Optional.of(new RedefinitionError(name, RedefinitionKind.NESTED_TAG));
                 }
                 if (error.isPresent()) {
                     tagRef.setIsInvalid(true);
-                    if (tagRef.getSemantics() == TagRefSemantics.PREDEFINITION) {
+                    if (tagRef.getSemantics() == StructSemantics.PREDEFINITION) {
                         errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(), error.get());
                     }
                     return;
@@ -359,7 +359,7 @@ public final class TagsAnalysis {
                 }
             }
 
-            if (tagDeclaration.isPresent() && tagRef.getSemantics() == TagRefSemantics.DEFINITION) {
+            if (tagDeclaration.isPresent() && tagRef.getSemantics() == StructSemantics.DEFINITION) {
                 emitGlobalNameEvent(tagRef);
                 attributeAnalyzer.analyzeAttributes(tagRef.getAttributes(), tagDeclaration.get(), environment);
             }
@@ -396,7 +396,7 @@ public final class TagsAnalysis {
             public boolean apply(TagDeclaration decl) {
                 sameKind = decl.getKind() == expectedKind;
                 isDefined = decl.isDefined();
-                insideDefinition = decl.getAstNode().getSemantics() == TagRefSemantics.PREDEFINITION;
+                insideDefinition = decl.getAstNode().getSemantics() == StructSemantics.PREDEFINITION;
                 return sameKind && (!mustBeUndefined || !isDefined && !insideDefinition);
             }
         }
@@ -622,7 +622,7 @@ public final class TagsAnalysis {
         public AttributeDeclaration visitAttributeRef(AttributeRef attrRef, Void arg) {
             AttributeDeclaration.Builder builder;
 
-            if (attrRef.getSemantics() == TagRefSemantics.DEFINITION) {
+            if (attrRef.getSemantics() == StructSemantics.DEFINITION) {
                 builder = AttributeDeclaration.definitionBuilder();
                 builder.structure(getFieldTagStructure(attrRef, errorHelper));
             } else {
@@ -656,7 +656,7 @@ public final class TagsAnalysis {
         public EnumDeclaration visitEnumRef(EnumRef enumRef, Void arg) {
             EnumDeclaration.Builder builder;
 
-            if (enumRef.getSemantics() != TagRefSemantics.DEFINITION) {
+            if (enumRef.getSemantics() != StructSemantics.DEFINITION) {
                 builder = EnumDeclaration.declarationBuilder();
             } else {
                 builder = EnumDeclaration.definitionBuilder()
@@ -692,7 +692,7 @@ public final class TagsAnalysis {
         private StructDeclaration makeStructDeclaration(StructRef structRef, boolean isExternal) {
             StructDeclaration.Builder builder;
 
-            if (structRef.getSemantics() == TagRefSemantics.DEFINITION) {
+            if (structRef.getSemantics() == StructSemantics.DEFINITION) {
                 builder = StructDeclaration.definitionBuilder();
                 builder.structure(getFieldTagStructure(structRef, errorHelper));
             } else {
@@ -719,7 +719,7 @@ public final class TagsAnalysis {
         private UnionDeclaration makeUnionDeclaration(UnionRef unionRef, boolean isExternal) {
             UnionDeclaration.Builder builder;
 
-            if (unionRef.getSemantics() == TagRefSemantics.DEFINITION) {
+            if (unionRef.getSemantics() == StructSemantics.DEFINITION) {
                 builder = UnionDeclaration.definitionBuilder();
                 builder.structure(getFieldTagStructure(unionRef, errorHelper));
             } else {
@@ -773,7 +773,7 @@ public final class TagsAnalysis {
             checkNotNull(tagDeclaration, "tag declaration cannot be null");
             checkNotNull(tagRef, "tag reference cannot be null");
             checkNotNull(errorHelper, "error helper cannot be null");
-            checkArgument(tagRef.getSemantics() == TagRefSemantics.DEFINITION,
+            checkArgument(tagRef.getSemantics() == StructSemantics.DEFINITION,
                     "expecting a tag reference with definition");
             checkArgument(tagDeclaration.getAstNode() == tagRef,
                     "updating a tag declaration not associated with given tag reference");

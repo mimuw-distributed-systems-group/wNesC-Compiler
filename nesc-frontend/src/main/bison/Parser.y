@@ -13,8 +13,9 @@ import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
-import pl.edu.mimuw.nesc.ast.util.AstUtils;
-import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
+import pl.edu.mimuw.nesc.astutil.AstUtils;
+import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
+import pl.edu.mimuw.nesc.astutil.ExpressionUtils;
 import pl.edu.mimuw.nesc.common.FileType;
 import pl.edu.mimuw.nesc.common.NesCFileType;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
@@ -1448,6 +1449,7 @@ unary_expr:
     /* Refer to the address of a label as a pointer.  */
     | ANDAND id_label
     {
+        $2.setIsColonTerminated(false);
         $$ = Expressions.makeLabelAddress($1.getLocation(), $2);
     }
     | sizeof unary_expr
@@ -2523,7 +2525,7 @@ target_attribute:
     {
         final Word w = new Word($1.getLocation(), $1.getValue());
         w.setEndLocation($1.getEndLocation());
-        final TargetAttribute attribute = new TargetAttribute($1.getLocation(), w, Lists.<Expression>newList());
+        final TargetAttribute attribute = new TargetAttribute($1.getLocation(), w, Optional.<LinkedList<Expression>>absent());
         attribute.setEndLocation($1.getEndLocation());
         $$ = attribute;
     }
@@ -2531,7 +2533,7 @@ target_attribute:
     {
         final Word w = new Word($1.getLocation(), $1.getValue());
         w.setEndLocation($1.getEndLocation());
-        final TargetAttribute attribute = new TargetAttribute($1.getLocation(), w, Lists.newList($2));
+        final TargetAttribute attribute = new TargetAttribute($1.getLocation(), w, Optional.of(Lists.newList($2)));
         attribute.setEndLocation($2.getEndLocation());
         $$ = attribute;
     }
@@ -2539,7 +2541,7 @@ target_attribute:
     {
         final Word w = new Word(Location.getDummyLocation(), "iar_at");
         w.setEndLocation(Location.getDummyLocation());
-        final TargetAttribute attribute = new TargetAttribute($1.getLocation(), w, Lists.newList($2));
+        final TargetAttribute attribute = new TargetAttribute($1.getLocation(), w, Optional.of(Lists.newList($2)));
         attribute.setEndLocation($2.getEndLocation());
         $$ = attribute;
     }
@@ -2595,7 +2597,7 @@ attrib:
     { $$ = null; }
     | any_word
     {
-        final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Lists.<Expression>newList());
+        final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Optional.<LinkedList<Expression>>absent());
         attribute.setEndLocation($1.getEndLocation());
         $$ = attribute;
     }
@@ -2603,7 +2605,8 @@ attrib:
     {
         final Identifier id = new Identifier($3.getLocation(), $3.getValue());
         id.setEndLocation($3.getEndLocation());
-        final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Lists.<Expression>newList(id));
+        id.setUniqueName(Optional.<String>absent());
+        final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Optional.of(Lists.<Expression>newList(id)));
         attribute.setEndLocation($4.getEndLocation());
         $$ = attribute;
     }
@@ -2611,13 +2614,16 @@ attrib:
     {
         final Identifier id = new Identifier($3.getLocation(), $3.getValue());
         id.setEndLocation($3.getEndLocation());
-        final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Lists.<Expression>chain($5, id));
+        final LinkedList<Expression> arguments = Lists.<Expression>chain($5, id);
+        ExpressionUtils.setUniqueNameDeep(arguments, Optional.<String>absent());
+        final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Optional.of(arguments));
         attribute.setEndLocation($6.getEndLocation());
         $$ = attribute;
     }
     | any_word LPAREN exprlist RPAREN
     {
-        final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, $3);
+        ExpressionUtils.setUniqueNameDeep($3, Optional.<String>absent());
+        final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Optional.of($3));
         attribute.setEndLocation($4.getEndLocation());
         $$ = attribute;
     }
@@ -3810,6 +3816,7 @@ stmt:
     }
     | GOTO id_label SEMICOLON
     {
+        $2.setIsColonTerminated(false);
         pstate.stmtCount++;
         final GotoStmt stmt = new GotoStmt($1.getLocation(), $2);
         stmt.setEndLocation($3.getEndLocation());
@@ -3865,6 +3872,7 @@ label:
     }
     | id_label COLON
     {
+        $1.setIsColonTerminated(true);
         $$ = $1;
     }
     ;
@@ -4086,9 +4094,15 @@ old_parameter:
  */
 identifiers_or_typenames:
       id_label
-    { $$ = Lists.<IdLabel>newList($1); }
+    {
+        $1.setIsColonTerminated(false);
+        $$ = Lists.<IdLabel>newList($1);
+    }
     | identifiers_or_typenames COMMA id_label
-    { $$ = Lists.<IdLabel>chain($1, $3); }
+    {
+        $3.setIsColonTerminated(false);
+        $$ = Lists.<IdLabel>chain($1, $3);
+    }
     ;
 
 /*

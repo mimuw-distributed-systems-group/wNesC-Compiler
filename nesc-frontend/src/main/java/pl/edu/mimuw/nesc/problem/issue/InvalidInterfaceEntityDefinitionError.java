@@ -1,7 +1,7 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import com.google.common.base.Optional;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
 
 import static java.lang.String.format;

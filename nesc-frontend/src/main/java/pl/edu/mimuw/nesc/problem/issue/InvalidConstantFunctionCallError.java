@@ -1,15 +1,13 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
-import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.ConstantFun;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.ConstantFun.*;
+import static pl.edu.mimuw.nesc.astwriting.Tokens.ConstantFun;
 
 /**
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -41,7 +39,7 @@ public final class InvalidConstantFunctionCallError extends ErroneousIssue {
 
     public static InvalidConstantFunctionCallError nonConstantIdentifier(ConstantFun fun, Expression providedExpr) {
         final String description = format("Constant function '%s' expects a constant string as the 1st parameter but non-constant string '%s' provided",
-                fun, PrettyPrint.expression(providedExpr));
+                fun, ASTWriter.writeToString(providedExpr));
         return new InvalidConstantFunctionCallError(description);
     }
 
@@ -53,7 +51,7 @@ public final class InvalidConstantFunctionCallError extends ErroneousIssue {
 
     public static InvalidConstantFunctionCallError unsupportedIntegerExpression(Expression providedExpr) {
         final String msg = format("Unsupported expression '%s' for the 2nd parameter of 'uniqueN'",
-                PrettyPrint.expression(providedExpr));
+                ASTWriter.writeToString(providedExpr));
         final String notice = format("implement checking and evaluating constant expressions and change class '%s' and method '%s'",
                 "pl.edu.mimuw.nesc.fold.UniqueValuesProcessor", "pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis.checkNumbersCountForUniqueN");
         final String description = format("%s; %s", msg, notice);

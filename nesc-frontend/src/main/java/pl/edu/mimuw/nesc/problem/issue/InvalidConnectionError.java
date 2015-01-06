@@ -1,11 +1,9 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import java.util.Set;
-import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.FunctionType;
-import pl.edu.mimuw.nesc.ast.type.InterfaceType;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.FunctionType;
+import pl.edu.mimuw.nesc.type.InterfaceType;
+import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
 
 import static com.google.common.base.Preconditions.checkArgument;

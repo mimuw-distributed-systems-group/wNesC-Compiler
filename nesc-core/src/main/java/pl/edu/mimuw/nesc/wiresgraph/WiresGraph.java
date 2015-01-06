@@ -15,9 +15,9 @@ import java.util.Map;
 import java.util.Set;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
-import pl.edu.mimuw.nesc.ast.util.AstUtils;
-import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
-import pl.edu.mimuw.nesc.ast.util.TypeElementUtils;
+import pl.edu.mimuw.nesc.astutil.AstUtils;
+import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
+import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.facade.component.specification.InterfaceEntityElement;
 import pl.edu.mimuw.nesc.facade.component.specification.ModuleTable;
@@ -449,6 +449,7 @@ public final class WiresGraph {
                         AstUtils.newEmptyCompoundStmt(),
                         false
                 );
+                funDecl.setOldParms(Lists.<Declaration>newList());
 
                 return new IntermediateFunctionData(uniqueName, prepareParametersNames(funDeclarator.getParameters()),
                         instanceParametersCount, returnsVoid, funDecl, defaultImplementationUniqueName);
@@ -689,6 +690,7 @@ public final class WiresGraph {
                             AstUtils.newEmptyCompoundStmt(),
                             false
                     );
+                    functionDecl.setOldParms(Lists.<Declaration>newList());
 
                     final EntityData result = new IntermediateFunctionData(uniqueName, parametersNames,
                             instanceParameters.isPresent() ? instanceParameters.get().size() : 0,

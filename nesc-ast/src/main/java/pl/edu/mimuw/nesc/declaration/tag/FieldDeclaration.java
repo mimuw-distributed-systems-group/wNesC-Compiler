@@ -2,7 +2,7 @@ package pl.edu.mimuw.nesc.declaration.tag;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 

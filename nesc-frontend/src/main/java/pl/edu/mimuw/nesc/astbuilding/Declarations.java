@@ -8,18 +8,18 @@ import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
-import pl.edu.mimuw.nesc.ast.util.AstUtils;
-import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
-import pl.edu.mimuw.nesc.ast.util.Interval;
+import pl.edu.mimuw.nesc.astutil.AstUtils;
+import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
+import pl.edu.mimuw.nesc.astutil.Interval;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.StructKind;
-import pl.edu.mimuw.nesc.ast.TagRefSemantics;
+import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
-import pl.edu.mimuw.nesc.ast.type.FunctionType;
-import pl.edu.mimuw.nesc.ast.type.TypeDefinitionType;
-import pl.edu.mimuw.nesc.ast.type.VoidType;
-import pl.edu.mimuw.nesc.ast.util.TypeElementUtils;
+import pl.edu.mimuw.nesc.type.FunctionType;
+import pl.edu.mimuw.nesc.type.TypeDefinitionType;
+import pl.edu.mimuw.nesc.type.VoidType;
+import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.environment.Environment;
@@ -32,7 +32,7 @@ import pl.edu.mimuw.nesc.parser.TypeElementsAssociation;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.problem.issue.*;
 import pl.edu.mimuw.nesc.token.Token;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.Type;
 
 import java.util.LinkedList;
 
@@ -46,11 +46,11 @@ import static pl.edu.mimuw.nesc.analysis.TagsAnalysis.processTagReference;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.checkFunctionParametersTypes;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.checkVariableType;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveType;
-import static pl.edu.mimuw.nesc.ast.util.AstUtils.getEndLocation;
-import static pl.edu.mimuw.nesc.ast.util.AstUtils.getStartLocation;
-import static pl.edu.mimuw.nesc.ast.util.DeclaratorUtils.getDeclaratorName;
-import static pl.edu.mimuw.nesc.ast.util.DeclaratorUtils.getIdentifierInterval;
-import static pl.edu.mimuw.nesc.ast.util.DeclaratorUtils.mangleDeclaratorName;
+import static pl.edu.mimuw.nesc.astutil.AstUtils.getEndLocation;
+import static pl.edu.mimuw.nesc.astutil.AstUtils.getStartLocation;
+import static pl.edu.mimuw.nesc.astutil.DeclaratorUtils.getDeclaratorName;
+import static pl.edu.mimuw.nesc.astutil.DeclaratorUtils.getIdentifierInterval;
+import static pl.edu.mimuw.nesc.astutil.DeclaratorUtils.mangleDeclaratorName;
 import static pl.edu.mimuw.nesc.problem.issue.RedeclarationError.RedeclarationKind;
 import static pl.edu.mimuw.nesc.problem.issue.RedefinitionError.RedefinitionKind;
 
@@ -360,7 +360,7 @@ public final class Declarations extends AstBuildingBase {
                                            Location endLocation, StructKind kind, Word tag) {
         final TagRef result = makeTagRef(environment, startLocation, endLocation, kind, Optional.of(tag),
                 Lists.<Declaration>newList(), Lists.<Attribute>newList(),
-                TagRefSemantics.PREDEFINITION);
+                StructSemantics.PREDEFINITION);
         processTagReference(result, environment, true, errorHelper, semanticListener, attributeAnalyzer);
         return result;
     }
@@ -370,7 +370,7 @@ public final class Declarations extends AstBuildingBase {
         tagRef.setFields(fields);
         tagRef.setAttributes(attributes);
         tagRef.setEndLocation(endLocation);
-        tagRef.setSemantics(TagRefSemantics.DEFINITION);
+        tagRef.setSemantics(StructSemantics.DEFINITION);
         processTagReference(tagRef, environment, true, errorHelper, semanticListener, attributeAnalyzer);
     }
 
@@ -378,13 +378,13 @@ public final class Declarations extends AstBuildingBase {
                              StructKind kind, Optional<Word> tag,  LinkedList<Declaration> fields,
                              LinkedList<Attribute> attributes) {
         return makeTagRef(environment, startLocation, endLocation, kind, tag, fields, attributes,
-                          TagRefSemantics.DEFINITION);
+                          StructSemantics.DEFINITION);
     }
 
     public TagRef makeEnum(Environment environment, Location startLocation, Location endLocation, Optional<Word> tag,
                            LinkedList<Declaration> fields, LinkedList<Attribute> attributes) {
         return makeTagRef(environment, startLocation, endLocation, StructKind.ENUM, tag, fields,
-                          attributes, TagRefSemantics.DEFINITION);
+                          attributes, StructSemantics.DEFINITION);
     }
 
     /**
@@ -525,12 +525,12 @@ public final class Declarations extends AstBuildingBase {
         final LinkedList<Attribute> attributes = Lists.newList();
         final LinkedList<Declaration> declarations = Lists.newList();
         return makeTagRef(environment, startLocation, endLocation, structKind, tag, declarations,
-                          attributes, TagRefSemantics.OTHER);
+                          attributes, StructSemantics.OTHER);
     }
 
     private TagRef makeTagRef(Environment environment, Location startLocation, Location endLocation,
                               StructKind structKind, Optional<Word> tag, LinkedList<Declaration> declarations,
-                              LinkedList<Attribute> attributes, TagRefSemantics semantics) {
+                              LinkedList<Attribute> attributes, StructSemantics semantics) {
         final TagRef tagRef;
         switch (structKind) {
             case STRUCT:

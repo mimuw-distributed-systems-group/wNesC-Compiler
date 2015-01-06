@@ -2,7 +2,7 @@ package pl.edu.mimuw.nesc.analysis;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.Type;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**

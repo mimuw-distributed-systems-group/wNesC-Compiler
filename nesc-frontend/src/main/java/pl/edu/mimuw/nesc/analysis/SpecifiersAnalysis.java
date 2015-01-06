@@ -16,12 +16,12 @@ import java.util.Set;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import pl.edu.mimuw.nesc.ast.util.Interval;
+import pl.edu.mimuw.nesc.astutil.Interval;
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.util.LocationsPin;
+import pl.edu.mimuw.nesc.astutil.LocationsPin;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.declaration.object.Linkage;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.environment.ScopeType;

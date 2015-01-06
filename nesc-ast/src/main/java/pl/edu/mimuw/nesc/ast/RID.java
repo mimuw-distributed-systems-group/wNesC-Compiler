@@ -14,9 +14,9 @@ public enum RID {
 	SHORT("short"),
 	LONG("long"),
 	SIGNED("signed"),
-	COMPLEX("__complex"),
+	COMPLEX("_Complex"),
 
-	INLINE("__inline"),
+	INLINE("inline"),
 	DEFAULT("default"),
 	NORACE("norace"),
 
@@ -32,7 +32,7 @@ public enum RID {
 
 	CONST("const"),
 	VOLATILE("volatile"),
-	RESTRICT("__restrict");
+	RESTRICT("restrict");
 
 	private final String name;
 

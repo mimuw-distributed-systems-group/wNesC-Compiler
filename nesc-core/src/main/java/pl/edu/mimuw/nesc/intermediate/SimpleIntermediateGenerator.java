@@ -9,8 +9,8 @@ import java.util.Map;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
-import pl.edu.mimuw.nesc.ast.util.AstUtils;
-import pl.edu.mimuw.nesc.ast.util.TypeElementUtils;
+import pl.edu.mimuw.nesc.astutil.AstUtils;
+import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.wiresgraph.IntermediateFunctionData;
@@ -190,7 +190,7 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
                 Lists.<TypeElement>newList()
         );
 
-        return new FunctionDecl(
+        final FunctionDecl funDecl = new FunctionDecl(
                 Location.getDummyLocation(),
                 funDeclarator,
                 AstUtils.newRidsList(RID.STATIC, RID.INT),
@@ -198,6 +198,9 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
                 AstUtils.newEmptyCompoundStmt(),
                 false
         );
+        funDecl.setOldParms(Lists.<Declaration>newList());
+
+        return funDecl;
     }
 
     private void generateValidResultFunctionUniqueName(String componentName,

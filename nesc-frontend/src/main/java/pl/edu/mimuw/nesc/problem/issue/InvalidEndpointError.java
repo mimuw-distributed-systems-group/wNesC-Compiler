@@ -1,8 +1,8 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -68,7 +68,7 @@ public final class InvalidEndpointError extends ErroneousIssue {
             Expression providedExpr, Type providedType) {
 
         final String description = format("The %s argument '%s' for '%s' has type '%s' but expecting an integer type",
-                getOrdinalForm(paramNum), PrettyPrint.expression(providedExpr), entityName, providedType);
+                getOrdinalForm(paramNum), ASTWriter.writeToString(providedExpr), entityName, providedType);
         return new InvalidEndpointError(description);
     }
 

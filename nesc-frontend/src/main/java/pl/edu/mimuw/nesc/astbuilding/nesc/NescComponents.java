@@ -10,9 +10,9 @@ import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
-import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
+import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.declaration.nesc.ConfigurationDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.InterfaceDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.ModuleDeclaration;
@@ -46,7 +46,7 @@ import static pl.edu.mimuw.nesc.analysis.NescAnalysis.checkEqConnection;
 import static pl.edu.mimuw.nesc.analysis.NescAnalysis.checkInterfaceInstantiation;
 import static pl.edu.mimuw.nesc.analysis.NescAnalysis.checkRpConnection;
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.checkInstanceParametersSpecifiers;
-import static pl.edu.mimuw.nesc.ast.util.AstUtils.makeWord;
+import static pl.edu.mimuw.nesc.astutil.AstUtils.makeWord;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>

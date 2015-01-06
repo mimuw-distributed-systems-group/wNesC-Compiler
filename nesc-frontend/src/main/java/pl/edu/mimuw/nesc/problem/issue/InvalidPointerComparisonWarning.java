@@ -1,13 +1,13 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.*;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.BinaryOp.*;
+import static pl.edu.mimuw.nesc.astwriting.Tokens.*;
+import static pl.edu.mimuw.nesc.astwriting.Tokens.BinaryOp.*;
 
 /**
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -27,12 +27,12 @@ public final class InvalidPointerComparisonWarning  extends BinaryExprCautionary
         if (leftType.isPointerType() && rightType.isGeneralizedIntegerType()) {
 
             return format("Pointer '%s' of type '%s' compared to number '%s' of type '%s' with operator %s without a cast",
-                          PrettyPrint.expression(leftExpr), leftType, PrettyPrint.expression(rightExpr), rightType, op);
+                          ASTWriter.writeToString(leftExpr), leftType, ASTWriter.writeToString(rightExpr), rightType, op);
 
         } else if (leftType.isGeneralizedIntegerType() && rightType.isPointerType()) {
 
             return format("Number '%s' of type '%s' compared to pointer '%s' of type '%s' with operator %s without a cast",
-                        PrettyPrint.expression(leftExpr), leftType, PrettyPrint.expression(rightExpr), rightType, op);
+                        ASTWriter.writeToString(leftExpr), leftType, ASTWriter.writeToString(rightExpr), rightType, op);
         }
 
         return format("Invalid pointer comparison with operator %s", op);

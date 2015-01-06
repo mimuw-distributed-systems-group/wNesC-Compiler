@@ -1,8 +1,8 @@
 package pl.edu.mimuw.nesc.declaration.object;
 
 import com.google.common.base.Optional;
-import pl.edu.mimuw.nesc.ast.type.IntType;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.IntType;
+import pl.edu.mimuw.nesc.type.Type;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;

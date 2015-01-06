@@ -1,12 +1,8 @@
 package pl.edu.mimuw.nesc.declaration.tag;
 
-import com.google.common.base.Optional;
-import java.util.List;
-import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.AttributeRef;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.declaration.tag.fieldtree.TreeElement;
+import pl.edu.mimuw.nesc.type.Type;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>

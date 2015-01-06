@@ -2,8 +2,8 @@ package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.TypeArgument;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -29,7 +29,7 @@ public final class InvalidComponentParameterError extends ErroneousIssue {
     public static InvalidComponentParameterError typeExpected(String componentName,
             int paramNum, Expression providedExpr) {
         final String description = format("The %s parameter of component '%s' is a type argument but expression '%s' provided; replace it with a typename",
-                getOrdinalForm(paramNum), componentName, PrettyPrint.expression(providedExpr));
+                getOrdinalForm(paramNum), componentName, ASTWriter.writeToString(providedExpr));
         return new InvalidComponentParameterError(description);
     }
 
@@ -83,7 +83,7 @@ public final class InvalidComponentParameterError extends ErroneousIssue {
             int paramNum, Expression providedExpression, Type providedType) {
 
         final String description = format("'%s' used for the %s parameter of component '%s' has type '%s' but expecting an integer type",
-                PrettyPrint.expression(providedExpression), getOrdinalForm(paramNum), componentName, providedType);
+                ASTWriter.writeToString(providedExpression), getOrdinalForm(paramNum), componentName, providedType);
         return new InvalidComponentParameterError(description);
     }
 
@@ -91,7 +91,7 @@ public final class InvalidComponentParameterError extends ErroneousIssue {
             int paramNum, Expression providedExpression, Type providedType) {
 
         final String description = format("'%s' used for the %s parameter of component '%s' has type '%s' but expecting a floating type",
-                PrettyPrint.expression(providedExpression), getOrdinalForm(paramNum), componentName, providedType);
+                ASTWriter.writeToString(providedExpression), getOrdinalForm(paramNum), componentName, providedType);
         return new InvalidComponentParameterError(description);
     }
 
@@ -99,7 +99,7 @@ public final class InvalidComponentParameterError extends ErroneousIssue {
             int paramNum, Expression providedExpression, Type providedType) {
 
         final String description = format("'%s' used for the %s parameter of component '%s' has type '%s' but expecting type 'char[]'",
-                PrettyPrint.expression(providedExpression), getOrdinalForm(paramNum), componentName, providedType);
+                ASTWriter.writeToString(providedExpression), getOrdinalForm(paramNum), componentName, providedType);
         return new InvalidComponentParameterError(description);
     }
 

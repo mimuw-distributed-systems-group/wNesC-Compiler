@@ -1,7 +1,7 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -30,7 +30,7 @@ public final class InvalidCombineAttributeUsageError extends ErroneousIssue {
 
     public static InvalidCombineAttributeUsageError stringLiteralExpected(Expression providedExpression) {
         final String description = format("'%s' used as the parameter for NesC attribute '@combine' but a string literal expected",
-                PrettyPrint.expression(providedExpression));
+                ASTWriter.writeToString(providedExpression));
         return new InvalidCombineAttributeUsageError(description);
     }
 

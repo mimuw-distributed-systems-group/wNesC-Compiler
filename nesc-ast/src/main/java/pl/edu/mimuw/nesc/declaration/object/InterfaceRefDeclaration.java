@@ -3,9 +3,9 @@ package pl.edu.mimuw.nesc.declaration.object;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import pl.edu.mimuw.nesc.ast.gen.InterfaceRef;
-import pl.edu.mimuw.nesc.ast.type.InterfaceType;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.AstUtils;
+import pl.edu.mimuw.nesc.type.InterfaceType;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.declaration.nesc.InterfaceDeclaration;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceRefFacade;
 

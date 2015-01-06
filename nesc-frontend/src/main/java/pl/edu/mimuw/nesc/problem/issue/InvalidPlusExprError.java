@@ -1,11 +1,11 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.PointerType;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.PointerType;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.BinaryOp.*;
+import static pl.edu.mimuw.nesc.astwriting.Tokens.BinaryOp.*;
 import static java.lang.String.format;
 
 /**
@@ -38,17 +38,17 @@ public final class InvalidPlusExprError extends BinaryExprErroneousIssue {
 
             if (!otherType.isGeneralizedIntegerType()) {
                 return format("Operand '%s' of operator %s has type '%s' but expecting an integer type as the other operand is a pointer",
-                              PrettyPrint.expression(otherExpr), op, otherType);
+                              ASTWriter.writeToString(otherExpr), op, otherType);
             }
 
             final Type referencedType = ptrType.getReferencedType();
 
             if (!referencedType.isObjectType()) {
                 return format("Operand '%s' of operator %s is not a pointer to an object",
-                              PrettyPrint.expression(ptrExpr), op);
+                              ASTWriter.writeToString(ptrExpr), op);
             } else if (!referencedType.isComplete()) {
                 return format("Operand '%s' of operator %s points to an object of incomplete type '%s'",
-                              PrettyPrint.expression(ptrExpr), op, referencedType);
+                              ASTWriter.writeToString(ptrExpr), op, referencedType);
             }
         }
 

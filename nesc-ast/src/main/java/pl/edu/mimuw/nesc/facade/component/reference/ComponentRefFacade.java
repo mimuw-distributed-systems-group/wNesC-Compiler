@@ -3,7 +3,6 @@ package pl.edu.mimuw.nesc.facade.component.reference;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import java.util.Map;
-import pl.edu.mimuw.nesc.ast.type.Type;
 
 /**
  * <p>Interface with operations related to obtaining information about

@@ -5,11 +5,11 @@ import java.util.List;
 
 import com.google.common.collect.ImmutableList;
 import pl.edu.mimuw.nesc.ast.StructKind;
-import pl.edu.mimuw.nesc.ast.TagRefSemantics;
+import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.EnumRef;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
-import pl.edu.mimuw.nesc.ast.type.EnumeratedType;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.EnumeratedType;
+import pl.edu.mimuw.nesc.type.Type;
 
 import static com.google.common.base.Preconditions.*;
 
@@ -104,9 +104,9 @@ public final class EnumDeclaration extends TagDeclaration {
      */
     public void setPredefinitionNode(EnumRef predefinitionNode) {
         checkNotNull(predefinitionNode, "the AST node cannot be null");
-        checkArgument(predefinitionNode.getSemantics() != TagRefSemantics.OTHER,
+        checkArgument(predefinitionNode.getSemantics() != StructSemantics.OTHER,
                 "the given node does not represent an enumerated type definition");
-        checkState(astEnumRef.getSemantics() == TagRefSemantics.OTHER,
+        checkState(astEnumRef.getSemantics() == StructSemantics.OTHER,
                 "this declaration has been already associated with a definition AST node");
 
         this.astEnumRef = predefinitionNode;

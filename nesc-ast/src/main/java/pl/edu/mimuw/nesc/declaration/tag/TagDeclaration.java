@@ -2,11 +2,10 @@ package pl.edu.mimuw.nesc.declaration.tag;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
-import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.TagRef;
 import pl.edu.mimuw.nesc.declaration.Declaration;
-import pl.edu.mimuw.nesc.ast.type.Type;
+import pl.edu.mimuw.nesc.type.Type;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;

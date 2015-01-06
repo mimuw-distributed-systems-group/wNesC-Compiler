@@ -1,11 +1,11 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static java.lang.String.format;
-import static pl.edu.mimuw.nesc.ast.util.AstConstants.UnaryOp.*;
+import static pl.edu.mimuw.nesc.astwriting.Tokens.UnaryOp.*;
 
 /**
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -22,10 +22,10 @@ public final class InvalidNotExprError extends UnaryExprErroneousIssue {
     public String generateDescription() {
         if (!argType.isGeneralizedScalarType()) {
             return format("Operand '%s' of unary operator %s has type '%s' but expecting a scalar type",
-                          PrettyPrint.expression(argExpr), op, argType);
+                          ASTWriter.writeToString(argExpr), op, argType);
         }
 
         return format("Invalid operand '%s' for unary operator %s",
-                      PrettyPrint.expression(argExpr), op);
+                      ASTWriter.writeToString(argExpr), op);
     }
 }

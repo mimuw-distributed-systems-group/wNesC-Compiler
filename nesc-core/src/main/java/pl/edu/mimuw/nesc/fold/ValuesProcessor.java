@@ -11,12 +11,11 @@ import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.IntegerCst;
 import pl.edu.mimuw.nesc.ast.gen.NullVisitor;
 import pl.edu.mimuw.nesc.ast.gen.StringAst;
-import pl.edu.mimuw.nesc.ast.gen.StringCst;
 import pl.edu.mimuw.nesc.ast.gen.UniqueCall;
 import pl.edu.mimuw.nesc.ast.gen.UniqueCountCall;
 import pl.edu.mimuw.nesc.ast.gen.UniqueNCall;
-import pl.edu.mimuw.nesc.ast.util.AstUtils;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.astutil.AstUtils;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -63,7 +62,7 @@ final class ValuesProcessor extends NullVisitor<Void, Void> {
 
     @Override
     public Void visitUniqueNCall(UniqueNCall uniqueNCall, Void arg) {
-        // FIXME evaluating all kinds of constant expression as the 2nd argument
+        // FIXME evaluating all kinds of constant expressions as the 2nd argument
 
         // Return if this 'uniqueN' usage has been already evaluated
         if (uniqueNCall.getValue() != null) {
@@ -131,8 +130,8 @@ final class ValuesProcessor extends NullVisitor<Void, Void> {
 
         // Log the evaluation
         if (LOG.isDebugEnabled()) {
-            LOG.debug(format("Evaluate '%s' to %d allocating %d numbers",
-                    PrettyPrint.expression(constantFunCall), value,
+            LOG.debug(format("Evaluate '%s' to %d allocating %d number(s)",
+                    ASTWriter.writeToString(constantFunCall), value,
                     numbersCount));
         }
     }

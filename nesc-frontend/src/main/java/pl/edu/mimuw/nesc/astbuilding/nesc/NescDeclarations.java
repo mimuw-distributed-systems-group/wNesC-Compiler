@@ -4,16 +4,16 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
-import pl.edu.mimuw.nesc.ast.util.AstUtils;
+import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.type.TypeDefinitionType;
-import pl.edu.mimuw.nesc.ast.type.UnknownType;
-import pl.edu.mimuw.nesc.ast.type.UnknownTypeFactory;
-import pl.edu.mimuw.nesc.ast.util.Interval;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.type.TypeDefinitionType;
+import pl.edu.mimuw.nesc.type.UnknownType;
+import pl.edu.mimuw.nesc.type.UnknownTypeFactory;
+import pl.edu.mimuw.nesc.astutil.Interval;
 import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
-import pl.edu.mimuw.nesc.ast.util.DeclaratorUtils;
+import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.nesc.ComponentDeclaration;
 import pl.edu.mimuw.nesc.declaration.nesc.InterfaceDeclaration;
@@ -33,8 +33,8 @@ import static java.lang.String.format;
 import static pl.edu.mimuw.nesc.analysis.NescAnalysis.checkComponentInstantiation;
 import static pl.edu.mimuw.nesc.analysis.SpecifiersAnalysis.*;
 import static pl.edu.mimuw.nesc.analysis.TypesAnalysis.resolveType;
-import static pl.edu.mimuw.nesc.ast.util.AstUtils.getEndLocation;
-import static pl.edu.mimuw.nesc.ast.util.AstUtils.getStartLocation;
+import static pl.edu.mimuw.nesc.astutil.AstUtils.getEndLocation;
+import static pl.edu.mimuw.nesc.astutil.AstUtils.getStartLocation;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>

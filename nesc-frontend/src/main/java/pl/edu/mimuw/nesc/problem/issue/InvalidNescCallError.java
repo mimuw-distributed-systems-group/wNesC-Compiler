@@ -2,8 +2,7 @@ package pl.edu.mimuw.nesc.problem.issue;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.gen.Identifier;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
@@ -21,7 +20,7 @@ public final class InvalidNescCallError extends ErroneousIssue {
         checkNotNull(funExpr, "function expression cannot be null");
 
         final String msg = format("'%s' does not denote a command or an event",
-                PrettyPrint.expression(funExpr));
+                ASTWriter.writeToString(funExpr));
 
         return new InvalidNescCallError(msg);
     }
@@ -40,7 +39,7 @@ public final class InvalidNescCallError extends ErroneousIssue {
 
     public static InvalidNescCallError missingInstanceParameters(boolean isEvent, Expression funExpr) {
         final String msg = format("'%s' is a parameterised %s but instance parameters are not provided",
-                PrettyPrint.expression(funExpr), getEntity(isEvent));
+                ASTWriter.writeToString(funExpr), getEntity(isEvent));
         return new InvalidNescCallError(msg);
     }
 
@@ -76,7 +75,7 @@ public final class InvalidNescCallError extends ErroneousIssue {
                 ? "%s '%s' requires %d parameter(s) but %d is provided"
                 : "%s '%s' requires %s parameter(s) but %d are provided";
 
-        final String msg = format(fmt, getEntity(isEvent, true), PrettyPrint.expression(funExpr),
+        final String msg = format(fmt, getEntity(isEvent, true), ASTWriter.writeToString(funExpr),
                 expectedCount, actualCount);
 
         return new InvalidNescCallError(msg);
@@ -87,7 +86,7 @@ public final class InvalidNescCallError extends ErroneousIssue {
                 ? "'%s' cannot be called because it is an event"
                 : "'%s' cannot be signaled because it is a command";
 
-        final String msg = format(fmt, PrettyPrint.expression(funExpr));
+        final String msg = format(fmt, ASTWriter.writeToString(funExpr));
         return new InvalidNescCallError(msg);
     }
 

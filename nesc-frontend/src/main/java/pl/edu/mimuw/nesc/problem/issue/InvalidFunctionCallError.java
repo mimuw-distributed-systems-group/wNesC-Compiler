@@ -1,11 +1,10 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
-import java.util.LinkedList;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.type.FunctionType;
-import pl.edu.mimuw.nesc.ast.type.PointerType;
-import pl.edu.mimuw.nesc.ast.type.Type;
-import pl.edu.mimuw.nesc.ast.util.PrettyPrint;
+import pl.edu.mimuw.nesc.type.FunctionType;
+import pl.edu.mimuw.nesc.type.PointerType;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
 import static com.google.common.base.Preconditions.*;
 import static java.lang.String.format;
@@ -61,14 +60,14 @@ public final class InvalidFunctionCallError extends ErroneousIssue {
     public String generateDescription() {
         if (!funExprType.isPointerType()) {
             return format("Called expression '%s' has type '%s' but expecting a function or a pointer to function",
-                          PrettyPrint.expression(funExpr), funExprType);
+                          ASTWriter.writeToString(funExpr), funExprType);
         }
 
         final Type refType = ((PointerType) funExprType).getReferencedType();
 
         if (!refType.isFunctionType()) {
             return format("Called expression '%s' is a pointer to '%s' but expecting a pointer to a function",
-                          PrettyPrint.expression(funExpr), refType);
+                          ASTWriter.writeToString(funExpr), refType);
         }
 
         final FunctionType funType = (FunctionType) refType;
@@ -77,10 +76,10 @@ public final class InvalidFunctionCallError extends ErroneousIssue {
         if (!retType.isVoid()) {
             if (!retType.isComplete()) {
                 return format("Cannot call function '%s' because it returns incomplete type '%s'",
-                        PrettyPrint.expression(funExpr), retType);
+                        ASTWriter.writeToString(funExpr), retType);
             } else if (!retType.isObjectType()) {
                 return format("Cannot call function '%s' because it does not return an object type",
-                        PrettyPrint.expression(funExpr));
+                        ASTWriter.writeToString(funExpr));
             }
         }
 
@@ -90,15 +89,15 @@ public final class InvalidFunctionCallError extends ErroneousIssue {
 
         if (!variableArgumentsFunction && actualParamsCount != expectedParamsCount) {
             return format("Function '%s' expects %d parameter(s) but %d %s provided",
-                          PrettyPrint.expression(funExpr), expectedParamsCount, actualParamsCount,
+                          ASTWriter.writeToString(funExpr), expectedParamsCount, actualParamsCount,
                           providedVerb);
         } else if (variableArgumentsFunction && actualParamsCount < expectedParamsCount) {
             return format("Function '%s' expects at least %d parameter(s) but %d %s provided",
-                          PrettyPrint.expression(funExpr), expectedParamsCount, actualParamsCount,
+                          ASTWriter.writeToString(funExpr), expectedParamsCount, actualParamsCount,
                           providedVerb);
         }
 
-        return format("Invalid function call '%s'", PrettyPrint.expression(funExpr));
+        return format("Invalid function call '%s'", ASTWriter.writeToString(funExpr));
     }
 
     /**
