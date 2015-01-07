@@ -1,6 +1,9 @@
 package pl.edu.mimuw.nesc.astutil;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableSet;
+import java.util.Collection;
+import java.util.Iterator;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.*;
@@ -20,6 +23,18 @@ public final class TypeElementUtils {
 
     private static final IsTypedefVisitor IS_TYPEDEF_VISITOR = new IsTypedefVisitor();
     private static final StructKindVisitor STRUCT_KIND_VISITOR = new StructKindVisitor();
+
+    /**
+     * Set that contains keywords added to C in NesC language.
+     */
+    private static final ImmutableSet<RID> NESC_RID = ImmutableSet.of(
+            RID.ASYNC,
+            RID.COMMAND,
+            RID.EVENT,
+            RID.DEFAULT,
+            RID.TASK,
+            RID.NORACE
+    );
 
     /**
      * Checks whether type elements contains <tt>TYPEDEF</tt> keyword.
@@ -86,6 +101,37 @@ public final class TypeElementUtils {
         }
 
         return Optional.absent();
+    }
+
+    /**
+     * Removes NesC-specific type elements from the given collection, i.e. NesC
+     * keywords and NesC attributes. The iterator returned by the given
+     * collection must support elements removal.
+     *
+     * @param typeElements Collection of type elements with an iterator
+     *                     supporting elements removal.
+     */
+    public static void removeNescTypeElements(Collection<? extends TypeElement> typeElements) {
+        checkNotNull(typeElements, "type elements cannot be null");
+
+        final Iterator<? extends TypeElement> it = typeElements.iterator();
+        while (it.hasNext()) {
+            final TypeElement typeElement = it.next();
+            final Optional<RID> optRID;
+
+            if (typeElement instanceof Rid) {
+                optRID = Optional.of(((Rid) typeElement).getId());
+            } else if (typeElement instanceof Qualifier) {
+                optRID = Optional.of(((Qualifier) typeElement).getId());
+            } else {
+                optRID = Optional.absent();
+            }
+
+            if (optRID.isPresent() && NESC_RID.contains(optRID.get())
+                    || !optRID.isPresent() && typeElement instanceof NescAttribute) {
+                it.remove();
+            }
+        }
     }
 
     private TypeElementUtils() {

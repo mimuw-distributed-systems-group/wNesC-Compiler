@@ -5,24 +5,9 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import pl.edu.mimuw.nesc.ast.NescCallKind;
-import pl.edu.mimuw.nesc.ast.gen.DataDecl;
-import pl.edu.mimuw.nesc.ast.gen.Declaration;
-import pl.edu.mimuw.nesc.ast.gen.Declarator;
-import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.gen.FunctionCall;
-import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
-import pl.edu.mimuw.nesc.ast.gen.FunctionDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.GenericCall;
-import pl.edu.mimuw.nesc.ast.gen.Identifier;
-import pl.edu.mimuw.nesc.ast.gen.IdentifierDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.IdentityVisitor;
-import pl.edu.mimuw.nesc.ast.gen.InterfaceDeref;
-import pl.edu.mimuw.nesc.ast.gen.InterfaceRefDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.Module;
-import pl.edu.mimuw.nesc.ast.gen.NestedDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.Rid;
-import pl.edu.mimuw.nesc.ast.gen.TypeElement;
+import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
+import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.wiresgraph.SpecificationElementNode;
 import pl.edu.mimuw.nesc.wiresgraph.WiresGraph;
 
@@ -41,6 +26,7 @@ import static java.lang.String.format;
  *     <li>removing <code>InterfaceRefDeclarator</code> AST nodes</li>
  *     <li>moving instance parameters of functions definitions to the beginning
  *     of the list of normal parameters</li>
+ *     <li>removing NesC attributes</li>
  * </ol>
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -70,6 +56,7 @@ public final class IntermediateTransformer extends IdentityVisitor<Optional<Stri
 
     @Override
     public Optional<String> visitFunctionDecl(FunctionDecl functionDecl, Optional<String> componentName) {
+        // Modify command or event
         if (removeKeywords(functionDecl.getModifiers())) {
             NestedDeclarator first = (NestedDeclarator) functionDecl.getDeclarator();
             Declarator second = first.getDeclarator().get();
@@ -95,6 +82,9 @@ public final class IntermediateTransformer extends IdentityVisitor<Optional<Stri
                 funDeclarator.setGenericParameters(Optional.<LinkedList<Declaration>>absent());
             }
         }
+
+        // Remove NesC attributes
+        TypeElementUtils.removeNescTypeElements(functionDecl.getAttributes());
 
         return componentName;
     }
@@ -143,7 +133,25 @@ public final class IntermediateTransformer extends IdentityVisitor<Optional<Stri
 
     @Override
     public Optional<String> visitDataDecl(DataDecl dataDecl, Optional<String> componentName) {
-        removeKeywords(dataDecl.getModifiers());
+        TypeElementUtils.removeNescTypeElements(dataDecl.getModifiers());
+        return componentName;
+    }
+
+    @Override
+    public Optional<String> visitVariableDecl(VariableDecl variableDecl, Optional<String> componentName) {
+        TypeElementUtils.removeNescTypeElements(variableDecl.getAttributes());
+        return componentName;
+    }
+
+    @Override
+    public Optional<String> visitQualifiedDeclarator(QualifiedDeclarator declarator, Optional<String> componentName) {
+        TypeElementUtils.removeNescTypeElements(declarator.getModifiers());
+        return componentName;
+    }
+
+    @Override
+    public Optional<String> visitTagRef(TagRef tagReference, Optional<String> componentName) {
+        TypeElementUtils.removeNescTypeElements(tagReference.getAttributes());
         return componentName;
     }
 

@@ -414,6 +414,7 @@ public final class WiresGraph {
                 }
 
                 final boolean voidOccurred = removeKeywords(typeElements);
+                TypeElementUtils.removeNescTypeElements(typeElements);
                 boolean containsNotVoidDeclarator = false;
                 Declarator declarator = variableDecl.getDeclarator().get();
 
@@ -601,6 +602,7 @@ public final class WiresGraph {
 
                     typeElements = dataDecl.getModifiers();
                     final boolean returnsVoid = removeKeywords(typeElements);
+                    TypeElementUtils.removeNescTypeElements(typeElements);
 
                     for (Declaration declaration : dataDecl.getDeclarations()) {
                         this.returnsVoid = returnsVoid;

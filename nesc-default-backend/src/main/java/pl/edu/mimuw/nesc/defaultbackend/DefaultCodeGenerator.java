@@ -274,7 +274,8 @@ public final class DefaultCodeGenerator {
 
     /**
      * Visitor that is responsible for adding definitions of all function from
-     * NesC declarations whose data objects it visits.
+     * NesC declarations whose data objects it visits (except from generic
+     * components).
      */
     private final ProcessedNescData.Visitor<Void, Void> nescFunDefsAddVisitor = new ProcessedNescData.Visitor<Void, Void>() {
         @Override
@@ -288,7 +289,10 @@ public final class DefaultCodeGenerator {
             final NescDecl entityRoot = preservedData.getEntityRoot();
 
             if (entityRoot instanceof Component) {
-                addFunctionDefinitions(((Component) entityRoot).getImplementation());
+                final Component component = (Component) entityRoot;
+                if (!component.getIsAbstract()) {
+                    addFunctionDefinitions(component.getImplementation());
+                }
             } else if (entityRoot instanceof Interface) {
                 // do nothing
             } else {

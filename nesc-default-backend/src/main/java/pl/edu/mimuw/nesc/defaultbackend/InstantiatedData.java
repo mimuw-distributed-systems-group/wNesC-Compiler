@@ -19,6 +19,7 @@ final class InstantiatedData extends ProcessedNescData {
         checkNotNull(component, "component cannot be null");
         checkNotNull(component.getInstantiatedComponentName(),
                 "name of the instantiated component in the given component cannot be null");
+        checkArgument(!component.getIsAbstract(), "the instantiated component cannot be generic");
         checkArgument(component.getInstantiatedComponentName().isPresent(),
                 "name of the instantiated component in the given component cannot be absent");
         checkArgument(!component.getInstantiatedComponentName().get().isEmpty(),

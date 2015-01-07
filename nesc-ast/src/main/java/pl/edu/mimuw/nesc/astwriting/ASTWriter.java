@@ -751,6 +751,7 @@ public final class ASTWriter implements Closeable {
 
             // Condition
             output.println();
+            output.append(indentation);
             output.write(STMT_WHILE);
             output.write(SPACE);
             output.write(LPAREN);
