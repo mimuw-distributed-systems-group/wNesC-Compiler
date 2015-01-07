@@ -184,6 +184,7 @@ public final class Tokens {
         BITNOT("~"),
         NOT("!"),
         DOT("."),
+        ARROW("->"),
         INCREMENT("++"),
         DECREMENT("--"),
         LABELADDRESS("&&");

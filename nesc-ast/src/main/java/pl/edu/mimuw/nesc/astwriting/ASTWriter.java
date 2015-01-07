@@ -1,6 +1,8 @@
 package pl.edu.mimuw.nesc.astwriting;
 
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.FileOutputStream;
@@ -10,8 +12,11 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.LinkedList;
 import java.util.List;
+import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.ast.gen.Declaration;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static pl.edu.mimuw.nesc.astwriting.Tokens.BinaryOp.*;
@@ -25,6 +30,78 @@ import static pl.edu.mimuw.nesc.astwriting.Tokens.UnaryOp.*;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class ASTWriter implements Closeable {
+    /**
+     * Check if the given statement is always written in multiple lines
+     * by the writer. The predicate is fulfilled if and only if the given
+     * statement is always written in multiple lines by a writer.
+     */
+    private static final Predicate<Statement> IS_MULTILINE_STMT = new Predicate<Statement>() {
+        @Override
+        public boolean apply(Statement stmt) {
+            checkNotNull(stmt, "the statement cannot be null");
+            return stmt instanceof CompoundStmt || stmt instanceof IfStmt
+                    || stmt instanceof ForStmt || stmt instanceof WhileStmt
+                    || stmt instanceof DoWhileStmt || stmt instanceof SwitchStmt;
+        }
+    };
+
+    /**
+     * Check if the given declaration is always written in multiple lines
+     * by the writer. The predicate is fulfilled if and only if the given
+     * declaration is always written in multiple lines by this visitor.
+     */
+    private static final Predicate<Declaration> IS_MULTILINE_DECLARATION = new Predicate<Declaration>() {
+        @Override
+        public boolean apply(Declaration declaration) {
+            checkNotNull(declaration, "declaration cannot be null");
+
+            if (declaration instanceof FunctionDecl || declaration instanceof NescDecl) {
+                return true;
+            } else if (declaration instanceof DataDecl) {
+                // Check if the declaration contains the definition of a tag
+                final DataDecl dataDecl = (DataDecl) declaration;
+                for (TypeElement typeElement : dataDecl.getModifiers()) {
+                    if (!(typeElement instanceof TagRef)) {
+                        continue;
+                    }
+
+                    final TagRef tagReference = (TagRef) typeElement;
+                    if (tagReference.getSemantics() != StructSemantics.OTHER) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+    };
+
+    /**
+     * A terminator function for any node that always results in no terminator.
+     */
+    private static final Function<Node, String> EMPTY_TERMINATOR_FUN = new Function<Node, String>() {
+        @Override
+        public String apply(Node node) {
+            checkNotNull(node, "node cannot be null");
+            return "";
+        }
+    };
+
+    /**
+     * Terminator function for declarations. It returns a semicolon if the
+     * declaration shall be ended with it but is not while visiting the node
+     * by the visitor. Otherwise, the empty string denotes no terminator.
+     */
+    private final Function<Declaration, String> DECLARATION_TERMINATOR_FUN = new Function<Declaration, String>() {
+        @Override
+        public String apply(Declaration declaration) {
+            checkNotNull(declaration, "declaration cannot be null");
+            return writeVisitor.needsTrailingSemicolon(declaration)
+                    ? SEMICOLON
+                    : "";
+        }
+    };
+
     /**
      * The writer used for output.
      */
@@ -110,16 +187,28 @@ public final class ASTWriter implements Closeable {
         output.close();
     }
 
+    /**
+     * Write the given node as it would appear in the source code of a C or
+     * NesC program. If the node produces any output, it is guaranteed that the
+     * first and last characters that are written are not whitespace.
+     *
+     * @param node Node to write as it would appear in the source code.
+     */
     public void write(Node node) {
-        if (node instanceof Declaration) {
-            writeVisitor.writeTopLevelDeclaration((Declaration) node);
-        } else {
-            node.accept(writeVisitor, null);
-        }
+        node.accept(writeVisitor, null);
     }
 
-    public void write(List<? extends Declaration> topLevelDeclarations) {
-        writeVisitor.writeTopLevelDeclarations(topLevelDeclarations);
+    /**
+     * Write all declarations from the given list producing empty lines between
+     * declarations that are written in multiple lines (single empty line is
+     * placed between such declarations). Moreover, if the list is not empty,
+     * the last character written is a new line character. The first is
+     * a non-whitespace character.
+     *
+     * @param declarations Declarations to write to the output.
+     */
+    public void write(List<? extends Declaration> declarations) {
+        writeVisitor.writeTopLevelDeclarations(declarations);
     }
 
     private void increaseIndentation() {
@@ -149,30 +238,30 @@ public final class ASTWriter implements Closeable {
     private final class WriteVisitor implements Visitor<Void, Void> {
         @Override
         public Void visitInterface(Interface interfaceAst, Void arg) {
-            output.append(NESC_INTERFACE);
-            output.append(SPACE);
-            output.append(interfaceAst.getName().getName());
+            output.write(NESC_INTERFACE);
+            output.write(SPACE);
+            output.write(interfaceAst.getName().getName());
 
             if (interfaceAst.getParameters().isPresent()) {
-                output.append(LANGLE);
+                output.write(LANGLE);
                 writeCommaSeparated(interfaceAst.getParameters().get());
-                output.append(RANGLE);
+                output.write(RANGLE);
             }
 
             if (!interfaceAst.getAttributes().isEmpty()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 writeSpaceSeparated(interfaceAst.getAttributes());
             }
 
             output.println();
             output.append(indentation);
-            output.append(LBRACE);
+            output.write(LBRACE);
             output.println();
 
             writeSemicolonTerminatedIndented(interfaceAst.getDeclarations());
 
             output.append(indentation);
-            output.append(RBRACE);
+            output.write(RBRACE);
 
             return null;
         }
@@ -215,33 +304,33 @@ public final class ASTWriter implements Closeable {
 
         @Override
         public Void visitComponentsUses(ComponentsUses componentsUses, Void arg) {
-            output.append(NESC_COMPONENTS);
-            output.append(SPACE);
+            output.write(NESC_COMPONENTS);
+            output.write(SPACE);
             writeCommaSeparated(componentsUses.getComponents());
-            output.append(SEMICOLON);
+            output.write(SEMICOLON);
             return null;
         }
 
         @Override
         public Void visitComponentRef(ComponentRef componentRef, Void arg) {
             if (componentRef.getIsAbstract()) {
-                output.append(NESC_NEW);
-                output.append(SPACE);
+                output.write(NESC_NEW);
+                output.write(SPACE);
             }
 
-            output.append(componentRef.getName().getName());
+            output.write(componentRef.getName().getName());
 
             if (componentRef.getIsAbstract()) {
-                output.append(LPAREN);
+                output.write(LPAREN);
                 writeCommaSeparated(componentRef.getArguments());
-                output.append(RPAREN);
+                output.write(RPAREN);
             }
 
             if (componentRef.getAlias().isPresent()) {
-                output.append(SPACE);
-                output.append(NESC_AS);
-                output.append(SPACE);
-                output.append(componentRef.getAlias().get().getName());
+                output.write(SPACE);
+                output.write(NESC_AS);
+                output.write(SPACE);
+                output.write(componentRef.getAlias().get().getName());
             }
 
             return null;
@@ -261,35 +350,35 @@ public final class ASTWriter implements Closeable {
 
         @Override
         public Void visitInterfaceRef(InterfaceRef declaration, Void arg) {
-            output.append(NESC_INTERFACE);
-            output.append(SPACE);
-            output.append(declaration.getName().getName());
+            output.write(NESC_INTERFACE);
+            output.write(SPACE);
+            output.write(declaration.getName().getName());
 
             if (declaration.getArguments().isPresent()) {
-                output.append(LANGLE);
+                output.write(LANGLE);
                 writeCommaSeparated(declaration.getArguments().get());
-                output.append(RANGLE);
+                output.write(RANGLE);
             }
 
             if (declaration.getAlias().isPresent()) {
-                output.append(SPACE);
-                output.append(NESC_AS);
-                output.append(SPACE);
-                output.append(declaration.getAlias().get().getName());
+                output.write(SPACE);
+                output.write(NESC_AS);
+                output.write(SPACE);
+                output.write(declaration.getAlias().get().getName());
             }
 
             if (declaration.getGenericParameters().isPresent()) {
-                output.append(LBRACK);
+                output.write(LBRACK);
                 writeCommaSeparated(declaration.getGenericParameters().get());
-                output.append(RBRACK);
+                output.write(RBRACK);
             }
 
             if (!declaration.getAttributes().isEmpty()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 writeSpaceSeparated(declaration.getAttributes());
             }
 
-            output.append(SEMICOLON);
+            output.write(SEMICOLON);
             return null;
         }
 
@@ -299,7 +388,7 @@ public final class ASTWriter implements Closeable {
             functionDecl.getDeclarator().accept(this, null);
 
             if (!functionDecl.getAttributes().isEmpty()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 writeSpaceSeparated(functionDecl.getAttributes());
             }
 
@@ -322,7 +411,7 @@ public final class ASTWriter implements Closeable {
 
             // Declarators and attributes of individual entities
             if (!declaration.getDeclarations().isEmpty()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 writeCommaSeparated(declaration.getDeclarations());
             }
 
@@ -338,21 +427,31 @@ public final class ASTWriter implements Closeable {
 
             // ASM statement
             if (declaration.getAsmStmt().isPresent()) {
-                output.append(SPACE);
-                declaration.getAsmStmt().get().accept(this, null);
+                output.write(SPACE);
+
+                final AsmStmt asmStmt = declaration.getAsmStmt().get();
+                checkArgument(asmStmt.getAsmOperands1().isEmpty(), "unexpected ASM operands in variable declaration");
+                checkArgument(asmStmt.getAsmOperands2().isEmpty(), "unexpected ASM operands in variable declaration");
+                checkArgument(asmStmt.getAsmClobbers().isEmpty(), "unexpected ASM clobbers in variable declaration");
+                checkArgument(asmStmt.getQualifiers().isEmpty(), "unexpected ASM qualifiers in variable declaration");
+
+                output.write(GCC_ASM);
+                output.write(LPAREN);
+                asmStmt.getArg1().accept(this, null);
+                output.write(RPAREN);
             }
 
             // Attributes
             if (!declaration.getAttributes().isEmpty()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 writeSpaceSeparated(declaration.getAttributes());
             }
 
             // Initializer
             if (declaration.getInitializer().isPresent()) {
-                output.append(SPACE);
-                output.append(ASSIGN.toString());
-                output.append(SPACE);
+                output.write(SPACE);
+                output.write(ASSIGN.toString());
+                output.write(SPACE);
                 declaration.getInitializer().get().accept(this, null);
             }
 
@@ -361,9 +460,10 @@ public final class ASTWriter implements Closeable {
 
         @Override
         public Void visitExtensionDecl(ExtensionDecl declaration, Void arg) {
-            output.append(GCC_EXTENSION);
-            output.append(SPACE);
+            output.write(GCC_EXTENSION);
+            output.write(SPACE);
             declaration.getDeclaration().accept(this, null);
+            writeTrailingSemicolonIfNeeded(declaration.getDeclaration());
             return null;
         }
 
@@ -376,15 +476,15 @@ public final class ASTWriter implements Closeable {
 
             // Bit-field
             if (declaration.getBitfield().isPresent()) {
-                output.append(SPACE);
-                output.append(COLON);
-                output.append(SPACE);
+                output.write(SPACE);
+                output.write(COLON);
+                output.write(SPACE);
                 declaration.getBitfield().get().accept(this, null);
             }
 
             // Attributes
             if (!declaration.getAttributes().isEmpty()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 writeSpaceSeparated(declaration.getAttributes());
             }
 
@@ -393,7 +493,7 @@ public final class ASTWriter implements Closeable {
 
         @Override
         public Void visitEllipsisDecl(EllipsisDecl declaration, Void arg) {
-            output.append(ELLIPSIS);
+            output.write(ELLIPSIS);
             return null;
         }
 
@@ -402,9 +502,9 @@ public final class ASTWriter implements Closeable {
             writeName(declaration.getName(), declaration.getUniqueName());
 
             if (declaration.getValue() != null) {
-                output.append(SPACE);
-                output.append(ASSIGN.toString());
-                output.append(SPACE);
+                output.write(SPACE);
+                output.write(ASSIGN.toString());
+                output.write(SPACE);
                 declaration.getValue().accept(this, null);
             }
 
@@ -413,7 +513,7 @@ public final class ASTWriter implements Closeable {
 
         @Override
         public Void visitOldIdentifierDecl(OldIdentifierDecl declaration, Void arg) {
-            output.append(declaration.getName());
+            output.write(declaration.getName());
             return null;
         }
 
@@ -427,13 +527,13 @@ public final class ASTWriter implements Closeable {
         public Void visitIdentifierDeclarator(IdentifierDeclarator declarator, Void arg) {
             switch (settings.getNameMode()) {
                 case USE_NORMAL_NAMES:
-                    output.append(declarator.getName());
+                    output.write(declarator.getName());
                     break;
                 case USE_UNIQUE_NAMES:
                     final String name = declarator.getUniqueName().isPresent()
                             ? declarator.getUniqueName().get()
                             : declarator.getName();
-                    output.append(name);
+                    output.write(name);
                     break;
                 default:
                     throw new IllegalStateException("unexpected name mode '"
@@ -448,11 +548,11 @@ public final class ASTWriter implements Closeable {
                 writeInParenthesesIfPointer(declarator.getDeclarator().get());
             }
 
-            output.append(LBRACK);
+            output.write(LBRACK);
             if (declarator.getSize().isPresent()) {
                 declarator.getSize().get().accept(this, null);
             }
-            output.append(RBRACK);
+            output.write(RBRACK);
 
             return null;
         }
@@ -464,14 +564,14 @@ public final class ASTWriter implements Closeable {
             }
 
             if (declarator.getGenericParameters().isPresent()) {
-                output.append(LBRACK);
+                output.write(LBRACK);
                 writeCommaSeparated(declarator.getGenericParameters().get());
-                output.append(RBRACK);
+                output.write(RBRACK);
             }
 
-            output.append(LPAREN);
+            output.write(LPAREN);
             writeCommaSeparated(declarator.getParameters());
-            output.append(RPAREN);
+            output.write(RPAREN);
 
             return null;
         }
@@ -487,7 +587,7 @@ public final class ASTWriter implements Closeable {
 
         @Override
         public Void visitPointerDeclarator(PointerDeclarator declarator, Void arg) {
-            output.append(ASTERISK);
+            output.write(ASTERISK);
             if (declarator.getDeclarator().isPresent()) {
                 declarator.getDeclarator().get().accept(this, null);
             }
@@ -508,7 +608,7 @@ public final class ASTWriter implements Closeable {
             writeName(declaration.getName(), declaration.getUniqueName());
 
             if (!declaration.getAttributes().isEmpty()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 writeSpaceSeparated(declaration.getAttributes());
             }
 
@@ -523,43 +623,49 @@ public final class ASTWriter implements Closeable {
 
         @Override
         public Void visitErrorDecl(ErrorDecl declaration, Void arg) {
-            output.append("<error-decl>");
+            output.write("<error-decl>");
             return null;
         }
 
         @Override
         public Void visitCompoundStmt(CompoundStmt stmt, Void arg) {
-            output.append(LBRACE);
+            output.write(LBRACE);
             output.println();
 
+            // Declarations
             writeSemicolonTerminatedIndented(stmt.getDeclarations());
-            writeTerminatedIndented(stmt.getStatements(), "");
+
+            // New line if there is at least one declaration and one statement
+            if (!stmt.getDeclarations().isEmpty() && !stmt.getStatements().isEmpty()) {
+                output.println();
+            }
+
+            // Statements
+            writeFormattedIndentedStatements(stmt.getStatements());
 
             output.append(indentation);
-            output.append(RBRACE);
+            output.write(RBRACE);
             return null;
         }
 
         @Override
         public Void visitExpressionStmt(ExpressionStmt stmt, Void arg) {
             stmt.getExpression().accept(this, null);
-            output.append(SEMICOLON);
+            output.write(SEMICOLON);
             return null;
         }
 
         @Override
         public Void visitIfStmt(IfStmt stmt, Void arg) {
             // Condition
-            output.append(STMT_IF);
-            output.append(SPACE);
-            output.append(LPAREN);
+            output.write(STMT_IF);
+            output.write(SPACE);
+            output.write(LPAREN);
             stmt.getCondition().accept(this, null);
-            output.append(RPAREN);
+            output.write(RPAREN);
 
             // True statement
-            output.println();
-            output.append(indentation);
-            stmt.getTrueStatement().accept(this, null);
+            writeSubstatement(stmt.getTrueStatement());
 
             // False statement
             if (stmt.getFalseStatement().isPresent()) {
@@ -567,15 +673,13 @@ public final class ASTWriter implements Closeable {
 
                 output.println();
                 output.append(indentation);
-                output.append(STMT_ELSE);
+                output.write(STMT_ELSE);
 
                 if (falseStmt instanceof IfStmt) {
-                    output.append(SPACE);
+                    output.write(SPACE);
                     falseStmt.accept(this, null);
                 } else {
-                    output.println();
-                    output.append(indentation);
-                    falseStmt.accept(this, null);
+                    writeSubstatement(falseStmt);
                 }
             }
 
@@ -585,16 +689,14 @@ public final class ASTWriter implements Closeable {
         @Override
         public Void visitSwitchStmt(SwitchStmt stmt, Void arg) {
             // Condition
-            output.append(STMT_SWITCH);
-            output.append(SPACE);
-            output.append(LPAREN);
+            output.write(STMT_SWITCH);
+            output.write(SPACE);
+            output.write(LPAREN);
             stmt.getCondition().accept(this, null);
-            output.append(RPAREN);
+            output.write(RPAREN);
 
             // Statement
-            output.println();
-            output.append(indentation);
-            stmt.getStatement().accept(this, null);
+            writeSubstatement(stmt.getStatement());
 
             return null;
         }
@@ -602,28 +704,26 @@ public final class ASTWriter implements Closeable {
         @Override
         public Void visitForStmt(ForStmt stmt, Void arg) {
             // Condition
-            output.append(STMT_FOR);
-            output.append(SPACE);
-            output.append(LPAREN);
+            output.write(STMT_FOR);
+            output.write(SPACE);
+            output.write(LPAREN);
             if (stmt.getInitExpression().isPresent()) {
                 stmt.getInitExpression().get().accept(this, null);
             }
-            output.append(SEMICOLON);
+            output.write(SEMICOLON);
             if (stmt.getConditionExpression().isPresent()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 stmt.getConditionExpression().get().accept(this, null);
             }
-            output.append(SEMICOLON);
+            output.write(SEMICOLON);
             if (stmt.getIncrementExpression().isPresent()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 stmt.getIncrementExpression().get().accept(this, null);
             }
-            output.append(RPAREN);
+            output.write(RPAREN);
 
             // Statement
-            output.println();
-            output.append(indentation);
-            stmt.getStatement().accept(this, null);
+            writeSubstatement(stmt.getStatement());
 
             return null;
         }
@@ -631,16 +731,14 @@ public final class ASTWriter implements Closeable {
         @Override
         public Void visitWhileStmt(WhileStmt stmt, Void arg) {
             // Condition
-            output.append(STMT_WHILE);
-            output.append(SPACE);
-            output.append(LPAREN);
+            output.write(STMT_WHILE);
+            output.write(SPACE);
+            output.write(LPAREN);
             stmt.getCondition().accept(this, null);
-            output.append(RPAREN);
+            output.write(RPAREN);
 
             // Statement
-            output.println();
-            output.append(indentation);
-            stmt.getStatement().accept(this, null);
+            writeSubstatement(stmt.getStatement());
 
             return null;
         }
@@ -648,60 +746,58 @@ public final class ASTWriter implements Closeable {
         @Override
         public Void visitDoWhileStmt(DoWhileStmt stmt, Void arg) {
             // Statement
-            output.append(STMT_DO);
-            output.println();
-            output.append(indentation);
-            stmt.getStatement().accept(this, null);
+            output.write(STMT_DO);
+            writeSubstatement(stmt.getStatement());
 
             // Condition
             output.println();
-            output.append(STMT_WHILE);
-            output.append(SPACE);
-            output.append(LPAREN);
+            output.write(STMT_WHILE);
+            output.write(SPACE);
+            output.write(LPAREN);
             stmt.getCondition().accept(this, null);
-            output.append(RPAREN);
-            output.append(SEMICOLON);
+            output.write(RPAREN);
+            output.write(SEMICOLON);
 
             return null;
         }
 
         @Override
         public Void visitReturnStmt(ReturnStmt stmt, Void arg) {
-            output.append(STMT_RETURN);
+            output.write(STMT_RETURN);
             if (stmt.getValue().isPresent()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 stmt.getValue().get().accept(this, null);
             }
-            output.append(SEMICOLON);
+            output.write(SEMICOLON);
             return null;
         }
 
         @Override
         public Void visitEmptyStmt(EmptyStmt stmt, Void arg) {
-            // empty statement is ignored
+            output.write(SEMICOLON);
             return null;
         }
 
         @Override
         public Void visitBreakStmt(BreakStmt stmt, Void arg) {
-            output.append(STMT_BREAK);
-            output.append(SEMICOLON);
+            output.write(STMT_BREAK);
+            output.write(SEMICOLON);
             return null;
         }
 
         @Override
         public Void visitContinueStmt(ContinueStmt stmt, Void arg) {
-            output.append(STMT_CONTINUE);
-            output.append(SEMICOLON);
+            output.write(STMT_CONTINUE);
+            output.write(SEMICOLON);
             return null;
         }
 
         @Override
         public Void visitGotoStmt(GotoStmt stmt, Void arg) {
-            output.append(STMT_GOTO);
-            output.append(SPACE);
+            output.write(STMT_GOTO);
+            output.write(SPACE);
             stmt.getIdLabel().accept(this, null);
-            output.append(SEMICOLON);
+            output.write(SEMICOLON);
             return null;
         }
 
@@ -709,7 +805,7 @@ public final class ASTWriter implements Closeable {
         public Void visitLabeledStmt(LabeledStmt stmt, Void arg) {
             stmt.getLabel().accept(this, null);
             if (stmt.getStatement().isPresent()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 stmt.getStatement().get().accept(this, null);
             }
             return null;
@@ -717,95 +813,95 @@ public final class ASTWriter implements Closeable {
 
         @Override
         public Void visitAtomicStmt(AtomicStmt stmt, Void arg) {
-            output.append(NESC_ATOMIC);
-            output.append(SPACE);
+            output.write(NESC_ATOMIC);
+            output.write(SPACE);
             stmt.getStatement().accept(this, null);
             return null;
         }
 
         @Override
         public Void visitComputedGotoStmt(ComputedGotoStmt stmt, Void arg) {
-            output.append(STMT_GOTO);
-            output.append(SPACE);
+            output.write(STMT_GOTO);
+            output.write(SPACE);
             stmt.getAddress().accept(this, null);
-            output.append(SEMICOLON);
+            output.write(SEMICOLON);
             return null;
         }
 
         @Override
         public Void visitAsmStmt(AsmStmt stmt, Void arg) {
-            output.append(GCC_ASM);
+            output.write(GCC_ASM);
             if (!stmt.getQualifiers().isEmpty()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 writeSpaceSeparated(stmt.getQualifiers());
             }
-            output.append(SPACE);
-            output.append(LPAREN);
+            output.write(SPACE);
+            output.write(LPAREN);
 
             stmt.getArg1().accept(this, null);
-            output.append(SPACE);
-            output.append(COLON);
+            output.write(SPACE);
+            output.write(COLON);
 
             if (!stmt.getAsmOperands1().isEmpty()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 writeCommaSeparated(stmt.getAsmOperands1());
-                output.append(SPACE);
+                output.write(SPACE);
             }
 
-            output.append(COLON);
+            output.write(COLON);
 
             if (!stmt.getAsmOperands2().isEmpty()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 writeCommaSeparated(stmt.getAsmOperands2());
             }
 
             if (!stmt.getAsmClobbers().isEmpty()) {
-                output.append(SPACE);
-                output.append(COLON);
-                output.append(SPACE);
+                output.write(SPACE);
+                output.write(COLON);
+                output.write(SPACE);
                 writeCommaSeparated(stmt.getAsmClobbers());
             }
 
-            output.append(RPAREN);
-            output.append(SEMICOLON);
+            output.write(RPAREN);
+            output.write(SEMICOLON);
             return null;
         }
 
         @Override
         public Void visitErrorStmt(ErrorStmt stmt, Void arg) {
-            output.append("<error-stmt>");
+            output.write("<error-stmt>");
             return null;
         }
 
         @Override
         public Void visitCaseLabel(CaseLabel label, Void arg) {
-            output.append(LBL_CASE);
-            output.append(SPACE);
+            output.write(LBL_CASE);
+            output.write(SPACE);
             label.getLow().accept(this, null);
 
             if (label.getHigh().isPresent()) {
-                output.append(SPACE);
-                output.append(ELLIPSIS);
-                output.append(SPACE);
+                output.write(SPACE);
+                output.write(ELLIPSIS);
+                output.write(SPACE);
                 label.getHigh().get().accept(this, null);
             }
 
-            output.append(COLON);
+            output.write(COLON);
             return null;
         }
 
         @Override
         public Void visitDefaultLabel(DefaultLabel label, Void arg) {
-            output.append(LBL_DEFAULT);
-            output.append(COLON);
+            output.write(LBL_DEFAULT);
+            output.write(COLON);
             return null;
         }
 
         @Override
         public Void visitIdLabel(IdLabel label, Void arg) {
-            output.append(label.getId());
+            output.write(label.getId());
             if (label.getIsColonTerminated()) {
-                output.append(COLON);
+                output.write(COLON);
             }
             return null;
         }
@@ -832,12 +928,12 @@ public final class ASTWriter implements Closeable {
 
         @Override
         public Void visitParameterisedIdentifier(ParameterisedIdentifier identifier, Void arg) {
-            output.append(identifier.getName().getName());
+            output.write(identifier.getName().getName());
 
             if (!identifier.getArguments().isEmpty()) {
-                output.append(LBRACK);
+                output.write(LBRACK);
                 writeCommaSeparated(identifier.getArguments());
-                output.append(RBRACK);
+                output.write(RBRACK);
             }
 
             return null;
@@ -846,17 +942,17 @@ public final class ASTWriter implements Closeable {
         @Override
         public Void visitAsmOperand(AsmOperand asm, Void arg) {
             if (asm.getWord1().isPresent()) {
-                output.append(LBRACK);
-                output.append(asm.getWord1().get().getName());
-                output.append(RBRACK);
-                output.append(SPACE);
+                output.write(LBRACK);
+                output.write(asm.getWord1().get().getName());
+                output.write(RBRACK);
+                output.write(SPACE);
             }
 
             asm.getString().accept(this, null);
-            output.append(SPACE);
-            output.append(LPAREN);
+            output.write(SPACE);
+            output.write(LPAREN);
             asm.getArg1().accept(this, null);
-            output.append(RPAREN);
+            output.write(RPAREN);
 
             return null;
         }
@@ -1073,13 +1169,13 @@ public final class ASTWriter implements Closeable {
 
         @Override
         public Void visitAlignofType(AlignofType expr, Void arg) {
-            printExprWithType(expr, OP_ALIGNOF, expr.getAsttype());
+            writeExprWithType(expr, OP_ALIGNOF, expr.getAsttype());
             return null;
         }
 
         @Override
         public Void visitSizeofType(SizeofType expr, Void arg) {
-            printExprWithType(expr, OP_SIZEOF, expr.getAsttype());
+            writeExprWithType(expr, OP_SIZEOF, expr.getAsttype());
             return null;
         }
 
@@ -1087,13 +1183,13 @@ public final class ASTWriter implements Closeable {
         public Void visitOffsetof(Offsetof expr, Void arg) {
             writeLeftParentheses(expr);
 
-            output.append(MACRO_OFFSETOF);
-            output.append(LPAREN);
+            output.write(MACRO_OFFSETOF);
+            output.write(LPAREN);
             expr.getTypename().accept(this, null);
-            output.append(COMMA);
-            output.append(SPACE);
+            output.write(COMMA);
+            output.write(SPACE);
             writeDotSeparated(expr.getFieldlist());
-            output.append(RPAREN);
+            output.write(RPAREN);
 
             writeRightParentheses(expr);
             return null;
@@ -1128,9 +1224,9 @@ public final class ASTWriter implements Closeable {
             writeLeftParentheses(expr);
 
             expr.getArray().accept(this, null);
-            output.append(LBRACK);
+            output.write(LBRACK);
             writeCommaSeparated(expr.getIndex());
-            output.append(RBRACK);
+            output.write(RBRACK);
 
             writeRightParentheses(expr);
             return null;
@@ -1139,7 +1235,7 @@ public final class ASTWriter implements Closeable {
         @Override
         public Void visitErrorExpr(ErrorExpr expr, Void arg) {
             writeLeftParentheses(expr);
-            output.append("<syntax-error>");
+            output.write("<syntax-error>");
             writeRightParentheses(expr);
             return null;
         }
@@ -1156,8 +1252,8 @@ public final class ASTWriter implements Closeable {
         public Void visitLabelAddress(LabelAddress expr, Void arg) {
             writeLeftParentheses(expr);
 
-            output.append(LABELADDRESS.toString());
-            output.append(expr.getIdLabel().getId());
+            output.write(LABELADDRESS.toString());
+            output.write(expr.getIdLabel().getId());
 
             writeRightParentheses(expr);
             return null;
@@ -1169,13 +1265,13 @@ public final class ASTWriter implements Closeable {
 
             // FIXME when true-expr is absent
             expr.getCondition().accept(this, null);
-            output.append(" ? ");
+            output.write(" ? ");
             if (expr.getOnTrueExp().isPresent()) {
                 expr.getOnTrueExp().get().accept(this, null);
             } else {
-                output.append(" <absent> ");
+                output.write(" <absent> ");
             }
-            output.append(" : ");
+            output.write(" : ");
             expr.getOnFalseExp().accept(this, null);
 
             writeRightParentheses(expr);
@@ -1188,10 +1284,10 @@ public final class ASTWriter implements Closeable {
 
             switch (settings.getNameMode()) {
                 case USE_NORMAL_NAMES:
-                    output.append(expr.getName());
+                    output.write(expr.getName());
                     break;
                 case USE_UNIQUE_NAMES:
-                    output.append(expr.getUniqueName().or(expr.getName()));
+                    output.write(expr.getUniqueName().or(expr.getName()));
                     break;
                 default:
                     throw new RuntimeException("unexpected name mode '"
@@ -1206,9 +1302,9 @@ public final class ASTWriter implements Closeable {
         public Void visitCompoundExpr(CompoundExpr expr, Void arg) {
             writeLeftParentheses(expr);
 
-            output.append(LPAREN);
+            output.write(LPAREN);
             expr.getStatement().accept(this, null);
-            output.append(RPAREN);
+            output.write(RPAREN);
 
             writeRightParentheses(expr);
             return null;
@@ -1216,13 +1312,13 @@ public final class ASTWriter implements Closeable {
 
         @Override
         public Void visitIntegerCst(IntegerCst expr, Void arg) {
-            printConstant(expr);
+            writeConstant(expr);
             return null;
         }
 
         @Override
         public Void visitFloatingCst(FloatingCst expr, Void arg) {
-            printConstant(expr);
+            writeConstant(expr);
             return null;
         }
 
@@ -1230,9 +1326,9 @@ public final class ASTWriter implements Closeable {
         public Void visitCharacterCst(CharacterCst expr, Void arg) {
             writeLeftParentheses(expr);
 
-            output.append(APOSTROPHE);
-            output.append(expr.getString());
-            output.append(APOSTROPHE);
+            output.write(APOSTROPHE);
+            output.write(expr.getString());
+            output.write(APOSTROPHE);
 
             writeRightParentheses(expr);
             return null;
@@ -1242,9 +1338,9 @@ public final class ASTWriter implements Closeable {
         public Void visitStringCst(StringCst expr, Void arg) {
             writeLeftParentheses(expr);
 
-            output.append(QUOTATION_MARK);
-            output.append(expr.getString());
-            output.append(QUOTATION_MARK);
+            output.write(QUOTATION_MARK);
+            output.write(expr.getString());
+            output.write(QUOTATION_MARK);
 
             writeRightParentheses(expr);
             return null;
@@ -1260,7 +1356,7 @@ public final class ASTWriter implements Closeable {
 
         @Override
         public Void visitFunctionCall(FunctionCall expr, Void arg) {
-            printFunctionCall(expr);
+            writeFunctionCall(expr);
             return null;
         }
 
@@ -1284,55 +1380,66 @@ public final class ASTWriter implements Closeable {
 
         @Override
         public Void visitFieldRef(FieldRef expr, Void arg) {
-            printFieldLikeExpr(expr, expr.getFieldName());
+            if (expr.getArgument() instanceof Dereference) {
+                writeLeftParentheses(expr);
+
+                final Dereference dereference = (Dereference) expr.getArgument();
+                dereference.getArgument().accept(this, null);
+                output.write(ARROW.toString());
+                output.write(expr.getFieldName());
+
+                writeRightParentheses(expr);
+            } else {
+                writeFieldLikeExpr(expr, expr.getFieldName());
+            }
             return null;
         }
 
         @Override
         public Void visitInterfaceDeref(InterfaceDeref expr, Void arg) {
-            printFieldLikeExpr(expr, expr.getMethodName());
+            writeFieldLikeExpr(expr, expr.getMethodName());
             return null;
         }
 
         @Override
         public Void visitComponentDeref(ComponentDeref expr, Void arg) {
-            printFieldLikeExpr(expr, expr.getFieldName());
+            writeFieldLikeExpr(expr, expr.getFieldName());
             return null;
         }
 
         @Override
         public Void visitPreincrement(Preincrement expr, Void arg) {
-            printPreincrement(expr, INCREMENT);
+            writePreincrement(expr, INCREMENT);
             return null;
         }
 
         @Override
         public Void visitPredecrement(Predecrement expr, Void arg) {
-            printPreincrement(expr, DECREMENT);
+            writePreincrement(expr, DECREMENT);
             return null;
         }
 
         @Override
         public Void visitPostincrement(Postincrement expr, Void arg) {
-            printPostincrement(expr, INCREMENT);
+            writePostincrement(expr, INCREMENT);
             return null;
         }
 
         @Override
         public Void visitPostdecrement(Postdecrement expr, Void arg) {
-            printPostincrement(expr, DECREMENT);
+            writePostincrement(expr, DECREMENT);
             return null;
         }
 
         @Override
         public Void visitCast(Cast expr, Void arg) {
-            printCastLikeExpr(expr, expr.getAsttype(), expr.getArgument());
+            writeCastLikeExpr(expr, expr.getAsttype(), expr.getArgument());
             return null;
         }
 
         @Override
         public Void visitCastList(CastList expr, Void arg) {
-            printCastLikeExpr(expr, expr.getAsttype(), expr.getInitExpr());
+            writeCastLikeExpr(expr, expr.getAsttype(), expr.getInitExpr());
             return null;
         }
 
@@ -1340,9 +1447,9 @@ public final class ASTWriter implements Closeable {
         public Void visitInitList(InitList expr, Void arg) {
             writeLeftParentheses(expr);
 
-            output.append(LBRACE);
+            output.write(LBRACE);
             writeCommaSeparated(expr.getArguments());
-            output.append(RBRACE);
+            output.write(RBRACE);
 
             writeRightParentheses(expr);
             return null;
@@ -1353,9 +1460,9 @@ public final class ASTWriter implements Closeable {
             writeLeftParentheses(expr);
 
             writeSpaceSeparated(expr.getDesignator());
-            output.append(SPACE);
-            output.append(ASSIGN.toString());
-            output.append(SPACE);
+            output.write(SPACE);
+            output.write(ASSIGN.toString());
+            output.write(SPACE);
             expr.getInitExpr().accept(this, null);
 
             writeRightParentheses(expr);
@@ -1375,9 +1482,9 @@ public final class ASTWriter implements Closeable {
             writeLeftParentheses(expr);
 
             expr.getName().accept(this, null);
-            output.append(LBRACK);
+            output.write(LBRACK);
             writeCommaSeparated(expr.getArguments());
-            output.append(RBRACK);
+            output.write(RBRACK);
 
             writeRightParentheses(expr);
             return null;
@@ -1387,8 +1494,8 @@ public final class ASTWriter implements Closeable {
         public Void visitExtensionExpr(ExtensionExpr expr, Void arg) {
             writeLeftParentheses(expr);
 
-            output.append(GCC_EXTENSION);
-            output.append(SPACE);
+            output.write(GCC_EXTENSION);
+            output.write(SPACE);
             expr.getArgument().accept(this, null);
 
             writeRightParentheses(expr);
@@ -1426,12 +1533,12 @@ public final class ASTWriter implements Closeable {
         public Void visitComponentTyperef(ComponentTyperef typename, Void arg) {
             switch (settings.getNameMode()) {
                 case USE_NORMAL_NAMES:
-                    output.append(typename.getName());
-                    output.append(DOT.toString());
-                    output.append(typename.getTypeName());
+                    output.write(typename.getName());
+                    output.write(DOT.toString());
+                    output.write(typename.getTypeName());
                     break;
                 case USE_UNIQUE_NAMES:
-                    output.append(typename.getUniqueName());
+                    output.write(typename.getUniqueName());
                     break;
                 default:
                     throw new IllegalStateException("unexpected name mode '"
@@ -1478,65 +1585,65 @@ public final class ASTWriter implements Closeable {
 
         @Override
         public Void visitRid(Rid rid, Void arg) {
-            output.append(rid.getId().getName());
+            output.write(rid.getId().getName());
             return null;
         }
 
         @Override
         public Void visitQualifier(Qualifier qualifier, Void arg) {
-            output.append(qualifier.getId().getName());
+            output.write(qualifier.getId().getName());
             return null;
         }
 
         @Override
         public Void visitNescAttribute(NescAttribute nescAttribute, Void arg) {
-            output.append(AT);
-            output.append(nescAttribute.getName().getName());
-            output.append(LPAREN);
+            output.write(AT);
+            output.write(nescAttribute.getName().getName());
+            output.write(LPAREN);
             nescAttribute.getValue().accept(this, null);
-            output.append(RPAREN);
+            output.write(RPAREN);
             return null;
         }
 
         @Override
         public Void visitGccAttribute(GccAttribute gccAttribute, Void arg) {
-            output.append(GCC_ATTRIBUTE);
-            output.append(LPAREN);
-            output.append(LPAREN);
+            output.write(GCC_ATTRIBUTE);
+            output.write(LPAREN);
+            output.write(LPAREN);
 
-            output.append(gccAttribute.getName().getName());
+            output.write(gccAttribute.getName().getName());
             if (gccAttribute.getArguments().isPresent()) {
-                output.append(LPAREN);
+                output.write(LPAREN);
                 // FIXME don't use unique names while printing arguments for GCC attributes
                 writeCommaSeparated(gccAttribute.getArguments().get());
-                output.append(RPAREN);
+                output.write(RPAREN);
             }
 
-            output.append(RPAREN);
-            output.append(RPAREN);
+            output.write(RPAREN);
+            output.write(RPAREN);
             return null;
         }
 
         @Override
         public Void visitDesignateField(DesignateField designator, Void arg) {
-            output.append(DOT.toString());
-            output.append(designator.getName());
+            output.write(DOT.toString());
+            output.write(designator.getName());
             return null;
         }
 
         @Override
         public Void visitDesignateIndex(DesignateIndex designator, Void arg) {
-            output.append(LBRACK);
+            output.write(LBRACK);
 
             designator.getFirst().accept(this, null);
             if (designator.getLast().isPresent()) {
-                output.append(SPACE);
-                output.append(ELLIPSIS);
-                output.append(SPACE);
+                output.write(SPACE);
+                output.write(ELLIPSIS);
+                output.write(SPACE);
                 designator.getLast().get().accept(this, null);
             }
 
-            output.append(RBRACK);
+            output.write(RBRACK);
             return null;
         }
 
@@ -1681,13 +1788,88 @@ public final class ASTWriter implements Closeable {
             throw new RuntimeException("unexpected AST node of class 'Assignment' visited");
         }
 
+        private void writeFormattedIndentedDeclarations(List<? extends Declaration> declarations) {
+            increaseIndentation();
+            writeFormattedDeclarations(declarations);
+            decreaseIndentation();
+        }
+
+        private void writeFormattedIndentedStatements(List<? extends Statement> stmts) {
+            increaseIndentation();
+            writeFormattedStatements(stmts);
+            decreaseIndentation();
+        }
+
+        private void writeFormattedDeclarations(List<? extends Declaration> declarations) {
+            writeFormatted(declarations, IS_MULTILINE_DECLARATION, DECLARATION_TERMINATOR_FUN);
+        }
+
+        private void writeFormattedStatements(List<? extends Statement> stmts) {
+            writeFormatted(stmts, IS_MULTILINE_STMT, EMPTY_TERMINATOR_FUN);
+        }
+
+        private <T extends Node> void writeFormatted(List<? extends T> astNodes, Predicate<T> isMultiline,
+                Function<? super T, String> terminator) {
+            boolean first = true;
+            boolean previousMultiline = false;
+
+            for (T astNode : astNodes) {
+                if (!first && (previousMultiline || isMultiline.apply(astNode))) {
+                    output.println();
+                }
+
+                output.append(indentation);
+                astNode.accept(this, null);
+                output.write(terminator.apply(astNode));
+                output.println();
+
+                first = false;
+                previousMultiline = isMultiline.apply(astNode);
+            }
+        }
+
+        /**
+         * Check if a semicolon shall be written after the given declaration as
+         * a top-level declaration but is not written by the visitor after
+         * visiting it.
+         *
+         * @param declaration Declaration to check for missing semicolon.
+         * @return <code>true</code> if and only if the given declaration as
+         *         a top-level declaration shall be terminated with a semicolon
+         *         but the visitor doesn't append a semicolon during visit of
+         *         that node.
+         */
+        private boolean needsTrailingSemicolon(Declaration declaration) {
+            return declaration instanceof DataDecl;
+        }
+
+        /**
+         * Method that indents substatements other than compound statements
+         * to emphasize if they are part of larger statements.
+         *
+         * @param substmt Statement that is part of another statement.
+         */
+        private void writeSubstatement(Statement substmt) {
+            output.println();
+
+            if (substmt instanceof CompoundStmt) {
+                output.append(indentation);
+                substmt.accept(this, null);
+            } else {
+                increaseIndentation();
+                output.append(indentation);
+                substmt.accept(this, null);
+                decreaseIndentation();
+            }
+        }
+
         private void writeConstantFunctionCall(ConstantFunctionCall cstFunCall) {
             switch (settings.getUniqueMode()) {
                 case OUTPUT_CALLS:
-                    printFunctionCall(cstFunCall);
+                    writeFunctionCall(cstFunCall);
                     break;
                 case OUTPUT_VALUES:
-                    output.append(cstFunCall.getValue().toString());
+                    output.write(cstFunCall.getValue().toString());
                     break;
                 default:
                     throw new RuntimeException("unexpected constant functions mode '"
@@ -1696,24 +1878,22 @@ public final class ASTWriter implements Closeable {
         }
 
         private void writeUsesProvides(RpInterface rp, String rpKeyword) {
-            output.append(rpKeyword);
+            output.write(rpKeyword);
 
             if (rp.getDeclarations().size() == 1) {
-                output.append(SPACE);
+                output.write(SPACE);
                 rp.getDeclarations().getFirst().accept(this, null);
-                addTrailingSemicolonIfNeeded(rp.getDeclarations().getFirst());
+                writeTrailingSemicolonIfNeeded(rp.getDeclarations().getFirst());
             } else {
                 output.println();
                 output.append(indentation);
-                output.append(LBRACE);
+                output.write(LBRACE);
                 output.println();
 
-                increaseIndentation();
-                writeTopLevelDeclarations(rp.getDeclarations());
-                decreaseIndentation();
+                writeFormattedIndentedDeclarations(rp.getDeclarations());
 
                 output.append(indentation);
-                output.append(RBRACE);
+                output.write(RBRACE);
             }
         }
 
@@ -1727,107 +1907,92 @@ public final class ASTWriter implements Closeable {
 
         private void writeComponentHeader(Component component, String componentKeyword) {
             if (component.getIsAbstract()) {
-                output.append(NESC_GENERIC);
-                output.append(SPACE);
+                output.write(NESC_GENERIC);
+                output.write(SPACE);
             }
 
-            output.append(componentKeyword);
-            output.append(SPACE);
-            output.append(component.getName().getName());
+            output.write(componentKeyword);
+            output.write(SPACE);
+            output.write(component.getName().getName());
 
             if (component.getIsAbstract()) {
-                output.append(LPAREN);
+                output.write(LPAREN);
                 if (component.getParameters().isPresent()) {
                     writeCommaSeparated(component.getParameters().get());
                 }
-                output.append(RPAREN);
+                output.write(RPAREN);
             }
 
             if (!component.getAttributes().isEmpty()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 writeSpaceSeparated(component.getAttributes());
             }
         }
 
         private void writeComponentSpecification(LinkedList<Declaration> specDeclarations) {
-            output.append(LBRACE);
+            output.write(LBRACE);
             output.println();
 
             writeSemicolonTerminatedIndented(specDeclarations);
             output.append(indentation);
 
-            output.append(RBRACE);
+            output.write(RBRACE);
         }
 
         private void writeComponentImplementation(LinkedList<Declaration> implDeclarations) {
-            output.append(NESC_IMPLEMENTATION);
+            output.write(NESC_IMPLEMENTATION);
             output.println();
             output.append(indentation);
-            output.append(LBRACE);
+            output.write(LBRACE);
             output.println();
 
-            increaseIndentation();
-            writeTopLevelDeclarations(implDeclarations);
-            decreaseIndentation();
+            writeFormattedIndentedDeclarations(implDeclarations);
 
             output.append(indentation);
-            output.append(RBRACE);
+            output.write(RBRACE);
         }
 
         private void writeTopLevelDeclarations(List<? extends Declaration> declarations) {
-            boolean first = true;
-
-            for (Declaration declaration : declarations) {
-                if (!first && declaration instanceof FunctionDecl) {
-                    output.println();
-                }
-                first = false;
-                writeTopLevelDeclaration(declaration);
-                output.println();
-            }
+            writeFormattedDeclarations(declarations);
         }
 
-        private void writeTopLevelDeclaration(Declaration declaration) {
-            output.append(indentation);
-            declaration.accept(this, null);
-            addTrailingSemicolonIfNeeded(declaration);
-        }
-
-        private void addTrailingSemicolonIfNeeded(Declaration paddedDeclaration) {
-            if (paddedDeclaration instanceof DataDecl) {
-                output.append(SEMICOLON);
+        private void writeTrailingSemicolonIfNeeded(Declaration declaration) {
+            if (needsTrailingSemicolon(declaration)) {
+                output.write(SEMICOLON);
             }
         }
 
         private void writeConnection(EndPoint leftEndpoint, EndPoint rightEndpoint,
                 String connectionToken) {
             leftEndpoint.accept(this, null);
-            output.append(SPACE);
-            output.append(connectionToken);
-            output.append(SPACE);
+            output.write(SPACE);
+            output.write(connectionToken);
+            output.write(SPACE);
             rightEndpoint.accept(this, null);
         }
 
         private void writeTag(TagRef tagRef, String tagKeyword, boolean at) {
             // Write the tag keyword
-            output.append(tagKeyword);
+            output.write(tagKeyword);
 
             // Write '@' if it is necessary
             if (at) {
-                output.append(SPACE);
-                output.append(AT);
+                output.write(SPACE);
+                output.write(AT);
             }
 
             // Write the name if the tag is not anonymous
             final Optional<Word> tag = Optional.fromNullable(tagRef.getName());
             if (tag.isPresent()) {
-                output.append(SPACE);
+                if (!at) {
+                    output.write(SPACE);
+                }
                 writeName(tag.get().getName(), tagRef.getUniqueName().get());
             }
 
             // Write attributes
             if (!tagRef.getAttributes().isEmpty()) {
-                output.append(SPACE);
+                output.write(SPACE);
                 writeSpaceSeparated(tagRef.getAttributes());
             }
 
@@ -1835,7 +2000,7 @@ public final class ASTWriter implements Closeable {
             switch (tagRef.getSemantics()) {
                 case PREDEFINITION:
                 case DEFINITION:
-                    output.append(SPACE);
+                    output.write(SPACE);
                     if (tagRef instanceof EnumRef) {
                         writeCommaSeparatedInBraces(tagRef.getFields());
                     } else {
@@ -1851,10 +2016,10 @@ public final class ASTWriter implements Closeable {
         private void writeName(String name, String uniqueName) {
             switch (settings.getNameMode()) {
                 case USE_NORMAL_NAMES:
-                    output.append(name);
+                    output.write(name);
                     break;
                 case USE_UNIQUE_NAMES:
-                    output.append(uniqueName);
+                    output.write(uniqueName);
                     break;
                 default:
                     throw new IllegalStateException("unexpected name mode '"
@@ -1863,19 +2028,19 @@ public final class ASTWriter implements Closeable {
         }
 
         private void writeTypeof(Node typeofParam) {
-            output.append(OP_TYPEOF);
-            output.append(LPAREN);
+            output.write(OP_TYPEOF);
+            output.write(LPAREN);
             typeofParam.accept(this, null);
-            output.append(RPAREN);
+            output.write(RPAREN);
         }
 
         private void writeBinary(Binary binary, Tokens.BinaryOp op) {
             writeLeftParentheses(binary);
             binary.getLeftArgument().accept(this, null);
 
-            output.append(SPACE);
-            output.append(op.toString());
-            output.append(SPACE);
+            output.write(SPACE);
+            output.write(op.toString());
+            output.write(SPACE);
 
             binary.getRightArgument().accept(this, null);
             writeRightParentheses(binary);
@@ -1884,7 +2049,7 @@ public final class ASTWriter implements Closeable {
         private void writeUnary(Unary unary, Tokens.UnaryOp op) {
             writeLeftParentheses(unary);
 
-            output.append(op.toString());
+            output.write(op.toString());
             unary.getArgument().accept(this, null);
 
             writeRightParentheses(unary);
@@ -1893,77 +2058,77 @@ public final class ASTWriter implements Closeable {
         private void writeLetterUnary(Unary unary, String op) {
             writeLeftParentheses(unary);
 
-            output.append(op);
-            output.append(SPACE);
+            output.write(op);
+            output.write(SPACE);
             unary.getArgument().accept(this, null);
 
             writeRightParentheses(unary);
         }
 
-        private void printExprWithType(Expression expr, String op, AstType astType) {
+        private void writeExprWithType(Expression expr, String op, AstType astType) {
             writeLeftParentheses(expr);
 
-            output.append(op);
-            output.append(LPAREN);
+            output.write(op);
+            output.write(LPAREN);
             astType.accept(this, null);
-            output.append(RPAREN);
+            output.write(RPAREN);
 
             writeRightParentheses(expr);
         }
 
-        private void printConstant(LexicalCst cst) {
+        private void writeConstant(LexicalCst cst) {
             writeLeftParentheses(cst);
-            output.append(cst.getString());
+            output.write(cst.getString());
             writeRightParentheses(cst);
         }
 
-        private void printPreincrement(Unary unary, Tokens.UnaryOp op) {
+        private void writePreincrement(Unary unary, Tokens.UnaryOp op) {
             writeLeftParentheses(unary);
-            output.append(op.toString());
+            output.write(op.toString());
             unary.getArgument().accept(this, null);
             writeRightParentheses(unary);
         }
 
-        private void printPostincrement(Unary unary, Tokens.UnaryOp op) {
+        private void writePostincrement(Unary unary, Tokens.UnaryOp op) {
             writeLeftParentheses(unary);
             unary.getArgument().accept(this, null);
-            output.append(op.toString());
+            output.write(op.toString());
             writeRightParentheses(unary);
         }
 
-        private void printCastLikeExpr(Expression expr, AstType type, Expression subExpr) {
+        private void writeCastLikeExpr(Expression expr, AstType type, Expression subExpr) {
             writeLeftParentheses(expr);
 
-            output.append(LPAREN);
+            output.write(LPAREN);
             type.accept(this, null);
-            output.append(RPAREN);
-            output.append(SPACE);
+            output.write(RPAREN);
+            output.write(SPACE);
             subExpr.accept(this, null);
 
             writeRightParentheses(expr);
         }
 
-        private void printFieldLikeExpr(Unary unary, String fieldName) {
+        private void writeFieldLikeExpr(Unary unary, String fieldName) {
             writeLeftParentheses(unary);
 
             unary.getArgument().accept(this, null);
-            output.append(DOT.toString());
-            output.append(fieldName);
+            output.write(DOT.toString());
+            output.write(fieldName);
 
             writeRightParentheses(unary);
         }
 
-        private void printFieldLikeExpr(Unary unary, Word fieldName) {
+        private void writeFieldLikeExpr(Unary unary, Word fieldName) {
             writeLeftParentheses(unary);
 
             unary.getArgument().accept(this, null);
-            output.append(DOT.toString());
-            output.append(fieldName.getName());
+            output.write(DOT.toString());
+            output.write(fieldName.getName());
 
             writeRightParentheses(unary);
         }
 
-        private void printFunctionCall(FunctionCall expr) {
+        private void writeFunctionCall(FunctionCall expr) {
             writeLeftParentheses(expr);
             final AstType vaArgCall = expr.getVaArgCall();
 
@@ -1971,23 +2136,23 @@ public final class ASTWriter implements Closeable {
                 // Call keyword
                 final Optional<String> callKeyword = Optional.fromNullable(CALL_KEYWORDS.get(expr.getCallKind()));
                 if (callKeyword.isPresent()) {
-                    output.append(callKeyword.get());
-                    output.append(" ");
+                    output.write(callKeyword.get());
+                    output.write(" ");
                 }
 
                 // Function identifier and parameters
                 expr.getFunction().accept(this, null);
-                output.append(LPAREN);
+                output.write(LPAREN);
                 writeCommaSeparated(expr.getArguments());
-                output.append(RPAREN);
+                output.write(RPAREN);
             } else {
-                output.append(GCC_BUILTIN_VA_ARG);
-                output.append(LPAREN);
+                output.write(GCC_BUILTIN_VA_ARG);
+                output.write(LPAREN);
                 writeCommaSeparated(expr.getArguments());
-                output.append(COMMA);
-                output.append(SPACE);
+                output.write(COMMA);
+                output.write(SPACE);
                 vaArgCall.accept(this, null);
-                output.append(RPAREN);
+                output.write(RPAREN);
             }
 
             writeRightParentheses(expr);
@@ -2026,7 +2191,7 @@ public final class ASTWriter implements Closeable {
 
             for (Node node : nodes) {
                 if (!first) {
-                    output.append(separator);
+                    output.write(separator);
                 } else {
                     first = false;
                 }
@@ -2038,7 +2203,7 @@ public final class ASTWriter implements Closeable {
         private void writeTerminated(List<? extends Node> nodes, String terminator) {
             for (Node node : nodes) {
                 node.accept(this, null);
-                output.append(terminator);
+                output.write(terminator);
             }
         }
 
@@ -2048,7 +2213,7 @@ public final class ASTWriter implements Closeable {
             for (Node node : nodes) {
                 output.append(indentation);
                 node.accept(this, null);
-                output.append(terminator);
+                output.write(terminator);
                 output.println();
             }
 
@@ -2056,7 +2221,7 @@ public final class ASTWriter implements Closeable {
         }
 
         private void writeTerminatedInBraces(List<? extends Node> nodes, String terminator) {
-            output.append(LBRACE);
+            output.write(LBRACE);
 
             if (!nodes.isEmpty()) {
                 output.println();
@@ -2064,11 +2229,11 @@ public final class ASTWriter implements Closeable {
                 output.append(indentation);
             }
 
-            output.append(RBRACE);
+            output.write(RBRACE);
         }
 
         private void writeSeparatedInBraces(List<? extends Node> nodes, String separator) {
-            output.append(LBRACE);
+            output.write(LBRACE);
 
             if (!nodes.isEmpty()) {
                 output.println();
@@ -2077,7 +2242,7 @@ public final class ASTWriter implements Closeable {
                 boolean first = true;
                 for (Node node : nodes) {
                     if (!first) {
-                        output.append(separator);
+                        output.write(separator);
                         output.println();
                     } else {
                         first = false;
@@ -2091,7 +2256,7 @@ public final class ASTWriter implements Closeable {
                 output.append(indentation);
             }
 
-            output.append(RBRACE);
+            output.write(RBRACE);
         }
 
         private void writeLeftParentheses(Expression expression) {
@@ -2104,7 +2269,7 @@ public final class ASTWriter implements Closeable {
 
         private void writeRepeated(String toRepeat, int count) {
             for (int i = 0; i < count; ++i) {
-                output.append(toRepeat);
+                output.write(toRepeat);
             }
         }
 
@@ -2120,11 +2285,11 @@ public final class ASTWriter implements Closeable {
             final boolean inParentheses = isPointerDeclarator(declarator);
 
             if (inParentheses) {
-                output.append(LPAREN);
+                output.write(LPAREN);
             }
             declarator.accept(this, null);
             if (inParentheses) {
-                output.append(RPAREN);
+                output.write(RPAREN);
             }
         }
     }
