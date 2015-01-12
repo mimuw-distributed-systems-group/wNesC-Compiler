@@ -1509,8 +1509,15 @@ class ComponentTyperef(BasicASTNode):
 
 
 class AtomicStmt(BasicASTNode):
+    """
+    <code>definedLabelsNames</code> is a set with names of all labels that are defined inside
+    this atomic statement. A defined label is a label occurrence ended with a colon. The set
+    is absent if this is a nested atomic statement.
+    """
     superclass = Statement
     statement = ReferenceField("Statement")
+    declaredLabelsNames = ReferenceField("Set<String>", deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY,
+                                         optional=True)
 
 
 class NxStructRef(BasicASTNode):

@@ -2,9 +2,12 @@ package pl.edu.mimuw.nesc.environment;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.declaration.label.LabelDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.TagDeclaration;
+import pl.edu.mimuw.nesc.symboltable.DefaultLabelSymbolTable;
 import pl.edu.mimuw.nesc.symboltable.DefaultSymbolTable;
+import pl.edu.mimuw.nesc.symboltable.LabelSymbolTable;
 import pl.edu.mimuw.nesc.symboltable.SymbolTable;
 
 import java.util.ArrayList;
@@ -24,6 +27,7 @@ public class DefaultEnvironment implements Environment {
     protected final Optional<Environment> parent;
     protected final SymbolTable<ObjectDeclaration> objects;
     protected final SymbolTable<TagDeclaration> tags;
+    protected final Optional<? extends LabelSymbolTable<LabelDeclaration>> labels;
     protected final List<Environment> enclosedEnvironments;
 
     protected boolean isNestedInGenericEntity;
@@ -32,17 +36,25 @@ public class DefaultEnvironment implements Environment {
     protected Optional<Location> endLocation;
 
     public DefaultEnvironment() {
-        this(null, Optional.<Environment>absent(), Optional.<Location>absent(), Optional.<Location>absent());
+        this(null, Optional.<Environment>absent(), Optional.<Location>absent(),
+                Optional.<Location>absent(), false);
     }
 
     public DefaultEnvironment(Environment parent) {
-        this(null, Optional.of(parent), Optional.<Location>absent(), Optional.<Location>absent());
+        this(null, Optional.of(parent), Optional.<Location>absent(),
+                Optional.<Location>absent(), false);
+    }
+
+    public DefaultEnvironment(Environment parent, boolean functionTopLevelEnvironment) {
+        this(null, Optional.of(parent), Optional.<Location>absent(),
+                Optional.<Location>absent(), true);
     }
 
     public DefaultEnvironment(ScopeType type,
                               Optional<Environment> parent,
                               Optional<Location> startLocation,
-                              Optional<Location> endLocation) {
+                              Optional<Location> endLocation,
+                              boolean functionTopLevelEnvironment) {
         this.type = type;
         this.parent = parent;
         this.objects = new DefaultSymbolTable<>(parent.isPresent() ?
@@ -51,6 +63,17 @@ public class DefaultEnvironment implements Environment {
         this.tags = new DefaultSymbolTable<>(parent.isPresent() ?
                 Optional.of(parent.get().getTags()) :
                 Optional.<SymbolTable<TagDeclaration>>absent());
+
+        if (functionTopLevelEnvironment) {
+            this.labels = Optional.of(DefaultLabelSymbolTable.newFunctionTopLevelTable(parent.isPresent() ?
+                parent.get().getLabels() :
+                Optional.<LabelSymbolTable<LabelDeclaration>>absent()));
+        } else {
+            this.labels = parent.isPresent() && parent.get().getLabels().isPresent()
+                    ? Optional.of(DefaultLabelSymbolTable.newBlockTable(parent.get().getLabels().get()))
+                    : Optional.<LabelSymbolTable<LabelDeclaration>>absent();
+        }
+
         this.startLocation = startLocation;
         this.endLocation = endLocation;
         this.enclosedEnvironments = new ArrayList<>();
@@ -74,6 +97,11 @@ public class DefaultEnvironment implements Environment {
     @Override
     public SymbolTable<TagDeclaration> getTags() {
         return tags;
+    }
+
+    @Override
+    public Optional<? extends LabelSymbolTable<LabelDeclaration>> getLabels() {
+        return labels;
     }
 
     @Override

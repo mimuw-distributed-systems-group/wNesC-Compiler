@@ -2,8 +2,10 @@ package pl.edu.mimuw.nesc.environment;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.declaration.label.LabelDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.TagDeclaration;
+import pl.edu.mimuw.nesc.symboltable.LabelSymbolTable;
 import pl.edu.mimuw.nesc.symboltable.SymbolTable;
 
 import java.util.List;
@@ -35,6 +37,23 @@ public interface Environment {
      * @return tag table
      */
     SymbolTable<TagDeclaration> getTags();
+
+    /**
+     * Get the labels table. There is a separate labels table for each compound
+     * statement to support local labels from GCC:
+     *
+     * https://gcc.gnu.org/onlinedocs/gcc/Local-Labels.html
+     *
+     * Objects in the symbol table that represent local labels are located in
+     * the symbol table of the block they are declared in. Objects that
+     * represent normal labels are added to the symbol table that corresponds to
+     * the body compound statement of the least nested function (if there are
+     * nested functions) - the function top-level compound statement.
+     *
+     * @return The labels table. The object is absent if the current scope
+     *         does not allow declarations of labels.
+     */
+    Optional<? extends LabelSymbolTable<LabelDeclaration>> getLabels();
 
     /**
      * Gets the start location of the environment.

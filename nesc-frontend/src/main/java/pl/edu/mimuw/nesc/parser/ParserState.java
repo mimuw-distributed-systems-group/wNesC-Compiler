@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.parser;
 
+import com.google.common.base.Optional;
+import java.util.Set;
 import pl.edu.mimuw.nesc.ast.gen.Attribute;
 import pl.edu.mimuw.nesc.ast.gen.TypeElement;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
@@ -67,6 +69,8 @@ class ParserState {
     public TypeElementsAssociation declspecs;
     public int stmtCount;
     public boolean insideUsesProvides = false;
+    public boolean newFunctionScope = false;
+    public Optional<Set<String>> atomicStmtLabelsNames = Optional.absent();
 
     public ParserState() {
         this.stack = new Stack<>();

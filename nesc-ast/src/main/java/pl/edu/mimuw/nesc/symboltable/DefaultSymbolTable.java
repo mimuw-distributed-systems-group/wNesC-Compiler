@@ -114,4 +114,8 @@ public class DefaultSymbolTable<T extends Declaration> implements SymbolTable<T>
         }
         return Optional.of(predicate.apply(symbol.get()));
     }
+
+    protected Optional<SymbolTable<T>> getParent() {
+        return parent;
+    }
 }

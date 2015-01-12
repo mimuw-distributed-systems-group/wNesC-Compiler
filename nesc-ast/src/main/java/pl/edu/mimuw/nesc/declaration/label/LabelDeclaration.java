@@ -8,10 +8,24 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public class LabelDeclaration extends Declaration {
 
     private final String name;
+
+    /**
+     * Value indicating if this label is a local label:
+     *
+     * https://gcc.gnu.org/onlinedocs/gcc/Local-Labels.html
+     *
+     */
+    private final boolean isLocal;
+
+    /**
+     * <code>true</code> if and only if this label is defined.
+     */
+    private boolean isDefined;
 
     public static Builder builder() {
         return new Builder();
@@ -20,10 +34,51 @@ public class LabelDeclaration extends Declaration {
     protected LabelDeclaration(Builder builder) {
         super(builder);
         this.name = builder.name;
+        this.isLocal = builder.isLocal;
+        this.isDefined = builder.isDefined;
     }
 
     public String getName() {
         return name;
+    }
+
+    /**
+     * Check if this object is associated with a local label (GCC extension):
+     *
+     * https://gcc.gnu.org/onlinedocs/gcc/Local-Labels.html
+     *
+     * @return <code>true</code> if and only if this object is associated with
+     *         a local label.
+     */
+    public boolean isLocal() {
+        return isLocal;
+    }
+
+    /**
+     * Check if this object is associated with a defined label. A definition
+     * of a label is its name ended with a semicolon. Example of a declaration
+     * of a label that is not simultaneously its definition:
+     * <pre>
+     *     {
+     *         __label__ failure;  <---------- declaration but not definition
+     *         &hellip;
+     *         failure:            <---------- declaration and definition
+     *            return 2;
+     *     }
+     * </pre>
+     *
+     * @return <code>true</code> if and only if this object is associated with
+     *         a defined label.
+     */
+    public boolean isDefined() {
+        return isDefined;
+    }
+
+    /**
+     * Set this label as defined.
+     */
+    public void defined() {
+        this.isDefined = true;
     }
 
     @Override
@@ -53,6 +108,8 @@ public class LabelDeclaration extends Declaration {
      */
     public static class Builder extends Declaration.Builder<LabelDeclaration> {
         private String name;
+        private boolean isLocal = false;
+        private boolean isDefined = true;
 
         protected Builder() {
         }
@@ -68,6 +125,30 @@ public class LabelDeclaration extends Declaration {
             return this;
         }
 
+        /**
+         * Set fields from this builder to indicate that this label is
+         * local and not defined.
+         *
+         * @return <code>this</code>
+         */
+        public Builder local() {
+            this.isLocal = true;
+            this.isDefined = false;
+            return this;
+        }
+
+        /**
+         * Set fields of this builder to indicate that this label is a normal
+         * label and it is defined.
+         *
+         * @return <code>this</code>
+         */
+        public Builder nonlocal() {
+            this.isLocal = false;
+            this.isDefined = true;
+            return this;
+        }
+
         @Override
         protected void validate() {
             super.validate();
@@ -75,7 +156,7 @@ public class LabelDeclaration extends Declaration {
         }
 
         @Override
-        public LabelDeclaration create() {
+        protected LabelDeclaration create() {
             return new LabelDeclaration(this);
         }
     }

@@ -30,6 +30,8 @@ public final class RedeclarationError extends ErroneousIssue {
         switch (kind) {
             case FIELD:
                 return format("Redeclaration of field '%s'", name);
+            case LABEL:
+                return format("Local label '%s' has been already declared in the current scope", name);
             default:
                 return format("Redeclaration of '%s'", name);
         }
@@ -42,6 +44,7 @@ public final class RedeclarationError extends ErroneousIssue {
      */
     public enum RedeclarationKind {
         FIELD,
+        LABEL,
         OTHER,
     }
 }

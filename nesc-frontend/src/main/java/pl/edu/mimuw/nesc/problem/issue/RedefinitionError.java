@@ -35,6 +35,8 @@ public final class RedefinitionError extends ErroneousIssue {
                 return format("Tag '%s' has been already defined", name);
             case FUNCTION:
                 return format("Function '%s' has been already defined", name);
+            case LABEL:
+                return format("Label '%s' has been already placed", name);
             default:
                 return format("Redefinition of '%s'", name);
         }
@@ -50,6 +52,7 @@ public final class RedefinitionError extends ErroneousIssue {
         TAG,
         NESTED_TAG,
         FUNCTION,
+        LABEL,
         OTHER,
     }
 }

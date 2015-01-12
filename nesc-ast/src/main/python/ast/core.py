@@ -555,6 +555,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             res += "import java.math.BigInteger;\n"
             res += "import java.util.LinkedList;\n"
             res += "import java.util.ListIterator;\n"
+            res += "import java.util.Set;\n"
             res += "import com.google.common.base.Optional;\n"
             res += "import pl.edu.mimuw.nesc.ast.*;\n"
             res += "import pl.edu.mimuw.nesc.astutil.AstUtils;\n"

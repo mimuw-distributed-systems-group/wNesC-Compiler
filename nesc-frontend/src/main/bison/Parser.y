@@ -31,9 +31,11 @@ import pl.edu.mimuw.nesc.token.*;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static java.lang.String.format;
 }
@@ -1315,9 +1317,11 @@ fndef2:
         } else {
             $<FunctionDecl>$ = declarations.setOldParams($<FunctionDecl>3, $parms);
         }
+        pstate.newFunctionScope = true;
     }
     compstmt_or_error[body]
     {
+        pstate.newFunctionScope = false;
         if ($<FunctionDecl>5 == null) {
             $$ = null;
         } else {
@@ -2801,6 +2805,7 @@ nested_function:
         } else {
             $<FunctionDecl>$ = declarations.setOldParams($<FunctionDecl>4, $parms);
         }
+        pstate.newFunctionScope = true;
     }
     /*
      * This used to use compstmt_or_error. That caused a bug with input
@@ -2810,6 +2815,7 @@ nested_function:
      */
       compstmt[body]
     {
+        pstate.newFunctionScope = false;
         if ($<FunctionDecl>6 == null) {
             $$ = null;
         } else {
@@ -2855,6 +2861,7 @@ notype_nested_function:
         } else {
             $<FunctionDecl>$ = declarations.setOldParams($<FunctionDecl>4, $parms);
         }
+        pstate.newFunctionScope = true;
     }
     /*
      * This used to use compstmt_or_error. That caused a bug with input
@@ -2864,6 +2871,7 @@ notype_nested_function:
      */
       compstmt[body]
     {
+        pstate.newFunctionScope = false;
         if ($<FunctionDecl>6 == null) {
             $$ = null;
         } else {
@@ -3469,7 +3477,13 @@ errstmt:
 pushlevel:
       /* empty */
     {
-        pushLevel();
+        if (pstate.newFunctionScope) {
+            pushFunctionTopLevel();
+            pstate.newFunctionScope = false;
+        } else {
+            pushLevel();
+        }
+
         environment.setScopeType(ScopeType.COMPOUND);
         /* pushlevel is always preceded by compstmt_start (LPAREN) */
         environment.setStartLocation($<Symbol>0.getLocation());
@@ -3628,9 +3642,25 @@ stmt_or_label:
     ;
 
 atomic_stmt:
-      ATOMIC stmt_or_error
+      ATOMIC[atomic]
     {
-        final AtomicStmt atomicStmt = new AtomicStmt($1.getLocation(), $2);
+        $<Boolean>$ = pstate.atomicStmtLabelsNames.isPresent();
+        if (!pstate.atomicStmtLabelsNames.isPresent()) {
+            pstate.atomicStmtLabelsNames = Optional.<Set<String>>of(new HashSet<String>());
+        }
+    }
+      [nestedAtomic] stmt_or_error[stmt]
+    {
+        final Optional<Set<String>> declaredLabelsNames;
+
+        if ($<Boolean>nestedAtomic) {
+            declaredLabelsNames = Optional.absent();
+        } else {
+            declaredLabelsNames = pstate.atomicStmtLabelsNames;
+            pstate.atomicStmtLabelsNames = Optional.absent();
+        }
+
+        final AtomicStmt atomicStmt = new AtomicStmt($atomic.getLocation(), $stmt, declaredLabelsNames);
         atomicStmt.setEndLocation($1.getEndLocation());
         $$ = atomicStmt;
     }
@@ -3872,6 +3902,8 @@ label:
     }
     | id_label COLON
     {
+        addAtomicStmtLabelName($1.getId());
+        labels.defineLabel(environment, $1);
         $1.setIsColonTerminated(true);
         $$ = $1;
     }
@@ -4095,11 +4127,15 @@ old_parameter:
 identifiers_or_typenames:
       id_label
     {
+        addAtomicStmtLabelName($1.getId());
+        labels.declareLocalLabel(environment, $1);
         $1.setIsColonTerminated(false);
         $$ = Lists.<IdLabel>newList($1);
     }
     | identifiers_or_typenames COMMA id_label
     {
+        addAtomicStmtLabelName($3.getId());
+        labels.declareLocalLabel(environment, $3);
         $3.setIsColonTerminated(false);
         $$ = Lists.<IdLabel>chain($1, $3);
     }
@@ -4315,6 +4351,7 @@ string_chain:
     private Declarations declarations;
     private Initializers initializers;
     private Statements statements;
+    private Labels labels;
     private NescDeclarations nescDeclarations;
     private NescComponents nescComponents;
     
@@ -4389,6 +4426,8 @@ string_chain:
         this.initializers = new Initializers(this.nescEnvironment, this.issuesMultimapBuilder,
                 this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
         this.statements = new Statements(this.nescEnvironment, this.issuesMultimapBuilder,
+                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
+        this.labels = new Labels(this.nescEnvironment, this.issuesMultimapBuilder,
                 this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
         this.nescDeclarations = new NescDeclarations(this.nescEnvironment, this.issuesMultimapBuilder,
                 this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
@@ -4496,6 +4535,10 @@ string_chain:
         pushLevel(new DefaultEnvironment(this.environment));
     }
 
+    private void pushFunctionTopLevel() {
+        pushLevel(new DefaultEnvironment(this.environment, true));
+    }
+
     private void pushLevel(Environment env) {
         //System.out.println("PUSHLEVEL");
         LOG.trace("pushlevel");
@@ -4588,6 +4631,12 @@ string_chain:
     private void analyzeExpressions(List<? extends Expression> exprs) {
         for (Expression expr : exprs) {
             ExpressionsAnalysis.analyze(expr, environment, errorHelper);
+        }
+    }
+
+    private void addAtomicStmtLabelName(String name) {
+        if (pstate.atomicStmtLabelsNames.isPresent()) {
+            pstate.atomicStmtLabelsNames.get().add(name);
         }
     }
 
