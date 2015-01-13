@@ -3710,7 +3710,7 @@ stmt:
          * NOTICE: Setting false statement.
          * Be careful, could be an error statement!
          */
-        if ($$ instanceof IfStmt) {
+        if (stmt instanceof IfStmt) {
             final IfStmt ifStmt = (IfStmt) stmt;
             ifStmt.setFalseStatement(Optional.<Statement>of($4));
         }

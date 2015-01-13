@@ -127,6 +127,11 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
         public LinkedList<Statement> visitBreakStmt(BreakStmt breakStmt, BlockData breakStmtData) {
             return atomizeBreakStmt(breakStmt, breakStmtData);
         }
+
+        @Override
+        public LinkedList<Statement> visitGotoStmt(GotoStmt gotoStmt, BlockData gotoStmtData) {
+            return atomizeGotoStmt(gotoStmt, gotoStmtData);
+        }
     };
 
     /**
@@ -1015,6 +1020,19 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
         final LinkedList<Statement> result = new LinkedList<>();
         result.add(createAtomicFinalCall(stmtData.getAtomicVariableUniqueName().get()));
         result.add(breakingStmt);
+        return result;
+    }
+
+    private LinkedList<Statement> atomizeGotoStmt(GotoStmt stmt, BlockData stmtData) {
+        if (!stmtData.isInsideAtomicBlock() || VariousUtils.getBooleanValue(stmt.getIsAtomicSafe())
+                || !stmt.getToNonAtomicArea()) {
+            return Lists.<Statement>newList(stmt);
+        }
+
+        stmt.setIsAtomicSafe(true);
+
+        final LinkedList<Statement> result = Lists.<Statement>newList(stmt);
+        result.addFirst(createAtomicFinalCall(stmtData.getAtomicVariableUniqueName().get()));
         return result;
     }
 

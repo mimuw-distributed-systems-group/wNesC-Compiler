@@ -120,6 +120,9 @@ public final class LabelAnalyzer {
                         stmt.getEndLocation(),
                         InvalidGotoStmtError.jumpToAtomicStmtFromNonatomicArea()
                 );
+            } else {
+                stmt.setToNonAtomicArea(oracle.atomicLabelsNames.isPresent()
+                        && !labelDecl.get().isPlacedInsideAtomicArea());
             }
 
             return oracle;

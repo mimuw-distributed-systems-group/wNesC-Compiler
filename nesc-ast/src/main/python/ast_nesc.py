@@ -635,9 +635,14 @@ class ReturnStmt(BasicASTNode):
 class GotoStmt(BasicASTNode):
     """
     <p>Goto statement.</p>
+    <code>toNonAtomicArea</code> is set to <code>true</code> during the semantic analysis
+    if and only if the target label is not located inside the atomic statement. Otherwise,
+    it is set to <code>false</code>.
     """
     superclass = Statement
     idLabel = ReferenceField("IdLabel")
+    toNonAtomicArea = BoolField(constructor_variable=False)
+    isAtomicSafe = BoolField(constructor_variable=False)
 
 
 class ComputedGotoStmt(BasicASTNode):
