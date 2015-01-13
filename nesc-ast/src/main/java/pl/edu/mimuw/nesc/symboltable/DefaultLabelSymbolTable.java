@@ -41,6 +41,14 @@ public class DefaultLabelSymbolTable<T extends LabelDeclaration> extends Default
     }
 
     @Override
+    public Optional<? extends T> getLabel(String name) {
+        final Optional<? extends T> fromCurrentFun = getFromCurrentFunction(name);
+        return fromCurrentFun.isPresent()
+                ? fromCurrentFun
+                : getLocalFromOuterFunctions(name);
+    }
+
+    @Override
     public Optional<? extends T> getFromCurrentFunction(String name) {
         final Optional<? extends T> symbol = get(name, true);
 

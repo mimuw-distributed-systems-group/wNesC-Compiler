@@ -25,6 +25,17 @@ public interface LabelSymbolTable<T extends LabelDeclaration> extends SymbolTabl
     boolean addFunctionScopeLabel(String name, T item);
 
     /**
+     * Performs a general lookup of a label with given name. If a label with
+     * given name exists in the function that corresponds to this symbol table,
+     * information about the most nested such label is returned. Otherwise, the
+     * first local label from an outer function is returned, if it exists.
+     *
+     * @param name Name of the label to look for.
+     * @return Found declaration object for a label with given name.
+     */
+    Optional<? extends T> getLabel(String name);
+
+    /**
      * Looks for a label declaration with given name. If the this symbol
      * table does not contain the label and the parent symbol table is present
      * and corresponds to the same function as this, it searches in the parent

@@ -1,10 +1,9 @@
 package pl.edu.mimuw.nesc.declaration.label;
 
 import com.google.common.base.Objects;
-import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -27,6 +26,12 @@ public class LabelDeclaration extends Declaration {
      */
     private boolean isDefined;
 
+    /**
+     * <code>true</code> if and only if the label is placed inside an atomic
+     * statement inside a function.
+     */
+    private boolean isPlacedInsideAtomicArea;
+
     public static Builder builder() {
         return new Builder();
     }
@@ -36,6 +41,7 @@ public class LabelDeclaration extends Declaration {
         this.name = builder.name;
         this.isLocal = builder.isLocal;
         this.isDefined = builder.isDefined;
+        this.isPlacedInsideAtomicArea = builder.isPlacedInsideAtomicArea;
     }
 
     public String getName() {
@@ -75,10 +81,33 @@ public class LabelDeclaration extends Declaration {
     }
 
     /**
+     * Check if the label has been placed inside an atomic statement located
+     * inside a function. Example of a label inside an atomic statement outside
+     * a function (the declaration is placed in the global scope; the program is
+     * invalid):
+     * <pre>
+     *     const int n = sizeof(({ atomic { L1: 4; } 2; }));
+     * </pre>
+     *
+     * @return <code>true</code> if and only if this object is associated with
+     *        a label placed inside an atomic statement in a function.
+     */
+    public boolean isPlacedInsideAtomicArea() {
+        return isPlacedInsideAtomicArea;
+    }
+
+    /**
      * Set this label as defined.
      */
     public void defined() {
         this.isDefined = true;
+    }
+
+    /**
+     * Set the flag indicating this label is placed inside an atomic area.
+     */
+    public void placedInsideAtomicArea() {
+        this.isPlacedInsideAtomicArea = true;
     }
 
     @Override
@@ -110,6 +139,7 @@ public class LabelDeclaration extends Declaration {
         private String name;
         private boolean isLocal = false;
         private boolean isDefined = true;
+        private boolean isPlacedInsideAtomicArea = false;
 
         protected Builder() {
         }
@@ -149,10 +179,22 @@ public class LabelDeclaration extends Declaration {
             return this;
         }
 
+        /**
+         * Set the value indicating if the label is placed in an atomic area.
+         *
+         * @param isPlacedInsideAtomicArea Value to set.
+         * @return <code>this</code>
+         */
+        public Builder isPlacedInsideAnAtomicArea(boolean isPlacedInsideAtomicArea) {
+            this.isPlacedInsideAtomicArea = isPlacedInsideAtomicArea;
+            return this;
+        }
+
         @Override
         protected void validate() {
             super.validate();
-            checkNotNull(name, "name cannot be null");
+            checkState(name != null, "name of the label has not been set or set to null");
+            checkState(!name.isEmpty(), "name of the label set to an empty string");
         }
 
         @Override

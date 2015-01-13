@@ -103,6 +103,8 @@ public final class Issues {
         INVALID_TASK_INTERFACE(72),
         INVALID_COMBINE_ATTRIBUTE_USAGE(73),
         INVALID_LABEL_DECLARATION(74),
+        UNPLACED_LABEL(75),
+        INVALID_GOTO_STMT(76),
         ;
 
         private final int codeNumber;

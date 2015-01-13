@@ -29,7 +29,7 @@ public class Labels extends AstBuildingBase {
                 semanticListener, attributeAnalyzer);
     }
 
-    public void defineLabel(Environment environment, IdLabel label) {
+    public void defineLabel(Environment environment, IdLabel label, boolean insideAtomicArea) {
         if (!environment.getLabels().isPresent()) {
             errorHelper.error(label.getLocation(), label.getEndLocation(),
                     InvalidLabelDeclarationError.invalidLocation());
@@ -51,11 +51,15 @@ public class Labels extends AstBuildingBase {
 
             // Update state
             declaration.defined();
+            if (insideAtomicArea) {
+                declaration.placedInsideAtomicArea();
+            }
             label.setDeclaration(declaration);
         } else {
             final LabelDeclaration declaration = LabelDeclaration.builder()
                     .name(label.getId())
                     .nonlocal()
+                    .isPlacedInsideAnAtomicArea(insideAtomicArea)
                     .startLocation(label.getLocation())
                     .build();
             labelsTable.addFunctionScopeLabel(label.getId(), declaration);
@@ -63,7 +67,7 @@ public class Labels extends AstBuildingBase {
         }
     }
 
-    public void declareLocalLabel(Environment environment, IdLabel label) {
+    public void declareLocalLabel(Environment environment, IdLabel label, boolean insideAtomicArea) {
         if (!environment.getLabels().isPresent()) {
             errorHelper.error(label.getLocation(), label.getEndLocation(),
                     InvalidLabelDeclarationError.invalidLocation());
@@ -78,6 +82,7 @@ public class Labels extends AstBuildingBase {
             final LabelDeclaration declaration = LabelDeclaration.builder()
                     .name(label.getId())
                     .local()
+                    .isPlacedInsideAnAtomicArea(insideAtomicArea)
                     .startLocation(label.getLocation())
                     .build();
             labelsTable.add(label.getId(), declaration);

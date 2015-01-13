@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
+import pl.edu.mimuw.nesc.analysis.LabelAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
@@ -254,9 +255,15 @@ public final class Declarations extends AstBuildingBase {
         return functionDecl;
     }
 
-    public FunctionDecl finishFunction(FunctionDecl functionDecl, Statement body) {
+    public FunctionDecl finishFunction(FunctionDecl functionDecl, Statement body,
+            boolean nestedFunction) {
         functionDecl.setBody(body);
         functionDecl.setEndLocation(body.getEndLocation());
+
+        if (!nestedFunction) {
+            new LabelAnalyzer(functionDecl, errorHelper).analyze();
+        }
+
         return functionDecl;
     }
 

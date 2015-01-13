@@ -1,6 +1,8 @@
 package pl.edu.mimuw.nesc.parser;
 
 import com.google.common.base.Optional;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Set;
 import pl.edu.mimuw.nesc.ast.gen.Attribute;
 import pl.edu.mimuw.nesc.ast.gen.TypeElement;
@@ -70,7 +72,14 @@ class ParserState {
     public int stmtCount;
     public boolean insideUsesProvides = false;
     public boolean newFunctionScope = false;
-    public Optional<Set<String>> atomicStmtLabelsNames = Optional.absent();
+
+    /**
+     * Each item on the stack corresponds to a function definition. Such stack
+     * is necessary because nested functions can be located inside atomic
+     * statements. The set is supposed to accumulate names of labels from an
+     * atomic statement.
+     */
+    public Deque<Optional<Set<String>>> labelsNamesStack = new ArrayDeque<>();
 
     public ParserState() {
         this.stack = new Stack<>();

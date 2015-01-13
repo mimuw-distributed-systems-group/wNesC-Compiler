@@ -1322,10 +1322,12 @@ fndef2:
     compstmt_or_error[body]
     {
         pstate.newFunctionScope = false;
+        pstate.labelsNamesStack.pop();
+
         if ($<FunctionDecl>5 == null) {
             $$ = null;
         } else {
-            $$ = declarations.finishFunction($<FunctionDecl>5, $body);
+            $$ = declarations.finishFunction($<FunctionDecl>5, $body, false);
             /*
              * Parameter environment, has the same start and end location
              * as body environment.
@@ -2819,7 +2821,7 @@ nested_function:
         if ($<FunctionDecl>6 == null) {
             $$ = null;
         } else {
-            $$ = declarations.finishFunction($<FunctionDecl>6, $body);
+            $$ = declarations.finishFunction($<FunctionDecl>6, $body, true);
         }
         /*
          * Parameter environment, has the same start and end location
@@ -2827,6 +2829,7 @@ nested_function:
          */
         environment.setStartLocation($body.getLocation());
         environment.setEndLocation($body.getEndLocation());
+        pstate.labelsNamesStack.pop();
         popLevel();
     }
     ;
@@ -2875,7 +2878,7 @@ notype_nested_function:
         if ($<FunctionDecl>6 == null) {
             $$ = null;
         } else {
-            $$ = declarations.finishFunction($<FunctionDecl>6, $body);
+            $$ = declarations.finishFunction($<FunctionDecl>6, $body, true);
         }
         /*
          * Parameter environment, has the same start and end location
@@ -2883,6 +2886,7 @@ notype_nested_function:
          */
         environment.setStartLocation($body.getLocation());
         environment.setEndLocation($body.getEndLocation());
+        pstate.labelsNamesStack.pop();
         popLevel();
     }
     ;
@@ -3480,6 +3484,7 @@ pushlevel:
         if (pstate.newFunctionScope) {
             pushFunctionTopLevel();
             pstate.newFunctionScope = false;
+            pstate.labelsNamesStack.push(Optional.<Set<String>>absent());
         } else {
             pushLevel();
         }
@@ -3644,20 +3649,21 @@ stmt_or_label:
 atomic_stmt:
       ATOMIC[atomic]
     {
-        $<Boolean>$ = pstate.atomicStmtLabelsNames.isPresent();
-        if (!pstate.atomicStmtLabelsNames.isPresent()) {
-            pstate.atomicStmtLabelsNames = Optional.<Set<String>>of(new HashSet<String>());
+        $<Boolean>$ = !pstate.labelsNamesStack.isEmpty() && pstate.labelsNamesStack.peek().isPresent();
+        if (!pstate.labelsNamesStack.isEmpty() && !pstate.labelsNamesStack.peek().isPresent()) {
+            pstate.labelsNamesStack.pop();
+            pstate.labelsNamesStack.push(Optional.<Set<String>>of(new HashSet<String>()));
         }
     }
-      [nestedAtomic] stmt_or_error[stmt]
+      [isNestedAtomic] stmt_or_error[stmt]
     {
         final Optional<Set<String>> declaredLabelsNames;
 
-        if ($<Boolean>nestedAtomic) {
+        if (pstate.labelsNamesStack.isEmpty() || $<Boolean>isNestedAtomic) {
             declaredLabelsNames = Optional.absent();
         } else {
-            declaredLabelsNames = pstate.atomicStmtLabelsNames;
-            pstate.atomicStmtLabelsNames = Optional.absent();
+            declaredLabelsNames = pstate.labelsNamesStack.pop();
+            pstate.labelsNamesStack.push(Optional.<Set<String>>absent());
         }
 
         final AtomicStmt atomicStmt = new AtomicStmt($atomic.getLocation(), $stmt, declaredLabelsNames);
@@ -3903,7 +3909,9 @@ label:
     | id_label COLON
     {
         addAtomicStmtLabelName($1.getId());
-        labels.defineLabel(environment, $1);
+        final boolean isInsideAtomic = !pstate.labelsNamesStack.isEmpty()
+                && pstate.labelsNamesStack.peek().isPresent();
+        labels.defineLabel(environment, $1, isInsideAtomic);
         $1.setIsColonTerminated(true);
         $$ = $1;
     }
@@ -4128,14 +4136,18 @@ identifiers_or_typenames:
       id_label
     {
         addAtomicStmtLabelName($1.getId());
-        labels.declareLocalLabel(environment, $1);
+        final boolean isInsideAtomic = !pstate.labelsNamesStack.isEmpty()
+                && pstate.labelsNamesStack.peek().isPresent();
+        labels.declareLocalLabel(environment, $1, isInsideAtomic);
         $1.setIsColonTerminated(false);
         $$ = Lists.<IdLabel>newList($1);
     }
     | identifiers_or_typenames COMMA id_label
     {
         addAtomicStmtLabelName($3.getId());
-        labels.declareLocalLabel(environment, $3);
+        final boolean isInsideAtomic = !pstate.labelsNamesStack.isEmpty()
+                && pstate.labelsNamesStack.peek().isPresent();
+        labels.declareLocalLabel(environment, $3, isInsideAtomic);
         $3.setIsColonTerminated(false);
         $$ = Lists.<IdLabel>chain($1, $3);
     }
@@ -4635,8 +4647,8 @@ string_chain:
     }
 
     private void addAtomicStmtLabelName(String name) {
-        if (pstate.atomicStmtLabelsNames.isPresent()) {
-            pstate.atomicStmtLabelsNames.get().add(name);
+        if (!pstate.labelsNamesStack.isEmpty() && pstate.labelsNamesStack.peek().isPresent()) {
+            pstate.labelsNamesStack.peek().get().add(name);
         }
     }
 
