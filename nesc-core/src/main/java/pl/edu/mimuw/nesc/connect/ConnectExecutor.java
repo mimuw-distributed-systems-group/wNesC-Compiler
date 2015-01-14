@@ -4,6 +4,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import org.apache.log4j.Logger;
@@ -196,15 +197,27 @@ public final class ConnectExecutor {
         }
 
         /**
-         * <p>Add NesC declarations that define the graph that will be built.
-         * Only components and interfaces from the given list are used, other
-         * nodes are ignored. If one of the components is generic, an exception
-         * is thrown during building.</p>
+         * Add a declaration that defines the graph that will be built.
          *
-         * @param nodes List with nodes to add.
+         * @param nescDecl NesC declaration to add.
          * @return <code>this</code>
          */
-        public Builder addNescDeclarations(List<? extends Node> nodes) {
+        public Builder addNescDeclaration(NescDecl nescDecl) {
+            checkNotNull(nescDecl, "NesC declaration to add cannot be null");
+            nescDeclarations.add(nescDecl);
+            return this;
+        }
+
+        /**
+         * <p>Add NesC declarations that define the graph that will be built.
+         * Only components and interfaces from the given collection are used,
+         * other nodes are ignored. If one of the components is generic, an
+         * exception is thrown during building.</p>
+         *
+         * @param nodes Collection with nodes to add.
+         * @return <code>this</code>
+         */
+        public Builder addNescDeclarations(Collection<? extends Node> nodes) {
             FluentIterable.from(nodes)
                     .filter(NescDecl.class)
                     .copyInto(nescDeclarations);

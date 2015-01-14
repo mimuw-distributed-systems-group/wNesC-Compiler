@@ -2,7 +2,7 @@ package pl.edu.mimuw.nesc.fold;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import java.util.List;
+import java.util.Collection;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 
 /**
@@ -98,13 +98,13 @@ public final class FoldExecutor {
         }
 
         /**
-         * <p>Add all nodes from the given list for evaluation of constant
+         * <p>Add all nodes from the given collection for evaluation of constant
          * functions that appear in them by the built fold executor.</p>
          *
          * @param nodes Nodes to add.
          * @return <code>this</code>
          */
-        public Builder addNodes(List<? extends Node> nodes) {
+        public Builder addNodes(Collection<? extends Node> nodes) {
             nodesListBuilder.addAll(nodes);
             return this;
         }

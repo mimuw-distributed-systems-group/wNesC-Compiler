@@ -105,6 +105,7 @@ public final class Issues {
         INVALID_LABEL_DECLARATION(74),
         UNPLACED_LABEL(75),
         INVALID_GOTO_STMT(76),
+        INSTANTIATION_CYCLE(77),
         ;
 
         private final int codeNumber;

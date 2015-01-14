@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Collection;
 import java.util.Map;
 import pl.edu.mimuw.nesc.ast.gen.Configuration;
+import pl.edu.mimuw.nesc.ast.gen.NescDecl;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.SchedulerSpecification;
@@ -14,6 +15,7 @@ import pl.edu.mimuw.nesc.names.mangling.CountingNameMangler;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
@@ -154,6 +156,28 @@ public final class BasicReduceExecutor {
         }
 
         /**
+         * Adds the given node for the basic reduce operation.
+         *
+         * @param node Node to add.
+         * @return <code>this</code>
+         */
+        public Builder addNode(Node node) {
+            checkNotNull(node, "node cannot be null");
+
+            if (node instanceof Configuration) {
+                configurationsBuilder.add((Configuration) node);
+            } else {
+                otherNodesBuilder.add(node);
+            }
+
+            if (node instanceof NescDecl) {
+                nameCollector.collect((NescDecl) node);
+            }
+
+            return this;
+        }
+
+        /**
          * Adds nodes from the given collection for the basic reduce operation.
          *
          * @param nodes Collection of nodes to add.
@@ -161,15 +185,8 @@ public final class BasicReduceExecutor {
          */
         public Builder addNodes(Collection<? extends Node> nodes) {
             for (Node node : nodes) {
-                if (node instanceof Configuration) {
-                    configurationsBuilder.add((Configuration) node);
-                } else {
-                    checkArgument(node != null, "one of the nodes in the collection is null");
-                    otherNodesBuilder.add(node);
-                }
+                addNode(node);
             }
-
-            nameCollector.collect(nodes);
 
             return this;
         }
