@@ -74,6 +74,7 @@ public final class NescDeclarations extends AstBuildingBase {
                 .newUnknownType();
 
         final TypenameDeclaration symbol = TypenameDeclaration.builder()
+                .isGenericParameter(true)
                 .uniqueName(uniqueName)
                 .denotedType(denotedType)
                 .name(name)

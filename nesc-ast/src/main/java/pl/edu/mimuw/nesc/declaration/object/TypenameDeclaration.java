@@ -21,7 +21,7 @@ public class TypenameDeclaration extends ObjectDeclaration {
 
     /**
      * Value indicating if this type definition represents a generic, type
-     * parameter of a generic component.
+     * parameter of a generic component or a generic interface.
      */
     private final boolean isGenericParameter;
 
@@ -48,10 +48,10 @@ public class TypenameDeclaration extends ObjectDeclaration {
 
     /**
      * <p>Check if this declaration represents a generic type parameter of
-     * a generic component.</p>
+     * a generic component or a generic interface.</p>
      *
      * @return Value indicating if this declaration represents a generic type
-     *         parameter of a generic component.
+     *         parameter of a generic component or a generic interface.
      */
     public boolean isGenericParameter() {
         return isGenericParameter;
