@@ -384,13 +384,12 @@ public final class ASTWriter implements Closeable {
 
         @Override
         public Void visitFunctionDecl(FunctionDecl functionDecl, Void arg) {
+            /* Write function header. Attributes must be written before the
+               declarator - GCC currently doesn't support the case when they
+               appear after it. */
+            writeSpaceTerminated(functionDecl.getAttributes());
             writeSpaceTerminated(functionDecl.getModifiers());
             functionDecl.getDeclarator().accept(this, null);
-
-            if (!functionDecl.getAttributes().isEmpty()) {
-                output.write(SPACE);
-                writeSpaceSeparated(functionDecl.getAttributes());
-            }
 
             output.println();
 
