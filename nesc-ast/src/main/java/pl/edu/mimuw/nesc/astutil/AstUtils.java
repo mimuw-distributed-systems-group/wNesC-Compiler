@@ -809,6 +809,26 @@ public final class AstUtils {
         );
     }
 
+    /**
+     * Check if the given declaration is a definition of a NesC attribute.
+     *
+     * @param dataDecl Declaration to check.
+     * @return <code>true</code> if and only if the given declaration is a NesC
+     *         attribute definition (in such case the attribute is the only
+     *         element the declaration introduces).
+     */
+    public static boolean isNescAttributeDefinition(DataDecl dataDecl) {
+        checkNotNull(dataDecl, "declaration cannot be null");
+
+        for (TypeElement typeElement : dataDecl.getModifiers()) {
+            if (typeElement instanceof AttributeRef) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private AstUtils() {
     }
 

@@ -189,12 +189,14 @@ public final class DefaultCodeGenerator {
     /**
      * Visitor responsible for outputting declarations. The argument specifies
      * if a forward declaration of a function shall be output instead of
-     * a function definition.
+     * a function definition. Definitions of NesC attributes are not emitted.
      */
     private final ExceptionVisitor<Void, Boolean> declarationsProcessor = new ExceptionVisitor<Void, Boolean>() {
         @Override
         public Void visitDataDecl(DataDecl dataDecl, Boolean shortenFunDefs) {
-            outputBuilder.add(dataDecl);
+            if (!AstUtils.isNescAttributeDefinition(dataDecl)) {
+                outputBuilder.add(dataDecl);
+            }
             return null;
         }
 
