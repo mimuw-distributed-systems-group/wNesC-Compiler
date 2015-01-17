@@ -1,0 +1,53 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<schema targetNamespace='http://mimuw.edu.pl/nesc/abi'
+        xmlns='http://www.w3.org/2001/XMLSchema' elementFormDefault='qualified'
+        xmlns:tns='http://mimuw.edu.pl/nesc/abi'>
+
+    <element name='abi' type='tns:TypeABI'/>
+
+    <complexType name='TypeABI'>
+        <sequence>
+            <element name='types' type='tns:TypeTypes'/>
+        </sequence>
+    </complexType>
+
+    <complexType name='TypeTypes'>
+        <sequence>
+            <element name='char' type='tns:TypeCharDescriptor'/>
+            <element name='short' type='tns:TypeTypeDescriptor'/>
+            <element name='int' type='tns:TypeTypeDescriptor'/>
+            <element name='long' type='tns:TypeTypeDescriptor'/>
+            <element name='long-long' type='tns:TypeTypeDescriptor'/>
+            <element name='float' type='tns:TypeTypeDescriptor'/>
+            <element name='double' type='tns:TypeTypeDescriptor'/>
+            <element name='long-double' type='tns:TypeTypeDescriptor'/>
+            <element name='pointer-type' type='tns:TypeTypeDescriptor'/>
+        </sequence>
+    </complexType>
+
+    <complexType name='TypeCharDescriptor'>
+        <sequence>
+            <element name='is-signed' type='boolean'/>
+        </sequence>
+    </complexType>
+
+    <complexType name='TypeTypeDescriptor'>
+        <sequence>
+            <element name='size' type='tns:TypeSize'/>
+            <element name='alignment' type='tns:TypeSize'/>
+        </sequence>
+    </complexType>
+
+    <simpleType name='TypeSize'>
+        <annotation>
+            <documentation xml:lang='en'>
+                The unit for expressing size is 1 byte.
+            </documentation>
+        </annotation>
+        <restriction base='integer'>
+            <minInclusive value='1'/>
+            <maxInclusive value='1024'/>
+        </restriction>
+    </simpleType>
+
+</schema>
