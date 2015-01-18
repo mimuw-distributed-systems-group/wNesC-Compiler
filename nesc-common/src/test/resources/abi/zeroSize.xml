@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<abi xmlns='http://mimuw.edu.pl/nesc/abi'>
+    <types>
+        <char><is-signed>false</is-signed></char>
+        <short><size>0</size><alignment>2</alignment></short>
+        <int><size>4</size><alignment>4</alignment></int>
+        <long><size>8</size><alignment>8</alignment></long>
+        <long-long><size>8</size><alignment>8</alignment></long-long>
+        <float><size>4</size><alignment>4</alignment></float>
+        <double><size>8</size><alignment>8</alignment></double>
+        <long-double><size>16</size><alignment>16</alignment></long-double>
+        <pointer-type><size>8</size><alignment>8</alignment></pointer-type>
+    </types>
+</abi>
