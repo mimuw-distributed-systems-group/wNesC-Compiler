@@ -1,5 +1,11 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <abi xmlns='http://mimuw.edu.pl/nesc/abi'>
+    <endianness>
+        
+            big-endian
+        
+        </endianness>
+
     <types>
         <char>
             
@@ -8,6 +14,27 @@
                 1
             
             </is-signed>
+            
+
+            <signed>
+                <minimum-value>
+                    
+                    -128
+                
+                </minimum-value>
+                <maximum-value>         127
+                
+                </maximum-value>
+            </signed>
+            
+            <unsigned>
+                <minimum-value>
+                    0
+                </minimum-value>
+                <maximum-value>
+                      255
+                     </maximum-value>
+            </unsigned>
         
         </char>
         
@@ -21,7 +48,35 @@
                 <alignment>
                     4
                 
-                </alignment></short>
+                </alignment>
+            
+
+                <signed>
+                    <minimum-value>
+                        
+                        -32768
+                    
+                    </minimum-value>
+                    <maximum-value>
+                        
+                        32767
+                    
+                    </maximum-value>
+                </signed>
+                <unsigned>
+                    <minimum-value>
+                        
+                        0
+                    
+                    </minimum-value>
+                    <maximum-value>
+                        
+                        65535
+                    
+                    </maximum-value>
+                </unsigned>
+            
+            </short>
 
         <int>
             <size>4
@@ -31,12 +86,59 @@
             8
         
         </alignment>
+
+        <signed>
+            <minimum-value>
+                
+                -2147483648
+            
+            </minimum-value>
+            <maximum-value>
+                
+                2147483647
+            
+            </maximum-value>
+        </signed>
+        <unsigned>
+            <minimum-value>
+                
+                0
+            
+            </minimum-value>
+            <maximum-value>
+                
+                4294967295
+            
+            </maximum-value>
+        </unsigned>
     
     </int>
 
         <long><size>    8</size><alignment>16
     
-        </alignment></long>
+        </alignment>
+            <signed>
+                <minimum-value>
+                    
+                    -9223372036854775808
+                
+                </minimum-value>
+                <maximum-value>
+                    
+                    9223372036854775807
+                
+                </maximum-value>
+            </signed>
+            <unsigned>
+                <minimum-value>
+                    
+                    0
+                
+                </minimum-value>
+                <maximum-value>
+                    
+                    18446744073709551615  </maximum-value>
+            </unsigned></long>
 
         <long-long>
             
@@ -44,7 +146,23 @@
                 8
             </size><alignment>
             16
-        </alignment></long-long>
+        </alignment>
+            <signed>
+                <minimum-value>
+                    
+                    -9223372036854775808</minimum-value>
+                <maximum-value>9223372036854775807
+                
+                </maximum-value>
+            </signed>
+            <unsigned>
+                <minimum-value>0
+                
+                </minimum-value>
+                <maximum-value>
+                    
+                    18446744073709551615</maximum-value>
+            </unsigned></long-long>
 
         <float><size>
             
@@ -80,7 +198,29 @@
             
             </alignment>
         
-        </pointer-type>
+        </pointer-type>        <size_t>
+            <size>   8
+            
+            </size>
+            <alignment>   16         
+            </alignment>
+            <minimum-value>   0    </minimum-value>
+            <maximum-value>         18446744073709551615</maximum-value>
+        </size_t>
+        
+        <ptrdiff_t>
+            <size>8     
+            </size>
+            <alignment>16
+            
+            </alignment>
+            <minimum-value>
+                
+                -9223372036854775808   </minimum-value>
+            <maximum-value>
+                
+                9223372036854775807</maximum-value>
+        </ptrdiff_t>
 
     </types>
 

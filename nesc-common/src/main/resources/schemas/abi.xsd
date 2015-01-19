@@ -7,27 +7,67 @@
 
     <complexType name='TypeABI'>
         <sequence>
+            <element name='endianness' type='tns:TypeEndianness'/>
             <element name='types' type='tns:TypeTypes'/>
         </sequence>
     </complexType>
 
+    <simpleType name='TypeEndianness'>
+        <restriction base='token'>
+            <enumeration value='big-endian'/>
+            <enumeration value='little-endian'/>
+        </restriction>
+    </simpleType>
+
     <complexType name='TypeTypes'>
         <sequence>
             <element name='char' type='tns:TypeCharDescriptor'/>
-            <element name='short' type='tns:TypeTypeDescriptor'/>
-            <element name='int' type='tns:TypeTypeDescriptor'/>
-            <element name='long' type='tns:TypeTypeDescriptor'/>
-            <element name='long-long' type='tns:TypeTypeDescriptor'/>
+            <element name='short' type='tns:TypeStandardIntegerTypeDescriptor'/>
+            <element name='int' type='tns:TypeStandardIntegerTypeDescriptor'/>
+            <element name='long' type='tns:TypeStandardIntegerTypeDescriptor'/>
+            <element name='long-long' type='tns:TypeStandardIntegerTypeDescriptor'/>
             <element name='float' type='tns:TypeTypeDescriptor'/>
             <element name='double' type='tns:TypeTypeDescriptor'/>
             <element name='long-double' type='tns:TypeTypeDescriptor'/>
             <element name='pointer-type' type='tns:TypeTypeDescriptor'/>
+            <element name='size_t' type='tns:TypeUnsignedIntegerTypeDescriptor'/>
+            <element name='ptrdiff_t' type='tns:TypeSignedIntegerTypeDescriptor'/>
         </sequence>
     </complexType>
+
+    <group name='GroupRange'>
+        <sequence>
+            <element name='minimum-value' type='integer'/>
+            <element name='maximum-value' type='integer'/>
+        </sequence>
+    </group>
+
+    <group name='GroupUnsignedRange'>
+        <sequence>
+            <element name='minimum-value' type='integer' fixed='0'/>
+            <element name='maximum-value' type='integer'/>
+        </sequence>
+    </group>
+
+    <complexType name='TypeRange'>
+        <group ref='tns:GroupRange'/>
+    </complexType>
+
+    <complexType name='TypeUnsignedRange'>
+        <group ref='tns:GroupUnsignedRange'/>
+    </complexType>
+
+    <group name='GroupStandardTypeRanges'>
+        <sequence>
+            <element name='signed' type='tns:TypeRange'/>
+            <element name='unsigned' type='tns:TypeUnsignedRange'/>
+        </sequence>
+    </group>
 
     <complexType name='TypeCharDescriptor'>
         <sequence>
             <element name='is-signed' type='boolean'/>
+            <group ref='tns:GroupStandardTypeRanges'/>
         </sequence>
     </complexType>
 
@@ -36,6 +76,30 @@
             <element name='size' type='tns:TypeSize'/>
             <element name='alignment' type='tns:TypeSize'/>
         </sequence>
+    </complexType>
+
+    <complexType name='TypeStandardIntegerTypeDescriptor'>
+        <complexContent>
+            <extension base='tns:TypeTypeDescriptor'>
+                <group ref='tns:GroupStandardTypeRanges'/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <complexType name='TypeSignedIntegerTypeDescriptor'>
+        <complexContent>
+            <extension base='tns:TypeTypeDescriptor'>
+                <group ref='tns:GroupRange'/>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <complexType name='TypeUnsignedIntegerTypeDescriptor'>
+        <complexContent>
+            <extension base='tns:TypeTypeDescriptor'>
+                <group ref='tns:GroupUnsignedRange'/>
+            </extension>
+        </complexContent>
     </complexType>
 
     <simpleType name='TypeSize'>

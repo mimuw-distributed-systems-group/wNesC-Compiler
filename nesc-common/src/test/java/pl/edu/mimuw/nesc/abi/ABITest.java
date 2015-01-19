@@ -1,6 +1,8 @@
 package pl.edu.mimuw.nesc.abi;
 
+import com.google.common.collect.Range;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.net.URL;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPathExpressionException;
@@ -19,13 +21,105 @@ public class ABITest {
     @Test
     public void testSimpleLoad() throws SAXException, ParserConfigurationException, IOException, XPathExpressionException {
         final ABI simpleAbi = loadABI("abi/simpleABI.xml");
-        checkABI(simpleAbi, false, 2, 2, 4, 4, 8, 8, 8, 8, 4, 4, 8, 8, 16, 16, 8, 8);
+        checkEndianness(simpleAbi, Endianness.LITTLE_ENDIAN);
+
+        checkChar(
+                simpleAbi,
+                false,
+                Range.closed(BigInteger.valueOf(-128L), BigInteger.valueOf(127)),
+                Range.closed(BigInteger.ZERO, BigInteger.valueOf(255L))
+        );
+
+        checkShort(
+                simpleAbi,
+                2, 2,
+                Range.closed(BigInteger.valueOf(-32768L), BigInteger.valueOf(32767L)),
+                Range.closed(BigInteger.ZERO, BigInteger.valueOf(65535L))
+        );
+
+        checkInt(
+                simpleAbi,
+                4, 4,
+                Range.closed(BigInteger.valueOf(-2147483648L), BigInteger.valueOf(2147483647)),
+                Range.closed(BigInteger.ZERO, BigInteger.valueOf(4294967295L))
+        );
+
+        checkLong(
+                simpleAbi,
+                8, 8,
+                Range.closed(BigInteger.valueOf(-9223372036854775808L), BigInteger.valueOf(9223372036854775807L)),
+                Range.closed(BigInteger.ZERO, BigInteger.valueOf(2L).pow(64).subtract(BigInteger.ONE))
+        );
+
+        checkLongLong(
+                simpleAbi,
+                8, 8,
+                Range.closed(BigInteger.valueOf(-9223372036854775808L), BigInteger.valueOf(9223372036854775807L)),
+                Range.closed(BigInteger.ZERO, BigInteger.valueOf(2L).pow(64).subtract(BigInteger.ONE))
+        );
+
+        checkFloatingTypes(simpleAbi, 4, 4, 8, 8, 16, 16);
+        checkPointerType(simpleAbi, 8, 8);
+
+        checkSpecialTypes(
+                simpleAbi,
+                8, 8,
+                Range.closed(BigInteger.ZERO, BigInteger.valueOf(2L).pow(64).subtract(BigInteger.ONE)),
+                8, 8,
+                Range.closed(BigInteger.valueOf(-9223372036854775808L), BigInteger.valueOf(9223372036854775807L))
+        );
     }
 
     @Test
     public void testABIWithWhitespace() throws SAXException, ParserConfigurationException, IOException, XPathExpressionException {
         final ABI abiWithWhitespace = loadABI("abi/ABIWithWhitespace.xml");
-        checkABI(abiWithWhitespace, true, 2, 4, 4, 8, 8, 16, 8, 16, 4, 8, 8, 16, 16, 32, 8, 16);
+        checkEndianness(abiWithWhitespace, Endianness.BIG_ENDIAN);
+
+        checkChar(
+                abiWithWhitespace,
+                true,
+                Range.closed(BigInteger.valueOf(-128L), BigInteger.valueOf(127)),
+                Range.closed(BigInteger.ZERO, BigInteger.valueOf(255L))
+        );
+
+        checkShort(
+                abiWithWhitespace,
+                2, 4,
+                Range.closed(BigInteger.valueOf(-32768L), BigInteger.valueOf(32767L)),
+                Range.closed(BigInteger.ZERO, BigInteger.valueOf(65535L))
+        );
+
+        checkInt(
+                abiWithWhitespace,
+                4, 8,
+                Range.closed(BigInteger.valueOf(-2147483648L), BigInteger.valueOf(2147483647)),
+                Range.closed(BigInteger.ZERO, BigInteger.valueOf(4294967295L))
+        );
+
+        checkLong(
+                abiWithWhitespace,
+                8, 16,
+                Range.closed(BigInteger.valueOf(-9223372036854775808L), BigInteger.valueOf(9223372036854775807L)),
+                Range.closed(BigInteger.ZERO, BigInteger.valueOf(2L).pow(64).subtract(BigInteger.ONE))
+        );
+
+        checkLongLong(
+                abiWithWhitespace,
+                8, 16,
+                Range.closed(BigInteger.valueOf(-9223372036854775808L), BigInteger.valueOf(9223372036854775807L)),
+                Range.closed(BigInteger.ZERO, BigInteger.valueOf(2L).pow(64).subtract(BigInteger.ONE))
+        );
+
+        checkFloatingTypes(abiWithWhitespace, 4, 8, 8, 16, 16, 32);
+        checkPointerType(abiWithWhitespace, 8, 16);
+
+        checkSpecialTypes(
+                abiWithWhitespace,
+                8, 16,
+                Range.closed(BigInteger.ZERO, BigInteger.valueOf(2L).pow(64).subtract(BigInteger.ONE)),
+                8, 16,
+                Range.closed(BigInteger.valueOf(-9223372036854775808L), BigInteger.valueOf(9223372036854775807L))
+        );
     }
 
     @Test(expected=org.xml.sax.SAXException.class)
@@ -56,27 +150,78 @@ public class ABITest {
         return new ABI(resourceURL.getFile());
     }
 
-    private void checkABI(ABI abi, boolean isCharSigned, int sizeShort, int alignShort, int sizeInt,
-                int alignInt, int sizeLong, int alignLong, int sizeLongLong, int alignLongLong,
-                int sizeFloat, int alignFloat, int sizeDouble, int alignDouble, int sizeLongDouble,
-                int alignLongDouble, int sizePointer, int alignPointer) {
+    private void checkEndianness(ABI abi, Endianness endianness) {
+        assertEquals(endianness, abi.getEndianness());
+    }
 
-        assertEquals(isCharSigned, abi.isCharSigned());
+    private void checkChar(ABI abi, boolean isCharSigned,
+            Range<BigInteger> rangeSignedChar, Range<BigInteger> rangeUnsignedChar) {
+        assertEquals(isCharSigned, abi.getChar().isSigned());
+        assertEquals(rangeSignedChar, abi.getChar().getSignedRange());
+        assertEquals(rangeUnsignedChar, abi.getChar().getUnsignedRange());
+    }
+
+    private void checkShort(ABI abi, int sizeShort, int alignShort,
+            Range<BigInteger> rangeSignedShort,
+            Range<BigInteger> rangeUnsignedShort) {
         assertEquals(sizeShort, abi.getShort().getSize());
         assertEquals(alignShort, abi.getShort().getAlignment());
+        assertEquals(rangeSignedShort, abi.getShort().getSignedRange());
+        assertEquals(rangeUnsignedShort, abi.getShort().getUnsignedRange());
+    }
+
+    private void checkInt(ABI abi, int sizeInt, int alignInt,
+            Range<BigInteger> rangeSignedInt,
+            Range<BigInteger> rangeUnsignedInt) {
         assertEquals(sizeInt, abi.getInt().getSize());
         assertEquals(alignInt, abi.getInt().getAlignment());
+        assertEquals(rangeSignedInt, abi.getInt().getSignedRange());
+        assertEquals(rangeUnsignedInt, abi.getInt().getUnsignedRange());
+    }
+
+    private void checkLong(ABI abi, int sizeLong, int alignLong,
+            Range<BigInteger> rangeSignedLong, Range<BigInteger> rangeUnsignedLong) {
         assertEquals(sizeLong, abi.getLong().getSize());
         assertEquals(alignLong, abi.getLong().getAlignment());
+        assertEquals(rangeSignedLong, abi.getLong().getSignedRange());
+        assertEquals(rangeUnsignedLong, abi.getLong().getUnsignedRange());
+    }
+
+    private void checkLongLong(ABI abi, int sizeLongLong, int alignLongLong,
+            Range<BigInteger> rangeSignedLongLong, Range<BigInteger> rangeUnsignedLongLong) {
         assertEquals(sizeLongLong, abi.getLongLong().getSize());
         assertEquals(alignLongLong, abi.getLongLong().getAlignment());
+        assertEquals(rangeSignedLongLong, abi.getLongLong().getSignedRange());
+        assertEquals(rangeUnsignedLongLong, abi.getLongLong().getUnsignedRange());
+    }
+
+    private void checkFloatingTypes(ABI abi, int sizeFloat, int alignFloat,
+            int sizeDouble, int alignDouble, int sizeLongDouble,
+            int alignLongDouble) {
         assertEquals(sizeFloat, abi.getFloat().getSize());
         assertEquals(alignFloat, abi.getFloat().getAlignment());
         assertEquals(sizeDouble, abi.getDouble().getSize());
         assertEquals(alignDouble, abi.getDouble().getAlignment());
         assertEquals(sizeLongDouble, abi.getLongDouble().getSize());
         assertEquals(alignLongDouble, abi.getLongDouble().getAlignment());
+    }
+
+    private void checkPointerType(ABI abi, int sizePointer, int alignPointer) {
         assertEquals(sizePointer, abi.getPointerType().getSize());
         assertEquals(alignPointer, abi.getPointerType().getAlignment());
+    }
+
+    private void checkSpecialTypes(ABI abi, int sizeSizeT, int alignSizeT,
+            Range<BigInteger> rangeSizeT, int sizePtrdiffT, int alignPtrdiffT,
+            Range<BigInteger> rangePtrdiffT) {
+        // size_t
+        assertEquals(sizeSizeT, abi.getSizeT().getSize());
+        assertEquals(alignSizeT, abi.getSizeT().getAlignment());
+        assertEquals(rangeSizeT, abi.getSizeT().getRange());
+
+        // ptrdiff_t
+        assertEquals(sizePtrdiffT, abi.getPtrdiffT().getSize());
+        assertEquals(alignPtrdiffT, abi.getPtrdiffT().getAlignment());
+        assertEquals(rangePtrdiffT, abi.getPtrdiffT().getRange());
     }
 }

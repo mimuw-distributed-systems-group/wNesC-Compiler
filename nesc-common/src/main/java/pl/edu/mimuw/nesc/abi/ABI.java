@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableMap;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -29,6 +30,10 @@ import org.w3c.dom.Text;
 import org.xml.sax.ErrorHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
+import pl.edu.mimuw.nesc.abi.typedata.CharData;
+import pl.edu.mimuw.nesc.abi.typedata.IntegerTypeData;
+import pl.edu.mimuw.nesc.abi.typedata.StandardIntegerTypeData;
+import pl.edu.mimuw.nesc.abi.typedata.TypeData;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -47,17 +52,24 @@ public final class ABI {
     private static final String ABI_SCHEMA_FILENAME = "schemas/abi.xsd";
 
     /**
-     * Data about the ABI.
+     * Endiannes of the target architecture.
      */
-    private final boolean isCharSigned;
-    private final TypeData typeShort;
-    private final TypeData typeInt;
-    private final TypeData typeLong;
-    private final TypeData typeLongLong;
+    private final Endianness endianness;
+
+    /**
+     * Data about types.
+     */
+    private final CharData typeChar;
+    private final StandardIntegerTypeData typeShort;
+    private final StandardIntegerTypeData typeInt;
+    private final StandardIntegerTypeData typeLong;
+    private final StandardIntegerTypeData typeLongLong;
     private final TypeData typeFloat;
     private final TypeData typeDouble;
     private final TypeData typeLongDouble;
     private final TypeData typePointer;
+    private final IntegerTypeData typeSizeT;
+    private final IntegerTypeData typePtrdiffT;
 
     /**
      * Load information about the ABI from an XML file with given path. The file
@@ -73,7 +85,8 @@ public final class ABI {
         final Builder builder = new Builder(xmlFileName);
         builder.parse();
 
-        this.isCharSigned = builder.buildIsCharSigned();
+        this.endianness = builder.buildEndianness();
+        this.typeChar = builder.buildCharData();
         this.typeShort = builder.buildShortTypeData();
         this.typeInt = builder.buildIntTypeData();
         this.typeLong = builder.buildLongTypeData();
@@ -82,25 +95,31 @@ public final class ABI {
         this.typeDouble = builder.buildDoubleTypeData();
         this.typeLongDouble = builder.buildLongDoubleTypeData();
         this.typePointer = builder.buildPointerTypeData();
+        this.typeSizeT = builder.buildSizeTData();
+        this.typePtrdiffT = builder.buildPtrdiffTData();
     }
 
-    public boolean isCharSigned() {
-        return isCharSigned;
+    public Endianness getEndianness() {
+        return endianness;
     }
 
-    public TypeData getShort() {
+    public CharData getChar() {
+        return typeChar;
+    }
+
+    public StandardIntegerTypeData getShort() {
         return typeShort;
     }
 
-    public TypeData getInt() {
+    public StandardIntegerTypeData getInt() {
         return typeInt;
     }
 
-    public TypeData getLong() {
+    public StandardIntegerTypeData getLong() {
         return typeLong;
     }
 
-    public TypeData getLongLong() {
+    public StandardIntegerTypeData getLongLong() {
         return typeLongLong;
     }
 
@@ -120,40 +139,12 @@ public final class ABI {
         return typePointer;
     }
 
-    /**
-     * Structure with information about a type other than a character type.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    public static final class TypeData {
-        private final int size;
-        private final int alignment;
+    public IntegerTypeData getSizeT() {
+        return typeSizeT;
+    }
 
-        private TypeData(int size, int alignment) {
-            checkArgument(size >= 1, "size must be positive");
-            checkArgument(alignment >= 1, "alignment must be positive");
-
-            this.size = size;
-            this.alignment = alignment;
-        }
-
-        /**
-         * Get the size of the type in bytes.
-         *
-         * @return Size of the type in bytes.
-         */
-        public int getSize() {
-            return size;
-        }
-
-        /**
-         * Get the alignment of the type in bytes.
-         *
-         * @return Alignment of the type in bytes.
-         */
-        public int getAlignment() {
-            return alignment;
-        }
+    public IntegerTypeData getPtrdiffT() {
+        return typePtrdiffT;
     }
 
     /**
@@ -214,35 +205,57 @@ public final class ABI {
             this.root = parser.parse(new FileInputStream(xmlFileName));
         }
 
-        private boolean buildIsCharSigned() throws XPathExpressionException {
-            final Element isSignedElement = (Element) xpath.evaluate("/abi:abi/abi:types/abi:char/abi:is-signed",
-                    root, XPathConstants.NODE);
-            checkNotNull(isSignedElement, "cannot find the node that specifies if char is signed");
-            final String text = extractText(isSignedElement);
+        private Endianness buildEndianness() throws XPathExpressionException {
+            final String endiannessText = retrieveText("/abi:abi/abi:endianness");
 
-            if (text.equals("true") || text.equals("1")) {
-                return true;
-            } else if (text.equals("false") || text.equals("0")) {
-                return false;
-            } else {
-                throw new RuntimeException("value '" + text + "' in an element of type 'boolean'");
+            switch (endiannessText) {
+                case "little-endian":
+                    return Endianness.LITTLE_ENDIAN;
+                case "big-endian":
+                    return Endianness.BIG_ENDIAN;
+                default:
+                    throw new RuntimeException("value '" + endiannessText + "' validated as endianness");
             }
         }
 
-        private TypeData buildShortTypeData() throws XPathExpressionException {
-            return retrieveTypeData("short");
+        private CharData buildCharData() throws XPathExpressionException {
+            return new CharData(
+                    isCharSigned(),
+                    retrieveUnboundedInteger("/abi:abi/abi:types/abi:char/abi:signed/abi:minimum-value"),
+                    retrieveUnboundedInteger("/abi:abi/abi:types/abi:char/abi:signed/abi:maximum-value"),
+                    retrieveUnboundedInteger("/abi:abi/abi:types/abi:char/abi:unsigned/abi:maximum-value")
+            );
         }
 
-        private TypeData buildIntTypeData() throws XPathExpressionException {
-            return retrieveTypeData("int");
+        private boolean isCharSigned() throws XPathExpressionException {
+            final String text = retrieveText("/abi:abi/abi:types/abi:char/abi:is-signed");
+
+            switch (text) {
+                case "true":
+                case "1":
+                    return true;
+                case "false":
+                case "0":
+                    return false;
+                default:
+                    throw new RuntimeException("value '" + text + "' in an element of type 'boolean'");
+            }
         }
 
-        private TypeData buildLongTypeData() throws XPathExpressionException {
-            return retrieveTypeData("long");
+        private StandardIntegerTypeData buildShortTypeData() throws XPathExpressionException {
+            return retrieveStandardIntegerTypeData("short");
         }
 
-        private TypeData buildLongLongTypeData() throws XPathExpressionException {
-            return retrieveTypeData("long-long");
+        private StandardIntegerTypeData buildIntTypeData() throws XPathExpressionException {
+            return retrieveStandardIntegerTypeData("int");
+        }
+
+        private StandardIntegerTypeData buildLongTypeData() throws XPathExpressionException {
+            return retrieveStandardIntegerTypeData("long");
+        }
+
+        private StandardIntegerTypeData buildLongLongTypeData() throws XPathExpressionException {
+            return retrieveStandardIntegerTypeData("long-long");
         }
 
         private TypeData buildFloatTypeData() throws XPathExpressionException {
@@ -261,16 +274,52 @@ public final class ABI {
             return retrieveTypeData("pointer-type");
         }
 
-        private TypeData retrieveTypeData(String typeElementName) throws XPathExpressionException {
-            final Element sizeNode = (Element) xpath.evaluate(format("/abi:abi/abi:types/abi:%s/abi:size", typeElementName),
-                    root, XPathConstants.NODE);
-            final Element alignmentNode = (Element) xpath.evaluate(format("/abi:abi/abi:types/abi:%s/abi:alignment", typeElementName),
-                    root, XPathConstants.NODE);
-            checkNotNull(sizeNode, "cannot find the size element of a type");
-            checkNotNull(alignmentNode, "cannot find the alignment element of a type");
+        private IntegerTypeData buildSizeTData() throws XPathExpressionException {
+            return retrieveIntegerTypeData("size_t");
+        }
 
-            return new TypeData(Integer.parseInt(extractText(sizeNode)),
-                    Integer.parseInt(extractText(alignmentNode)));
+        private IntegerTypeData buildPtrdiffTData() throws XPathExpressionException {
+            return retrieveIntegerTypeData("ptrdiff_t");
+        }
+
+        private IntegerTypeData retrieveIntegerTypeData(String typeElementName) throws XPathExpressionException {
+            return new IntegerTypeData(
+                    retrieveInt(format("/abi:abi/abi:types/abi:%s/abi:size", typeElementName)),
+                    retrieveInt(format("/abi:abi/abi:types/abi:%s/abi:alignment", typeElementName)),
+                    retrieveUnboundedInteger(format("/abi:abi/abi:types/abi:%s/abi:minimum-value", typeElementName)),
+                    retrieveUnboundedInteger(format("/abi:abi/abi:types/abi:%s/abi:maximum-value", typeElementName))
+            );
+        }
+
+        private TypeData retrieveTypeData(String typeElementName) throws XPathExpressionException {
+            return new TypeData(
+                    retrieveInt(format("/abi:abi/abi:types/abi:%s/abi:size", typeElementName)),
+                    retrieveInt(format("/abi:abi/abi:types/abi:%s/abi:alignment", typeElementName))
+            );
+        }
+
+        private StandardIntegerTypeData retrieveStandardIntegerTypeData(String typeElementName) throws XPathExpressionException {
+            return new StandardIntegerTypeData(
+                    retrieveInt(format("/abi:abi/abi:types/abi:%s/abi:size", typeElementName)),
+                    retrieveInt(format("/abi:abi/abi:types/abi:%s/abi:alignment", typeElementName)),
+                    retrieveUnboundedInteger(format("/abi:abi/abi:types/abi:%s/abi:signed/abi:minimum-value", typeElementName)),
+                    retrieveUnboundedInteger(format("/abi:abi/abi:types/abi:%s/abi:signed/abi:maximum-value", typeElementName)),
+                    retrieveUnboundedInteger(format("/abi:abi/abi:types/abi:%s/abi:unsigned/abi:maximum-value", typeElementName))
+            );
+        }
+
+        private int retrieveInt(String xpathExpr) throws XPathExpressionException {
+            return Integer.parseInt(retrieveText(xpathExpr));
+        }
+
+        private BigInteger retrieveUnboundedInteger(String xpathExpr) throws XPathExpressionException {
+            return new BigInteger(retrieveText(xpathExpr));
+        }
+
+        private String retrieveText(String xpathExpr) throws XPathExpressionException {
+            final Element element = (Element) xpath.evaluate(xpathExpr, root, XPathConstants.NODE);
+            checkNotNull(element, "cannot find an element in th XML ABI file");
+            return extractText(element);
         }
 
         private String extractText(Element parent) {

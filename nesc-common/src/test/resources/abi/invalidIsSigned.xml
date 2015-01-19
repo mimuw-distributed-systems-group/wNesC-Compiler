@@ -1,14 +1,88 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <abi xmlns='http://mimuw.edu.pl/nesc/abi'>
+    <endianness>little-endian</endianness>
     <types>
-        <char><is-signed>5</is-signed></char>
-        <short><size>2</size><alignment>2</alignment></short>
-        <int><size>4</size><alignment>4</alignment></int>
-        <long><size>8</size><alignment>8</alignment></long>
-        <long-long><size>8</size><alignment>8</alignment></long-long>
+        <char>
+            <is-signed>5</is-signed>
+            <signed>
+                <minimum-value>-128</minimum-value>
+                <maximum-value>127</maximum-value>
+            </signed>
+            <unsigned>
+                <minimum-value>0</minimum-value>
+                <maximum-value>255</maximum-value>
+            </unsigned>
+        </char>
+
+        <short>
+            <size>2</size>
+            <alignment>2</alignment>
+            <signed>
+                <minimum-value>-32768</minimum-value>
+                <maximum-value>32767</maximum-value>
+            </signed>
+            <unsigned>
+                <minimum-value>0</minimum-value>
+                <maximum-value>65535</maximum-value>
+            </unsigned>
+        </short>
+
+        <int>
+            <size>4</size>
+            <alignment>4</alignment>
+            <signed>
+                <minimum-value>-2147483648</minimum-value>
+                <maximum-value>2147483647</maximum-value>
+            </signed>
+            <unsigned>
+                <minimum-value>0</minimum-value>
+                <maximum-value>4294967295</maximum-value>
+            </unsigned>
+        </int>
+
+        <long>
+            <size>8</size>
+            <alignment>8</alignment>
+            <signed>
+                <minimum-value>-9223372036854775808</minimum-value>
+                <maximum-value>9223372036854775807</maximum-value>
+            </signed>
+            <unsigned>
+                <minimum-value>0</minimum-value>
+                <maximum-value>18446744073709551615</maximum-value>
+            </unsigned>
+        </long>
+
+        <long-long>
+            <size>8</size>
+            <alignment>8</alignment>
+            <signed>
+                <minimum-value>-9223372036854775808</minimum-value>
+                <maximum-value>9223372036854775807</maximum-value>
+            </signed>
+            <unsigned>
+                <minimum-value>0</minimum-value>
+                <maximum-value>18446744073709551615</maximum-value>
+            </unsigned>
+        </long-long>
+
         <float><size>4</size><alignment>4</alignment></float>
         <double><size>8</size><alignment>8</alignment></double>
         <long-double><size>16</size><alignment>16</alignment></long-double>
         <pointer-type><size>8</size><alignment>8</alignment></pointer-type>
+
+        <size_t>
+            <size>8</size>
+            <alignment>8</alignment>
+            <minimum-value>0</minimum-value>
+            <maximum-value>18446744073709551615</maximum-value>
+        </size_t>
+        
+        <ptrdiff_t>
+            <size>8</size>
+            <alignment>8</alignment>
+            <minimum-value>-9223372036854775808</minimum-value>
+            <maximum-value>9223372036854775807</maximum-value>
+        </ptrdiff_t>
     </types>
 </abi>
