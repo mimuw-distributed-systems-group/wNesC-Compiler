@@ -203,7 +203,7 @@ class Enumerator(BasicASTNode):
     mangleIndicator = MangleIndicator("uniqueName", "nestedInNescEntity")
     # name is optional.
     name = StringField()
-    value = ReferenceField("Expression")
+    value = ReferenceField("Expression", optional=True)
     declaration = ReferenceField("ConstantDeclaration", constructor_variable=False, visitable=False,
                                  deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
 

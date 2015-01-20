@@ -62,7 +62,7 @@ public final class NescAnalysis {
     /**
      * Type that is allowed for a non-type generic parameter of a component.
      */
-    private static final ArrayType TYPE_CHAR_ARRAY = new ArrayType(new CharType(), false);
+    private static final ArrayType TYPE_CHAR_ARRAY = new ArrayType(new CharType(), Optional.<Expression>absent());
 
     /**
      * Check the correctness of an interface instantiation. The given error

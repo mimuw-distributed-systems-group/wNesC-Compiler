@@ -1,19 +1,21 @@
 package pl.edu.mimuw.nesc.type;
 
+import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.ast.gen.Expression;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
- * Reflects an array type, e.g. <code>const int [2]</code>. However, the size of
- * the array is not available in those objects.
+ * Reflects an array type, e.g. <code>const int [2]</code>.
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class ArrayType extends DerivedType {
     /**
-     * <code>true</code> if and only if the number of elements of this array
-     * type is specified in the declarator.
+     * Constant expression that specifies the number of elements of this array
+     * type.
      */
-    private final boolean ofKnownSize;
+    private final Optional<Expression> size;
 
     /**
      * Type of the elements that an array of this type contains.
@@ -26,10 +28,11 @@ public final class ArrayType extends DerivedType {
      *
      * @throws NullPointerException The element type is null.
      */
-    public ArrayType(Type elementType, boolean ofKnownSize) {
+    public ArrayType(Type elementType, Optional<Expression> size) {
         super(false, false);
         checkNotNull(elementType, "element type of an array type cannot be null");
-        this.ofKnownSize = ofKnownSize;
+        checkNotNull(size, "expression that specifies the size of the array cannot be null");
+        this.size = size;
         this.elementType = elementType;
     }
 
@@ -39,7 +42,16 @@ public final class ArrayType extends DerivedType {
      *         declaration).
      */
     public final boolean isOfKnownSize() {
-        return ofKnownSize;
+        return size.isPresent();
+    }
+
+    /**
+     * Get the expression that specifies the size of the array.
+     *
+     * @return AST node of the expression that specifies the size of the array.
+     */
+    public final Optional<Expression> getSize() {
+        return size;
     }
 
     /**
@@ -64,14 +76,14 @@ public final class ArrayType extends DerivedType {
     public final ArrayType addQualifiers(boolean addConst, boolean addVolatile,
                                          boolean addRestrict) {
         return new ArrayType(getElementType().addQualifiers(addConst, addVolatile, addRestrict),
-                             isOfKnownSize());
+                             size);
     }
 
     @Override
     public final ArrayType removeQualifiers(boolean removeConst, boolean removeVolatile,
                                             boolean removeRestrict) {
         return new ArrayType(getElementType().removeQualifiers(removeConst, removeVolatile,
-                             removeRestrict), isOfKnownSize());
+                             removeRestrict), size);
     }
 
     @Override

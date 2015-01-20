@@ -355,4 +355,14 @@ public interface Type {
      * @throws UnsupportedOperationException Invoked on an artificial type.
      */
     AstType toAstType();
+
+    /**
+     * Ensure that all information about this type necessary for computing its
+     * size and alignment are stored directly in it.
+     *
+     * @throws IllegalStateException This type is incomplete.
+     * @throws UnsupportedOperationException Method invoked on an artificial
+     *                                       type.
+     */
+    void fullyComplete();
 }

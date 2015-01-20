@@ -425,6 +425,11 @@ public final class Declarations extends AstBuildingBase {
     public FieldDecl makeField(Environment environment, Location startLocation, Location endLocation,
                                Optional<Declarator> declarator, Optional<Expression> bitfield,
                                TypeElementsAssociation association, LinkedList<Attribute> attributes) {
+        // Analyze the bit-field width expression
+        if (bitfield.isPresent()) {
+            ExpressionsAnalysis.analyze(bitfield.get(), environment, errorHelper);
+        }
+
         // Resolve the base type for this field if it has not been already done
         final Optional<Type> maybeBaseType = association.getType(environment, false, errorHelper,
                 startLocation, endLocation, semanticListener, attributeAnalyzer);
@@ -449,10 +454,11 @@ public final class Declarations extends AstBuildingBase {
             ExpressionsAnalysis.analyze(value.get(), environment, errorHelper);
         }
 
-        final Enumerator enumerator = new Enumerator(startLocation, id, value.orNull());
+        final Enumerator enumerator = new Enumerator(startLocation, id, value);
         enumerator.setEndLocation(endLocation);
 
         final ConstantDeclaration symbol = ConstantDeclaration.builder()
+                .enumerator(enumerator)
                 .uniqueName(semanticListener.nameManglingRequired(id))
                 .name(id)
                 .startLocation(startLocation)

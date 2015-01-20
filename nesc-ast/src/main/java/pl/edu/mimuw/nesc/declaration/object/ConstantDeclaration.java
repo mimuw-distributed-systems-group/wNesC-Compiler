@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.declaration.object;
 
 import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.ast.gen.Enumerator;
 import pl.edu.mimuw.nesc.type.IntType;
 import pl.edu.mimuw.nesc.type.Type;
 
@@ -19,6 +20,11 @@ public final class ConstantDeclaration extends ObjectDeclaration {
      */
     private final String uniqueName;
 
+    /**
+     * Enumerator that declares this constant.
+     */
+    private final Enumerator enumerator;
+
     public static Builder builder() {
         return new Builder();
     }
@@ -26,6 +32,7 @@ public final class ConstantDeclaration extends ObjectDeclaration {
     protected ConstantDeclaration(Builder builder) {
         super(builder);
         this.uniqueName = builder.uniqueName;
+        this.enumerator = builder.enumerator;
     }
 
     /**
@@ -36,6 +43,15 @@ public final class ConstantDeclaration extends ObjectDeclaration {
      */
     public String getUniqueName() {
         return uniqueName;
+    }
+
+    /**
+     * Get the enumerator that declares this constant.
+     *
+     * @return AST node of enumerator that declares this constant.
+     */
+    public Enumerator getEnumerator() {
+        return enumerator;
     }
 
     @Override
@@ -53,6 +69,7 @@ public final class ConstantDeclaration extends ObjectDeclaration {
          * Data needed to build a constant declaration.
          */
         private String uniqueName;
+        private Enumerator enumerator;
 
         /**
          * Set the globally unique name of the constant declaration.
@@ -62,6 +79,11 @@ public final class ConstantDeclaration extends ObjectDeclaration {
          */
         public Builder uniqueName(String name) {
             this.uniqueName = name;
+            return this;
+        }
+
+        public Builder enumerator(Enumerator enumerator) {
+            this.enumerator = enumerator;
             return this;
         }
 
@@ -79,6 +101,7 @@ public final class ConstantDeclaration extends ObjectDeclaration {
             super.validate();
 
             checkNotNull(uniqueName, "unique name cannot be null");
+            checkNotNull(enumerator, "enumerator cannot be null");
             checkState(!uniqueName.isEmpty(), "the unique name cannot be an empty string");
         }
 

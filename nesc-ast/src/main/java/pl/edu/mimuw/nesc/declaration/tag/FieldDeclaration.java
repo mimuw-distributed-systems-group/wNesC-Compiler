@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.declaration.tag;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.ast.gen.FieldDecl;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.declaration.Declaration;
@@ -36,16 +37,23 @@ public class FieldDeclaration extends Declaration {
      */
     private final boolean isBitField;
 
+    /**
+     * AST node that corresponds to this declaration.
+     */
+    private final FieldDecl astField;
+
     public FieldDeclaration(Optional<String> name, Location startLocation, Location endLocation,
-                            Optional<Type> type, boolean isBitField) {
+                            Optional<Type> type, boolean isBitField, FieldDecl astField) {
         super(startLocation);
         checkNotNull(endLocation, "end location of a field cannot be null");
         checkNotNull(type, "type of a field cannot be null");
+        checkNotNull(astField, "AST node of the field cannot be null");
 
         this.name = name;
         this.endLocation = endLocation;
         this.maybeType = type;
         this.isBitField = isBitField;
+        this.astField = astField;
     }
 
     public Optional<String> getName() {
@@ -66,6 +74,10 @@ public class FieldDeclaration extends Declaration {
 
     public boolean isBitField() {
         return isBitField;
+    }
+
+    public FieldDecl getAstField() {
+        return astField;
     }
 
     @Override

@@ -92,7 +92,7 @@ public final class TagsAnalysis {
 
         // Create and acknowledge the field
         final FieldDeclaration newField = new FieldDeclaration(name, fieldDecl.getLocation(),
-                fieldDecl.getEndLocation(), fullType, maybeBitField.isPresent());
+                fieldDecl.getEndLocation(), fullType, maybeBitField.isPresent(), fieldDecl);
         fieldDecl.setDeclaration(newField);
     }
 

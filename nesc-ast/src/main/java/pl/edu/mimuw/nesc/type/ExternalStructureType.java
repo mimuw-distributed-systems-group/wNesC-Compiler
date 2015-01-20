@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.type;
 
+import com.google.common.collect.ImmutableList;
 import pl.edu.mimuw.nesc.declaration.tag.StructDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.fieldtree.BlockElement.BlockType;
 
@@ -10,6 +11,7 @@ import static com.google.common.base.Preconditions.checkArgument;
  * <code>nx_struct { nx_int32_t n; nx_int8_t c; }</code>
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+ * @see FieldTagType
  */
 public final class ExternalStructureType extends FieldTagType<StructDeclaration> {
     /**
@@ -31,18 +33,46 @@ public final class ExternalStructureType extends FieldTagType<StructDeclaration>
         this(false, false, structDecl);
     }
 
+    public ExternalStructureType(boolean constQualified, boolean volatileQualified,
+            ImmutableList<Field> fields) {
+        super(constQualified, volatileQualified, fields, BlockType.EXTERNAL_STRUCTURE);
+    }
+
+    public ExternalStructureType(ImmutableList<Field> fields) {
+        this(false, false, fields);
+    }
+
     @Override
     public final ExternalStructureType addQualifiers(boolean addConst, boolean addVolatile,
                                                      boolean addRestrict) {
-        return new ExternalStructureType(addConstQualifier(addConst),
-                addVolatileQualifier(addVolatile), getDeclaration());
+        switch (getVariant()) {
+            case ONLY_DECLARATION:
+                return new ExternalStructureType(addConstQualifier(addConst),
+                    addVolatileQualifier(addVolatile), getDeclaration());
+            case ONLY_FIELDS:
+            case FULL:
+                return new ExternalStructureType(addConstQualifier(addConst),
+                        addVolatileQualifier(addVolatile), getFields());
+            default:
+                throw new RuntimeException("unexpected variant of a tag type object");
+        }
     }
 
     @Override
     public final ExternalStructureType removeQualifiers(boolean removeConst,
             boolean removeVolatile, boolean removeRestrict) {
-        return new ExternalStructureType(removeConstQualifier(removeConst),
-                removeVolatileQualifier(removeVolatile), getDeclaration());
+
+        switch (getVariant()) {
+            case ONLY_DECLARATION:
+                return new ExternalStructureType(removeConstQualifier(removeConst),
+                        removeVolatileQualifier(removeVolatile), getDeclaration());
+            case ONLY_FIELDS:
+            case FULL:
+                return new ExternalStructureType(removeConstQualifier(removeConst),
+                        removeVolatileQualifier(removeVolatile), getFields());
+            default:
+                throw new RuntimeException("unexpected variant of a tag type object");
+        }
     }
 
     @Override

@@ -965,7 +965,7 @@ public final class TypesAnalysis {
                 ExpressionsAnalysis.analyze(arraySizeExpr.get(), environment, errorHelper);
             }
 
-            accumulatedType = new ArrayType(accumulatedType, declarator.getSize().isPresent());
+            accumulatedType = new ArrayType(accumulatedType, declarator.getSize());
             checkType(declarator);
             jump(declarator.getDeclarator());
             return null;

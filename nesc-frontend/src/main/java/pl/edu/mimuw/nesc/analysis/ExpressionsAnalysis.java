@@ -15,6 +15,7 @@ import pl.edu.mimuw.nesc.ast.IntegerCstKind;
 import pl.edu.mimuw.nesc.ast.IntegerCstSuffix;
 import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.type.*;
 import pl.edu.mimuw.nesc.astbuilding.Declarations;
 import pl.edu.mimuw.nesc.astwriting.ASTWriter;
@@ -1008,7 +1009,8 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
     @Override
     public Optional<ExprData> visitStringCst(StringCst expr, Void arg) {
         final ExprData result = ExprData.builder()
-                .type(new ArrayType(new CharType(), true))
+                .type(new ArrayType(new CharType(),
+                        Optional.of(AstUtils.newIntegerConstant(expr.getString().length()))))
                 .isLvalue(true)
                 .isBitField(false)
                 .isNullPointerConstant(false)
@@ -1020,8 +1022,15 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitStringAst(StringAst expr, Void arg) {
+        // Compute the length of the entire string
+        int length = 0;
+        for (StringCst cst : expr.getStrings()) {
+            length += cst.getString().length();
+        }
+
         final ExprData result = ExprData.builder()
-                .type(new ArrayType(new CharType(), true))
+                .type(new ArrayType(new CharType(),
+                        Optional.of(AstUtils.newIntegerConstant(length))))
                 .isLvalue(true)
                 .isBitField(false)
                 .isNullPointerConstant(false)
@@ -2112,22 +2121,27 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
         identifier.setRefsDeclInThisNescEntity(false);
 
         final FunctionDeclaration declarationToSet;
+        final Type typeToSet;
 
         switch (fun) {
             case UNIQUE:
                 declarationToSet = UniqueDeclaration.getInstance();
+                typeToSet = UniqueDeclaration.getInstance().getType().get();
                 break;
             case UNIQUEN:
                 declarationToSet = UniqueNDeclaration.getInstance();
+                typeToSet = UniqueNDeclaration.getInstance().getType().get();
                 break;
             case UNIQUECOUNT:
                 declarationToSet = UniqueCountDeclaration.getInstance();
+                typeToSet = UniqueCountDeclaration.getInstance().getType().get();
                 break;
             default:
                 throw new RuntimeException("unexpected constant function '" + fun + "'");
         }
 
         identifier.setDeclaration(declarationToSet);
+        identifier.setType(Optional.of(typeToSet));
     }
 
     /**

@@ -500,11 +500,11 @@ public final class ASTWriter implements Closeable {
         public Void visitEnumerator(Enumerator declaration, Void arg) {
             writeName(declaration.getName(), declaration.getUniqueName());
 
-            if (declaration.getValue() != null) {
+            if (declaration.getValue().isPresent()) {
                 output.write(SPACE);
                 output.write(ASSIGN.toString());
                 output.write(SPACE);
-                declaration.getValue().accept(this, null);
+                declaration.getValue().get().accept(this, null);
             }
 
             return null;

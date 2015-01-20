@@ -218,7 +218,7 @@ public class Substitution {
                 @Override
                 public Type apply(Type newElementType) {
                     return newElementType != oldType.getElementType()
-                            ? new ArrayType(newElementType, oldType.isOfKnownSize())
+                            ? new ArrayType(newElementType, oldType.getSize())
                             : oldType;
                 }
             };
