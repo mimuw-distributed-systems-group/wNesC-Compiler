@@ -78,7 +78,7 @@ public class FunctionDeclaration extends ObjectDeclaration {
         return new Builder();
     }
 
-    protected FunctionDeclaration(Builder builder) {
+    protected FunctionDeclaration(FunctionDeclarationBuilder<?> builder) {
         super(builder);
         this.ifaceName = builder.interfaceName;
         this.isDefined = builder.isDefined;
@@ -185,11 +185,12 @@ public class FunctionDeclaration extends ObjectDeclaration {
     }
 
     /**
-     * Builder for a function declaration.
+     * Abstract builder for a function declaration.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
-    public static class Builder extends ExtendedBuilder<FunctionDeclaration> {
+    public static abstract class FunctionDeclarationBuilder<T extends FunctionDeclaration>
+            extends ExtendedBuilder<T> {
         /**
          * Data needed to build a function declaration.
          */
@@ -199,7 +200,7 @@ public class FunctionDeclaration extends ObjectDeclaration {
         private boolean isDefined = false;
         private String uniqueName;
 
-        protected Builder() {
+        protected FunctionDeclarationBuilder() {
         }
 
         /**
@@ -209,7 +210,7 @@ public class FunctionDeclaration extends ObjectDeclaration {
          * @param interfaceName Name of the interface to set.
          * @return <code>this</code>
          */
-        public Builder interfaceName(String interfaceName) {
+        public FunctionDeclarationBuilder<T> interfaceName(String interfaceName) {
             this.interfaceName = Optional.fromNullable(interfaceName);
             return this;
         }
@@ -222,7 +223,7 @@ public class FunctionDeclaration extends ObjectDeclaration {
          * @param type Type of the function to set.
          * @return <code>this</code>
          */
-        public Builder functionType(FunctionType type) {
+        public FunctionDeclarationBuilder<T> functionType(FunctionType type) {
             this.functionType = Optional.fromNullable(type);
             return this;
         }
@@ -237,7 +238,7 @@ public class FunctionDeclaration extends ObjectDeclaration {
          * @param instanceParams Instance parameters for the declaration object.
          * @return <code>this</code>
          */
-        public Builder instanceParameters(LinkedList<Declaration> instanceParams) {
+        public FunctionDeclarationBuilder<T> instanceParameters(LinkedList<Declaration> instanceParams) {
             this.instanceParameters = Optional.fromNullable(instanceParams);
             return this;
         }
@@ -248,7 +249,7 @@ public class FunctionDeclaration extends ObjectDeclaration {
          * @param uniqueName Unique name to set.
          * @return <code>this</code>
          */
-        public Builder uniqueName(String uniqueName) {
+        public FunctionDeclarationBuilder<T> uniqueName(String uniqueName) {
             this.uniqueName = uniqueName;
             return this;
         }
@@ -269,15 +270,22 @@ public class FunctionDeclaration extends ObjectDeclaration {
             checkState(!uniqueName.isEmpty(), "unique name cannot be an empty string");
         }
 
-        @Override
-        protected FunctionDeclaration create() {
-            return new FunctionDeclaration(this);
-        }
-
         private Optional<ImmutableList<Optional<Type>>> buildInstanceParameters() {
             return instanceParameters.isPresent()
                     ? Optional.of(AstUtils.getTypes(instanceParameters.get()))
                     : Optional.<ImmutableList<Optional<Type>>>absent();
+        }
+    }
+
+    /**
+     * Builder for only a function declaration object.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    public static class Builder extends FunctionDeclarationBuilder<FunctionDeclaration> {
+        @Override
+        protected FunctionDeclaration create() {
+            return new FunctionDeclaration(this);
         }
     }
 }

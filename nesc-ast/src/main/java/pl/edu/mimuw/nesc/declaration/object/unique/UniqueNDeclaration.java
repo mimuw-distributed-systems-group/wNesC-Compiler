@@ -19,7 +19,21 @@ public final class UniqueNDeclaration extends FunctionDeclaration {
     /**
      * The only instance of this class.
      */
-    private static final UniqueNDeclaration instance = new UniqueNDeclaration();
+    private static final UniqueNDeclaration instance;
+    static {
+        final Type[] argsTypes = { new PointerType(new CharType()), new UnsignedIntType() };
+        final Type uniqueNType = new pl.edu.mimuw.nesc.type.FunctionType(new UnsignedIntType(), argsTypes, false);
+
+        instance = new Builder().interfaceName(null)
+                .functionType(FunctionType.IMPLICIT)
+                .instanceParameters(null)
+                .uniqueName("uniqueN")
+                .type(uniqueNType)
+                .linkage(Linkage.EXTERNAL)
+                .name("uniqueN")
+                .startLocation(Location.getDummyLocation())
+                .build();
+    }
 
     /**
      * <p>Get the only instance of this class.</p>
@@ -33,25 +47,20 @@ public final class UniqueNDeclaration extends FunctionDeclaration {
     /**
      * Private constructor for the singleton pattern.
      */
-    private UniqueNDeclaration() {
-        super(getConfiguredBuilder());
+    private UniqueNDeclaration(Builder builder) {
+        super(builder);
         setDefined(true);
     }
 
-    private static Builder getConfiguredBuilder() {
-        final Type[] argsTypes = { new PointerType(new CharType()), new UnsignedIntType() };
-        final Type uniqueNType = new pl.edu.mimuw.nesc.type.FunctionType(new UnsignedIntType(), argsTypes, false);
-
-        final Builder builder = builder();
-        builder.interfaceName(null)
-            .functionType(FunctionType.IMPLICIT)
-            .instanceParameters(null)
-            .uniqueName("uniqueN")
-            .type(uniqueNType)
-            .linkage(Linkage.EXTERNAL)
-            .name("uniqueN")
-            .startLocation(Location.getDummyLocation());
-
-        return builder;
+    /**
+     * Builder for <code>uniqueN</code> declaration object.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class Builder extends FunctionDeclarationBuilder<UniqueNDeclaration> {
+        @Override
+        protected UniqueNDeclaration create() {
+            return new UniqueNDeclaration(this);
+        }
     }
 }

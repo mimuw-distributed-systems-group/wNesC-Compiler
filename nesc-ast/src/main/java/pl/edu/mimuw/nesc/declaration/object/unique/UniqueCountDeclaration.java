@@ -19,7 +19,21 @@ public final class UniqueCountDeclaration extends FunctionDeclaration {
     /**
      * The only instance of this class.
      */
-    private static final UniqueCountDeclaration instance = new UniqueCountDeclaration();
+    private static final UniqueCountDeclaration instance;
+    static {
+        final Type[] argsTypes = { new PointerType(new CharType()) };
+        final Type uniqueCountType = new pl.edu.mimuw.nesc.type.FunctionType(new UnsignedIntType(), argsTypes, false);
+
+        instance = new Builder().interfaceName(null)
+                .functionType(FunctionType.IMPLICIT)
+                .instanceParameters(null)
+                .uniqueName("uniqueCount")
+                .type(uniqueCountType)
+                .linkage(Linkage.EXTERNAL)
+                .name("uniqueCount")
+                .startLocation(Location.getDummyLocation())
+                .build();
+    }
 
     /**
      * <p>Get the only instance of this class.</p>
@@ -33,25 +47,20 @@ public final class UniqueCountDeclaration extends FunctionDeclaration {
     /**
      * Private constructor for singleton pattern.
      */
-    private UniqueCountDeclaration() {
-        super(getConfiguredBuilder());
+    private UniqueCountDeclaration(Builder builder) {
+        super(builder);
         setDefined(true);
     }
 
-    private static Builder getConfiguredBuilder() {
-        final Type[] argsTypes = { new PointerType(new CharType()) };
-        final Type uniqueCountType = new pl.edu.mimuw.nesc.type.FunctionType(new UnsignedIntType(), argsTypes, false);
-
-        final Builder builder = builder();
-        builder.interfaceName(null)
-            .functionType(FunctionType.IMPLICIT)
-            .instanceParameters(null)
-            .uniqueName("uniqueCount")
-            .type(uniqueCountType)
-            .linkage(Linkage.EXTERNAL)
-            .name("uniqueCount")
-            .startLocation(Location.getDummyLocation());
-
-        return builder;
+    /**
+     * Builder for <code>uniqueCount</code> declaration object.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class Builder extends FunctionDeclarationBuilder<UniqueCountDeclaration> {
+        @Override
+        protected UniqueCountDeclaration create() {
+            return new UniqueCountDeclaration(this);
+        }
     }
 }

@@ -19,7 +19,20 @@ public final class UniqueDeclaration extends FunctionDeclaration {
     /**
      * The only instance of this class.
      */
-    private static final UniqueDeclaration instance = new UniqueDeclaration();
+    private static final UniqueDeclaration instance;
+    static {
+        final Type[] argsTypes = { new PointerType(new CharType()) };
+        final Type uniqueType = new pl.edu.mimuw.nesc.type.FunctionType(new UnsignedIntType(), argsTypes, false);
+        instance = new Builder().interfaceName(null)
+                .functionType(FunctionType.IMPLICIT)
+                .instanceParameters(null)
+                .uniqueName("unique")
+                .type(uniqueType)
+                .linkage(Linkage.EXTERNAL)
+                .name("unique")
+                .startLocation(Location.getDummyLocation())
+                .build();
+    }
 
     /**
      * <p>Get the only instance of this class.</p>
@@ -33,25 +46,20 @@ public final class UniqueDeclaration extends FunctionDeclaration {
     /**
      * Private constructor for singleton pattern.
      */
-    private UniqueDeclaration() {
-        super(getConfiguredBuilder());
+    private UniqueDeclaration(Builder builder) {
+        super(builder);
         setDefined(true);
     }
 
-    private static Builder getConfiguredBuilder() {
-        final Type[] argsTypes = { new PointerType(new CharType()) };
-        final Type uniqueType = new pl.edu.mimuw.nesc.type.FunctionType(new UnsignedIntType(), argsTypes, false);
-
-        final Builder builder = builder();
-        builder.interfaceName(null)
-            .functionType(FunctionType.IMPLICIT)
-            .instanceParameters(null)
-            .uniqueName("unique")
-            .type(uniqueType)
-            .linkage(Linkage.EXTERNAL)
-            .name("unique")
-            .startLocation(Location.getDummyLocation());
-
-        return builder;
+    /**
+     * Builder that creates declaration object for <code>unique</code>.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class Builder extends FunctionDeclarationBuilder<UniqueDeclaration> {
+        @Override
+        protected UniqueDeclaration create() {
+            return new UniqueDeclaration(this);
+        }
     }
 }
