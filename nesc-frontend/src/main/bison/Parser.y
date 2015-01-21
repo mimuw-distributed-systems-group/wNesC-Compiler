@@ -28,6 +28,7 @@ import pl.edu.mimuw.nesc.parser.value.*;
 import pl.edu.mimuw.nesc.astbuilding.*;
 import pl.edu.mimuw.nesc.astbuilding.nesc.*;
 import pl.edu.mimuw.nesc.token.*;
+import pl.edu.mimuw.nesc.type.Type;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -2433,6 +2434,7 @@ maybeasm:
     }
     | ASM_KEYWORD LPAREN string_chain RPAREN
     {
+        analyzeExpression(Optional.<Expression>of($string_chain));
         final AsmStmt asmStmt = new AsmStmt($1.getLocation(), $3, Lists.<AsmOperand>newList(),
                 Lists.<AsmOperand>newList(), Lists.<StringAst>newList(), Lists.<TypeElement>newList());
                 asmStmt.setEndLocation($4.getEndLocation());
@@ -2612,6 +2614,7 @@ attrib:
         final Identifier id = new Identifier($3.getLocation(), $3.getValue());
         id.setEndLocation($3.getEndLocation());
         id.setUniqueName(Optional.<String>absent());
+        id.setType(Optional.<Type>absent());
         final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Optional.of(Lists.<Expression>newList(id)));
         attribute.setEndLocation($4.getEndLocation());
         $$ = attribute;
@@ -2622,6 +2625,7 @@ attrib:
         id.setEndLocation($3.getEndLocation());
         final LinkedList<Expression> arguments = Lists.<Expression>chain($5, id);
         ExpressionUtils.setUniqueNameDeep(arguments, Optional.<String>absent());
+        ExpressionUtils.setTypeDeep(arguments, Optional.<Type>absent());
         final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Optional.of(arguments));
         attribute.setEndLocation($6.getEndLocation());
         $$ = attribute;
@@ -2629,6 +2633,7 @@ attrib:
     | any_word LPAREN exprlist RPAREN
     {
         ExpressionUtils.setUniqueNameDeep($3, Optional.<String>absent());
+        ExpressionUtils.setTypeDeep($3, Optional.<Type>absent());
         final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Optional.of($3));
         attribute.setEndLocation($4.getEndLocation());
         $$ = attribute;
@@ -2638,18 +2643,18 @@ attrib:
 nattrib:
       AT nastart LPAREN initlist_maybe_comma RPAREN
     {
-        $$ = NescAttributes.finishAttributeUse($1.getLocation(), $5.getEndLocation(), $2, $4);
+        $$ = nescAttributes.finishAttributeUse(environment, $1.getLocation(), $5.getEndLocation(), $2, $4);
     }
     | AT nastart error RPAREN
     {
-        $$ = NescAttributes.finishAttributeUse($1.getLocation(), $4.getEndLocation(), $2,
+        $$ = nescAttributes.finishAttributeUse(environment, $1.getLocation(), $4.getEndLocation(), $2,
                 Lists.<Expression>newList(Expressions.makeErrorExpr()));
     }
     ;
 
 nastart:
       idword
-    { $$ = NescAttributes.startAttributeUse($1); }
+    { $$ = nescAttributes.startAttributeUse($1); }
     ;
 
 /* This still leaves out most reserved keywords,
@@ -3844,6 +3849,7 @@ stmt:
     {
         /* NOTE: maybe_type_qual may be null */
         analyzeExpression(Optional.of($expr));
+        analyzeExpressions($clobbers);
         pstate.stmtCount++;
         final AsmStmt asmStmt = new AsmStmt($asm.getLocation(), $expr, $operands1, $operands2, $clobbers,
                 Lists.<TypeElement>newListEmptyOnNull($quals));
@@ -3953,6 +3959,7 @@ asm_operand:
       string_chain[str] LPAREN expr RPAREN[rparen]
     {
         analyzeExpression(Optional.of($expr));
+        analyzeExpression(Optional.of($str));
         final AsmOperand operand = new AsmOperand($str.getLocation(), Optional.<Word>absent(), $str, $expr);
         operand.setEndLocation($rparen.getEndLocation());
         $$ = operand;
@@ -3960,6 +3967,7 @@ asm_operand:
     | LBRACK[lbrack] idword RBRACK string_chain[str] LPAREN expr RPAREN[rparen]
     {
         analyzeExpression(Optional.of($expr));
+        analyzeExpression(Optional.of($str));
         final AsmOperand operand = new AsmOperand($lbrack.getLocation(), Optional.of($idword), $str, $expr);
         operand.setEndLocation($rparen.getEndLocation());
         $$ = operand;
@@ -4366,6 +4374,7 @@ string_chain:
     private Labels labels;
     private NescDeclarations nescDeclarations;
     private NescComponents nescComponents;
+    private NescAttributes nescAttributes;
     
     private final SemanticListener semanticListener = new SemanticListener() {
         @Override
@@ -4444,6 +4453,8 @@ string_chain:
         this.nescDeclarations = new NescDeclarations(this.nescEnvironment, this.issuesMultimapBuilder,
                 this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
         this.nescComponents = new NescComponents(this.nescEnvironment, this.issuesMultimapBuilder,
+                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
+        this.nescAttributes = new NescAttributes(this.nescEnvironment, this.issuesMultimapBuilder,
                 this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
 
         switch (fileType) {
@@ -4634,7 +4645,7 @@ string_chain:
         this.errorHelper.error(startLocation, endLocation, message);
     }
 
-    private void analyzeExpression(Optional<Expression> expr) {
+    private void analyzeExpression(Optional<? extends Expression> expr) {
         if (expr.isPresent()) {
             ExpressionsAnalysis.analyze(expr.get(), environment, errorHelper);
         }

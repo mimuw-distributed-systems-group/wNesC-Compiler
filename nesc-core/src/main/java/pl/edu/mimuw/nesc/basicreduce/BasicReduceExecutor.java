@@ -28,6 +28,8 @@ import static com.google.common.base.Preconditions.checkState;
  *     <li>transforming tasks into implementations of the task interface</li>
  *     <li>transforming atomic statements into statements that guarantee the
  *     atomicity</li>
+ *     <li>fully completing types associated with all expressions AST nodes and
+ *     <code>AstType</code> nodes (if the type is present)</li>
  * </ul>
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>

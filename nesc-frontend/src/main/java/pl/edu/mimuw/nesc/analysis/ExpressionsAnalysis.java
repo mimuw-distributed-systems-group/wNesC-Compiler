@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.analysis;
 
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1010,7 +1011,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
     public Optional<ExprData> visitStringCst(StringCst expr, Void arg) {
         final ExprData result = ExprData.builder()
                 .type(new ArrayType(new CharType(),
-                        Optional.of(AstUtils.newIntegerConstant(expr.getString().length()))))
+                        Optional.of(AstUtils.newIntegerConstant(expr.getString().length() + 1))))
                 .isLvalue(true)
                 .isBitField(false)
                 .isNullPointerConstant(false)
@@ -1022,8 +1023,10 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
 
     @Override
     public Optional<ExprData> visitStringAst(StringAst expr, Void arg) {
+        analyzeSubexpressions(expr.getStrings(), false);
+
         // Compute the length of the entire string
-        int length = 0;
+        int length = 1;
         for (StringCst cst : expr.getStrings()) {
             length += cst.getString().length();
         }
@@ -1255,6 +1258,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
                             expr.getFieldName().getName()));
                 } else {
                     componentRefName.setUniqueName(Optional.of(constant.get().getUniqueName()));
+                    componentRefName.setType(Optional.<Type>absent());
                     error = Optional.absent();
                 }
             }
@@ -1938,6 +1942,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
             identExpr.setDeclaration(declData);
             identExpr.setIsGenericReference(false);
             identExpr.setRefsDeclInThisNescEntity(true);
+            identExpr.setType(Optional.<Type>absent());
 
             // Check if a task is being posted
             if (declData.getKind() != ObjectKind.FUNCTION) {
@@ -2327,7 +2332,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
      *                   is called for the data of given subexpressions.
      * @return Newly created list with results of analysis of given expressions.
      */
-    private ImmutableList<Optional<ExprData>> analyzeSubexpressions(LinkedList<Expression> subexpressions,
+    private ImmutableList<Optional<ExprData>> analyzeSubexpressions(LinkedList<? extends Expression> subexpressions,
             boolean superDecay) {
 
         final ImmutableList.Builder<Optional<ExprData>> builder = ImmutableList.builder();
@@ -2527,6 +2532,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
             // 2. Generic call
             if (nextExpr instanceof GenericCall) {
                 final GenericCall genericCall = (GenericCall) nextExpr;
+                genericCall.setType(Optional.<Type>absent());
                 instanceParams = Optional.of(genericCall.getArguments());
                 nextExpr = genericCall.getName();
             } else {
@@ -2536,6 +2542,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
             // 3. Interface dereference
             if (nextExpr instanceof InterfaceDeref) {
                 final InterfaceDeref ifaceDeref = (InterfaceDeref) nextExpr;
+                ifaceDeref.setType(Optional.<Type>absent());
                 methodName = Optional.of(ifaceDeref.getMethodName().getName());
                 nextExpr = ifaceDeref.getArgument();
             } else {
@@ -2557,6 +2564,7 @@ public final class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprDat
                 ident.setIsGenericReference(false);
                 ident.setUniqueName(Optional.<String>absent());
                 ident.setRefsDeclInThisNescEntity(false);
+                ident.setType(Optional.<Type>absent());
             }
         }
 

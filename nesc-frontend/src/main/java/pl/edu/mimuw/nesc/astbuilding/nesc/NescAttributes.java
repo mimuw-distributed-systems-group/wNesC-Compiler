@@ -1,5 +1,9 @@
 package pl.edu.mimuw.nesc.astbuilding.nesc;
 
+import com.google.common.collect.ImmutableListMultimap;
+import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
+import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
+import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.InitList;
@@ -7,6 +11,12 @@ import pl.edu.mimuw.nesc.ast.gen.NescAttribute;
 import pl.edu.mimuw.nesc.ast.gen.Word;
 
 import java.util.LinkedList;
+import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
+import pl.edu.mimuw.nesc.astutil.AstUtils;
+import pl.edu.mimuw.nesc.environment.Environment;
+import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
+import pl.edu.mimuw.nesc.problem.NescIssue;
+import pl.edu.mimuw.nesc.token.Token;
 
 import static pl.edu.mimuw.nesc.astutil.AstUtils.getEndLocation;
 import static pl.edu.mimuw.nesc.astutil.AstUtils.getStartLocation;
@@ -14,9 +24,17 @@ import static pl.edu.mimuw.nesc.astutil.AstUtils.getStartLocation;
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
  */
-public final class NescAttributes {
+public final class NescAttributes extends AstBuildingBase {
 
-    public static NescAttribute startAttributeUse(Word name) {
+    public NescAttributes(NescEntityEnvironment nescEnvironment,
+            ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
+            ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
+            SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer) {
+        super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder,
+                semanticListener, attributeAnalyzer);
+    }
+
+    public NescAttribute startAttributeUse(Word name) {
         final NescAttribute attr = new NescAttribute(null, name, null);
 
         /*
@@ -32,8 +50,9 @@ public final class NescAttributes {
         return attr;
     }
 
-    public static NescAttribute finishAttributeUse(Location startLocation, Location endLocation,
-                                                   NescAttribute attribute, LinkedList<Expression> initializer) {
+    public NescAttribute finishAttributeUse(Environment environment,
+            Location startLocation, Location endLocation, NescAttribute attribute,
+            LinkedList<Expression> initializer) {
 
         final Expression initList;
         if (initializer.isEmpty()) {
@@ -46,10 +65,15 @@ public final class NescAttributes {
             initList.setEndLocation(initEndLocation);
         }
 
+        for (Expression expr : initializer) {
+            if (!AstUtils.IS_INITIALIZER.apply(expr)) {
+                ExpressionsAnalysis.analyze(expr, environment, errorHelper);
+            }
+        }
+
         attribute.setValue(initList);
         attribute.setLocation(startLocation);
         attribute.setEndLocation(endLocation);
         return attribute;
     }
-
 }

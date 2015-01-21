@@ -29,6 +29,12 @@ import pl.edu.mimuw.nesc.facade.component.specification.TaskElement;
 import pl.edu.mimuw.nesc.names.collecting.ObjectEnvironmentNameCollector;
 import pl.edu.mimuw.nesc.names.mangling.CountingNameMangler;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
+import pl.edu.mimuw.nesc.type.ArrayType;
+import pl.edu.mimuw.nesc.type.CharType;
+import pl.edu.mimuw.nesc.type.InterfaceType;
+import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.type.UnsignedIntType;
+import pl.edu.mimuw.nesc.type.VoidType;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -244,6 +250,7 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
 
     @Override
     public BlockData visitIdentifier(Identifier node, BlockData arg) {
+        fullyCompleteExprType(node);
         node.setUniqueName(getFinalUniqueName(node.getUniqueName()));
         return arg;
     }
@@ -391,18 +398,23 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
         uniqueIdentifier.setUniqueName(Optional.of(UniqueDeclaration.getInstance().getUniqueName()));
         uniqueIdentifier.setRefsDeclInThisNescEntity(false);
         uniqueIdentifier.setDeclaration(UniqueDeclaration.getInstance());
+        uniqueIdentifier.setType(UniqueDeclaration.getInstance().getType());
 
-        final LinkedList<Expression> uniqueArgs = new LinkedList<>();
-        uniqueArgs.add(new StringAst(
-                Location.getDummyLocation(),
-                Lists.newList(new StringCst(Location.getDummyLocation(), schedulerSpecification.getUniqueIdentifier()))
-        ));
+        final StringCst uniqueArgInner = new StringCst(Location.getDummyLocation(),
+                schedulerSpecification.getUniqueIdentifier());
+        final Type uniqueArgType = new ArrayType(new CharType(), Optional.of(
+                AstUtils.newIntegerConstant(schedulerSpecification.getUniqueIdentifier().length() + 1)));
+        uniqueArgInner.setType(Optional.of(uniqueArgType));
+        final StringAst uniqueArgOuter = new StringAst(Location.getDummyLocation(), Lists.newList(uniqueArgInner));
+        uniqueArgOuter.setType(Optional.of(uniqueArgType));
+
         final UniqueCall ifaceUniqueCall = new UniqueCall(
                 Location.getDummyLocation(),
-                uniqueArgs,
+                Lists.<Expression>newList(uniqueArgOuter),
                 NescCallKind.NORMAL_CALL,
                 uniqueIdentifier
         );
+        ifaceUniqueCall.setType(Optional.<Type>of(new UnsignedIntType()));
         final LinkedList<ParameterisedIdentifier> schedulerEndpointIds = new LinkedList<>();
         schedulerEndpointIds.add(new ParameterisedIdentifier(
                 Location.getDummyLocation(),
@@ -430,6 +442,8 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
 
     @Override
     public BlockData visitFunctionCall(FunctionCall funCall, BlockData arg) {
+        fullyCompleteExprType(funCall);
+
         if (funCall.getCallKind() != NescCallKind.POST_TASK) {
             return arg;
         }
@@ -442,12 +456,14 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
         taskIdentifier.setRefsDeclInThisNescEntity(false);
         taskIdentifier.setIsGenericReference(false);
         taskIdentifier.setUniqueName(Optional.<String>absent());
+        taskIdentifier.setType(Optional.<Type>absent());
 
         final InterfaceDeref ifaceDeref = new InterfaceDeref(
                 Location.getDummyLocation(),
                 taskIdentifier,
                 new Word(Location.getDummyLocation(), schedulerSpecification.getTaskPostCommandName())
         );
+        ifaceDeref.setType(Optional.<Type>absent());
         funCall.setFunction(ifaceDeref);
 
         return arg;
@@ -669,6 +685,7 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
 
     @Override
     public BlockData visitCompoundExpr(CompoundExpr expr, BlockData arg) {
+        fullyCompleteExprType(expr);
         expr.setStatement(performAtomicSmallTransformationCompact(expr.getStatement(), arg));
         return arg;
     }
@@ -825,6 +842,7 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
         funIdentifier.setUniqueName(Optional.of(atomicStartFunUniqueName));
         funIdentifier.setIsGenericReference(false);
         funIdentifier.setRefsDeclInThisNescEntity(false);
+        funIdentifier.setType(Optional.<Type>absent());
 
         final FunctionCall atomicStartCall = new FunctionCall(
                 Location.getDummyLocation(),
@@ -832,6 +850,7 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
                 Lists.<Expression>newList(),
                 NescCallKind.NORMAL_CALL
         );
+        atomicStartCall.setType(Optional.<Type>absent());
 
         // Variable declaration
 
@@ -870,6 +889,7 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
         funIdentifier.setRefsDeclInThisNescEntity(false);
         funIdentifier.setUniqueName(Optional.of(atomicEndFunUniqueName));
         funIdentifier.setIsGenericReference(false);
+        funIdentifier.setType(Optional.<Type>absent());
 
         final Identifier argIdentifier = new Identifier(
                 Location.getDummyLocation(), ATOMIC_VARIABLE_BASE_NAME
@@ -877,6 +897,7 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
         argIdentifier.setRefsDeclInThisNescEntity(true);
         argIdentifier.setUniqueName(Optional.of(atomicVariableUniqueName));
         argIdentifier.setIsGenericReference(false);
+        argIdentifier.setType(Optional.<Type>absent());
 
         // Prepare the call to the atomic end function
 
@@ -886,6 +907,7 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
                 Lists.<Expression>newList(argIdentifier),
                 NescCallKind.NORMAL_CALL
         );
+        finalCall.setType(Optional.<Type>of(new VoidType()));
 
         return new ExpressionStmt(
                 Location.getDummyLocation(),
@@ -917,6 +939,7 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
         retIdentifier.setIsGenericReference(false);
         retIdentifier.setRefsDeclInThisNescEntity(true);
         retIdentifier.setUniqueName(Optional.of(retVariableUniqueName));
+        retIdentifier.setType(retExpr.getType());
 
         // Prepare the new 'return' statement
 
@@ -1034,6 +1057,422 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
         final LinkedList<Statement> result = Lists.<Statement>newList(stmt);
         result.addFirst(createAtomicFinalCall(stmtData.getAtomicVariableUniqueName().get()));
         return result;
+    }
+
+    @Override
+    public BlockData visitPlus(Plus expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitMinus(Minus expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitTimes(Times expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitDivide(Divide expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitModulo(Modulo expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitLshift(Lshift expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitRshift(Rshift expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitLeq(Leq expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitGeq(Geq expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitLt(Lt expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitGt(Gt expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitEq(Eq expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitNe(Ne expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitBitand(Bitand expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitBitor(Bitor expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitBitxor(Bitxor expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitAndand(Andand expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitOror(Oror expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitAssign(Assign expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitPlusAssign(PlusAssign expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitMinusAssign(MinusAssign expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitTimesAssign(TimesAssign expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitDivideAssign(DivideAssign expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitModuloAssign(ModuloAssign expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitLshiftAssign(LshiftAssign expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitRshiftAssign(RshiftAssign expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitBitandAssign(BitandAssign expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitBitorAssign(BitorAssign expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitBitxorAssign(BitxorAssign expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitUnaryMinus(UnaryMinus expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitDereference(Dereference expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitAddressOf(AddressOf expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitUnaryPlus(UnaryPlus expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitBitnot(Bitnot expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitNot(Not expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitAlignofType(AlignofType expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitSizeofType(SizeofType expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitOffsetof(Offsetof expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitSizeofExpr(SizeofExpr expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitAlignofExpr(AlignofExpr expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitRealpart(Realpart expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitImagpart(Imagpart expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitArrayRef(ArrayRef expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitErrorExpr(ErrorExpr expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitComma(Comma expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitLabelAddress(LabelAddress expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitConditional(Conditional expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitIntegerCst(IntegerCst expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitFloatingCst(FloatingCst expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitCharacterCst(CharacterCst expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitStringCst(StringCst expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitStringAst(StringAst expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitUniqueCall(UniqueCall expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitUniqueNCall(UniqueNCall expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitUniqueCountCall(UniqueCountCall expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitFieldRef(FieldRef expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitInterfaceDeref(InterfaceDeref expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitComponentDeref(ComponentDeref expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitPreincrement(Preincrement expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitPredecrement(Predecrement expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitPostincrement(Postincrement expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitPostdecrement(Postdecrement expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitCast(Cast expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitCastList(CastList expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitTypeArgument(TypeArgument expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitGenericCall(GenericCall expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    @Override
+    public BlockData visitExtensionExpr(ExtensionExpr expr, BlockData arg) {
+        fullyCompleteExprType(expr);
+        return arg;
+    }
+
+    private void fullyCompleteExprType(Expression expr) {
+        if (expr.getType().isPresent()) {
+            expr.getType().get().fullyComplete();
+        }
+    }
+
+    @Override
+    public BlockData visitAstType(AstType astType, BlockData arg) {
+        if (astType.getType().isPresent()) {
+            astType.getType().get().fullyComplete();
+        }
+        return arg;
     }
 
     /**
