@@ -13,6 +13,7 @@ import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.type.IntType;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 
@@ -655,10 +656,18 @@ public final class AstUtils {
                 IntegerCstKind.DECIMAL,
                 IntegerCstSuffix.NO_SUFFIX
         );
+        constant.setType(Optional.<Type>of(new IntType()));
 
-        return negation
-                ? new UnaryMinus(Location.getDummyLocation(), constant)
-                : constant;
+        final Expression result;
+
+        if (negation) {
+            result = new UnaryMinus(Location.getDummyLocation(), constant);
+            result.setType(Optional.<Type>of(new IntType()));
+        } else {
+            result = constant;
+        }
+
+        return result;
     }
 
     /**

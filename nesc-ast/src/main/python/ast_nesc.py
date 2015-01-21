@@ -87,7 +87,7 @@ class Expression(BasicASTNode):
     """
     superclass = Node
     genericIndicator = GenericIndicator(True, "isPasted")
-    type = ReferenceField("Type", optional=True, constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+    type = ReferenceField("Type", optional=True, constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
     parenthesesCount = IntField(constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
     # FIXME: the fields below are borrowed from ncc, but they are propably not required in our implementation.
     # LVALUE is true if this expression can be used in a context requiring an
@@ -302,7 +302,7 @@ class AstType(BasicASTNode):
     genericIndicator = GenericIndicator(True, "isPasted")
     declarator = ReferenceField("Declarator", optional=True)
     qualifiers = ReferenceListField("TypeElement")
-    type = ReferenceField("Type", optional=True, constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+    type = ReferenceField("Type", optional=True, constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 # typedef-type with declaration DDECL. The name is ddecl->name.

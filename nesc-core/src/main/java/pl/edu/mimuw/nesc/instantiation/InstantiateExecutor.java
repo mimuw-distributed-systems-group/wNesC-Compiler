@@ -30,6 +30,7 @@ import pl.edu.mimuw.nesc.names.collecting.NescEntityNameCollector;
 import pl.edu.mimuw.nesc.names.mangling.CountingNameMangler;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.substitution.GenericParametersSubstitution;
+import pl.edu.mimuw.nesc.substitution.TypeDiscovererVisitor;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -235,6 +236,8 @@ public final class InstantiateExecutor {
                 .componentRef(genericRef)
                 .genericComponent(specimen)
                 .build();
+        final TypeDiscovererVisitor typeDiscoverer = new TypeDiscovererVisitor(genericRef,
+                specimen, substitution);
 
         copy.setInstantiatedComponentName(Optional.of(specimen.getName().getName()));
         copy.setIsAbstract(false);
@@ -242,6 +245,7 @@ public final class InstantiateExecutor {
         copy.getName().setName(componentNameMangler.mangle(copy.getName().getName()));
         copy.accept(manglingVisitor, null);
         copy.substitute(substitution);
+        copy.traverse(typeDiscoverer, null);
 
         if (copy instanceof Module) {
             final Module moduleCopy = (Module) copy;
