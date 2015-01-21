@@ -3,8 +3,8 @@ package pl.edu.mimuw.nesc.astbuilding;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
-import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
+import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.environment.Environment;
@@ -40,7 +40,7 @@ public final class Statements extends AstBuildingBase {
 
     public ReturnStmt makeReturn(Environment environment, Location startLocation, Location endLocation,
             Expression expression) {
-        ExpressionsAnalysis.analyze(expression, environment, errorHelper);
+        FullExpressionsAnalysis.analyze(expression, environment, errorHelper);
         final ReturnStmt returnStmt = new ReturnStmt(startLocation, Optional.of(expression));
         returnStmt.setEndLocation(endLocation);
         return returnStmt;

@@ -9,8 +9,8 @@ import org.apache.log4j.Logger;
 
 import pl.edu.mimuw.nesc.*;
 import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
-import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
+import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
@@ -4647,13 +4647,13 @@ string_chain:
 
     private void analyzeExpression(Optional<? extends Expression> expr) {
         if (expr.isPresent()) {
-            ExpressionsAnalysis.analyze(expr.get(), environment, errorHelper);
+            FullExpressionsAnalysis.analyze(expr.get(), environment, errorHelper);
         }
     }
 
     private void analyzeExpressions(List<? extends Expression> exprs) {
         for (Expression expr : exprs) {
-            ExpressionsAnalysis.analyze(expr, environment, errorHelper);
+            FullExpressionsAnalysis.analyze(expr, environment, errorHelper);
         }
     }
 

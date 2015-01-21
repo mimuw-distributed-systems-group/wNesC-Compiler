@@ -6,9 +6,9 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
-import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
 import pl.edu.mimuw.nesc.analysis.LabelAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
+import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.Interval;
@@ -163,7 +163,7 @@ public final class Declarations extends AstBuildingBase {
                                    Optional<Expression> initializer) {
         if (initializer.isPresent()) {
             if (!AstUtils.IS_INITIALIZER.apply(initializer.get())) {
-                ExpressionsAnalysis.analyze(initializer.get(), environment, errorHelper);
+                FullExpressionsAnalysis.analyze(initializer.get(), environment, errorHelper);
             }
             final Location endLocation = initializer.get().getEndLocation();
             declaration.setEndLocation(endLocation);
@@ -427,7 +427,7 @@ public final class Declarations extends AstBuildingBase {
                                TypeElementsAssociation association, LinkedList<Attribute> attributes) {
         // Analyze the bit-field width expression
         if (bitfield.isPresent()) {
-            ExpressionsAnalysis.analyze(bitfield.get(), environment, errorHelper);
+            FullExpressionsAnalysis.analyze(bitfield.get(), environment, errorHelper);
         }
 
         // Resolve the base type for this field if it has not been already done
@@ -451,7 +451,7 @@ public final class Declarations extends AstBuildingBase {
     public Enumerator makeEnumerator(Environment environment, Location startLocation, Location endLocation, String id,
                                      Optional<Expression> value) {
         if (value.isPresent()) {
-            ExpressionsAnalysis.analyze(value.get(), environment, errorHelper);
+            FullExpressionsAnalysis.analyze(value.get(), environment, errorHelper);
         }
 
         final Enumerator enumerator = new Enumerator(startLocation, id, value);

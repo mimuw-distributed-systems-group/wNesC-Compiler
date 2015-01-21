@@ -5,8 +5,8 @@ import com.google.common.collect.ImmutableListMultimap;
 import java.util.LinkedList;
 import java.util.List;
 import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
-import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
+import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.ast.Location;
@@ -33,9 +33,9 @@ public final class Initializers extends AstBuildingBase {
     public Designator setInitIndex(Environment environment, Location startLocation,
             Location endLocation, Expression first,  Optional<Expression> last) {
 
-        ExpressionsAnalysis.analyze(first, environment, errorHelper);
+        FullExpressionsAnalysis.analyze(first, environment, errorHelper);
         if (last.isPresent()) {
-            ExpressionsAnalysis.analyze(last.get(), environment, errorHelper);
+            FullExpressionsAnalysis.analyze(last.get(), environment, errorHelper);
         }
 
         final Designator designator = new DesignateIndex(startLocation, first, last);
@@ -78,14 +78,14 @@ public final class Initializers extends AstBuildingBase {
 
     private void analyzeInitExpressions(Expression expr, Environment environment) {
         if (!AstUtils.IS_INITIALIZER.apply(expr)) {
-            ExpressionsAnalysis.analyze(expr, environment, errorHelper);
+            FullExpressionsAnalysis.analyze(expr, environment, errorHelper);
         }
     }
 
     private void analyzeInitExpressions(List<? extends Expression> expressions, Environment environment) {
         for (Expression expr : expressions) {
             if (!AstUtils.IS_INITIALIZER.apply(expr)) {
-                ExpressionsAnalysis.analyze(expr, environment, errorHelper);
+                FullExpressionsAnalysis.analyze(expr, environment, errorHelper);
             }
         }
     }

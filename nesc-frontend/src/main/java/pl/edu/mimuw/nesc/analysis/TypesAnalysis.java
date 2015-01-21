@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.analysis;
 
+import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;
 import pl.edu.mimuw.nesc.astutil.Interval;
 import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
@@ -962,7 +963,7 @@ public final class TypesAnalysis {
         public Void visitArrayDeclarator(ArrayDeclarator declarator, Void v) {
             final Optional<Expression> arraySizeExpr = declarator.getSize();
             if (arraySizeExpr.isPresent()) {
-                ExpressionsAnalysis.analyze(arraySizeExpr.get(), environment, errorHelper);
+                FullExpressionsAnalysis.analyze(arraySizeExpr.get(), environment, errorHelper);
             }
 
             accumulatedType = new ArrayType(accumulatedType, declarator.getSize());

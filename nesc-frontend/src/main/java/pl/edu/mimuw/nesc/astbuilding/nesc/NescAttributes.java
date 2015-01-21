@@ -2,8 +2,8 @@ package pl.edu.mimuw.nesc.astbuilding.nesc;
 
 import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
-import pl.edu.mimuw.nesc.analysis.ExpressionsAnalysis;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
+import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.InitList;
@@ -67,7 +67,7 @@ public final class NescAttributes extends AstBuildingBase {
 
         for (Expression expr : initializer) {
             if (!AstUtils.IS_INITIALIZER.apply(expr)) {
-                ExpressionsAnalysis.analyze(expr, environment, errorHelper);
+                FullExpressionsAnalysis.analyze(expr, environment, errorHelper);
             }
         }
 

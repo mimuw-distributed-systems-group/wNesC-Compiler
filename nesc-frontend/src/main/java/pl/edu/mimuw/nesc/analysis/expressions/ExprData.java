@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.analysis;
+package pl.edu.mimuw.nesc.analysis.expressions;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
