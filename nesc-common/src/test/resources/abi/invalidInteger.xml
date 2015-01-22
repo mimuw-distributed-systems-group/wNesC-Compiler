@@ -84,5 +84,11 @@
             <minimum-value>-9223372036854775808</minimum-value>
             <maximum-value>9223372036854775807</maximum-value>
         </ptrdiff_t>
+
+        <struct-or-union>
+            <minimum-alignment>1</minimum-alignment>
+            <bitfield-type-matters>true</bitfield-type-matters>
+            <empty-bitfield-alignment-in-bits>8</empty-bitfield-alignment-in-bits>
+        </struct-or-union>
     </types>
 </abi>

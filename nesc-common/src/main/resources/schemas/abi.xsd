@@ -32,6 +32,7 @@
             <element name='pointer-type' type='tns:TypeTypeDescriptor'/>
             <element name='size_t' type='tns:TypeUnsignedIntegerTypeDescriptor'/>
             <element name='ptrdiff_t' type='tns:TypeSignedIntegerTypeDescriptor'/>
+            <element name='struct-or-union' type='tns:TypeStructOrUnionTypeDescriptor'/>
         </sequence>
     </complexType>
 
@@ -73,8 +74,8 @@
 
     <complexType name='TypeTypeDescriptor'>
         <sequence>
-            <element name='size' type='tns:TypeSize'/>
-            <element name='alignment' type='tns:TypeSize'/>
+            <element name='size' type='tns:TypeSizeBytes'/>
+            <element name='alignment' type='tns:TypeSizeBytes'/>
         </sequence>
     </complexType>
 
@@ -102,7 +103,15 @@
         </complexContent>
     </complexType>
 
-    <simpleType name='TypeSize'>
+    <complexType name='TypeStructOrUnionTypeDescriptor'>
+        <sequence>
+            <element name='minimum-alignment' type='tns:TypeSizeBytes'/>
+            <element name='bitfield-type-matters' type='boolean'/>
+            <element name='empty-bitfield-alignment-in-bits' type='tns:TypeSizeBits'/>
+        </sequence>
+    </complexType>
+
+    <simpleType name='TypeSizeBytes'>
         <annotation>
             <documentation xml:lang='en'>
                 The unit for expressing size is 1 byte.
@@ -111,6 +120,18 @@
         <restriction base='integer'>
             <minInclusive value='1'/>
             <maxInclusive value='1024'/>
+        </restriction>
+    </simpleType>
+
+    <simpleType name='TypeSizeBits'>
+        <annotation>
+            <documentation xml:lang='en'>
+                The unit for expressing size is 1 bit.
+            </documentation>
+        </annotation>
+        <restriction base='integer'>
+            <minInclusive value='1'/>
+            <maxInclusive value='8192'/>
         </restriction>
     </simpleType>
 

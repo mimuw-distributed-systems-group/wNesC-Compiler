@@ -221,6 +221,20 @@
                 
                 9223372036854775807</maximum-value>
         </ptrdiff_t>
+        
+        
+        <struct-or-union>
+            <minimum-alignment>
+                2    
+            </minimum-alignment>
+            <bitfield-type-matters>
+                0
+            </bitfield-type-matters>
+            <empty-bitfield-alignment-in-bits>
+                    16
+                
+                </empty-bitfield-alignment-in-bits>
+        </struct-or-union>
 
     </types>
 

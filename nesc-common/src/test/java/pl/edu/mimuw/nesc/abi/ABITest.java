@@ -68,6 +68,8 @@ public class ABITest {
                 8, 8,
                 Range.closed(BigInteger.valueOf(-9223372036854775808L), BigInteger.valueOf(9223372036854775807L))
         );
+
+        checkFieldTagType(simpleAbi, 1, true, 8);
     }
 
     @Test
@@ -120,6 +122,8 @@ public class ABITest {
                 8, 16,
                 Range.closed(BigInteger.valueOf(-9223372036854775808L), BigInteger.valueOf(9223372036854775807L))
         );
+
+        checkFieldTagType(abiWithWhitespace, 2, false, 16);
     }
 
     @Test(expected=org.xml.sax.SAXException.class)
@@ -223,5 +227,12 @@ public class ABITest {
         assertEquals(sizePtrdiffT, abi.getPtrdiffT().getSize());
         assertEquals(alignPtrdiffT, abi.getPtrdiffT().getAlignment());
         assertEquals(rangePtrdiffT, abi.getPtrdiffT().getRange());
+    }
+
+    private void checkFieldTagType(ABI abi, int minimumAlignment, boolean bitFieldTypeMatters,
+                int emptyBitFieldAlignment) {
+        assertEquals(bitFieldTypeMatters, abi.getFieldTagType().bitFieldTypeMatters());
+        assertEquals(emptyBitFieldAlignment, abi.getFieldTagType().getEmptyBitFieldAlignmentInBits());
+        assertEquals(minimumAlignment, abi.getFieldTagType().getMinimumAlignment());
     }
 }

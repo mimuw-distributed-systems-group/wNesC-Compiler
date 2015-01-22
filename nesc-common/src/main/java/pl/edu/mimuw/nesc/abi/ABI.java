@@ -31,6 +31,7 @@ import org.xml.sax.ErrorHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 import pl.edu.mimuw.nesc.abi.typedata.CharData;
+import pl.edu.mimuw.nesc.abi.typedata.FieldTagTypeData;
 import pl.edu.mimuw.nesc.abi.typedata.IntegerTypeData;
 import pl.edu.mimuw.nesc.abi.typedata.StandardIntegerTypeData;
 import pl.edu.mimuw.nesc.abi.typedata.TypeData;
@@ -70,6 +71,7 @@ public final class ABI {
     private final TypeData typePointer;
     private final IntegerTypeData typeSizeT;
     private final IntegerTypeData typePtrdiffT;
+    private final FieldTagTypeData typeFieldTag;
 
     /**
      * Load information about the ABI from an XML file with given path. The file
@@ -97,6 +99,7 @@ public final class ABI {
         this.typePointer = builder.buildPointerTypeData();
         this.typeSizeT = builder.buildSizeTData();
         this.typePtrdiffT = builder.buildPtrdiffTData();
+        this.typeFieldTag = builder.buildFieldTagTypeData();
     }
 
     public Endianness getEndianness() {
@@ -145,6 +148,10 @@ public final class ABI {
 
     public IntegerTypeData getPtrdiffT() {
         return typePtrdiffT;
+    }
+
+    public FieldTagTypeData getFieldTagType() {
+        return typeFieldTag;
     }
 
     /**
@@ -228,18 +235,7 @@ public final class ABI {
         }
 
         private boolean isCharSigned() throws XPathExpressionException {
-            final String text = retrieveText("/abi:abi/abi:types/abi:char/abi:is-signed");
-
-            switch (text) {
-                case "true":
-                case "1":
-                    return true;
-                case "false":
-                case "0":
-                    return false;
-                default:
-                    throw new RuntimeException("value '" + text + "' in an element of type 'boolean'");
-            }
+            return retrieveBoolean("/abi:abi/abi:types/abi:char/abi:is-signed");
         }
 
         private StandardIntegerTypeData buildShortTypeData() throws XPathExpressionException {
@@ -282,6 +278,14 @@ public final class ABI {
             return retrieveIntegerTypeData("ptrdiff_t");
         }
 
+        private FieldTagTypeData buildFieldTagTypeData() throws XPathExpressionException {
+            return new FieldTagTypeData(
+                    retrieveBoolean("/abi:abi/abi:types/abi:struct-or-union/abi:bitfield-type-matters"),
+                    retrieveInt("/abi:abi/abi:types/abi:struct-or-union/abi:empty-bitfield-alignment-in-bits"),
+                    retrieveInt("/abi:abi/abi:types/abi:struct-or-union/abi:minimum-alignment")
+            );
+        }
+
         private IntegerTypeData retrieveIntegerTypeData(String typeElementName) throws XPathExpressionException {
             return new IntegerTypeData(
                     retrieveInt(format("/abi:abi/abi:types/abi:%s/abi:size", typeElementName)),
@@ -306,6 +310,21 @@ public final class ABI {
                     retrieveUnboundedInteger(format("/abi:abi/abi:types/abi:%s/abi:signed/abi:maximum-value", typeElementName)),
                     retrieveUnboundedInteger(format("/abi:abi/abi:types/abi:%s/abi:unsigned/abi:maximum-value", typeElementName))
             );
+        }
+
+        private boolean retrieveBoolean(String xpathExpr) throws XPathExpressionException {
+            final String text = retrieveText(xpathExpr);
+
+            switch (text) {
+                case "true":
+                case "1":
+                    return true;
+                case "false":
+                case "0":
+                    return false;
+                default:
+                    throw new RuntimeException("value '" + text + "' in an element of type 'boolean'");
+            }
         }
 
         private int retrieveInt(String xpathExpr) throws XPathExpressionException {
