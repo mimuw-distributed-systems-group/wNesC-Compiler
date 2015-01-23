@@ -18,19 +18,19 @@ class FieldCopyCodeGenerator:
         self.field_optional = field_optional
         self.type_fun = type_fun
 
-    def generate_code(self, lang, copy_name, skip_param_name):
+    def generate_code(self, lang, copy_name, skip_param_name, nodes_map_param_name):
         """Returns a list with lines of code."""
         if lang == DST_LANGUAGE.JAVA:
-            return self.generate_code_java(copy_name, skip_param_name)
+            return self.generate_code_java(copy_name, skip_param_name, nodes_map_param_name)
         elif lang == DST_LANGUAGE.CPP:
-            return self.generate_code_cpp(copy_name, skip_param_name)
+            return self.generate_code_cpp(copy_name, skip_param_name, nodes_map_param_name)
         else:
             raise Exception("unexpected destination language {0}".format(lang))
 
-    def generate_code_java(self, copy_name, skip_param_name):
+    def generate_code_java(self, copy_name, skip_param_name, nodes_map_param_name):
         raise NotImplementedError
 
-    def generate_code_cpp(self, copy_name, skip_param_name):
+    def generate_code_cpp(self, copy_name, skip_param_name, nodes_map_param_name):
         raise NotImplementedError
 
 
@@ -38,7 +38,7 @@ class NullCopyCodeGenerator(FieldCopyCodeGenerator):
     def __init__(self, field_name, field_optional, type_fun):
         super().__init__(field_name, field_optional, type_fun)
 
-    def generate_code_java(self, copy_name, skip_param_name):
+    def generate_code_java(self, copy_name, skip_param_name, nodes_map_param_name):
         return ["{0}.{1} = null;".format(copy_name, self.field_name)]
 
 
@@ -47,8 +47,8 @@ class DeepCopyCodeGenerator(FieldCopyCodeGenerator):
         self.external = external
         super().__init__(field_name, field_optional, type_fun)
 
-    def generate_code_java(self, copy_name, skip_param_name):
-        deep_copy_call = self.get_deep_copy_call(skip_param_name)
+    def generate_code_java(self, copy_name, skip_param_name, nodes_map_param_name):
+        deep_copy_call = self.get_deep_copy_call(skip_param_name, nodes_map_param_name)
 
         if not self.field_optional:
             return [
@@ -74,15 +74,16 @@ class DeepCopyCodeGenerator(FieldCopyCodeGenerator):
                 "}",
             ]
 
-    def get_deep_copy_call(self, skip_param_name):
-        return "deepCopy()" if self.external else "deepCopy({})".format(skip_param_name)
+    def get_deep_copy_call(self, skip_param_name, nodes_map_param_name):
+        return "deepCopy()" if self.external else "deepCopy({}, {})"\
+            .format(skip_param_name, nodes_map_param_name)
 
 
 class ReferenceCopyCodeGenerator(FieldCopyCodeGenerator):
     def __init__(self, field_name, field_optional, type_fun):
         super().__init__(field_name, field_optional, type_fun)
 
-    def generate_code_java(self, copy_name, skip_param_name):
+    def generate_code_java(self, copy_name, skip_param_name, nodes_map_param_name):
         return ["{0}.{1} = this.{1};".format(copy_name, self.field_name)]
 
 
@@ -90,10 +91,11 @@ class ListDeepCopyCodeGenerator(FieldCopyCodeGenerator):
     def __init__(self, field_name, field_optional, type_fun):
         super().__init__(field_name, field_optional, type_fun)
 
-    def generate_code_java(self, copy_name, skip_param_name):
+    def generate_code_java(self, copy_name, skip_param_name, nodes_map_param_name):
         return [
             "{0}.{1} = this.{1} != null".format(copy_name, self.field_name),
-            2 * tab + "? AstUtils.deepCopyNodes(this.{0}, {1})".format(self.field_name, skip_param_name),
+            2 * tab + "? AstUtils.deepCopyNodes(this.{0}, {1}, {2})"
+                    .format(self.field_name, skip_param_name, nodes_map_param_name),
             2 * tab + ": null;",
         ]
 

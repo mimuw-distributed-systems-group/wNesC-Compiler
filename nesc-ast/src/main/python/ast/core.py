@@ -149,7 +149,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         insert_empty_line = True
 
         for name, field_data in sorted(all_fields.items(), key=lambda x : x[0]):
-            field_lines = field_data[3].generate_code(DST_LANGUAGE.JAVA, "copy", "skipConstantFunCalls")
+            field_lines = field_data[3].generate_code(DST_LANGUAGE.JAVA, "copy", "skipConstantFunCalls", "nodesMap")
 
             if insert_empty_line or len(field_lines) > 1:
                 fields_assigns.append("")
@@ -161,6 +161,9 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
 
         if classname in unique_nodes:
             body = body_indent + "if (skipConstantFunCalls) {\n"
+            body += body_indent + tab + "if (nodesMap.isPresent()) {\n"
+            body += body_indent + 2 * tab + "nodesMap.get().put(this, this);\n"
+            body += body_indent + tab + "}\n"
             body += body_indent + tab + "return this;\n"
             body += body_indent + "}\n\n"
         else:
@@ -168,6 +171,10 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
 
         body += body_indent + "final {0} copy = new {0}();\n".format(classname)
         body += "\n".join(fields_assigns) + "\n"
+        body += "\n" + body_indent + "if (nodesMap.isPresent()) {\n"
+        body += body_indent + tab + "checkArgument(!nodesMap.get().containsKey(this), \"the given map contains this node\");\n"
+        body += body_indent + tab + "nodesMap.get().put(this, copy);\n"
+        body += body_indent + "}\n"
         body += "\n" + body_indent + "return copy;\n"
 
         override_attr = tab + "@Override\n" if hasattr(self, "superclass") else ""
@@ -177,6 +184,11 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         code += tab + "}\n\n"
 
         code += override_attr + tab + "public {0} deepCopy(boolean skipConstantFunCalls) {{\n".format(classname)
+        code += 2 * tab + "return deepCopy(skipConstantFunCalls, Optional.<Map<Node, Node>>absent());\n"
+        code += tab + "}\n\n"
+
+        code += override_attr + tab + "public {0} deepCopy(boolean skipConstantFunCalls, "\
+                    "Optional<Map<Node, Node>> nodesMap) {{\n".format(classname)
         code += body
         code += tab + "}\n\n"
 
@@ -555,6 +567,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             res += "import java.math.BigInteger;\n"
             res += "import java.util.LinkedList;\n"
             res += "import java.util.ListIterator;\n"
+            res += "import java.util.Map;\n"
             res += "import java.util.Set;\n"
             res += "import com.google.common.base.Optional;\n"
             res += "import pl.edu.mimuw.nesc.ast.*;\n"
@@ -565,7 +578,8 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             res += "import pl.edu.mimuw.nesc.declaration.tag.*;\n"
             res += "import pl.edu.mimuw.nesc.environment.*;\n"
             res += "import pl.edu.mimuw.nesc.facade.component.specification.ModuleTable;\n"
-            res += "import pl.edu.mimuw.nesc.type.*;\n"
+            res += "import pl.edu.mimuw.nesc.type.*;\n\n"
+            res += "import static com.google.common.base.Preconditions.checkArgument;\n"
 
             # Include docstring if present.
             if cls.__doc__ is not None:

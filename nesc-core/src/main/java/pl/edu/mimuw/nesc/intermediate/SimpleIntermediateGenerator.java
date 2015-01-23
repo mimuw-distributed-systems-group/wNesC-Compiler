@@ -169,7 +169,8 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
         final FunctionDeclarator intermediateFunDeclarator = (FunctionDeclarator) declarator;
         final List<Declaration> instanceParams = intermediateFunDeclarator.getParameters().subList(
                 0, funData.getInstanceParametersNames().size());
-        final LinkedList<Declaration> params = AstUtils.deepCopyNodes(instanceParams, true);
+        final LinkedList<Declaration> params = AstUtils.deepCopyNodes(instanceParams,
+                true, Optional.<Map<Node, Node>>absent());
 
         // Identifier declarator
 
@@ -309,7 +310,8 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
 
     private FunctionCall generateConnectionCall(IntermediateFunctionData funData, WiringEdge edge) {
         final LinkedList<Expression> allParameters = edge.getDestinationParameters().isPresent()
-                ? AstUtils.deepCopyNodes(edge.getDestinationParameters().get(), true)
+                ? AstUtils.deepCopyNodes(edge.getDestinationParameters().get(),
+                        true, Optional.<Map<Node, Node>>absent())
                 : Lists.<Expression>newList();
         final int usedInstanceParamsCount = edge.getSourceParameters().isPresent()
                 ? edge.getSourceParameters().get().size()
@@ -390,7 +392,8 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
         final LinkedList<Expression> callParameters;
 
         if (edge.getDestinationParameters().isPresent()) {
-            callParameters = AstUtils.deepCopyNodes(edge.getDestinationParameters().get(), true);
+            callParameters = AstUtils.deepCopyNodes(edge.getDestinationParameters().get(),
+                    true, Optional.<Map<Node, Node>>absent());
         } else if (!instanceParamsNames.isEmpty() && !edge.getSourceParameters().isPresent()) {
             callParameters = AstUtils.newIdentifiersList(instanceParamsNames);
         } else {

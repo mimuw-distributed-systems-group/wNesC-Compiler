@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableList;
 import java.math.BigInteger;
 import java.util.Iterator;
 import java.util.ListIterator;
+import java.util.Map;
 import pl.edu.mimuw.nesc.ast.IntegerCstKind;
 import pl.edu.mimuw.nesc.ast.IntegerCstSuffix;
 import pl.edu.mimuw.nesc.ast.Location;
@@ -357,20 +358,21 @@ public final class AstUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T extends Node> LinkedList<T> deepCopyNodes(List<T> toCopy, boolean skipConstantFunCalls) {
+    public static <T extends Node> LinkedList<T> deepCopyNodes(List<T> toCopy, boolean skipConstantFunCalls,
+            Optional<Map<Node, Node>> nodesMap) {
         final LinkedList<T> copy = new LinkedList<>();
 
         for (T node : toCopy) {
-            copy.add((T) node.deepCopy(skipConstantFunCalls));
+            copy.add((T) node.deepCopy(skipConstantFunCalls, nodesMap));
         }
 
         return copy;
     }
 
     public static <T extends Node> Optional<LinkedList<T>> deepCopyNodes(Optional<? extends List<T>> toCopy,
-            boolean skipConstantFunCalls) {
+            boolean skipConstantFunCalls, Optional<Map<Node, Node>> nodesMap) {
         return toCopy.isPresent()
-                ? Optional.of(deepCopyNodes(toCopy.get(), skipConstantFunCalls))
+                ? Optional.of(deepCopyNodes(toCopy.get(), skipConstantFunCalls, nodesMap))
                 : Optional.<LinkedList<T>>absent();
     }
 
@@ -813,7 +815,7 @@ public final class AstUtils {
 
         return new DataDecl(
                 Location.getDummyLocation(),
-                deepCopyNodes(functionDecl.getModifiers(), true),
+                deepCopyNodes(functionDecl.getModifiers(), true, Optional.<Map<Node, Node>>absent()),
                 Lists.<Declaration>newList(variableDecl)
         );
     }

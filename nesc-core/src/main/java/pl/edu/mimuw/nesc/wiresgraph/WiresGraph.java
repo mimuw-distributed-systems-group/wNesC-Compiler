@@ -714,7 +714,8 @@ public final class WiresGraph {
                 public Void visitFunctionDeclarator(FunctionDeclarator declarator, Void arg) {
                     // Prepare parameters for the potential intermediate function
                     if (instanceParameters.isPresent()) {
-                        final LinkedList<Declaration> params = AstUtils.deepCopyNodes(instanceParameters.get(), true);
+                        final LinkedList<Declaration> params = AstUtils.deepCopyNodes(instanceParameters.get(),
+                                true, Optional.<Map<Node, Node>>absent());
                         params.addAll(declarator.getParameters());
                         declarator.setParameters(params);
                     }
