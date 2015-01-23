@@ -3440,7 +3440,7 @@ stmts:
             final Statement lastLabel = $1.getStatements().getLast();
             final EmptyStmt empty = new EmptyStmt(lastLabel.getLocation());
             empty.setEndLocation(lastLabel.getEndLocation());
-            statements.chainWithLabels($1.getStatements(), Lists.<Statement>newList(lastLabel));
+            statements.chainWithLabels($1.getStatements(), Lists.<Statement>newList(empty));
         }
         $$ = $1.getStatements();
     }
