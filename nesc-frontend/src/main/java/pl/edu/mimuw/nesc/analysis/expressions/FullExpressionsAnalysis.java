@@ -22,7 +22,6 @@ import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.VariableDeclaration;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.facade.component.reference.ComponentRefFacade;
-import pl.edu.mimuw.nesc.facade.component.reference.EnumerationConstant;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceRefFacade;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
@@ -58,7 +57,7 @@ public final class FullExpressionsAnalysis extends ExpressionsAnalysis {
     /**
      * Analyze the given expression and report all detected errors to the given
      * error helper. This method shall not be called if
-     * {@link pl.edu.mimuw.nesc.astutil.AstUtils#IS_INITIALIZER IS_INITIALIZER}
+     * {@link pl.edu.mimuw.nesc.astutil.predicates.IsInitializerPredicate}
      * predicate is fulfilled for the expression.
      *
      * @param expr Expression to be analyzed.
@@ -112,7 +111,7 @@ public final class FullExpressionsAnalysis extends ExpressionsAnalysis {
                 // error with the component reference or the component definition itself
                 error = Optional.absent();
             } else {
-                final Optional<EnumerationConstant> constant =
+                final Optional<ConstantDeclaration> constant =
                         facade.getEnumerationConstant(expr.getFieldName().getName());
 
                 if (!constant.isPresent()) {
@@ -120,7 +119,8 @@ public final class FullExpressionsAnalysis extends ExpressionsAnalysis {
                             expr.getFieldName().getName()));
                 } else {
                     componentRefName.setUniqueName(Optional.of(constant.get().getUniqueName()));
-                    componentRefName.setType(Optional.<Type>absent());
+                    componentRefName.setType(constant.get().getType());
+                    componentRefName.setDeclaration(constant.get());
                     error = Optional.absent();
                 }
             }

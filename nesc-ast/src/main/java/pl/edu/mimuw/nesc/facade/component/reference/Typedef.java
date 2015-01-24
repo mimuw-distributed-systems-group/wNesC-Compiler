@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.facade.component.reference;
 
 import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.type.Type;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -16,46 +17,29 @@ public final class Typedef {
     /**
      * Name of the type definition.
      */
-    private final String name;
-
-    /**
-     * Unique name of this type definition.
-     */
-    private final String uniqueName;
+    private final TypenameDeclaration declaration;
 
     /**
      * Type denoted by this type definition.
      */
     private final Optional<Type> type;
 
-    Typedef(String name, String uniqueName, Optional<Type> type) {
-        checkNotNull(name, "name cannot be null");
-        checkNotNull(uniqueName, "unique name cannot be null");
+    Typedef(TypenameDeclaration declaration, Optional<Type> type) {
+        checkNotNull(declaration, "declaration cannot be null");
         checkNotNull(type, "type cannot be null");
-        checkArgument(!name.isEmpty(), "name cannot be an empty string");
-        checkArgument(!uniqueName.isEmpty(), "unique name cannot be an empty string");
 
-        this.name = name;
-        this.uniqueName = uniqueName;
+        this.declaration = declaration;
         this.type = type;
     }
 
     /**
-     * Get the name of this type definition.
+     * Get the declaration object that represents the type definition. It is the
+     * same instance that is in the symbol table.
      *
-     * @return Name of this type definition.
+     * @return Declaration object associated with the type definition.
      */
-    public String getName() {
-        return name;
-    }
-
-    /**
-     * Get the mangled, globally unique name of this type definition.
-     *
-     * @return Unique name of this type definition.
-     */
-    public String getUniqueName() {
-        return uniqueName;
+    public TypenameDeclaration getDeclaration() {
+        return declaration;
     }
 
     /**

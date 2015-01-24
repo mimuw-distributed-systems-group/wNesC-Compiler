@@ -4,6 +4,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import java.util.Map;
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 
 /**
  * <p>A facade for an invalid component reference. It acts like the
@@ -35,7 +36,7 @@ public final class InvalidComponentRefFacade extends AbstractComponentRefFacade 
     }
 
     @Override
-    public Optional<EnumerationConstant> getEnumerationConstant(String name) {
+    public Optional<ConstantDeclaration> getEnumerationConstant(String name) {
         checkName(name);
         return Optional.absent();
     }

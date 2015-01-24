@@ -4,37 +4,26 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-
 import java.math.BigInteger;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import org.apache.log4j.Logger;
-
 import pl.edu.mimuw.nesc.ast.IntegerCstKind;
 import pl.edu.mimuw.nesc.ast.IntegerCstSuffix;
 import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.type.*;
-import pl.edu.mimuw.nesc.astbuilding.Declarations;
-import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.declaration.object.*;
 import pl.edu.mimuw.nesc.declaration.object.unique.UniqueCountDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.unique.UniqueDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.unique.UniqueNDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.*;
-import pl.edu.mimuw.nesc.environment.Environment;
-import pl.edu.mimuw.nesc.facade.component.reference.ComponentRefFacade;
-import pl.edu.mimuw.nesc.facade.component.reference.EnumerationConstant;
-import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
-import pl.edu.mimuw.nesc.facade.iface.InterfaceRefFacade;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 import pl.edu.mimuw.nesc.problem.issue.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.lang.String.format;
-
 import static pl.edu.mimuw.nesc.type.TypeUtils.*;
 import static pl.edu.mimuw.nesc.astwriting.Tokens.*;
 import static pl.edu.mimuw.nesc.astwriting.Tokens.BinaryOp.*;
@@ -42,7 +31,6 @@ import static pl.edu.mimuw.nesc.astwriting.Tokens.ConstantFun.*;
 import static pl.edu.mimuw.nesc.astwriting.Tokens.UnaryOp.*;
 import static pl.edu.mimuw.nesc.problem.issue.InvalidParameterTypeError.FunctionKind;
 import static pl.edu.mimuw.nesc.problem.issue.InvalidParameterTypeError.ParameterKind;
-import static pl.edu.mimuw.nesc.problem.issue.InvalidPostTaskExprError.PostProblemKind;
 
 /**
  * Class that is responsible for analysis of expressions.

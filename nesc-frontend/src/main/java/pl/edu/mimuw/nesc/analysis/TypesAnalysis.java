@@ -581,7 +581,8 @@ public final class TypesAnalysis {
                     return Optional.absent();
                 }
 
-                typename.setUniqueName(referredTypedef.get().getUniqueName());
+                typename.setUniqueName(referredTypedef.get().getDeclaration().getUniqueName());
+                typename.setDeclaration(referredTypedef.get().getDeclaration());
                 return referredTypedef.get().getType().transform(TYPENAME_TRANSFORM);
             }
         }

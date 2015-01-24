@@ -40,7 +40,7 @@ public final class GoodComponentRefFacade extends AbstractComponentRefFacade {
      * Map with all enumeration constants declared in the specification of the
      * referred component.
      */
-    private final ImmutableMap<String, EnumerationConstant> constants;
+    private final ImmutableMap<String, ConstantDeclaration> constants;
 
     /**
      * Map with all type definitions from the specification of the referred
@@ -80,7 +80,7 @@ public final class GoodComponentRefFacade extends AbstractComponentRefFacade {
     }
 
     @Override
-    public Optional<EnumerationConstant> getEnumerationConstant(String name) {
+    public Optional<ConstantDeclaration> getEnumerationConstant(String name) {
         checkName(name);
         return Optional.fromNullable(constants.get(name));
     }
@@ -124,7 +124,7 @@ public final class GoodComponentRefFacade extends AbstractComponentRefFacade {
          * Results of building process.
          */
         private ImmutableMap<String, SpecificationEntity> entities;
-        private ImmutableMap<String, EnumerationConstant> constants;
+        private ImmutableMap<String, ConstantDeclaration> constants;
         private ImmutableMap<String, Typedef> typedefs;
 
         /**
@@ -205,20 +205,19 @@ public final class GoodComponentRefFacade extends AbstractComponentRefFacade {
         private final class BuilderDeclarationVisitor implements ObjectDeclaration.Visitor<Void, Void> {
 
             private final ImmutableMap.Builder<String, SpecificationEntity> builderEntities = ImmutableMap.builder();
-            private final ImmutableMap.Builder<String, EnumerationConstant> builderConstants = ImmutableMap.builder();
+            private final ImmutableMap.Builder<String, ConstantDeclaration> builderConstants = ImmutableMap.builder();
             private final ImmutableMap.Builder<String, Typedef> builderTypedefs = ImmutableMap.builder();
 
             @Override
             public Void visit(ConstantDeclaration declaration, Void arg) {
-                builderConstants.put(declaration.getName(), new EnumerationConstant(declaration.getName(),
-                        declaration.getUniqueName()));
+                builderConstants.put(declaration.getName(), declaration);
                 return null;
             }
 
             @Override
             public Void visit(TypenameDeclaration declaration, Void arg) {
                 final Optional<Type> afterSubst = substitution.substituteType(declaration.getDenotedType());
-                final Typedef typedef = new Typedef(declaration.getName(), declaration.getUniqueName(), afterSubst);
+                final Typedef typedef = new Typedef(declaration, afterSubst);
                 builderTypedefs.put(declaration.getName(), typedef);
                 return null;
             }

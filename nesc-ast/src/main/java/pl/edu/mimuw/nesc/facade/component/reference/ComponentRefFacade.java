@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.facade.component.reference;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import java.util.Map;
+import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 
 /**
  * <p>Interface with operations related to obtaining information about
@@ -54,7 +55,8 @@ public interface ComponentRefFacade {
     /**
      * <p>Check if the specification of the referred component contains an
      * enumeration constant with given name. If so, an object that represents
-     * the constant is returned.</p>
+     * the constant is returned. It is the same instance that represents the
+     * object in the symbol table.</p>
      *
      * @param name Name of the enumeration constant.
      * @return Object that represents the enumeration constant with give name.
@@ -62,7 +64,7 @@ public interface ComponentRefFacade {
      * @throws NullPointerException Name is null.
      * @throws IllegalArgumentException Name is an empty string.
      */
-    Optional<EnumerationConstant> getEnumerationConstant(String name);
+    Optional<ConstantDeclaration> getEnumerationConstant(String name);
 
     /**
      * <p>Get the object that depicts an interface reference or a bare command
