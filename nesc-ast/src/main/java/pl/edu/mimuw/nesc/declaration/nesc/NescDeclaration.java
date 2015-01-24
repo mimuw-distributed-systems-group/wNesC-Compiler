@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.declaration.nesc;
 
 import com.google.common.base.Objects;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 import pl.edu.mimuw.nesc.environment.Environment;
 
@@ -51,6 +52,11 @@ public abstract class NescDeclaration extends Declaration {
     }
 
     public abstract <R, A> R accept(Visitor<R, A> visitor, A arg);
+
+    @Override
+    public final NescDeclaration deepCopy(CopyController controller) {
+        throw new UnsupportedOperationException("cannot copy a NesC declaration object");
+    }
 
     public interface Visitor<R, A> {
         R visit(ConfigurationDeclaration configuration, A arg);

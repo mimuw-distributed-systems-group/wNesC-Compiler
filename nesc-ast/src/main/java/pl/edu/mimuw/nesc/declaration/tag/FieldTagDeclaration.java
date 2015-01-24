@@ -3,11 +3,13 @@ package pl.edu.mimuw.nesc.declaration.tag;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.TagRef;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.declaration.tag.fieldtree.TreeElement;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -151,6 +153,27 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
     @Override
     public final boolean isDefined() {
         return structure.isPresent();
+    }
+
+    @Override
+    public abstract FieldTagDeclaration<T> deepCopy(CopyController controller);
+
+    protected <D extends FieldTagDeclaration<T>> D copyHelp(Builder<T, D> builder,
+            CopyController controller) {
+
+        if (this.structure.isPresent()) {
+            final List<TreeElement> newStructure = new ArrayList<>();
+            for (TreeElement element : this.structure.get()) {
+                newStructure.add(element.deepCopy(controller));
+            }
+            builder.structure(newStructure);
+        }
+
+        return builder.astNode(this.astTagRef)
+                .name(getName().orNull(), controller.mapUniqueName(getUniqueName()).orNull())
+                .startLocation(this.location)
+                .build();
+
     }
 
     /**

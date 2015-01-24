@@ -1,6 +1,9 @@
 package pl.edu.mimuw.nesc.declaration.object.unique;
 
+import java.util.LinkedList;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.gen.Declaration;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.CharType;
 import pl.edu.mimuw.nesc.type.PointerType;
 import pl.edu.mimuw.nesc.type.Type;
@@ -25,7 +28,7 @@ public final class UniqueDeclaration extends FunctionDeclaration {
         final Type uniqueType = new pl.edu.mimuw.nesc.type.FunctionType(new UnsignedIntType(), argsTypes, false);
         instance = new Builder().interfaceName(null)
                 .functionType(FunctionType.IMPLICIT)
-                .instanceParameters(null)
+                .instanceParameters((LinkedList<Declaration>) null)
                 .uniqueName("unique")
                 .type(uniqueType)
                 .linkage(Linkage.EXTERNAL)
@@ -49,6 +52,12 @@ public final class UniqueDeclaration extends FunctionDeclaration {
     private UniqueDeclaration(Builder builder) {
         super(builder);
         setDefined(true);
+    }
+
+    @Override
+    public UniqueDeclaration deepCopy(CopyController controller) {
+        // this object is singleton and cannot be copied
+        return this;
     }
 
     /**

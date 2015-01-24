@@ -40,19 +40,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public final class AstUtils {
     /**
-     * <p>Predicate of an expression that is fulfilled if and only if the
-     * expression is an initializer list or an initialization designation inside
-     * an initializer list.</p>
-     */
-    public static final Predicate<Expression> IS_INITIALIZER = new Predicate<Expression>() {
-        @Override
-        public boolean apply(Expression expr) {
-            checkNotNull(expr, "the expression cannot be null");
-            return expr instanceof InitList || expr instanceof InitSpecific;
-        }
-    };
-
-    /**
      * <p>Predicate that is fulfilled if and only if the type element is a core
      * type element (e.g. an attribute is not a core type element.</p>
      *

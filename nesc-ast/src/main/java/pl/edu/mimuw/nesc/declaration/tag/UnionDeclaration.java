@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.declaration.tag;
 
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.UnionRef;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.ExternalUnionType;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.type.UnionType;
@@ -53,6 +54,15 @@ public class UnionDeclaration extends FieldTagDeclaration<UnionRef> {
     @Override
     public <R, A> R visit(Visitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
+    }
+
+    @Override
+    public UnionDeclaration deepCopy(CopyController controller) {
+        final Builder builder = isDefined()
+                ? definitionBuilder()
+                : declarationBuilder();
+        builder.isExternal(this.isExternal());
+        return copyHelp(builder, controller);
     }
 
     /**

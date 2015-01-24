@@ -14,7 +14,7 @@ import pl.edu.mimuw.nesc.ast.gen.InitSpecific;
 import pl.edu.mimuw.nesc.ast.gen.NescAttribute;
 import pl.edu.mimuw.nesc.ast.gen.StringAst;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
-import pl.edu.mimuw.nesc.astutil.CAttributePredicate;
+import pl.edu.mimuw.nesc.astutil.predicates.CAttributePredicate;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;

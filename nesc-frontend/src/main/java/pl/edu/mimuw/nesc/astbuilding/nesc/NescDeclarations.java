@@ -118,6 +118,7 @@ public final class NescDeclarations extends AstBuildingBase {
 
         final ComponentRefDeclaration symbol = ComponentRefDeclaration.builder()
                 .componentName(componentName)
+                .withFacade(true)
                 .astNode(componentRef)
                 .nescDeclaration((ComponentDeclaration) component.orNull())
                 .name(refName)

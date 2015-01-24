@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.declaration.object;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.gen.ComponentRef;
 import pl.edu.mimuw.nesc.ast.gen.Word;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.ComponentType;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.declaration.nesc.ComponentDeclaration;
@@ -73,6 +74,18 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
         return visitor.visit(this, arg);
     }
 
+    @Override
+    public ComponentRefDeclaration deepCopy(CopyController controller) {
+        return ComponentRefDeclaration.builder()
+                .astNode(controller.mapNode(this.astComponentRef))
+                .withFacade(false)
+                .nescDeclaration(null)
+                .componentName(controller.mapNode(this.componentName))
+                .name(this.name)
+                .startLocation(this.location)
+                .build();
+    }
+
     /**
      * Builder for the component reference declaration.
      *
@@ -85,6 +98,7 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
         private Word componentName;
         private ComponentRef astComponentRef;
         private Optional<? extends ComponentDeclaration> componentDeclaration = Optional.absent();
+        private boolean withFacade;
 
         /**
          * Set the name of the referred component.
@@ -106,6 +120,20 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
          */
         public Builder astNode(ComponentRef astComponentRef) {
             this.astComponentRef = astComponentRef;
+            return this;
+        }
+
+        /**
+         * Set the value indicating whether the facade will be created for the
+         * component reference during the build process for the declaration
+         * object. The facade will be accessible by
+         * {@link ComponentRefDeclaration#getFacade}.
+         *
+         * @param buildFacade <code>true</code> to create the facade.
+         * @return <code>this</code>
+         */
+        public Builder withFacade(boolean buildFacade) {
+            this.withFacade = buildFacade;
             return this;
         }
 
@@ -145,10 +173,11 @@ public class ComponentRefDeclaration extends ObjectDeclaration {
             final ComponentRefDeclaration result = new ComponentRefDeclaration(this);
 
             // Create and set the facade
-            final ComponentRefFacade facade = ComponentRefFacadeFactory.newInstance()
-                    .setDeclaration(result)
-                    .newComponentRefFacade();
-            result.facade = facade;
+            if (this.withFacade) {
+                result.facade = ComponentRefFacadeFactory.newInstance()
+                        .setDeclaration(result)
+                        .newComponentRefFacade();
+            }
 
             return result;
         }

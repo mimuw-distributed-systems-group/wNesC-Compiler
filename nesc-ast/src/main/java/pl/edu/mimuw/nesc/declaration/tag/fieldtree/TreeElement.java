@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.declaration.tag.fieldtree;
 
 import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.declaration.tag.FieldDeclaration;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -50,6 +51,16 @@ public abstract class TreeElement implements Iterable<FieldDeclaration> {
      * @return Value returned by the call <code>visitor.visit(this, arg)</code>.
      */
     public abstract <R, A> R accept(Visitor<R, A> visitor, A arg);
+
+    /**
+     * Copies this node and all its children and the field declarations using
+     * the given copy controller.
+     *
+     * @param controller Controller to make the copy with.
+     * @return Newly created instance of a proper tree element (of the same
+     *         class as this).
+     */
+    public abstract TreeElement deepCopy(CopyController controller);
 
     public interface Visitor<R, A> {
         R visit(FieldElement fieldElement, A arg);

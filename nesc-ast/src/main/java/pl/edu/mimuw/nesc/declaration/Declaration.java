@@ -39,6 +39,17 @@ public abstract class Declaration {
         this.environment = environment;
     }
 
+    /**
+     * Copy this declaration object using the given controller.
+     *
+     * @return Newly created instance (or the same if a singleton declaration
+     *         object is being copied) of the same declaration class as this
+     *         with information transformed using the given controller.
+     * @throws UnsupportedOperationException Method invoked on one of the NesC
+     *                                       declaration objects.
+     */
+    public abstract Declaration deepCopy(CopyController controller);
+
     @Override
     public int hashCode() {
         return Objects.hashCode(location);

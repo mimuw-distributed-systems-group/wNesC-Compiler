@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.declaration.label;
 
 import com.google.common.base.Objects;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -128,6 +129,25 @@ public class LabelDeclaration extends Declaration {
         }
         final LabelDeclaration other = (LabelDeclaration) obj;
         return Objects.equal(this.name, other.name);
+    }
+
+    @Override
+    public LabelDeclaration deepCopy(CopyController controller) {
+        final LabelDeclaration.Builder copyBuilder = LabelDeclaration.builder();
+        copyBuilder.name(this.name)
+                .isPlacedInsideAnAtomicArea(this.isPlacedInsideAtomicArea)
+                .startLocation(this.location);
+
+        if (this.isLocal) {
+            copyBuilder.local();
+        } else {
+            copyBuilder.nonlocal();
+        }
+
+        final LabelDeclaration copy = copyBuilder.build();
+        copy.isDefined = this.isDefined;
+
+        return copy;
     }
 
     /**

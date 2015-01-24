@@ -54,6 +54,13 @@ public final class InvalidComponentParameterError extends ErroneousIssue {
         return new InvalidComponentParameterError(description);
     }
 
+    public static InvalidComponentParameterError tagDefinitionProvided(String componentName,
+            int paramNum) {
+        final String description = format("Cannot use tag definition for a parameter of a component as for the %s parameter of component '%s'",
+                getOrdinalForm(paramNum), componentName);
+        return new InvalidComponentParameterError(description);
+    }
+
     public static InvalidComponentParameterError expectedIntegerType(String componentName,
             int paramNum, Type providedType) {
         final String description = format("The %s parameter of component '%s' must be an integer type but non-integer type '%s' is provided",

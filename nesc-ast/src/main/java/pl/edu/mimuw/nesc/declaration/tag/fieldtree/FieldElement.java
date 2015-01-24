@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.declaration.tag.fieldtree;
 
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.declaration.tag.FieldDeclaration;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -29,5 +30,10 @@ public final class FieldElement extends TreeElement {
     @Override
     public <R, A> R accept(Visitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
+    }
+
+    @Override
+    public FieldElement deepCopy(CopyController controller) {
+        return new FieldElement(controller.copy(this.fieldDeclaration));
     }
 }

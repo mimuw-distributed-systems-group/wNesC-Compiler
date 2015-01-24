@@ -17,6 +17,7 @@ import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.astutil.predicates.IsInitializerPredicate;
 import pl.edu.mimuw.nesc.type.FunctionType;
 import pl.edu.mimuw.nesc.type.TypeDefinitionType;
 import pl.edu.mimuw.nesc.type.VoidType;
@@ -162,7 +163,7 @@ public final class Declarations extends AstBuildingBase {
     public VariableDecl finishDecl(VariableDecl declaration, Environment environment,
                                    Optional<Expression> initializer) {
         if (initializer.isPresent()) {
-            if (!AstUtils.IS_INITIALIZER.apply(initializer.get())) {
+            if (!IsInitializerPredicate.PREDICATE.apply(initializer.get())) {
                 FullExpressionsAnalysis.analyze(initializer.get(), environment, errorHelper);
             }
             final Location endLocation = initializer.get().getEndLocation();

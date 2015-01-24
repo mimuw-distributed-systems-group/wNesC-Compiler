@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.declaration.object;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.gen.Enumerator;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.IntType;
 import pl.edu.mimuw.nesc.type.Type;
 
@@ -57,6 +58,16 @@ public final class ConstantDeclaration extends ObjectDeclaration {
     @Override
     public <R, A> R accept(Visitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
+    }
+
+    @Override
+    public ConstantDeclaration deepCopy(CopyController controller) {
+        return ConstantDeclaration.builder()
+                .enumerator(controller.mapNode(this.enumerator))
+                .uniqueName(controller.mapUniqueName(this.uniqueName))
+                .name(this.name)
+                .startLocation(this.location)
+                .build();
     }
 
     /**

@@ -281,6 +281,7 @@ public final class TagsAnalysis {
                                   new ConflictingTagKindError(name));
             } else {
                 tagDeclaration = Optional.of(tagsTable.get(name).get());
+                tagRef.accept(new DeclarationSetVisitor(), tagDeclaration.get());
                 tagRef.setUniqueName(tagDeclaration.get().getUniqueName());
                 tagRef.setNestedInNescEntity(environment.isTagDeclaredInsideNescEntity(name));
             }
@@ -881,6 +882,66 @@ public final class TagsAnalysis {
         public Void visit(EnumDeclaration enumDecl, Void arg) {
             enumDecl.setPredefinitionNode((EnumRef) astNode);
             return null;
+        }
+    }
+
+    /**
+     * <p>Visitor responsible for setting the tag declaration in visited tag
+     * reference nodes. This it the only effect of this visitor.</p>
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class DeclarationSetVisitor extends ExceptionVisitor<Void, TagDeclaration> {
+        @Override
+        public Void visitAttributeRef(AttributeRef tagRef, TagDeclaration tagDeclaration) {
+            checkDeclaration(tagRef.getDeclaration());
+            tagRef.setDeclaration((AttributeDeclaration) tagDeclaration);
+            return null;
+        }
+
+        @Override
+        public Void visitEnumRef(EnumRef tagRef, TagDeclaration tagDeclaration) {
+            checkDeclaration(tagRef.getDeclaration());
+            tagRef.setDeclaration((EnumDeclaration) tagDeclaration);
+            return null;
+        }
+
+        @Override
+        public Void visitStructRef(StructRef tagRef, TagDeclaration tagDeclaration) {
+            setStructDeclaration(tagRef, tagDeclaration);
+            return null;
+        }
+
+        @Override
+        public Void visitNxStructRef(NxStructRef tagRef, TagDeclaration tagDeclaration) {
+            setStructDeclaration(tagRef, tagDeclaration);
+            return null;
+        }
+
+        @Override
+        public Void visitUnionRef(UnionRef tagRef, TagDeclaration tagDeclaration) {
+            setUnionDeclaration(tagRef, tagDeclaration);
+            return null;
+        }
+
+        @Override
+        public Void visitNxUnionRef(NxUnionRef tagRef, TagDeclaration tagDeclaration) {
+            setUnionDeclaration(tagRef, tagDeclaration);
+            return null;
+        }
+
+        private void setStructDeclaration(StructRef tagRef, TagDeclaration tagDeclaration) {
+            checkDeclaration(tagRef.getDeclaration());
+            tagRef.setDeclaration((StructDeclaration) tagDeclaration);
+        }
+
+        private void setUnionDeclaration(UnionRef tagRef, TagDeclaration tagDeclaration) {
+            checkDeclaration(tagRef.getDeclaration());
+            tagRef.setDeclaration((UnionDeclaration) tagDeclaration);
+        }
+
+        private void checkDeclaration(TagDeclaration currentDeclaration) {
+            checkArgument(currentDeclaration == null, "the tag declaration is already set");
         }
     }
 }

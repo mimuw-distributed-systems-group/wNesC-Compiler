@@ -4,6 +4,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.TagRef;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 import pl.edu.mimuw.nesc.type.Type;
 
@@ -127,6 +128,9 @@ public abstract class TagDeclaration extends Declaration {
 
         R visit(UnionDeclaration union, A arg);
     }
+
+    @Override
+    public abstract TagDeclaration deepCopy(CopyController controller);
 
     /**
      * Builder for a tag declaration.

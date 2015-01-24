@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.declaration.tag;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.gen.FieldDecl;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.declaration.Declaration;
@@ -30,7 +31,7 @@ public class FieldDeclaration extends Declaration {
      * if and only if the type of this fields that has been specified is
      * invalid.
      */
-    private final Optional<Type> maybeType;
+    private final Optional<Type> type;
 
     /**
      * <code>true</code> if and only if this object represents a bit-field.
@@ -51,7 +52,7 @@ public class FieldDeclaration extends Declaration {
 
         this.name = name;
         this.endLocation = endLocation;
-        this.maybeType = type;
+        this.type = type;
         this.isBitField = isBitField;
         this.astField = astField;
     }
@@ -69,7 +70,7 @@ public class FieldDeclaration extends Declaration {
     }
 
     public Optional<Type> getType() {
-        return maybeType;
+        return type;
     }
 
     public boolean isBitField() {
@@ -78,6 +79,13 @@ public class FieldDeclaration extends Declaration {
 
     public FieldDecl getAstField() {
         return astField;
+    }
+
+    @Override
+    public FieldDeclaration deepCopy(CopyController controller) {
+        return new FieldDeclaration(this.name, this.location, this.endLocation,
+                controller.mapType(this.type), this.isBitField,
+                controller.mapNode(astField));
     }
 
     @Override

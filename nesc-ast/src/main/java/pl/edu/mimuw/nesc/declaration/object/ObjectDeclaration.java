@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.declaration.object;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 
@@ -95,6 +96,9 @@ public abstract class ObjectDeclaration extends Declaration {
         final ObjectDeclaration other = (ObjectDeclaration) obj;
         return Objects.equal(this.name, other.name);
     }
+
+    @Override
+    public abstract ObjectDeclaration deepCopy(CopyController controller);
 
     public abstract <R, A> R accept(Visitor<R, A> visitor, A arg);
 

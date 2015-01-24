@@ -1,6 +1,9 @@
 package pl.edu.mimuw.nesc.declaration.tag.fieldtree;
 
+import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
 import java.util.List;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -49,6 +52,17 @@ public final class BlockElement extends TreeElement {
     @Override
     public <R, A> R accept(Visitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
+    }
+
+    @Override
+    public BlockElement deepCopy(CopyController controller) {
+        final ImmutableList.Builder<TreeElement> childrenBuilder = ImmutableList.builder();
+
+        for (TreeElement child : this.children) {
+            childrenBuilder.add(child.deepCopy(controller));
+        }
+
+        return new BlockElement(childrenBuilder.build(), this.type);
     }
 
     public enum BlockType {

@@ -47,12 +47,13 @@ class Node(BasicASTNode):
                                  deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
     next = ReferenceField("Node", constructor_variable=False, visitable=False,
                           deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+    isPasted = BoolField(constructor_variable=False)
 
 
 class Declaration(BasicASTNode):
     """ A common superclass of all definitions. """
     superclass = Node
-    genericIndicator = GenericIndicator(True, "isPasted")
+    genericIndicator = GenericIndicator()
 
 
 # TODO: statements probably should have pointer to the next statement,
@@ -86,7 +87,7 @@ class Expression(BasicASTNode):
     This field is relevant when generating error messages.</p>
     """
     superclass = Node
-    genericIndicator = GenericIndicator(True, "isPasted")
+    genericIndicator = GenericIndicator()
     type = ReferenceField("Type", optional=True, constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
     parenthesesCount = IntField(constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
     # FIXME: the fields below are borrowed from ncc, but they are propably not required in our implementation.
@@ -205,7 +206,7 @@ class Enumerator(BasicASTNode):
     name = StringField()
     value = ReferenceField("Expression", optional=True)
     declaration = ReferenceField("ConstantDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 class OldIdentifierDecl(BasicASTNode):
@@ -224,7 +225,7 @@ class OldIdentifierDecl(BasicASTNode):
     # CSTRING in an old-style parameter list.
     name = StringField()
     declaration = ReferenceField("VariableDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 class FunctionDecl(BasicASTNode):
@@ -241,8 +242,8 @@ class FunctionDecl(BasicASTNode):
     oldParms = ReferenceListField("Declaration", constructor_variable=False)
     body = ReferenceField("Statement")
     isNested = BoolField(visitable=False)
-    declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+    declaration = ReferenceField("FunctionDeclaration", constructor_variable=False, visitable=False,
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
     # FIXME refactor attributes below
     #parentFunction = ReferenceField("FunctionDecl", constructor_variable=False, visitable=False)
@@ -275,7 +276,7 @@ class VariableDecl(BasicASTNode):
     initializer = ReferenceField("Expression", constructor_variable=False, optional=True)
     asmStmt = ReferenceField("AsmStmt", optional=True)
     declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
     type = ReferenceField("Type", optional=True, constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
     forward = BoolField(constructor_variable=False, visitable=False)
 
@@ -289,7 +290,7 @@ class FieldDecl(BasicASTNode):
     attributes = ReferenceListField("Attribute")
     bitfield = ReferenceField("Expression", optional=True)
     declaration = ReferenceField("FieldDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 #==============================================================================
@@ -299,7 +300,7 @@ class FieldDecl(BasicASTNode):
 # The source-level type QUALIFIERS DECLARATOR.
 class AstType(BasicASTNode):
     superclass = Node
-    genericIndicator = GenericIndicator(True, "isPasted")
+    genericIndicator = GenericIndicator()
     declarator = ReferenceField("Declarator", optional=True)
     qualifiers = ReferenceListField("TypeElement")
     type = ReferenceField("Type", optional=True, constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
@@ -317,7 +318,7 @@ class Typename(BasicASTNode):
     name = StringField()
     isGenericReference = BoolField(constructor_variable=False)
     declaration = ReferenceField("TypenameDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 # typeof ARG1
@@ -386,7 +387,7 @@ class StructRef(BasicASTNode):
     """
     superclass = TagRef
     declaration = ReferenceField("StructDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 # An attribute definition.
@@ -394,21 +395,21 @@ class StructRef(BasicASTNode):
 class AttributeRef(BasicASTNode):
     superclass = TagRef
     declaration = ReferenceField("AttributeDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 # A union
 class UnionRef(BasicASTNode):
     superclass = TagRef
     declaration = ReferenceField("UnionDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 # An enum
 class EnumRef(BasicASTNode):
     superclass = TagRef
     declaration = ReferenceField("EnumDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 #==============================================================================
@@ -770,7 +771,7 @@ class Identifier(BasicASTNode):
     name = StringField()
     isGenericReference = BoolField(constructor_variable=False)
     declaration = ReferenceField("ObjectDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 class CompoundExpr(BasicASTNode):
@@ -851,7 +852,7 @@ class FieldRef(BasicASTNode):
     superclass = Unary
     fieldName = StringField()
     declaration = ReferenceField("FieldDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 class Dereference(BasicASTNode):
@@ -1169,7 +1170,7 @@ class IdLabel(BasicASTNode):
     id = StringField()
     isColonTerminated = BoolField(constructor_variable=False)
     declaration = ReferenceField("LabelDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 class CaseLabel(BasicASTNode):
@@ -1359,7 +1360,7 @@ class InterfaceRef(BasicASTNode):
     genericParameters = ReferenceListField("Declaration", constructor_variable=False, optional=True)
     attributes = ReferenceListField("Attribute", constructor_variable=False)
     declaration = ReferenceField("InterfaceRefDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 class ComponentRef(BasicASTNode):
@@ -1369,7 +1370,7 @@ class ComponentRef(BasicASTNode):
     isAbstract = BoolField()
     arguments = ReferenceListField("Expression")
     declaration = ReferenceField("ComponentRefDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 class Connection(BasicASTNode):
@@ -1538,7 +1539,7 @@ class NescAttribute(BasicASTNode):
     superclass = Attribute
     value = ReferenceField("Expression")
     declaration = ReferenceField("AttributeDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 class TargetAttribute(BasicASTNode):
@@ -1564,7 +1565,7 @@ class TypeParmDecl(BasicASTNode):
     name = StringField()
     attributes = ReferenceListField("Attribute")
     declaration = ReferenceField("TypenameDeclaration", constructor_variable=False, visitable=False,
-                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 class TypeArgument(BasicASTNode):

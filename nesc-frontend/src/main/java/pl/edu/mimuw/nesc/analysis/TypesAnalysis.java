@@ -601,6 +601,7 @@ public final class TypesAnalysis {
                 typename.setIsGenericReference(declaration.isGenericParameter());
                 typename.setUniqueName(declaration.getUniqueName());
                 typename.setIsDeclaredInThisNescEntity(environment.isObjectDeclaredInsideNescEntity(typenameStr));
+                typename.setDeclaration(declaration);
                 return declaration.getDenotedType().transform(TYPENAME_TRANSFORM);
             }
 

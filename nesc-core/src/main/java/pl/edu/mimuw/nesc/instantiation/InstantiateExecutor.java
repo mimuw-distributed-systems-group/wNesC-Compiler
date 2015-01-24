@@ -7,9 +7,11 @@ import com.google.common.collect.ImmutableMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
@@ -30,7 +32,6 @@ import pl.edu.mimuw.nesc.names.collecting.NescEntityNameCollector;
 import pl.edu.mimuw.nesc.names.mangling.CountingNameMangler;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.substitution.GenericParametersSubstitution;
-import pl.edu.mimuw.nesc.substitution.TypeDiscovererVisitor;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -230,14 +231,15 @@ public final class InstantiateExecutor {
      * @return Properly modified and prepared copy of the given component.
      */
     private Component copyComponent(Component specimen, ComponentRef genericRef) {
-        final Component copy = specimen.deepCopy();
+        final Map<Node, Node> nodesMap = new HashMap<>();
+        final Component copy = specimen.deepCopy(false, Optional.of(nodesMap));
         final RemanglingVisitor manglingVisitor = new RemanglingVisitor(remanglingFunction);
         final SubstitutionManager substitution = GenericParametersSubstitution.forComponent()
                 .componentRef(genericRef)
                 .genericComponent(specimen)
                 .build();
-        final TypeDiscovererVisitor typeDiscoverer = new TypeDiscovererVisitor(genericRef,
-                specimen, substitution);
+        final ASTFillingVisitor typeDiscoverer = new ASTFillingVisitor(genericRef,
+                specimen, substitution, nodesMap, manglingVisitor.getNamesMap());
 
         copy.setInstantiatedComponentName(Optional.of(specimen.getName().getName()));
         copy.setIsAbstract(false);

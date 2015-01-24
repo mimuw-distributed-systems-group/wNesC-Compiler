@@ -11,6 +11,7 @@ import java.util.Set;
 import pl.edu.mimuw.nesc.ast.CallDirection;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.astutil.predicates.TagDefinitionPredicate;
 import pl.edu.mimuw.nesc.type.ArrayType;
 import pl.edu.mimuw.nesc.type.CharType;
 import pl.edu.mimuw.nesc.type.FunctionType;
@@ -311,7 +312,8 @@ public final class NescAnalysis {
         }
 
         final UnknownType expectedType = (UnknownType) declaration.getDenotedType().get();
-        final Type providedType = expr.getType().get();
+        final AstType providedAstType = ((TypeArgument) expr).getAsttype();
+        final Type providedType = providedAstType.getType().get();
 
         // The finale – check the type
 
@@ -332,6 +334,9 @@ public final class NescAnalysis {
         } else if (expectedType.isUnknownArithmeticType() && !providedType.isGeneralizedArithmeticType()) {
             error = Optional.of(InvalidComponentParameterError.expectedArithmeticType(componentName,
                     paramNum, providedType));
+        } else if (TagDefinitionPredicate.PREDICATE.apply(providedAstType.getQualifiers())) {
+            error = Optional.of(InvalidComponentParameterError.tagDefinitionProvided(componentName,
+                    paramNum));
         } else {
             error = Optional.absent();
         }

@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.declaration.tag;
 
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.AttributeRef;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.Type;
 
 /**
@@ -46,6 +47,11 @@ public final class AttributeDeclaration extends FieldTagDeclaration<AttributeRef
     @Override
     public <R, A> R visit(Visitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
+    }
+
+    @Override
+    public AttributeDeclaration deepCopy(CopyController controller) {
+        return copyHelp(definitionBuilder(), controller);
     }
 
     /**

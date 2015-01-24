@@ -146,7 +146,7 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
         final Optional<AstType> pattern = Optional.fromNullable(types.get(referredParamName));
         checkState(pattern.isPresent(), "the substitution type for generic parameter '%s' is absent", referredParamName);
         final AstType replacement = pattern.get().deepCopy(true);
-        replacement.setPastedFlagDeep(true);
+        replacement.setIsPastedFlagDeep(true);
 
         // Make the substitution - type elements
         specifiers.addAll(replacement.getQualifiers());
@@ -185,7 +185,7 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
         final Optional<AstType> pattern = Optional.fromNullable(types.get(referredParamName));
         checkState(pattern.isPresent(), "the substitution type for generic parameter '%s' is absent", referredParamName);
         final AstType replacement = pattern.get().deepCopy(true);
-        replacement.setPastedFlagDeep(true);
+        replacement.setIsPastedFlagDeep(true);
         final Supplier<Optional<Declarator>> declaratorSupplier =
                 new DeclaratorSupplier(replacement.getDeclarator());
 
@@ -365,7 +365,7 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
                 result = origSpecimen.get().deepCopy(true);
             }
 
-            result.setPastedFlagDeep(true);
+            result.setIsPastedFlagDeep(true);
             return Optional.of(result);
         }
     }
@@ -495,7 +495,7 @@ public final class GenericParametersSubstitution implements SubstitutionManager 
                 } else {
                     checkState(!(arg instanceof TypeArgument), "type value provided for a non-type generic parameter");
 
-                    arg.setPastedFlagDeep(true);
+                    arg.setIsPastedFlagDeep(true);
                     expressionsBuilder.put(paramName, arg);
                 }
             }

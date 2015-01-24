@@ -8,8 +8,8 @@ import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;
 import pl.edu.mimuw.nesc.ast.gen.*;
-import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.astutil.predicates.IsInitializerPredicate;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
@@ -77,14 +77,14 @@ public final class Initializers extends AstBuildingBase {
     }
 
     private void analyzeInitExpressions(Expression expr, Environment environment) {
-        if (!AstUtils.IS_INITIALIZER.apply(expr)) {
+        if (!IsInitializerPredicate.PREDICATE.apply(expr)) {
             FullExpressionsAnalysis.analyze(expr, environment, errorHelper);
         }
     }
 
     private void analyzeInitExpressions(List<? extends Expression> expressions, Environment environment) {
         for (Expression expr : expressions) {
-            if (!AstUtils.IS_INITIALIZER.apply(expr)) {
+            if (!IsInitializerPredicate.PREDICATE.apply(expr)) {
                 FullExpressionsAnalysis.analyze(expr, environment, errorHelper);
             }
         }

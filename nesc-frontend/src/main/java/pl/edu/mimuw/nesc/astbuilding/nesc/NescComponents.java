@@ -10,6 +10,7 @@ import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
@@ -269,21 +270,25 @@ public final class NescComponents extends AstBuildingBase {
             refEndLocation = ifaceRef.getName().getEndLocation();
         }
 
-        List<Optional<Type>> resolvedParams = null;
+        List<Optional<Type>> resolvedTypeParams = null;
         if (ifaceRef.getArguments().isPresent()) {
-            resolvedParams = new ArrayList<>();
+            resolvedTypeParams = new ArrayList<>();
             for (Expression expr : ifaceRef.getArguments().get()) {
                 if (!(expr instanceof TypeArgument)) {
                     throw new RuntimeException(format("unexpected class '%s' as a type argument in interface reference", expr.getClass().getCanonicalName()));
                 }
-                resolvedParams.add(expr.getType());
+                resolvedTypeParams.add(expr.getType());
             }
         }
-        final Optional<List<Optional<Type>>> maybeParams = Optional.fromNullable(resolvedParams);
+
+        final List<Optional<Type>> resolvedInstanceParams = ifaceRef.getGenericParameters().isPresent()
+                ? AstUtils.getTypes(ifaceRef.getGenericParameters().get())
+                : null;
 
         final InterfaceRefDeclaration declaration = InterfaceRefDeclaration.builder()
                 .interfaceName(ifaceName)
-                .typeArguments(maybeParams)
+                .typeArguments(resolvedTypeParams)
+                .instanceParameters(resolvedInstanceParams)
                 .astNode(ifaceRef)
                 .name(refName)
                 .startLocation(refLocation)

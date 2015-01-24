@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.declaration.tag;
 
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.StructRef;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.ExternalStructureType;
 import pl.edu.mimuw.nesc.type.StructureType;
 import pl.edu.mimuw.nesc.type.Type;
@@ -51,6 +52,15 @@ public class StructDeclaration extends FieldTagDeclaration<StructRef> {
     @Override
     public <R, A> R visit(Visitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
+    }
+
+    @Override
+    public StructDeclaration deepCopy(CopyController controller) {
+        final Builder builder = this.isDefined()
+                ? definitionBuilder()
+                : declarationBuilder();
+        builder.isExternal(this.isExternal());
+        return copyHelp(builder, controller);
     }
 
     /**

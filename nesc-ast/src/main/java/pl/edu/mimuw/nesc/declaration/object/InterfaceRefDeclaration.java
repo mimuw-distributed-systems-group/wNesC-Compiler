@@ -1,8 +1,10 @@
 package pl.edu.mimuw.nesc.declaration.object;
 
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import pl.edu.mimuw.nesc.ast.gen.InterfaceRef;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.InterfaceType;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
@@ -130,6 +132,25 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
         return facade;
     }
 
+    @Override
+    public InterfaceRefDeclaration deepCopy(CopyController controller) {
+        final Optional<ImmutableList<Optional<Type>>> typeArgs =
+                ((InterfaceType) this.type.get()).getTypeParameters();
+
+        final InterfaceRefDeclaration result = InterfaceRefDeclaration.builder()
+                .astNode(controller.mapNode(this.astInterfaceRef))
+                .interfaceName(this.ifaceName)
+                .typeArguments(controller.mapTypes(typeArgs).orNull())
+                .instanceParameters(controller.mapTypes(this.instanceParameters).orNull())
+                .name(this.name)
+                .startLocation(this.location)
+                .build();
+
+        result.provides = this.provides;
+
+        return result;
+    }
+
     /**
      * Builder for the interface reference declaration.
      *
@@ -137,10 +158,17 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
      */
     public static class Builder extends ObjectDeclaration.Builder<InterfaceRefDeclaration> {
         /**
+         * Function that creates an immutable list from the given one.
+         */
+        private static final Function<List<Optional<Type>>, ImmutableList<Optional<Type>>> TYPES_LIST_TRANSFORM =
+                new CollectionCopyFunction<>();
+
+        /**
          * Data needed to build an interface reference declaration.
          */
         private String interfaceName;
         private Optional<List<Optional<Type>>> typeArguments = Optional.absent();
+        private Optional<List<Optional<Type>>> instanceParameters = Optional.absent();
         private InterfaceRef astInterfaceRef;
 
         protected Builder() {
@@ -158,16 +186,45 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
         }
 
         /**
-         * Set the list of type arguments given in the interface reference the
-         * declaration object will represent. Value should be absent if no
-         * arguments have been given.
+         * <p>Set the list of type arguments given in the interface reference
+         * the declaration object will represent. Value should be
+         * <code>null</code> if no arguments have been given.</p>
+         * <pre>
+         *     provides interface Read&lt;uint16_t&gt;
+         *                             ▲      ▲
+         *                             |      |
+         *                             |      |
+         *                             |      |
+         * </pre>
          *
          * @param typeArguments List with type arguments to set if it has been
          *                      specified or absent value otherwise.
          * @return <code>this</code>
          */
-        public Builder typeArguments(Optional<List<Optional<Type>>> typeArguments) {
-            this.typeArguments = typeArguments;
+        public Builder typeArguments(List<Optional<Type>> typeArguments) {
+            this.typeArguments = Optional.fromNullable(typeArguments);
+            return this;
+        }
+
+        /**
+         * <p>Set the instance parameters if this interface reference is
+         * a parameterised interface:</p>
+         * <pre>
+         *     provides interface Init[uint8_t chnl];
+         *                             ▲          ▲
+         *                             |          |
+         *                             |          |
+         *                             |          |
+         *
+         * </pre>
+         *
+         * @param instanceParameters List with instance parameters or
+         *                           <code>null</code> if the interface
+         *                           reference is not a parameterised interface.
+         * @return <code>this</code>
+         */
+        public Builder instanceParameters(List<Optional<Type>> instanceParameters) {
+            this.instanceParameters = Optional.fromNullable(instanceParameters);
             return this;
         }
 
@@ -207,9 +264,21 @@ public class InterfaceRefDeclaration extends ObjectDeclaration {
         }
 
         private Optional<ImmutableList<Optional<Type>>> buildInstanceParameters() {
-            return astInterfaceRef.getGenericParameters().isPresent()
-                    ? Optional.of(AstUtils.getTypes(astInterfaceRef.getGenericParameters().get()))
-                    : Optional.<ImmutableList<Optional<Type>>>absent();
+            return instanceParameters.transform(TYPES_LIST_TRANSFORM);
+        }
+
+        /**
+         * Function that copies given list to an immutable list.
+         *
+         * @param <T> Type of elements in the list.
+         * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+         */
+        private static class CollectionCopyFunction<T> implements Function<List<T>, ImmutableList<T>> {
+            @Override
+            public ImmutableList<T> apply(List<T> list) {
+                checkNotNull(list, "list cannot be null");
+                return ImmutableList.copyOf(list);
+            }
         }
     }
 }

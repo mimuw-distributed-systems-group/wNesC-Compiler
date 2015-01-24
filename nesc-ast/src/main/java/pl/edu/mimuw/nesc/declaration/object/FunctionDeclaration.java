@@ -2,8 +2,10 @@ package pl.edu.mimuw.nesc.declaration.object;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import java.util.List;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDeclarator;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
 
@@ -184,6 +186,28 @@ public class FunctionDeclaration extends ObjectDeclaration {
         return uniqueName;
     }
 
+    @Override
+    public FunctionDeclaration deepCopy(CopyController controller) {
+        final FunctionDeclaration newDeclaration = FunctionDeclaration.builder()
+                .functionType(this.functionType)
+                .interfaceName(this.ifaceName.orNull())
+                .instanceParameters(controller.mapTypes(this.instanceParameters).orNull())
+                .uniqueName(controller.mapUniqueName(this.uniqueName))
+                .linkage(this.linkage.orNull())
+                .type(controller.mapType(this.type).orNull())
+                .name(this.name)
+                .startLocation(this.location)
+                .build();
+
+        if (this.astFunctionDeclarator != null) {
+            newDeclaration.astFunctionDeclarator = controller.mapNode(this.astFunctionDeclarator);
+        }
+        newDeclaration.isDefined = this.isDefined;
+        newDeclaration.isProvided = this.isProvided;
+
+        return newDeclaration;
+    }
+
     /**
      * Abstract builder for a function declaration.
      *
@@ -196,7 +220,8 @@ public class FunctionDeclaration extends ObjectDeclaration {
          */
         private Optional<String> interfaceName = Optional.absent();
         private Optional<FunctionType> functionType = Optional.absent();
-        private Optional<LinkedList<Declaration>> instanceParameters = Optional.absent();
+        private Optional<LinkedList<Declaration>> instanceParametersFromDecls = Optional.absent();
+        private Optional<List<Optional<Type>>> instanceParametersFromTypes = Optional.absent();
         private boolean isDefined = false;
         private String uniqueName;
 
@@ -229,17 +254,33 @@ public class FunctionDeclaration extends ObjectDeclaration {
         }
 
         /**
-         * Set the instance parameters if this declaration represents a command
-         * or event (either parameterised bare or a command or event from
-         * a parameterised interface). <code>null</code> is a legal value and
-         * means that no instance parameters are present. Setting instance
-         * parameters for anything other than a command or event is not correct.
+         * <p>Set the instance parameters if this declaration represents
+         * a command or event (either parameterised bare or a command or event
+         * from a parameterised interface). <code>null</code> is a legal value
+         * and means that no instance parameters are present. Setting instance
+         * parameters for anything other than a command or event is not
+         * correct.</p>
+         * <p>Call to this method discards all previously set instance
+         * parameters.</p>
          *
          * @param instanceParams Instance parameters for the declaration object.
          * @return <code>this</code>
          */
         public FunctionDeclarationBuilder<T> instanceParameters(LinkedList<Declaration> instanceParams) {
-            this.instanceParameters = Optional.fromNullable(instanceParams);
+            this.instanceParametersFromDecls = Optional.fromNullable(instanceParams);
+            this.instanceParametersFromTypes = Optional.absent();
+            return this;
+        }
+
+        /**
+         * <p>Acts as {@link FunctionDeclaration.Builder#instanceParameters(LinkedList)}.</p>
+         *
+         * @param instanceParams Instance parameters for the declaration object.
+         * @return <code>this</code>
+         */
+        public FunctionDeclarationBuilder<T> instanceParameters(List<Optional<Type>> instanceParams) {
+            this.instanceParametersFromTypes = Optional.fromNullable(instanceParams);
+            this.instanceParametersFromDecls = Optional.absent();
             return this;
         }
 
@@ -271,9 +312,13 @@ public class FunctionDeclaration extends ObjectDeclaration {
         }
 
         private Optional<ImmutableList<Optional<Type>>> buildInstanceParameters() {
-            return instanceParameters.isPresent()
-                    ? Optional.of(AstUtils.getTypes(instanceParameters.get()))
-                    : Optional.<ImmutableList<Optional<Type>>>absent();
+            if (instanceParametersFromDecls.isPresent()) {
+                return Optional.of(AstUtils.getTypes(instanceParametersFromDecls.get()));
+            } else if (instanceParametersFromTypes.isPresent()) {
+                return Optional.of(ImmutableList.copyOf(instanceParametersFromTypes.get()));
+            } else {
+                return Optional.absent();
+            }
         }
     }
 

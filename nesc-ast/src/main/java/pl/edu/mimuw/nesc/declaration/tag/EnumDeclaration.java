@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableList;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.EnumRef;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.type.EnumeratedType;
 import pl.edu.mimuw.nesc.type.Type;
@@ -130,6 +131,29 @@ public final class EnumDeclaration extends TagDeclaration {
     @Override
     public <R, A> R visit(Visitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
+    }
+
+    @Override
+    public EnumDeclaration deepCopy(CopyController controller) {
+        final EnumDeclaration.Builder builder;
+
+        if (isDefined()) {
+            final EnumDeclaration.DefinitionBuilder definitionBuilder =
+                    EnumDeclaration.definitionBuilder();
+
+            for (ConstantDeclaration constant : this.enumerators.get()) {
+                definitionBuilder.addEnumerator(controller.copy(constant));
+            }
+
+            builder = definitionBuilder;
+        } else {
+            builder = EnumDeclaration.declarationBuilder();
+        }
+
+        return builder.astNode(controller.mapNode(this.astEnumRef))
+                .name(this.getName().orNull(), controller.mapUniqueName(this.getUniqueName()).orNull())
+                .startLocation(this.location)
+                .build();
     }
 
     /**

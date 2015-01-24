@@ -26,9 +26,9 @@ class BasicASTNodeField:
     def gen_subst_code(self, lang, field_name, nodes_names, indicators, manager_name):
         return []
 
-    def gen_subst_code_helper(self, obj_expr, obj_type, indicator, manager_name, assign_fun):
+    def gen_subst_code_helper(self, obj_expr, obj_type, manager_name, assign_fun):
         code = ["if ({0}.get{1}() == null || !{0}.get{1}()) {{"
-                    .format(obj_expr, first_to_cap(indicator[1]))]
+                    .format(obj_expr, first_to_cap("isPasted"))]
         code.append(tab + "final Optional<{0}> replacement = {1}.substitute({2});"
                     .format(obj_type, manager_name, obj_expr))
         code.append(tab + "if (replacement.isPresent()) {")
@@ -452,7 +452,6 @@ class ReferenceField(BasicASTNodeField):
                     "}"
                 ]
 
-        indicator = indicators[self.ref_type]
         code = []
 
         if not self.optional:
@@ -464,7 +463,7 @@ class ReferenceField(BasicASTNodeField):
             obj_expr = "this.{0}.get()".format(field_name)
             assign_fun = lambda s : "this.{0} = Optional.of({1});".format(field_name, s)
 
-        helper_code = self.gen_subst_code_helper(obj_expr, self.ref_type, indicator, manager_name, assign_fun)
+        helper_code = self.gen_subst_code_helper(obj_expr, self.ref_type, manager_name, assign_fun)
         helper_code = map(lambda s : tab + s, helper_code)
         code.extend(helper_code)
         code.append("}")
@@ -1037,7 +1036,6 @@ class ReferenceListField(BasicASTNodeField):
                     "}"
                 ]
 
-        indicator = indicators[self.ref_type]
         code = []
 
         if not self.optional:
@@ -1051,7 +1049,7 @@ class ReferenceListField(BasicASTNodeField):
         code.append(tab + "while (it.hasNext()) {")
         code.append(2 * tab + "final {0} node = it.next();".format(self.ref_type))
 
-        helper_code = self.gen_subst_code_helper("node", self.ref_type, indicator,
+        helper_code = self.gen_subst_code_helper("node", self.ref_type,
                                     manager_name, lambda s : "it.set({0});".format(s))
         helper_code = map(lambda s : 2 * tab + s, helper_code)
         code.extend(helper_code)

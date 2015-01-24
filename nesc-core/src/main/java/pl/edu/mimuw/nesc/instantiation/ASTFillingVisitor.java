@@ -1,13 +1,15 @@
-package pl.edu.mimuw.nesc.substitution;
+package pl.edu.mimuw.nesc.instantiation;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.Iterator;
+import java.util.Map;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
+import pl.edu.mimuw.nesc.common.util.VariousUtils;
+import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -25,43 +27,171 @@ import static com.google.common.base.Preconditions.checkState;
  * @see pl.edu.mimuw.nesc.type.UnknownIntegerType#unnamed
  * @see pl.edu.mimuw.nesc.type.UnknownArithmeticType#unnamed
  */
-public class TypeDiscovererVisitor extends IdentityVisitor<Void> implements TypeVisitor<Type, Void> {
+class ASTFillingVisitor extends IdentityVisitor<Void> implements TypeVisitor<Type, Void> {
     /**
      * Map with actual types associated with their names.
      */
     private final ImmutableMap<String, Type> typesMap;
 
     /**
-     * Object responsible for substituting AST nodes found in types.
+     * Map from nodes in the generic component to corresponding nodes in the
+     * instantiated component.
      */
-    private final SubstitutionManager astSubstitution;
+    private final Map<Node, Node> nodesMap;
 
     /**
-     * Function that substitute types in given expression and returns the
-     * result expression.
+     * Object that is responsible for managing the copied objects.
      */
-    private final Function<Expression, Expression> SUBSTITUTION_FUN = new Function<Expression, Expression>() {
-        @Override
-        public Expression apply(Expression expr) {
-            checkNotNull(expr, "expression cannot be null");
-            return prepareExpression(expr);
-        }
-    };
+    private final CopyController copyController;
 
     /**
      * Initializes this visitor to substitute types using the mapping
      * defined by given component reference and generic component nodes.
      * AST nodes in types are substituted using given substitution manager.
      */
-    public TypeDiscovererVisitor(ComponentRef componentRef,
-            Component genericComponent, SubstitutionManager astSubstitution) {
+    public ASTFillingVisitor(ComponentRef componentRef,
+            Component genericComponent, SubstitutionManager astSubstitution,
+            Map<Node, Node> nodesMap, Map<String, String> uniqueNamesMap) {
         checkNotNull(componentRef, "component reference cannot be null");
         checkNotNull(genericComponent, "generic component cannot be null");
         checkNotNull(astSubstitution, "substitution manager cannot be null");
+        checkNotNull(nodesMap, "nodes map cannot be null");
+        checkNotNull(uniqueNamesMap, "unique names map cannot be null");
+
+        final Function<Type, Type> typeFunction = new Function<Type, Type>() {
+            @Override
+            public Type apply(Type type) {
+                checkNotNull(type, "type cannot be null");
+                return type.accept(ASTFillingVisitor.this, null);
+            }
+        };
 
         final PrivateBuilder builder = new PrivateBuilder(componentRef, genericComponent);
         this.typesMap = builder.buildTypesMap();
-        this.astSubstitution = astSubstitution;
+        this.nodesMap = nodesMap;
+        this.copyController = new CopyController(nodesMap, uniqueNamesMap, typeFunction);
+    }
+
+    @Override
+    public Void visitEnumerator(Enumerator enumerator, Void arg) {
+        enumerator.setDeclaration(copyController.copy(enumerator.getDeclaration()));
+        return arg;
+    }
+
+    @Override
+    public Void visitOldIdentifierDecl(OldIdentifierDecl declaration, Void arg) {
+        declaration.setDeclaration(copyController.copy(declaration.getDeclaration()));
+        return null;
+    }
+
+    @Override
+    public Void visitFunctionDecl(FunctionDecl declaration, Void arg) {
+        declaration.setDeclaration(copyController.copy(declaration.getDeclaration()));
+        return null;
+    }
+
+    @Override
+    public Void visitVariableDecl(VariableDecl declaration, Void arg) {
+        declaration.setDeclaration(copyController.copy(declaration.getDeclaration()));
+        return null;
+    }
+
+    @Override
+    public Void visitFieldDecl(FieldDecl declaration, Void arg) {
+        declaration.setDeclaration(copyController.copy(declaration.getDeclaration()));
+        return null;
+    }
+
+    @Override
+    public Void visitTypename(Typename typeElement, Void arg) {
+        if (!VariousUtils.getBooleanValue(typeElement.getIsPasted()) && typeElement.getIsDeclaredInThisNescEntity()) {
+            typeElement.setDeclaration(copyController.copy(typeElement.getDeclaration()));
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitStructRef(StructRef structRef, Void arg) {
+        mapStructDeclaration(structRef);
+        return null;
+    }
+
+    @Override
+    public Void visitNxStructRef(NxStructRef nxStructRef, Void arg) {
+        mapStructDeclaration(nxStructRef);
+        return null;
+    }
+
+    private void mapStructDeclaration(StructRef structRef) {
+        if (canCopyTagDeclaration(structRef)) {
+            structRef.setDeclaration(copyController.copy(structRef.getDeclaration()));
+        }
+    }
+
+    @Override
+    public Void visitUnionRef(UnionRef unionRef, Void arg) {
+        mapUnionDeclaration(unionRef);
+        return null;
+    }
+
+    @Override
+    public Void visitNxUnionRef(NxUnionRef nxUnionRef, Void arg) {
+        mapUnionDeclaration(nxUnionRef);
+        return null;
+    }
+
+    private void mapUnionDeclaration(UnionRef unionRef) {
+        if (canCopyTagDeclaration(unionRef)) {
+            unionRef.setDeclaration(copyController.copy(unionRef.getDeclaration()));
+        }
+    }
+
+    @Override
+    public Void visitAttributeRef(AttributeRef attributeRef, Void arg) {
+        attributeRef.setDeclaration(copyController.copy(attributeRef.getDeclaration()));
+        return null;
+    }
+
+    @Override
+    public Void visitEnumRef(EnumRef enumRef, Void arg) {
+        if (canCopyTagDeclaration(enumRef)) {
+            enumRef.setDeclaration(copyController.copy(enumRef.getDeclaration()));
+        }
+        return null;
+    }
+
+    private boolean canCopyTagDeclaration(TagRef tagRef) {
+        return !VariousUtils.getBooleanValue(tagRef.getIsPasted()) && tagRef.getNestedInNescEntity();
+    }
+
+    @Override
+    public Void visitIdLabel(IdLabel label, Void arg) {
+        label.setDeclaration(copyController.copy(label.getDeclaration()));
+        return null;
+    }
+
+    @Override
+    public Void visitInterfaceRef(InterfaceRef interfaceRef, Void arg) {
+        interfaceRef.setDeclaration(copyController.copy(interfaceRef.getDeclaration()));
+        return null;
+    }
+
+    @Override
+    public Void visitComponentRef(ComponentRef componentRef, Void arg) {
+        componentRef.setDeclaration(copyController.copy(componentRef.getDeclaration()));
+        return null;
+    }
+
+    @Override
+    public Void visitNescAttribute(NescAttribute attribute, Void arg) {
+        attribute.setDeclaration(copyController.copy(attribute.getDeclaration()));
+        return null;
+    }
+
+    @Override
+    public Void visitTypeParmDecl(TypeParmDecl declaration, Void arg) {
+        declaration.setDeclaration(copyController.copy(declaration.getDeclaration()));
+        return null;
     }
 
     @Override
@@ -348,6 +478,10 @@ public class TypeDiscovererVisitor extends IdentityVisitor<Void> implements Type
 
     @Override
     public Void visitIdentifier(Identifier expr, Void arg) {
+        if (expr.getRefsDeclInThisNescEntity() && !VariousUtils.getBooleanValue(expr.getIsPasted())) {
+            expr.setDeclaration(copyController.copy(expr.getDeclaration()));
+        }
+
         substituteExprType(expr);
         return arg;
     }
@@ -414,6 +548,7 @@ public class TypeDiscovererVisitor extends IdentityVisitor<Void> implements Type
 
     @Override
     public Void visitFieldRef(FieldRef expr, Void arg) {
+        expr.setDeclaration(copyController.copy(expr.getDeclaration()));
         substituteExprType(expr);
         return arg;
     }
@@ -500,12 +635,17 @@ public class TypeDiscovererVisitor extends IdentityVisitor<Void> implements Type
 
     @Override
     public Type visit(ArrayType type, Void arg) {
-        if (!type.getSize().isPresent()) {
-            return type;
+        final Optional<Expression> size;
+
+        if (type.getSize().isPresent()) {
+            size = nodesMap.containsKey(type.getSize().get())
+                    ? Optional.of((Expression) nodesMap.get(type.getSize().get()))
+                    : Optional.<Expression>absent();
+        } else {
+            size = Optional.absent();
         }
 
-        return new ArrayType(type.getElementType(),
-                Optional.of(prepareExpression(type.getSize().get())));
+        return new ArrayType(type.getElementType().accept(this, null), size);
     }
 
     @Override
@@ -580,18 +720,16 @@ public class TypeDiscovererVisitor extends IdentityVisitor<Void> implements Type
 
     @Override
     public Type visit(EnumeratedType type, Void arg) {
-        final ImmutableList.Builder<Optional<Expression>> valuesBuilder = ImmutableList.builder();
-
-        for (Optional<Expression> expr : type.getConstantsValues()) {
-            valuesBuilder.add(expr.transform(SUBSTITUTION_FUN));
-        }
-
-        return new EnumeratedType(type.isConstQualified(), type.isVolatileQualified(), valuesBuilder.build());
+        return type.getEnumDeclaration().getAstNode().getNestedInNescEntity()
+                ? new EnumeratedType(type.isConstQualified(), type.isVolatileQualified(),
+                    copyController.copy(type.getEnumDeclaration()))
+                : type;
     }
 
     @Override
     public Type visit(PointerType type, Void arg) {
-        return type;
+        return new PointerType(type.isConstQualified(), type.isVolatileQualified(),
+                type.isRestrictQualified(), type.getReferencedType().accept(this, null));
     }
 
     @Override
@@ -601,26 +739,34 @@ public class TypeDiscovererVisitor extends IdentityVisitor<Void> implements Type
 
     @Override
     public Type visit(StructureType type, Void arg) {
-        return new StructureType(type.isConstQualified(), type.isVolatileQualified(),
-                prepareFields(type.getFields()));
+        return type.getDeclaration().getAstNode().getNestedInNescEntity()
+                ? new StructureType(type.isConstQualified(), type.isVolatileQualified(),
+                    copyController.copy(type.getDeclaration()))
+                : type;
     }
 
     @Override
     public Type visit(UnionType type, Void arg) {
-        return new UnionType(type.isConstQualified(), type.isVolatileQualified(),
-                prepareFields(type.getFields()));
+        return type.getDeclaration().getAstNode().getNestedInNescEntity()
+                ? new UnionType(type.isConstQualified(), type.isVolatileQualified(),
+                        copyController.copy(type.getDeclaration()))
+                : type;
     }
 
     @Override
     public Type visit(ExternalStructureType type, Void arg) {
-        return new ExternalStructureType(type.isConstQualified(), type.isVolatileQualified(),
-                prepareFields(type.getFields()));
+        return type.getDeclaration().getAstNode().getNestedInNescEntity()
+                ? new ExternalStructureType(type.isConstQualified(), type.isVolatileQualified(),
+                        copyController.copy(type.getDeclaration()))
+                : type;
     }
 
     @Override
     public Type visit(ExternalUnionType type, Void arg) {
-        return new ExternalUnionType(type.isConstQualified(), type.isVolatileQualified(),
-                prepareFields(type.getFields()));
+        return type.getDeclaration().getAstNode().getNestedInNescEntity()
+                ? new ExternalUnionType(type.isConstQualified(), type.isVolatileQualified(),
+                    copyController.copy(type.getDeclaration()))
+                : type;
     }
 
     @Override
@@ -667,26 +813,6 @@ public class TypeDiscovererVisitor extends IdentityVisitor<Void> implements Type
         throw new RuntimeException("unexpected artificial type");
     }
 
-    private Expression prepareExpression(Expression expr) {
-        final Expression newExpr = expr.deepCopy(true);
-        newExpr.substitute(astSubstitution);
-        newExpr.traverse(this, null);
-        return newExpr;
-    }
-
-    private ImmutableList<FieldTagType.Field> prepareFields(ImmutableList<FieldTagType.Field> fields) {
-        final ImmutableList.Builder<FieldTagType.Field> newFieldsBuilder = ImmutableList.builder();
-
-        for (FieldTagType.Field field : fields) {
-            final FieldTagType.Field newField = new FieldTagType.Field(
-                    field.getType().accept(this, null),
-                    field.getWidth().transform(SUBSTITUTION_FUN)
-            );
-            newFieldsBuilder.add(newField);
-        }
-
-        return newFieldsBuilder.build();
-    }
 
     private Type prepareUnknownType(UnknownType unknownType) {
         final Type destType = typesMap.get(unknownType.getName());

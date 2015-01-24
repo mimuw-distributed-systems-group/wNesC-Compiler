@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.astutil;
+package pl.edu.mimuw.nesc.astutil.predicates;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;

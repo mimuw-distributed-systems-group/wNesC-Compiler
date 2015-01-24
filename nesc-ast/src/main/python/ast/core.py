@@ -36,10 +36,6 @@ class ASTElemMetaclass(type):
 
         #Add the pasted field for nodes with activated generic indicator
         if name != 'BasicASTNode' and name != 'BasicASTEnum':
-            if "genericIndicator" in namespace:
-                indicator = namespace["genericIndicator"]
-                if indicator.activated:
-                    namespace[indicator.pasted_field_name] = BoolField(constructor_variable=False)
             if "mangleIndicator" in namespace:
                 indicator = namespace["mangleIndicator"]
                 if indicator.activated:
@@ -56,9 +52,7 @@ class ASTElemMetaclass(type):
             if "BasicASTEnum" in map(lambda x: x.__name__, bases):
                 ast_enums[first_to_cap(name)] = newclass
             if "genericIndicator" in namespace:
-                indicator = namespace["genericIndicator"]
-                if indicator.activated:
-                    generic_nodes[name] = (newclass, indicator.pasted_field_name)
+                generic_nodes[name] = newclass
             if "mangleIndicator" in namespace:
                 indicator = namespace["mangleIndicator"]
                 if indicator.activated:
@@ -257,16 +251,13 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
 
     def gen_set_paste_flag_deep_java(self):
         classname = self.__class__.__name__
-        body_lines = []
-
-        if classname in generic_nodes:
-            body_lines.append("this.{0} = value;".format(generic_nodes[classname][1]))
+        body_lines = ["this.isPasted = value;"]
 
         for name, field in map(lambda x: (x, self.__getattribute__(x)), dir(self)):
             if not isinstance(field, BasicASTNodeField):
                 continue
 
-            field_lines = field.gen_dfs_calls(DST_LANGUAGE.JAVA, name, ast_nodes.keys(), "setPastedFlagDeep", "value")
+            field_lines = field.gen_dfs_calls(DST_LANGUAGE.JAVA, name, ast_nodes.keys(), "setIsPastedFlagDeep", "value")
 
             if len(field_lines) > 0:
                 if len(body_lines) > 0:
@@ -277,14 +268,14 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         if len(body_lines) == 0 and hasattr(self, "superclass"):
             return ""
         elif len(body_lines) == 0:
-            return tab + "public void setPastedFlagDeep(boolean value) {}\n\n"
+            return tab + "public void setIsPastedFlagDeep(boolean value) {}\n\n"
 
-        body = 2 * tab + "super.setPastedFlagDeep(value);\n\n" if hasattr(self, "superclass") else ""
+        body = 2 * tab + "super.setIsPastedFlagDeep(value);\n\n" if hasattr(self, "superclass") else ""
         body_lines = map(lambda s : 2 * tab + s if len(s) > 0 else "", body_lines)
         body += "\n".join(body_lines) + "\n"
 
         code = tab + "@Override\n" if hasattr(self, "superclass") else ""
-        code += tab + "public void setPastedFlagDeep(boolean value) {\n"
+        code += tab + "public void setIsPastedFlagDeep(boolean value) {\n"
         code += body
         code += tab + "}\n\n"
 
@@ -603,10 +594,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
 
 class GenericIndicator:
     """Class that marks a node as important for generic substitution."""
-
-    def __init__(self, activated, pasted_field_name):
-        self.activated = activated
-        self.pasted_field_name = pasted_field_name
+    pass
 
 
 class MangleIndicator:

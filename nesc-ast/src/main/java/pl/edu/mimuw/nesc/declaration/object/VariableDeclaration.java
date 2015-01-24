@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.declaration.object;
 
+import pl.edu.mimuw.nesc.declaration.CopyController;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -54,6 +56,19 @@ public class VariableDeclaration extends ObjectDeclaration {
     @Override
     public <R, A> R accept(Visitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
+    }
+
+    @Override
+    public VariableDeclaration deepCopy(CopyController controller) {
+        return VariableDeclaration.builder()
+                .uniqueName(controller.mapUniqueName(this.uniqueName))
+                .isGenericParameter(this.isGenericParameter)
+                .linkage(this.linkage.orNull())
+                .type(controller.mapType(this.type).orNull())
+                .name(this.name)
+                .startLocation(this.location)
+                .build();
+
     }
 
     /**

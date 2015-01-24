@@ -12,7 +12,7 @@ import pl.edu.mimuw.nesc.ast.gen.Word;
 
 import java.util.LinkedList;
 import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
-import pl.edu.mimuw.nesc.astutil.AstUtils;
+import pl.edu.mimuw.nesc.astutil.predicates.IsInitializerPredicate;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
 import pl.edu.mimuw.nesc.problem.NescIssue;
@@ -66,7 +66,7 @@ public final class NescAttributes extends AstBuildingBase {
         }
 
         for (Expression expr : initializer) {
-            if (!AstUtils.IS_INITIALIZER.apply(expr)) {
+            if (!IsInitializerPredicate.PREDICATE.apply(expr)) {
                 FullExpressionsAnalysis.analyze(expr, environment, errorHelper);
             }
         }
