@@ -15,24 +15,14 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.gen.Expression;
-import pl.edu.mimuw.nesc.ast.gen.Module;
-import pl.edu.mimuw.nesc.ast.gen.ModuleImpl;
-import pl.edu.mimuw.nesc.ast.gen.NescDecl;
-import pl.edu.mimuw.nesc.ast.gen.Word;
-import pl.edu.mimuw.nesc.ast.gen.BinaryComponent;
-import pl.edu.mimuw.nesc.ast.gen.Component;
-import pl.edu.mimuw.nesc.ast.gen.ComponentRef;
-import pl.edu.mimuw.nesc.ast.gen.Configuration;
-import pl.edu.mimuw.nesc.ast.gen.Declaration;
-import pl.edu.mimuw.nesc.ast.gen.Node;
-import pl.edu.mimuw.nesc.ast.gen.RemanglingVisitor;
-import pl.edu.mimuw.nesc.ast.gen.SubstitutionManager;
+import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.names.collecting.NescEntityNameCollector;
 import pl.edu.mimuw.nesc.names.mangling.CountingNameMangler;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.substitution.GenericParametersSubstitution;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -166,7 +156,8 @@ public final class InstantiateExecutor {
             final Optional<ComponentRef> nextReference = currentPath.getLast().nextComponentRef();
 
             if (nextReference.isPresent() && nextReference.get().getIsAbstract()) {
-                performComponentInstantiation(nextReference.get());
+                performComponentInstantiation(nextReference.get(),
+                        currentPath.getLast().getConfigurationImpl());
             } else if (!nextReference.isPresent()) {
                 final ConfigurationNode lastNode = currentPath.removeLast();
                 lastNode.getComponentData().setCurrentlyInstantiated(false);
@@ -180,7 +171,8 @@ public final class InstantiateExecutor {
         LOG.debug("Instantiation of components for '" + configurationName + "' successfully ended");
     }
 
-    private void performComponentInstantiation(ComponentRef genericRef) throws CyclePresentException {
+    private void performComponentInstantiation(ComponentRef genericRef,
+                ConfigurationImpl implementationToUpdate) throws CyclePresentException {
         // Locate the new component
         final Optional<ComponentData> optInstantiatedComponentData =
                 Optional.fromNullable(components.get(genericRef.getName().getName()));
@@ -197,19 +189,9 @@ public final class InstantiateExecutor {
             throw CyclePresentException.newInstance(currentPath, genericRef.getName().getName());
         }
 
-        // FIXME copy and prepare the component
         logInstantiationInfo(genericRef);
-        final Component newComponent = copyComponent(instantiatedComponentData.getComponent(), genericRef);
-        genericRef.setIsAbstract(false);
-        genericRef.setArguments(new LinkedList<Expression>());
-        final String newAlias = genericRef.getAlias().isPresent()
-                ? genericRef.getAlias().get().getName()
-                : genericRef.getName().getName();
-        genericRef.getName().setName(newComponent.getName().getName());
-        genericRef.setAlias(Optional.of(new Word(Location.getDummyLocation(), newAlias)));
-
-        /* FIXME update the unique names in ComponentTyperef and ComponentDeref
-           of the source component */
+        final Component newComponent = copyComponent(instantiatedComponentData.getComponent(),
+                genericRef, implementationToUpdate);
 
         // Update state
         componentsAccumulator.add(newComponent);
@@ -230,7 +212,8 @@ public final class InstantiateExecutor {
      *                   to be created (the <code>new</code> construct).
      * @return Properly modified and prepared copy of the given component.
      */
-    private Component copyComponent(Component specimen, ComponentRef genericRef) {
+    private Component copyComponent(Component specimen, ComponentRef genericRef,
+                ConfigurationImpl implementationToUpdate) {
         final Map<Node, Node> nodesMap = new HashMap<>();
         final Component copy = specimen.deepCopy(false, Optional.of(nodesMap));
         final RemanglingVisitor manglingVisitor = new RemanglingVisitor(remanglingFunction);
@@ -253,6 +236,24 @@ public final class InstantiateExecutor {
             final Module moduleCopy = (Module) copy;
             moduleCopy.getModuleTable().collectUniqueNames((ModuleImpl) moduleCopy.getImplementation());
         }
+
+        // Change the reference of the component
+        genericRef.setIsAbstract(false);
+        genericRef.setArguments(new LinkedList<Expression>());
+        final String newAlias = genericRef.getAlias().isPresent()
+                ? genericRef.getAlias().get().getName()
+                : genericRef.getName().getName();
+        genericRef.getName().setName(copy.getName().getName());
+        genericRef.setAlias(Optional.of(new Word(Location.getDummyLocation(), newAlias)));
+
+        /* Change references to entities in the created components in the source
+           configuration. */
+        implementationToUpdate.traverse(new ConfigurationImplUpdateVisitor(newAlias, typeDiscoverer), null);
+
+        /* FIXME tag type objects in the source configuration can contain
+           objects from the generic component due to 'Substitution' class
+           behaviour and setting the substituted type when 'ComponentTyperef'
+           is analyzed. */
 
         return copy;
     }
@@ -409,6 +410,53 @@ public final class InstantiateExecutor {
                     return this.mangler.remangle(mangledName);
                 }
             };
+        }
+    }
+
+    /**
+     * Visitor that updates data in component type references and component
+     * dereferences AST nodes that refer to an entity in currently
+     * instantiated component.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class ConfigurationImplUpdateVisitor extends IdentityVisitor<Void> {
+        private final String componentRefName;
+        private final ASTFillingVisitor fillingVisitor;
+
+        private ConfigurationImplUpdateVisitor(String componentRefName, ASTFillingVisitor fillingVisitor) {
+            checkNotNull(componentRefName, "component reference name cannot be null");
+            checkNotNull(fillingVisitor, "the filling visitor cannot be null");
+            checkArgument(!componentRefName.isEmpty(), "component reference name cannot be null");
+
+            this.componentRefName = componentRefName;
+            this.fillingVisitor = fillingVisitor;
+        }
+
+        @Override
+        public Void visitComponentTyperef(ComponentTyperef typeref, Void arg) {
+            if (isUpdateRequired(typeref)) {
+                fillingVisitor.mapComponentTyperef(typeref);
+            }
+            return null;
+        }
+
+        @Override
+        public Void visitComponentDeref(ComponentDeref deref, Void arg) {
+            if (isUpdateRequired(deref)) {
+                fillingVisitor.mapComponentDeref(deref);
+            }
+            return null;
+        }
+
+        private boolean isUpdateRequired(ComponentTyperef typeref) {
+            return typeref.getName().equals(componentRefName)
+                    && !VariousUtils.getBooleanValue(typeref.getIsPasted());
+        }
+
+        private boolean isUpdateRequired(ComponentDeref deref) {
+            return ((Identifier) deref.getArgument()).getName().equals(componentRefName)
+                    && !VariousUtils.getBooleanValue(deref.getIsPasted());
         }
     }
 }

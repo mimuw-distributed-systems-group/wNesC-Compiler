@@ -30,6 +30,12 @@ final class ConfigurationNode {
     private Optional<Iterator<ComponentRef>> referencesIterator = Optional.absent();
 
     /**
+     * AST node of the implementation of the configuration that is represented
+     * by this node.
+     */
+    private final ConfigurationImpl implementation;
+
+    /**
      * Data object associated with the same configuration that this node is.
      */
     private final ComponentData componentData;
@@ -91,6 +97,7 @@ final class ConfigurationNode {
         this.usesIterator = FluentIterable.from(impl.getDeclarations())
                 .filter(ComponentsUses.class)
                 .iterator();
+        this.implementation = impl;
     }
 
     /**
@@ -100,6 +107,16 @@ final class ConfigurationNode {
      */
     public ComponentData getComponentData() {
         return componentData;
+    }
+
+    /**
+     * Get the AST node of implementation of the configuration that is
+     * represented by this node.
+     *
+     * @return The implementation AST node.
+     */
+    public ConfigurationImpl getConfigurationImpl() {
+        return implementation;
     }
 
     /**

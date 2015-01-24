@@ -273,6 +273,54 @@ public final class CopyController {
                 : null;
     }
 
+    public LabelDeclaration map(LabelDeclaration declaration) {
+        return map(declaration, labels);
+    }
+
+    public VariableDeclaration map(VariableDeclaration declaration) {
+        return map(declaration, variables);
+    }
+
+    public TypenameDeclaration map(TypenameDeclaration declaration) {
+        return map(declaration, typenames);
+    }
+
+    public InterfaceRefDeclaration map(InterfaceRefDeclaration declaration) {
+        return map(declaration, ifaceRefs);
+    }
+
+    public FunctionDeclaration map(FunctionDeclaration declaration) {
+        return map(declaration, functions);
+    }
+
+    public ConstantDeclaration map(ConstantDeclaration declaration) {
+        return map(declaration, constants);
+    }
+
+    public ComponentRefDeclaration map(ComponentRefDeclaration declaration) {
+        return map(declaration, componentRefs);
+    }
+
+    public FieldDeclaration map(FieldDeclaration declaration) {
+        return map(declaration, fields);
+    }
+
+    public StructDeclaration map(StructDeclaration declaration) {
+        return map(declaration, structures);
+    }
+
+    public UnionDeclaration map(UnionDeclaration declaration) {
+        return map(declaration, unions);
+    }
+
+    public EnumDeclaration map(EnumDeclaration declaration) {
+        return map(declaration, enumerations);
+    }
+
+    public AttributeDeclaration map(AttributeDeclaration declaration) {
+        return map(declaration, attributes);
+    }
+
     /**
      * Get the mapping from the unique name in generic component to remangled
      * unique name. If the given unique name is not remangled,
@@ -354,5 +402,14 @@ public final class CopyController {
             map.put(toCopy, copy);
             return copy;
         }
+    }
+
+    private <T> T map(T key, Map<T, T> map) {
+        checkNotNull(key, "key cannot be null");
+
+        final Optional<T> value = Optional.fromNullable(map.get(key));
+        checkState(value.isPresent(), "the given declaration object is not contained in the map");
+
+        return value.get();
     }
 }

@@ -10,6 +10,7 @@ import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.declaration.CopyController;
+import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.type.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -70,6 +71,34 @@ class ASTFillingVisitor extends IdentityVisitor<Void> implements TypeVisitor<Typ
         this.typesMap = builder.buildTypesMap();
         this.nodesMap = nodesMap;
         this.copyController = new CopyController(nodesMap, uniqueNamesMap, typeFunction);
+    }
+
+    /**
+     * Make necessary changes in the given component type reference object. The
+     * object shall refer an entity from the component that this visitor has
+     * been originally created for.
+     *
+     * @param typename AST node that refers an entity from the filled component.
+     */
+    public void mapComponentTyperef(ComponentTyperef typename) {
+        checkNotNull(typename, "component type reference cannot be null");
+        typename.setDeclaration(copyController.map(typename.getDeclaration()));
+        typename.setUniqueName(copyController.mapUniqueName(typename.getUniqueName()));
+    }
+
+    /**
+     * Make changes necessary for the given component dereference expression.
+     * The object shall refer an entity from the component this visitor has been
+     * originally created for.
+     *
+     * @param expr Component dereference expression.
+     */
+    public void mapComponentDeref(ComponentDeref expr) {
+        checkNotNull(expr, "component dereference cannot be null");
+
+        final Identifier identifier = (Identifier) expr.getArgument();
+        identifier.setDeclaration(copyController.map((ConstantDeclaration) identifier.getDeclaration()));
+        identifier.setUniqueName(copyController.mapUniqueName(identifier.getUniqueName()));
     }
 
     @Override
