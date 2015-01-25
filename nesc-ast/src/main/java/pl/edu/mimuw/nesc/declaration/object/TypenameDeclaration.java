@@ -4,7 +4,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.external.ExternalScheme;
-import pl.edu.mimuw.nesc.type.IntegerType;
+import pl.edu.mimuw.nesc.type.ArithmeticType;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.type.TypeDefinitionType;
 
@@ -73,7 +73,7 @@ public class TypenameDeclaration extends ObjectDeclaration {
     /**
      * <p>Make the denoted type an external base type by adding to it the given
      * external scheme. It the denoted type is absent, this call has no
-     * effect. If the denoted type is not an integer type, an cast exception
+     * effect. If the denoted type is not an arithmetic type, a cast exception
      * will be thrown. If the denoted type is an enumerated type, an
      * unsupported operation exception will be thrown.</p>
      *
@@ -81,7 +81,7 @@ public class TypenameDeclaration extends ObjectDeclaration {
      */
     public void addExternalScheme(ExternalScheme externalScheme) {
         checkNotNull(externalScheme, "external scheme cannot be null");
-        this.denotedType.transform(new ExternalSchemeAddition(externalScheme));
+        this.denotedType = this.denotedType.transform(new ExternalSchemeAddition(externalScheme));
     }
 
     @Override
@@ -188,8 +188,8 @@ public class TypenameDeclaration extends ObjectDeclaration {
         @Override
         public Type apply(Type type) {
             checkNotNull(type, "type cannot be null");
-            final IntegerType integerType = (IntegerType) type;
-            return integerType.addExternalScheme(scheme);
+            final ArithmeticType arithmeticType = (ArithmeticType) type;
+            return arithmeticType.addExternalScheme(scheme);
         }
     }
 }

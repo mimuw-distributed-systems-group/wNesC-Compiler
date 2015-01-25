@@ -486,11 +486,11 @@ public final class TypesAnalysis {
             } else if (compareTypeSpecifiers(SPECIFIERS_UNSIGNED_LONG_LONG)) {
                 result = new UnsignedLongLongType(isConstQualified, isVolatileQualified, Optional.<ExternalScheme>absent());
             } else if (compareTypeSpecifiers(SPECIFIERS_FLOAT)) {
-                result = new FloatType(isConstQualified, isVolatileQualified);
+                result = new FloatType(isConstQualified, isVolatileQualified, Optional.<ExternalScheme>absent());
             } else if (compareTypeSpecifiers(SPECIFIERS_DOUBLE)) {
-                result = new DoubleType(isConstQualified, isVolatileQualified);
+                result = new DoubleType(isConstQualified, isVolatileQualified, Optional.<ExternalScheme>absent());
             } else if (compareTypeSpecifiers(SPECIFIERS_LONG_DOUBLE)) {
-                result = new LongDoubleType(isConstQualified, isVolatileQualified);
+                result = new LongDoubleType(isConstQualified, isVolatileQualified, Optional.<ExternalScheme>absent());
             } else {
                 typeError = true;
                 errorHelper.error(

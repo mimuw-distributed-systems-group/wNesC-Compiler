@@ -211,8 +211,8 @@ public interface Type {
     /**
      * <p>Check if this type is an external type. External types are:</p>
      * <ul>
-     *     <li>external base types - integer types associated with an external
-     *     scheme</li>
+     *     <li>external base types - arithmetic types associated with an
+     *     external scheme</li>
      *     <li>external array types - array types with an external element type
      *     </li>
      *     <li>external structures and external unions</li>
@@ -224,10 +224,10 @@ public interface Type {
 
     /**
      * <p>Check if this type is an external base type. An external base type is
-     * an integer type that is associated with an external scheme.</p>
+     * an arithmetic type that is associated with an external scheme.</p>
      *
-     * @return <code>true</code> if and only if this type is an integer type
-     *         associated with an external scheme. If so it is safe to cast
+     * @return <code>true</code> if and only if this type is an arithmetic type
+     *         associated with an external scheme. If so, it is safe to cast
      *         <code>this</code> to <code>IntegerType</code>.
      */
     boolean isExternalBaseType();

@@ -1,11 +1,15 @@
 package pl.edu.mimuw.nesc.type;
 
+import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.external.ExternalScheme;
+
 /**
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public abstract class FloatingType extends ArithmeticType {
-    protected FloatingType(boolean constQualified, boolean volatileQualified) {
-        super(constQualified, volatileQualified);
+    protected FloatingType(boolean constQualified, boolean volatileQualified,
+            Optional<ExternalScheme> externalScheme) {
+        super(constQualified, volatileQualified, externalScheme);
     }
 
     @Override
@@ -41,15 +45,5 @@ public abstract class FloatingType extends ArithmeticType {
     @Override
     public final boolean isComplete() {
         return true;
-    }
-
-    @Override
-    public final boolean isExternal() {
-        return false;
-    }
-
-    @Override
-    public final boolean isExternalBaseType() {
-        return false;
     }
 }

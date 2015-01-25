@@ -36,12 +36,6 @@ public final class InvalidExternalBaseAttributeError extends ErroneousIssue {
         return new InvalidExternalBaseAttributeError(description);
     }
 
-    public static InvalidExternalBaseAttributeError invalidParameterValue(String attributeName,
-            String value) {
-        final String description = format("'%s' is an invalid parameter for attribute '%s'", value, attributeName);
-        return new InvalidExternalBaseAttributeError(description);
-    }
-
     public static InvalidExternalBaseAttributeError tooManyAttributes() {
         final String description ="Too many attributes specifying an external base type; expecting at most one such attribute";
         return new InvalidExternalBaseAttributeError(description);
@@ -52,8 +46,8 @@ public final class InvalidExternalBaseAttributeError extends ErroneousIssue {
         return new InvalidExternalBaseAttributeError(description);
     }
 
-    public static InvalidExternalBaseAttributeError appliedNotToIntegerType() {
-        final String description = "An attribute that specifies an external base type cannot be applied to an enumerated type or a type other than an integer type";
+    public static InvalidExternalBaseAttributeError appliedNotToArithmeticType() {
+        final String description = "An attribute that specifies an external base type cannot be applied to an enumerated type or a type other than an arithmetic type";
         return new InvalidExternalBaseAttributeError(description);
     }
 

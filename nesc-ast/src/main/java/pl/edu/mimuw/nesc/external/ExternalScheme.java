@@ -20,10 +20,6 @@ public final class ExternalScheme {
     private static final String PREFIX_READ = "__nesc_ntoh_";
     private static final String PREFIX_ASSIGNMENT_BITFIELD = "__nesc_htonbf_";
     private static final String PREFIX_READ_BITFIELD = "__nesc_ntohbf_";
-    private static final String MARK_LITTLE_ENDIAN = "le";
-    private static final String MARK_BIG_ENDIAN = "";
-    private static final String MARK_SIGNED = "int";
-    private static final String MARK_UNSIGNED = "uint";
 
     /**
      * Endianness of the external type.
@@ -31,34 +27,35 @@ public final class ExternalScheme {
     private final Endianness endianness;
 
     /**
-     * Number of bits of the representation of the external base type.
+     * Suffix of functions that handle the external type.
      */
-    private final int bitsCount;
+    private final String suffix;
 
-    /**
-     * Value indicating if the external base type is unsigned.
-     */
-    private final boolean isUnsigned;
-
-    public ExternalScheme(Endianness endianness, int bytesCount, boolean isUnsigned) {
+    public ExternalScheme(Endianness endianness, String suffix) {
         checkNotNull(endianness, "endianness cannot be null");
-        checkArgument(bytesCount >= 1, "count of bytes cannot be non-positive");
+        checkNotNull(suffix, "suffix cannot be null");
+        checkArgument(!suffix.isEmpty(), "suffix cannot be an empty string");
 
         this.endianness = endianness;
-        this.bitsCount = bytesCount * 8;
-        this.isUnsigned = isUnsigned;
+        this.suffix = suffix;
     }
 
+    /**
+     * Get the endianness of values of the external type.
+     *
+     * @return Endianness for the external type.
+     */
     public Endianness getEndianness() {
         return endianness;
     }
 
-    public int getBitsCount() {
-        return bitsCount;
-    }
-
-    public boolean isUnsigned() {
-        return isUnsigned;
+    /**
+     * Get the suffix of functions that handle the external type.
+     *
+     * @return The suffix for the external type.
+     */
+    public String getSuffix() {
+        return suffix;
     }
 
     /**
@@ -68,7 +65,7 @@ public final class ExternalScheme {
      * @return Name of the function.
      */
     public String getWriteFunctionName() {
-        return buildFunctionName(PREFIX_ASSIGNMENT);
+        return PREFIX_ASSIGNMENT + suffix;
     }
 
     /**
@@ -78,7 +75,7 @@ public final class ExternalScheme {
      * @return Name of the function.
      */
     public String getReadFunctionName() {
-        return buildFunctionName(PREFIX_READ);
+        return PREFIX_READ + suffix;
     }
 
     /**
@@ -88,7 +85,7 @@ public final class ExternalScheme {
      * @return Name of the function.
      */
     public String getWriteBitFieldFunctionName() {
-        return buildFunctionName(PREFIX_ASSIGNMENT_BITFIELD);
+        return PREFIX_ASSIGNMENT_BITFIELD + suffix;
     }
 
     /**
@@ -98,36 +95,6 @@ public final class ExternalScheme {
      * @return Name of the function.
      */
     public String getReadBitFieldFunctionName() {
-        return buildFunctionName(PREFIX_READ_BITFIELD);
-    }
-
-    private String buildFunctionName(String prefix) {
-        final StringBuilder builder = new StringBuilder();
-        builder.append(prefix);
-
-        // Endianness
-        final String endiannessStr;
-        switch (endianness) {
-            case LITTLE_ENDIAN:
-                endiannessStr = MARK_LITTLE_ENDIAN;
-                break;
-            case BIG_ENDIAN:
-                endiannessStr = MARK_BIG_ENDIAN;
-                break;
-            default:
-                throw new RuntimeException("unexpected endianness '" + endianness + "'");
-        }
-        builder.append(endiannessStr);
-
-        // Integer type
-        final String typeStr = isUnsigned
-                ? MARK_UNSIGNED
-                : MARK_SIGNED;
-        builder.append(typeStr);
-
-        // Bits count
-        builder.append(bitsCount);
-
-        return builder.toString();
+        return PREFIX_READ_BITFIELD + suffix;
     }
 }

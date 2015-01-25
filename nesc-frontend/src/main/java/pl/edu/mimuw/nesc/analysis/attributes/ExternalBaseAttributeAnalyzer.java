@@ -3,15 +3,12 @@ package pl.edu.mimuw.nesc.analysis.attributes;
 import com.google.common.base.Optional;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import pl.edu.mimuw.nesc.abi.Endianness;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Attribute;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.GccAttribute;
 import pl.edu.mimuw.nesc.ast.gen.Identifier;
-import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.environment.Environment;
@@ -35,12 +32,6 @@ final class ExternalBaseAttributeAnalyzer implements AttributeSmallAnalyzer {
      */
     private static final String NAME_NX_BASE_BE = "nx_base_be";
     private static final String NAME_NX_BASE_LE = "nx_base_le";
-
-    /**
-     * Regular expression that tests parameter of the attribute.
-     */
-    private static final Pattern PATTERN_PARAMETER_VALUE =
-            Pattern.compile("(?<littleEndian>le)?(?<unsigned>u)?int(?<bitsCount>8|16|32|64)");
 
     /**
      * Object that will be notified about detected errors.
@@ -86,9 +77,9 @@ final class ExternalBaseAttributeAnalyzer implements AttributeSmallAnalyzer {
             } else {
                 final TypenameDeclaration typenameDeclaration = (TypenameDeclaration) declaration;
                 if (typenameDeclaration.getDenotedType().isPresent()
-                        && !typenameDeclaration.getDenotedType().get().isIntegerType()) {
+                        && !typenameDeclaration.getDenotedType().get().isArithmetic()) {
                     errorHelper.error(attributes.get(0).getLocation(), attributes.get(attributes.size() - 1).getEndLocation(),
-                            InvalidExternalBaseAttributeError.appliedNotToIntegerType());
+                            InvalidExternalBaseAttributeError.appliedNotToArithmeticType());
                 } else {
                     typenameDeclaration.addExternalScheme(externalScheme.get());
                 }
@@ -114,22 +105,17 @@ final class ExternalBaseAttributeAnalyzer implements AttributeSmallAnalyzer {
                     parameters.get().getFirst());
         } else {
             final Identifier paramValue = (Identifier) parameters.get().getFirst();
-            final Matcher valueMatcher = PATTERN_PARAMETER_VALUE.matcher(paramValue.getName());
+            final Endianness endianness;
 
-            if (!valueMatcher.matches() || (valueMatcher.group("littleEndian") != null) != attributeName.endsWith("le")) {
-                error = InvalidExternalBaseAttributeError.invalidParameterValue(
-                        attributeName, paramValue.getName());
+            if (NAME_NX_BASE_BE.equals(attributeName)) {
+                endianness = Endianness.BIG_ENDIAN;
+            } else if (NAME_NX_BASE_LE.equals(attributeName)) {
+                endianness = Endianness.LITTLE_ENDIAN;
             } else {
-                final Endianness endianness = valueMatcher.group("littleEndian") != null
-                        ? Endianness.LITTLE_ENDIAN
-                        : Endianness.BIG_ENDIAN;
-                final ExternalScheme result = new ExternalScheme(
-                        endianness,
-                        Integer.parseInt(valueMatcher.group("bitsCount")) / 8,
-                        valueMatcher.group("unsigned") != null
-                );
-                return Optional.of(result);
+                throw new RuntimeException("unexpected external base type attribute name '" + attributeName + "'");
             }
+
+            return Optional.of(new ExternalScheme(endianness, paramValue.getName()));
         }
 
         errorHelper.error(startLoc, endLoc, error);
