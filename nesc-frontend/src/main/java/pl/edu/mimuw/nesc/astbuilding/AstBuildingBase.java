@@ -2,7 +2,7 @@ package pl.edu.mimuw.nesc.astbuilding;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableListMultimap;
-import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
+import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;

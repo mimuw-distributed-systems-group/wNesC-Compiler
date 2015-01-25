@@ -5,7 +5,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import java.util.Map;
 import org.apache.log4j.Logger;
-import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
+import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;

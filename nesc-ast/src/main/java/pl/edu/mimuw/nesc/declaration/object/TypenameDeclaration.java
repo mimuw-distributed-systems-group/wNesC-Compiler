@@ -1,7 +1,10 @@
 package pl.edu.mimuw.nesc.declaration.object;
 
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.declaration.CopyController;
+import pl.edu.mimuw.nesc.external.ExternalScheme;
+import pl.edu.mimuw.nesc.type.IntegerType;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.type.TypeDefinitionType;
 
@@ -16,9 +19,9 @@ public class TypenameDeclaration extends ObjectDeclaration {
 
     /**
      * Type that is defined by the type definition this object represents. It
-     * shall be absent if the type is unknown.
+     * shall be absent if the type is unknown or erroneous.
      */
-    private final Optional<Type> denotedType;
+    private Optional<Type> denotedType;
 
     /**
      * Value indicating if this type definition represents a generic, type
@@ -65,6 +68,20 @@ public class TypenameDeclaration extends ObjectDeclaration {
      */
     public String getUniqueName() {
         return uniqueName;
+    }
+
+    /**
+     * <p>Make the denoted type an external base type by adding to it the given
+     * external scheme. It the denoted type is absent, this call has no
+     * effect. If the denoted type is not an integer type, an cast exception
+     * will be thrown. If the denoted type is an enumerated type, an
+     * unsupported operation exception will be thrown.</p>
+     *
+     * @param externalScheme External scheme to associate with the denoted type.
+     */
+    public void addExternalScheme(ExternalScheme externalScheme) {
+        checkNotNull(externalScheme, "external scheme cannot be null");
+        this.denotedType.transform(new ExternalSchemeAddition(externalScheme));
     }
 
     @Override
@@ -155,6 +172,24 @@ public class TypenameDeclaration extends ObjectDeclaration {
         @Override
         protected TypenameDeclaration create() {
             return new TypenameDeclaration(this);
+        }
+    }
+
+    /**
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class ExternalSchemeAddition implements Function<Type, Type> {
+        private final ExternalScheme scheme;
+
+        private ExternalSchemeAddition(ExternalScheme toAdd) {
+            this.scheme = toAdd;
+        }
+
+        @Override
+        public Type apply(Type type) {
+            checkNotNull(type, "type cannot be null");
+            final IntegerType integerType = (IntegerType) type;
+            return integerType.addExternalScheme(scheme);
         }
     }
 }

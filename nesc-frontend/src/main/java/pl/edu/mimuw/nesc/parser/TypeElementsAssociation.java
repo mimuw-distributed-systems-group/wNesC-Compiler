@@ -1,6 +1,6 @@
 package pl.edu.mimuw.nesc.parser;
 
-import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
+import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Declarator;

@@ -5,7 +5,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
+import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.LabelAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;

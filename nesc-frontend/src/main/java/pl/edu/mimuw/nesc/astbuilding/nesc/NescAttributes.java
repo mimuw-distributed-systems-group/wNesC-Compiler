@@ -1,7 +1,7 @@
 package pl.edu.mimuw.nesc.astbuilding.nesc;
 
 import com.google.common.collect.ImmutableListMultimap;
-import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
+import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;
 import pl.edu.mimuw.nesc.ast.Location;

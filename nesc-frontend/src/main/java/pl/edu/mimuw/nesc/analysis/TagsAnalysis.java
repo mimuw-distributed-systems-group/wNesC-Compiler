@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.analysis;
 
+import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;

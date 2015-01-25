@@ -4,7 +4,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
 import java.util.LinkedList;
 import java.util.List;
-import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
+import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;
 import pl.edu.mimuw.nesc.ast.gen.*;

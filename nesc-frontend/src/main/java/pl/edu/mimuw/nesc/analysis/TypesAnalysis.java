@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.analysis;
 
+import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;
 import pl.edu.mimuw.nesc.astutil.Interval;
 import pl.edu.mimuw.nesc.ast.StructSemantics;

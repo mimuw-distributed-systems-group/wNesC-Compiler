@@ -8,8 +8,8 @@ import com.google.common.io.Files;
 import org.apache.log4j.Logger;
 
 import pl.edu.mimuw.nesc.*;
-import pl.edu.mimuw.nesc.analysis.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
+import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
