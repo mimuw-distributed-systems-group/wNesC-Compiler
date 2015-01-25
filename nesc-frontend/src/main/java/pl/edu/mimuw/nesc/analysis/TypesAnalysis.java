@@ -9,6 +9,7 @@ import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectKind;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.TagDeclaration;
+import pl.edu.mimuw.nesc.external.ExternalScheme;
 import pl.edu.mimuw.nesc.type.*;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
@@ -462,27 +463,27 @@ public final class TypesAnalysis {
             if (compareTypeSpecifiers(SPECIFIERS_VOID)) {
                 result = new VoidType(isConstQualified, isVolatileQualified);
             } else if (compareTypeSpecifiers(SPECIFIERS_CHAR)) {
-                result = new CharType(isConstQualified, isVolatileQualified);
+                result = new CharType(isConstQualified, isVolatileQualified, Optional.<ExternalScheme>absent());
             } else if (compareTypeSpecifiers(SPECIFIERS_SIGNED_CHAR)) {
-                result = new SignedCharType(isConstQualified, isVolatileQualified);
+                result = new SignedCharType(isConstQualified, isVolatileQualified, Optional.<ExternalScheme>absent());
             } else if (compareTypeSpecifiers(SPECIFIERS_UNSIGNED_CHAR)) {
-                result = new UnsignedCharType(isConstQualified, isVolatileQualified);
+                result = new UnsignedCharType(isConstQualified, isVolatileQualified, Optional.<ExternalScheme>absent());
             } else if (compareTypeSpecifiers(SPECIFIERS_SHORT)) {
-                result = new ShortType(isConstQualified, isVolatileQualified);
+                result = new ShortType(isConstQualified, isVolatileQualified, Optional.<ExternalScheme>absent());
             } else if (compareTypeSpecifiers(SPECIFIERS_UNSIGNED_SHORT)) {
-                result = new UnsignedShortType(isConstQualified, isVolatileQualified);
+                result = new UnsignedShortType(isConstQualified, isVolatileQualified, Optional.<ExternalScheme>absent());
             } else if (compareTypeSpecifiers(SPECIFIERS_INT)) {
-                result = new IntType(isConstQualified, isVolatileQualified);
+                result = new IntType(isConstQualified, isVolatileQualified, Optional.<ExternalScheme>absent());
             } else if (compareTypeSpecifiers(SPECIFIERS_UNSIGNED_INT)) {
-                result = new UnsignedIntType(isConstQualified, isVolatileQualified);
+                result = new UnsignedIntType(isConstQualified, isVolatileQualified, Optional.<ExternalScheme>absent());
             } else if (compareTypeSpecifiers(SPECIFIERS_LONG)) {
-                result = new LongType(isConstQualified, isVolatileQualified);
+                result = new LongType(isConstQualified, isVolatileQualified, Optional.<ExternalScheme>absent());
             } else if (compareTypeSpecifiers(SPECIFIERS_UNSIGNED_LONG)) {
-                result = new UnsignedLongType(isConstQualified, isVolatileQualified);
+                result = new UnsignedLongType(isConstQualified, isVolatileQualified, Optional.<ExternalScheme>absent());
             } else if (compareTypeSpecifiers(SPECIFIERS_LONG_LONG)) {
-                result = new LongLongType(isConstQualified, isVolatileQualified);
+                result = new LongLongType(isConstQualified, isVolatileQualified, Optional.<ExternalScheme>absent());
             } else if (compareTypeSpecifiers(SPECIFIERS_UNSIGNED_LONG_LONG)) {
-                result = new UnsignedLongLongType(isConstQualified, isVolatileQualified);
+                result = new UnsignedLongLongType(isConstQualified, isVolatileQualified, Optional.<ExternalScheme>absent());
             } else if (compareTypeSpecifiers(SPECIFIERS_FLOAT)) {
                 result = new FloatType(isConstQualified, isVolatileQualified);
             } else if (compareTypeSpecifiers(SPECIFIERS_DOUBLE)) {

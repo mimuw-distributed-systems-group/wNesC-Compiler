@@ -1,7 +1,11 @@
 package pl.edu.mimuw.nesc.type;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.Range;
 import java.math.BigInteger;
+import pl.edu.mimuw.nesc.external.ExternalScheme;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Reflects the <code>signed char</code> type.
@@ -14,12 +18,13 @@ public final class SignedCharType extends SignedIntegerType {
     public static final BigInteger MAX_VALUE = BigInteger.valueOf(127L);
     public static final Range<BigInteger> RANGE = Range.closed(MIN_VALUE, MAX_VALUE);
 
-    public SignedCharType(boolean constQualified, boolean volatileQualified) {
-        super(constQualified, volatileQualified);
+    public SignedCharType(boolean constQualified, boolean volatileQualified,
+            Optional<ExternalScheme> externalScheme) {
+        super(constQualified, volatileQualified, externalScheme);
     }
 
     public SignedCharType() {
-        this(false, false);
+        this(false, false, Optional.<ExternalScheme>absent());
     }
 
     @Override
@@ -30,13 +35,31 @@ public final class SignedCharType extends SignedIntegerType {
     @Override
     public final SignedCharType addQualifiers(boolean addConst, boolean addVolatile,
                                               boolean addRestrict) {
-        return new SignedCharType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+        return new SignedCharType(
+                addConstQualifier(addConst),
+                addVolatileQualifier(addVolatile),
+                getExternalScheme()
+        );
     }
 
     @Override
     public final SignedCharType removeQualifiers(boolean removeConst, boolean removeVolatile,
                                                  boolean removeRestrict) {
-        return new SignedCharType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile));
+        return new SignedCharType(
+                removeConstQualifier(removeConst),
+                removeVolatileQualifier(removeVolatile),
+                getExternalScheme()
+        );
+    }
+
+    @Override
+    public final SignedCharType addExternalScheme(ExternalScheme externalScheme) {
+        checkNotNull(externalScheme, "external scheme cannot be null");
+        return new SignedCharType(
+                isConstQualified(),
+                isVolatileQualified(),
+                Optional.of(externalScheme)
+        );
     }
 
     @Override
@@ -61,7 +84,7 @@ public final class SignedCharType extends SignedIntegerType {
 
     @Override
     public final UnsignedCharType getUnsignedIntegerType() {
-        return new UnsignedCharType(isConstQualified(), isVolatileQualified());
+        return new UnsignedCharType(isConstQualified(), isVolatileQualified(), Optional.<ExternalScheme>absent());
     }
 
     @Override

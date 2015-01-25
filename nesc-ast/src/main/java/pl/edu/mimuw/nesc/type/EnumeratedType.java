@@ -7,6 +7,7 @@ import java.math.BigInteger;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.EnumDeclaration;
+import pl.edu.mimuw.nesc.external.ExternalScheme;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -47,7 +48,7 @@ public final class EnumeratedType extends IntegerType {
      */
     public EnumeratedType(boolean constQualified, boolean volatileQualified,
                           EnumDeclaration enumType) {
-        super(constQualified, volatileQualified);
+        super(constQualified, volatileQualified, Optional.<ExternalScheme>absent());
         checkNotNull(enumType, "enumeration declaration cannot be null");
         this.enumType = Optional.of(enumType);
         this.variant = Variant.ONLY_DECLARATION;
@@ -59,7 +60,7 @@ public final class EnumeratedType extends IntegerType {
 
     public EnumeratedType(boolean constQualified, boolean volatileQualified,
             ImmutableList<Optional<Expression>> values) {
-        super(constQualified, volatileQualified);
+        super(constQualified, volatileQualified, Optional.<ExternalScheme>absent());
         checkNotNull(values, "values cannot be null");
         this.enumType = Optional.absent();
         this.variant = Variant.ONLY_VALUES;
@@ -171,6 +172,11 @@ public final class EnumeratedType extends IntegerType {
     public final boolean isComplete() {
         return variant == Variant.ONLY_DECLARATION || variant == Variant.FULL
             || enumType.get().isDefined();
+    }
+
+    @Override
+    public final EnumeratedType addExternalScheme(ExternalScheme externalScheme) {
+        throw new UnsupportedOperationException("cannot add an external scheme to an enumerated type");
     }
 
     @Override

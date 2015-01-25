@@ -1,7 +1,11 @@
 package pl.edu.mimuw.nesc.type;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.Range;
 import java.math.BigInteger;
+import pl.edu.mimuw.nesc.external.ExternalScheme;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Reflects the <code>int</code> type.
@@ -14,12 +18,12 @@ public final class IntType extends SignedIntegerType {
     public static final BigInteger MAX_VALUE = BigInteger.valueOf(32767L);
     public static final Range<BigInteger> RANGE = Range.closed(MIN_VALUE, MAX_VALUE);
 
-    public IntType(boolean constQualified, boolean volatileQualified) {
-        super(constQualified, volatileQualified);
+    public IntType(boolean constQualified, boolean volatileQualified, Optional<ExternalScheme> externalScheme) {
+        super(constQualified, volatileQualified, externalScheme);
     }
 
     public IntType() {
-        this(false, false);
+        this(false, false, Optional.<ExternalScheme>absent());
     }
 
     @Override
@@ -30,13 +34,28 @@ public final class IntType extends SignedIntegerType {
     @Override
     public final IntType addQualifiers(boolean addConst, boolean addVolatile,
                                        boolean addRestrict) {
-        return new IntType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+        return new IntType(addConstQualifier(addConst), addVolatileQualifier(addVolatile),
+                getExternalScheme());
     }
 
     @Override
     public final IntType removeQualifiers(boolean removeConst, boolean removeVolatile,
                                           boolean removeRestrict) {
-        return new IntType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile));
+        return new IntType(
+                removeConstQualifier(removeConst),
+                removeVolatileQualifier(removeVolatile),
+                getExternalScheme()
+        );
+    }
+
+    @Override
+    public final IntType addExternalScheme(ExternalScheme externalScheme) {
+        checkNotNull(externalScheme, "external scheme cannot be null");
+        return new IntType(
+                isConstQualified(),
+                isVolatileQualified(),
+                Optional.of(externalScheme)
+        );
     }
 
     @Override
@@ -61,7 +80,7 @@ public final class IntType extends SignedIntegerType {
 
     @Override
     public final UnsignedIntType getUnsignedIntegerType() {
-        return new UnsignedIntType(isConstQualified(), isVolatileQualified());
+        return new UnsignedIntType(isConstQualified(), isVolatileQualified(), Optional.<ExternalScheme>absent());
     }
 
     @Override

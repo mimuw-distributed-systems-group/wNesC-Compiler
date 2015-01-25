@@ -1,11 +1,15 @@
 package pl.edu.mimuw.nesc.type;
 
+import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.external.ExternalScheme;
+
 /**
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public abstract class UnsignedIntegerType extends IntegerType {
-    protected UnsignedIntegerType(boolean constQualified, boolean volatileQualified) {
-        super(constQualified, volatileQualified);
+    protected UnsignedIntegerType(boolean constQualified, boolean volatileQualified,
+            Optional<ExternalScheme> externalScheme) {
+        super(constQualified, volatileQualified, externalScheme);
     }
 
     @Override
@@ -25,7 +29,8 @@ public abstract class UnsignedIntegerType extends IntegerType {
 
     /**
      * @return Newly created object that represents the corresponding signed
-     *         integer type with the same type qualifiers.
+     *         integer type with the same type qualifiers. The returned type is
+     *         not external.
      */
     public abstract SignedIntegerType getSignedIntegerType();
 }

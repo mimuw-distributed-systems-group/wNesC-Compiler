@@ -1,7 +1,11 @@
 package pl.edu.mimuw.nesc.type;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.Range;
 import java.math.BigInteger;
+import pl.edu.mimuw.nesc.external.ExternalScheme;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Reflects the <code>unsigned long long</code> type.
@@ -13,12 +17,12 @@ public final class UnsignedLongLongType extends UnsignedIntegerType {
     public static final BigInteger MAX_VALUE = BigInteger.valueOf(2L).pow(64).subtract(BigInteger.ONE);
     public static final Range<BigInteger> RANGE = Range.closed(MIN_VALUE, MAX_VALUE);
 
-    public UnsignedLongLongType(boolean constQualified, boolean volatileQualified) {
-        super(constQualified, volatileQualified);
+    public UnsignedLongLongType(boolean constQualified, boolean volatileQualified, Optional<ExternalScheme> externalScheme) {
+        super(constQualified, volatileQualified, externalScheme);
     }
 
     public UnsignedLongLongType() {
-        this(false, false);
+        this(false, false, Optional.<ExternalScheme>absent());
     }
 
     @Override
@@ -29,13 +33,31 @@ public final class UnsignedLongLongType extends UnsignedIntegerType {
     @Override
     public final UnsignedLongLongType addQualifiers(boolean addConst, boolean addVolatile,
                                                     boolean addRestrict) {
-        return new UnsignedLongLongType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+        return new UnsignedLongLongType(
+                addConstQualifier(addConst),
+                addVolatileQualifier(addVolatile),
+                getExternalScheme()
+        );
     }
 
     @Override
     public final UnsignedLongLongType removeQualifiers(boolean removeConst, boolean removeVolatile,
                                                        boolean removeRestrict) {
-        return new UnsignedLongLongType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile));
+        return new UnsignedLongLongType(
+                removeConstQualifier(removeConst),
+                removeVolatileQualifier(removeVolatile),
+                getExternalScheme()
+        );
+    }
+
+    @Override
+    public final UnsignedLongLongType addExternalScheme(ExternalScheme externalScheme) {
+        checkNotNull(externalScheme, "external scheme cannot be null");
+        return new UnsignedLongLongType(
+                isConstQualified(),
+                isVolatileQualified(),
+                Optional.of(externalScheme)
+        );
     }
 
     @Override
@@ -60,7 +82,7 @@ public final class UnsignedLongLongType extends UnsignedIntegerType {
 
     @Override
     public final LongLongType getSignedIntegerType() {
-        return new LongLongType(isConstQualified(), isVolatileQualified());
+        return new LongLongType(isConstQualified(), isVolatileQualified(), Optional.<ExternalScheme>absent());
     }
 
     @Override

@@ -105,6 +105,16 @@ public final class VoidType extends AbstractType {
     }
 
     @Override
+    public final boolean isExternal() {
+        return false;
+    }
+
+    @Override
+    public final boolean isExternalBaseType() {
+        return false;
+    }
+
+    @Override
     public final boolean isModifiable() {
         return false;
     }

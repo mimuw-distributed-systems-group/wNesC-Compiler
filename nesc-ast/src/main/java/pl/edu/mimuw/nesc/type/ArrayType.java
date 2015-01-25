@@ -132,6 +132,16 @@ public final class ArrayType extends DerivedType {
     }
 
     @Override
+    public final boolean isExternal() {
+        return this.elementType.isExternal();
+    }
+
+    @Override
+    public final boolean isExternalBaseType() {
+        return false;
+    }
+
+    @Override
     public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
     }

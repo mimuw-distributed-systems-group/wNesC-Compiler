@@ -1,14 +1,26 @@
 package pl.edu.mimuw.nesc.type;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.Range;
 import java.math.BigInteger;
+import pl.edu.mimuw.nesc.external.ExternalScheme;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public abstract class IntegerType extends ArithmeticType {
-    protected IntegerType(boolean constQualified, boolean volatileQualified) {
+    /**
+     * The external scheme associated with this type.
+     */
+    private Optional<ExternalScheme> externalScheme;
+
+    protected IntegerType(boolean constQualified, boolean volatileQualified,
+            Optional<ExternalScheme> externalScheme) {
         super(constQualified, volatileQualified);
+        checkNotNull(externalScheme, "external scheme cannot be null");
+        this.externalScheme = externalScheme;
     }
 
     @Override
@@ -64,7 +76,41 @@ public abstract class IntegerType extends ArithmeticType {
                 && !(this instanceof UnsignedIntType);
 
         return   getIntegerRank() <= IntType.INTEGER_RANK && properIntegerType
-               ? new IntType(isConstQualified(), isVolatileQualified())
+               ? new IntType(isConstQualified(), isVolatileQualified(), Optional.<ExternalScheme>absent())
                : this;
+    }
+
+    /**
+     * Get the external scheme associated with this type. It is present if and
+     * only if this type is an external base type.
+     *
+     * @return The external scheme associated with this type.
+     */
+    public final Optional<ExternalScheme> getExternalScheme() {
+        return this.externalScheme;
+    }
+
+    /**
+     * Create a new instance of the same type that differs only in the external
+     * scheme. The given one is associated with the returned type.
+     *
+     * @param externalScheme External scheme to associate with the returned
+     *                       type.
+     * @return Newly created instance of the same type as this that differs only
+     *         in that it is associated with the given external type.
+     * @throws NullPointerException The given argument is <code>null</code>.
+     * @throws UnsupportedOperationException The method is invoked on an
+     *                                       enumerated type.
+     */
+    public abstract IntegerType addExternalScheme(ExternalScheme externalScheme);
+
+    @Override
+    public final boolean isExternal() {
+        return this.externalScheme.isPresent();
+    }
+
+    @Override
+    public final boolean isExternalBaseType() {
+        return this.externalScheme.isPresent();
     }
 }

@@ -42,4 +42,14 @@ public abstract class FloatingType extends ArithmeticType {
     public final boolean isComplete() {
         return true;
     }
+
+    @Override
+    public final boolean isExternal() {
+        return false;
+    }
+
+    @Override
+    public final boolean isExternalBaseType() {
+        return false;
+    }
 }

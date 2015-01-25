@@ -204,6 +204,16 @@ public final class FunctionType extends DerivedType {
     }
 
     @Override
+    public final boolean isExternal() {
+        return false;
+    }
+
+    @Override
+    public final boolean isExternalBaseType() {
+        return false;
+    }
+
+    @Override
     public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
     }

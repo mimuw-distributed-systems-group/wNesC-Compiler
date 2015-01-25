@@ -1,11 +1,15 @@
 package pl.edu.mimuw.nesc.type;
 
+import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.external.ExternalScheme;
+
 /**
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public abstract class SignedIntegerType extends IntegerType {
-    protected SignedIntegerType(boolean constQualified, boolean volatileQualified) {
-        super(constQualified, volatileQualified);
+    protected SignedIntegerType(boolean constQualified, boolean volatileQualified,
+            Optional<ExternalScheme> externalScheme) {
+        super(constQualified, volatileQualified, externalScheme);
     }
 
     @Override

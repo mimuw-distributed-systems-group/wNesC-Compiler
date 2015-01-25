@@ -154,6 +154,16 @@ public abstract class ArtificialType implements Type {
     }
 
     @Override
+    public final boolean isExternal() {
+        return false;
+    }
+
+    @Override
+    public final boolean isExternalBaseType() {
+        return false;
+    }
+
+    @Override
     public final boolean isArtificialType() {
         return true;
     }

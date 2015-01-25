@@ -1,7 +1,11 @@
 package pl.edu.mimuw.nesc.type;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.Range;
 import java.math.BigInteger;
+import pl.edu.mimuw.nesc.external.ExternalScheme;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Reflects the <code>unsigned int</code> type.
@@ -13,12 +17,13 @@ public final class UnsignedIntType extends UnsignedIntegerType {
     public static final BigInteger MAX_VALUE = BigInteger.valueOf(65535L);
     public static final Range<BigInteger> RANGE = Range.closed(MIN_VALUE, MAX_VALUE);
 
-    public UnsignedIntType(boolean constQualified, boolean volatileQualified) {
-        super(constQualified, volatileQualified);
+    public UnsignedIntType(boolean constQualified, boolean volatileQualified,
+            Optional<ExternalScheme> externalScheme) {
+        super(constQualified, volatileQualified, externalScheme);
     }
 
     public UnsignedIntType() {
-        this(false, false);
+        this(false, false, Optional.<ExternalScheme>absent());
     }
 
     @Override
@@ -29,13 +34,31 @@ public final class UnsignedIntType extends UnsignedIntegerType {
     @Override
     public final UnsignedIntType addQualifiers(boolean addConst, boolean addVolatile,
                                                boolean addRestrict) {
-        return new UnsignedIntType(addConstQualifier(addConst), addVolatileQualifier(addVolatile));
+        return new UnsignedIntType(
+                addConstQualifier(addConst),
+                addVolatileQualifier(addVolatile),
+                getExternalScheme()
+        );
     }
 
     @Override
     public final UnsignedIntType removeQualifiers(boolean removeConst, boolean removeVolatile,
                                                   boolean removeRestrict) {
-        return new UnsignedIntType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile));
+        return new UnsignedIntType(
+                removeConstQualifier(removeConst),
+                removeVolatileQualifier(removeVolatile),
+                getExternalScheme()
+        );
+    }
+
+    @Override
+    public final UnsignedIntType addExternalScheme(ExternalScheme externalScheme) {
+        checkNotNull(externalScheme, "external scheme cannot be null");
+        return new UnsignedIntType(
+                isConstQualified(),
+                isVolatileQualified(),
+                Optional.of(externalScheme)
+        );
     }
 
     @Override
@@ -60,7 +83,7 @@ public final class UnsignedIntType extends UnsignedIntegerType {
 
     @Override
     public final IntType getSignedIntegerType() {
-        return new IntType(isConstQualified(), isVolatileQualified());
+        return new IntType(isConstQualified(), isVolatileQualified(), Optional.<ExternalScheme>absent());
     }
 
     @Override
