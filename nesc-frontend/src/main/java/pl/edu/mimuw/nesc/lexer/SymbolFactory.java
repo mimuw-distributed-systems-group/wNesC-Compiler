@@ -9,18 +9,18 @@ import com.google.common.collect.ImmutableMap;
 /**
  * Factory of symbols passed from lexer to parser. Translates preprocessor
  * tokens' codes to parser tokens' codes.
- * 
+ *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
- * 
+ *
  */
 final class SymbolFactory {
-	
+
 	public static final int UNKNOWN_TOKEN = -1;
 
 	/**
 	 * Translates preprocessor/lexer identifier to either parser's keyword or
 	 * identifier token.
-	 * 
+	 *
 	 * @param keywordOrIdentifier
 	 *            keyword or identifier name
 	 * @return keyword code or identifier code
@@ -37,7 +37,7 @@ final class SymbolFactory {
 	 * Translates preprocessor/lexer token's code to parser token's code. It
 	 * handles all kind of tokens except of keywords/identifiers, whitespaces,
 	 * literals, comments.
-	 * 
+	 *
 	 * @param tokenType
 	 *            token type
 	 * @return symbol code
@@ -81,7 +81,7 @@ final class SymbolFactory {
 				.put("task", TASK)
 				.put("uses", USES)
 				.put("nx_struct", NX_STRUCT)
-				.put("nx_union", UNION)
+				.put("nx_union", NX_UNION)
 				/*
 				 * c
 				 */
