@@ -23,45 +23,18 @@ public final class ExternalUnionType extends FieldTagType<UnionDeclaration> {
         this(false, false, unionDecl);
     }
 
-    public ExternalUnionType(boolean constQualified, boolean volatileQualified,
-            ImmutableList<Field> fields) {
-        super(constQualified, volatileQualified, fields, BlockType.EXTERNAL_UNION);
-    }
-
-    public ExternalUnionType(ImmutableList<Field> fields) {
-        this(false, false, fields);
-    }
-
     @Override
     public final ExternalUnionType addQualifiers(boolean addConst, boolean addVolatile,
                                                  boolean addRestrict) {
-        switch (getVariant()) {
-            case ONLY_DECLARATION:
-                return new ExternalUnionType(addConstQualifier(addConst),
+        return new ExternalUnionType(addConstQualifier(addConst),
                         addVolatileQualifier(addVolatile), getDeclaration());
-            case ONLY_FIELDS:
-            case FULL:
-                return new ExternalUnionType(addConstQualifier(addConst),
-                        addVolatileQualifier(addVolatile), getFields());
-            default:
-                throw new RuntimeException("unexpected variant of a tag type object");
-        }
     }
 
     @Override
     public final ExternalUnionType removeQualifiers(boolean removeConst, boolean removeVolatile,
                                                     boolean removeRestrict) {
-        switch (getVariant()) {
-            case ONLY_DECLARATION:
-                return new ExternalUnionType(removeConstQualifier(removeConst),
+        return new ExternalUnionType(removeConstQualifier(removeConst),
                         removeVolatileQualifier(removeVolatile), getDeclaration());
-            case ONLY_FIELDS:
-            case FULL:
-                return new ExternalUnionType(removeConstQualifier(removeConst),
-                        removeVolatileQualifier(removeVolatile), getFields());
-            default:
-                throw new RuntimeException("unexpected variant of a tag type object");
-        }
     }
 
     @Override

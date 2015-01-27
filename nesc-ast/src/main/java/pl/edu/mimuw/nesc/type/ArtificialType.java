@@ -222,9 +222,4 @@ public abstract class ArtificialType implements Type {
     public final AstType toAstType() {
         throw new UnsupportedOperationException("cannot get an AST node representing an artificial type");
     }
-
-    @Override
-    public final void fullyComplete() {
-        throw new UnsupportedOperationException("cannot complete an artificial type");
-    }
 }

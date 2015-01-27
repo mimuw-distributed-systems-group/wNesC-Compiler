@@ -21,23 +21,12 @@ public final class EnumeratedType extends IntegerType {
     public static final int INTEGER_RANK = 15;
 
     /**
-     * Variant of this type object.
-     */
-    private Variant variant;
-
-    /**
      * Enum declaration object that is associated with this enumerated type.
      * It shall be inside the symbol table if and only if it is named.
      * Never null. There shall be only one <code>EnumDeclaration</code> object
      * per definition.
      */
-    private final Optional<EnumDeclaration> enumType;
-
-    /**
-     * Expressions used to initialize consecutive enumerators of this enumerated
-     * type.
-     */
-    private Optional<ImmutableList<Optional<Expression>>> values = Optional.absent();
+    private final EnumDeclaration enumType;
 
     /**
      * Initializes this object with given parameters.
@@ -50,45 +39,15 @@ public final class EnumeratedType extends IntegerType {
                           EnumDeclaration enumType) {
         super(constQualified, volatileQualified, Optional.<ExternalScheme>absent());
         checkNotNull(enumType, "enumeration declaration cannot be null");
-        this.enumType = Optional.of(enumType);
-        this.variant = Variant.ONLY_DECLARATION;
+        this.enumType = enumType;
     }
 
     public EnumeratedType(EnumDeclaration enumType) {
         this(false, false, enumType);
     }
 
-    public EnumeratedType(boolean constQualified, boolean volatileQualified,
-            ImmutableList<Optional<Expression>> values) {
-        super(constQualified, volatileQualified, Optional.<ExternalScheme>absent());
-        checkNotNull(values, "values cannot be null");
-        this.enumType = Optional.absent();
-        this.variant = Variant.ONLY_VALUES;
-    }
-
-    public EnumeratedType(ImmutableList<Optional<Expression>> values) {
-        this(false, false, values);
-    }
-
     public final EnumDeclaration getEnumDeclaration() {
-        checkState(variant == Variant.FULL || variant == Variant.ONLY_DECLARATION,
-                "invalid variant of this enumeration type object");
-        return enumType.get();
-    }
-
-    /**
-     * Get list with expressions for constants of this field. If a constant has
-     * not got any expression that specifies its value, the object is absent
-     * for it. The expressions are in the list in proper order.
-     *
-     * @return List with expressions that specify values for subsequent
-     *         constants.
-     * @throws IllegalStateException This type is not yet fully complete.
-     */
-    public final ImmutableList<Optional<Expression>> getConstantsValues() {
-        checkState(values.isPresent(), "cannot get values of constants from" +
-                "an enumerated type that is not yet fully complete");
-        return values.get();
+        return enumType;
     }
 
     @Override
@@ -109,33 +68,15 @@ public final class EnumeratedType extends IntegerType {
     @Override
     public final EnumeratedType addQualifiers(boolean addConst, boolean addVolatile,
                                               boolean addRestrict) {
-        switch (variant) {
-            case ONLY_DECLARATION:
-                return new EnumeratedType(addConstQualifier(addConst), addVolatileQualifier(addVolatile),
+        return new EnumeratedType(addConstQualifier(addConst), addVolatileQualifier(addVolatile),
                     getEnumDeclaration());
-            case FULL:
-            case ONLY_VALUES:
-                return new EnumeratedType(addConstQualifier(addConst), addVolatileQualifier(addVolatile),
-                        this.values.get());
-            default:
-                throw new RuntimeException("unexpected variant of enumerated type");
-        }
     }
 
     @Override
     public final EnumeratedType removeQualifiers(boolean removeConst, boolean removeVolatile,
                                                  boolean removeRestrict) {
-        switch (variant) {
-            case ONLY_DECLARATION:
-                return new EnumeratedType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile),
+        return new EnumeratedType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile),
                     getEnumDeclaration());
-            case FULL:
-            case ONLY_VALUES:
-                return new EnumeratedType(removeConstQualifier(removeConst), removeVolatileQualifier(removeVolatile),
-                        this.values.get());
-            default:
-                throw new RuntimeException("unexpected variant of enumerated type");
-        }
     }
 
     @Override
@@ -170,8 +111,7 @@ public final class EnumeratedType extends IntegerType {
 
     @Override
     public final boolean isComplete() {
-        return variant == Variant.ONLY_DECLARATION || variant == Variant.FULL
-            || enumType.get().isDefined();
+        return enumType.isDefined();
     }
 
     @Override
@@ -182,32 +122,5 @@ public final class EnumeratedType extends IntegerType {
     @Override
     public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
-    }
-
-    @Override
-    public final void fullyComplete() {
-        checkState(isComplete(), "cannot fully complete an incomplete type");
-
-        if (!values.isPresent()) {
-            final ImmutableList.Builder<Optional<Expression>> valuesBuilder = ImmutableList.builder();
-            for (ConstantDeclaration constant : enumType.get().getEnumerators().get()) {
-                valuesBuilder.add(constant.getEnumerator().getValue());
-            }
-
-            this.values = Optional.of(valuesBuilder.build());
-            this.variant = Variant.FULL;
-        }
-    }
-
-    /**
-     * Enumeration type that specifies the variant of this enumerated type.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     * @see FieldTagType.Variant
-     */
-    public enum Variant {
-        ONLY_DECLARATION,
-        ONLY_VALUES,
-        FULL,
     }
 }

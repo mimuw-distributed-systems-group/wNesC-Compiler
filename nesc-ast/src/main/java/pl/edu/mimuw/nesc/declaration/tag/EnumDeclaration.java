@@ -150,10 +150,15 @@ public final class EnumDeclaration extends TagDeclaration {
             builder = EnumDeclaration.declarationBuilder();
         }
 
-        return builder.astNode(controller.mapNode(this.astEnumRef))
+        final EnumDeclaration result = builder.astNode(controller.mapNode(this.astEnumRef))
                 .name(this.getName().orNull(), controller.mapUniqueName(this.getUniqueName()).orNull())
                 .startLocation(this.location)
                 .build();
+        if (hasLayout()) {
+            result.setLayout(getSize(), getAlignment());
+        }
+
+        return result;
     }
 
     /**

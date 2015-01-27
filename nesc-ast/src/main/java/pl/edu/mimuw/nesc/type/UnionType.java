@@ -31,45 +31,18 @@ public final class UnionType extends FieldTagType<UnionDeclaration> {
         this(false, false, unionDecl);
     }
 
-    public UnionType(boolean constQualified, boolean volatileQualified,
-            ImmutableList<Field> fields) {
-        super(constQualified, volatileQualified, fields, BlockType.UNION);
-    }
-
-    public UnionType(ImmutableList<Field> fields) {
-        this(false, false, fields);
-    }
-
     @Override
     public final UnionType addQualifiers(boolean addConst, boolean addVolatile,
                                          boolean addRestrict) {
-        switch (getVariant()) {
-            case ONLY_DECLARATION:
-                return new UnionType(addConstQualifier(addConst),
+        return new UnionType(addConstQualifier(addConst),
                         addVolatileQualifier(addVolatile), getDeclaration());
-            case ONLY_FIELDS:
-            case FULL:
-                return new UnionType(addConstQualifier(addConst),
-                        addVolatileQualifier(addVolatile), getFields());
-            default:
-                throw new RuntimeException("unexpected variant of a tag type object");
-        }
     }
 
     @Override
     public final UnionType removeQualifiers(boolean removeConst, boolean removeVolatile,
                                             boolean removeRestrict) {
-        switch (getVariant()) {
-            case ONLY_DECLARATION:
-                return new UnionType(removeConstQualifier(removeConst),
+        return new UnionType(removeConstQualifier(removeConst),
                         removeVolatileQualifier(removeVolatile), getDeclaration());
-            case ONLY_FIELDS:
-            case FULL:
-                return new UnionType(removeConstQualifier(removeConst),
-                        removeVolatileQualifier(removeVolatile), getFields());
-            default:
-                throw new RuntimeException("unexpected variant of a tag type object");
-        }
     }
 
     @Override

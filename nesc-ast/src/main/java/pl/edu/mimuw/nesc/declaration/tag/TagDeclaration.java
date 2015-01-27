@@ -33,11 +33,23 @@ public abstract class TagDeclaration extends Declaration {
      */
     private final Optional<String> uniqueName;
 
+    /**
+     * Size of objects of this tag in bytes.
+     */
+    private Optional<Integer> size;
+
+    /**
+     * Alignment of objects of this tag in bytes.
+     */
+    private Optional<Integer> alignment;
+
     protected TagDeclaration(Builder<? extends TagDeclaration> builder) {
         super(builder);
         this.name = builder.name;
         this.uniqueName = builder.uniqueName;
         this.kind = builder.kind;
+        this.size = Optional.absent();
+        this.alignment = Optional.absent();
     }
 
     /**
@@ -96,6 +108,56 @@ public abstract class TagDeclaration extends Declaration {
      * @return AST node that this object reflects.
      */
     public abstract TagRef getAstNode();
+
+    /**
+     * Get the size of objects of this tag.
+     *
+     * @return Size in bytes of objects of this tag.
+     * @throws IllegalStateException The size has not been set yet.
+     */
+    public int getSize() {
+        checkState(size.isPresent(), "size has not been computed yet");
+        return size.get();
+    }
+
+    /**
+     * Get the alignment of objects of this tag.
+     *
+     * @return Alignment in byts of objects of this tag.
+     * @throws IllegalStateException Tha alignment has not been set yet.
+     */
+    public int getAlignment() {
+        checkState(alignment.isPresent(), "alignment has not been computed yet");
+        return alignment.get();
+    }
+
+    /**
+     * Set the size and alignment of the tag type associated with this tag.
+     *
+     * @param size Size to set.
+     * @param alignment Alignment to set.
+     * @throws IllegalArgumentException Size or alignment is not positive.
+     * @throws IllegalStateException Size and alignment have been already set.
+     */
+    public void setLayout(int size, int alignment) {
+        checkArgument(size > 0, "size must be positive");
+        checkArgument(alignment > 0, "alignment must be positive");
+        checkState(!this.size.isPresent() && !this.alignment.isPresent(),
+                "size and alignment have been already set");
+
+        this.size = Optional.of(size);
+        this.alignment = Optional.of(alignment);
+    }
+
+    /**
+     * Check if the size and alignment of objects of this tag are known.
+     *
+     * @return <code>true</code> if and only if the size and alignment of
+     *         objects of this tag are known.
+     */
+    public boolean hasLayout() {
+        return size.isPresent() && alignment.isPresent();
+    }
 
     @Override
     public int hashCode() {

@@ -8,7 +8,9 @@ import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -43,6 +45,21 @@ public class FieldDeclaration extends Declaration {
      */
     private final FieldDecl astField;
 
+    /**
+     * Offset of this field from the beginning of the tag this field belongs to.
+     */
+    private Optional<Integer> offsetInBits;
+
+    /**
+     * Size of this field in bits.
+     */
+    private Optional<Integer> sizeInBits;
+
+    /**
+     * Alignment of this field in bits.
+     */
+    private Optional<Integer> alignmentInBits;
+
     public FieldDeclaration(Optional<String> name, Location startLocation, Location endLocation,
                             Optional<Type> type, boolean isBitField, FieldDecl astField) {
         super(startLocation);
@@ -55,6 +72,9 @@ public class FieldDeclaration extends Declaration {
         this.type = type;
         this.isBitField = isBitField;
         this.astField = astField;
+        this.offsetInBits = Optional.absent();
+        this.sizeInBits = Optional.absent();
+        this.alignmentInBits = Optional.absent();
     }
 
     public Optional<String> getName() {
@@ -81,11 +101,48 @@ public class FieldDeclaration extends Declaration {
         return astField;
     }
 
+    public int getOffsetInBits() {
+        checkState(offsetInBits.isPresent(), "offset has not been computed yet");
+        return offsetInBits.get();
+    }
+
+    public int getSizeInBits() {
+        checkState(sizeInBits.isPresent(), "size has not been computed yet");
+        return sizeInBits.get();
+    }
+
+    public int getAlignmentInBits() {
+        checkState(alignmentInBits.isPresent(), "alignment has not been computed yet");
+        return alignmentInBits.get();
+    }
+
+    public void setLayout(int offsetInBits, int sizeInBits, int alignmentInBits) {
+        checkArgument(offsetInBits >= 0, "offset cannot be negative");
+        checkArgument(sizeInBits >= 0, "size cannot be negative");
+        checkArgument(alignmentInBits >= 1, "alignment cannot be not positive");
+        checkState(!this.offsetInBits.isPresent() && !this.sizeInBits.isPresent()
+                && !this.alignmentInBits.isPresent(), "data about layout has been already set");
+
+        this.offsetInBits = Optional.of(offsetInBits);
+        this.sizeInBits = Optional.of(sizeInBits);
+        this.alignmentInBits = Optional.of(alignmentInBits);
+    }
+
+    public boolean hasLayout() {
+        return offsetInBits.isPresent() && sizeInBits.isPresent() & alignmentInBits.isPresent();
+    }
+
     @Override
     public FieldDeclaration deepCopy(CopyController controller) {
-        return new FieldDeclaration(this.name, this.location, this.endLocation,
+        final FieldDeclaration result = new FieldDeclaration(this.name,
+                this.location, this.endLocation,
                 controller.mapType(this.type), this.isBitField,
                 controller.mapNode(astField));
+        if (hasLayout()) {
+            result.setLayout(getOffsetInBits(), getSizeInBits(), getAlignmentInBits());
+        }
+
+        return result;
     }
 
     @Override

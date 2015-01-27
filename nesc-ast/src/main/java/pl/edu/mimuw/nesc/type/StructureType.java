@@ -28,49 +28,22 @@ public final class StructureType extends FieldTagType<StructDeclaration> {
         checkArgument(!structDeclaration.isExternal(), "the structure must not be external");
     }
 
-    public StructureType(boolean constQualified, boolean volatileQualified,
-                ImmutableList<Field> fields) {
-        super(constQualified, volatileQualified, fields, BlockType.STRUCTURE);
-    }
-
     public StructureType(StructDeclaration structDeclaration) {
         this(false, false, structDeclaration);
-    }
-
-    public StructureType(ImmutableList<Field> fields) {
-        this(false, false, fields);
     }
 
     @Override
     public final StructureType addQualifiers(boolean addConst, boolean addVolatile,
                                              boolean addRestrict) {
-        switch (getVariant()) {
-            case ONLY_DECLARATION:
-                return new StructureType(addConstQualifier(addConst),
+        return new StructureType(addConstQualifier(addConst),
                         addVolatileQualifier(addVolatile), getDeclaration());
-            case ONLY_FIELDS:
-            case FULL:
-                return new StructureType(addConstQualifier(addConst),
-                        addVolatileQualifier(addVolatile), getFields());
-            default:
-                throw new RuntimeException("unexpected variant of a tag type object");
-        }
     }
 
     @Override
     public final StructureType removeQualifiers(boolean removeConst, boolean removeVolatile,
                                                 boolean removeRestrict) {
-        switch (getVariant()) {
-            case ONLY_DECLARATION:
-                return new StructureType(removeConstQualifier(removeConst),
+        return new StructureType(removeConstQualifier(removeConst),
                         removeVolatileQualifier(removeVolatile), getDeclaration());
-            case ONLY_FIELDS:
-            case FULL:
-                return new StructureType(removeConstQualifier(removeConst),
-                        removeVolatileQualifier(removeVolatile), getFields());
-            default:
-                throw new RuntimeException("unexpected variant of a tag type object");
-        }
     }
 
     @Override

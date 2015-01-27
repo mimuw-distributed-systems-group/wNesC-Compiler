@@ -163,10 +163,4 @@ public abstract class AbstractType implements Type {
         accept(visitor, null);
         return visitor.getAstType();
     }
-
-    @Override
-    public void fullyComplete() {
-        /* Skeletal implementation does nothing, if an action is necessary the
-           method shall be overriden. */
-    }
 }

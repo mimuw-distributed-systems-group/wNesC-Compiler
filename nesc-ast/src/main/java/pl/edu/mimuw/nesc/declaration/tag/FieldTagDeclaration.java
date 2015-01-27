@@ -169,11 +169,15 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
             builder.structure(newStructure);
         }
 
-        return builder.astNode(this.astTagRef)
+        final D result = builder.astNode(this.astTagRef)
                 .name(getName().orNull(), controller.mapUniqueName(getUniqueName()).orNull())
                 .startLocation(this.location)
                 .build();
+        if (hasLayout()) {
+            result.setLayout(getSize(), getAlignment());
+        }
 
+        return result;
     }
 
     /**

@@ -33,46 +33,19 @@ public final class ExternalStructureType extends FieldTagType<StructDeclaration>
         this(false, false, structDecl);
     }
 
-    public ExternalStructureType(boolean constQualified, boolean volatileQualified,
-            ImmutableList<Field> fields) {
-        super(constQualified, volatileQualified, fields, BlockType.EXTERNAL_STRUCTURE);
-    }
-
-    public ExternalStructureType(ImmutableList<Field> fields) {
-        this(false, false, fields);
-    }
-
     @Override
     public final ExternalStructureType addQualifiers(boolean addConst, boolean addVolatile,
                                                      boolean addRestrict) {
-        switch (getVariant()) {
-            case ONLY_DECLARATION:
-                return new ExternalStructureType(addConstQualifier(addConst),
+        return new ExternalStructureType(addConstQualifier(addConst),
                     addVolatileQualifier(addVolatile), getDeclaration());
-            case ONLY_FIELDS:
-            case FULL:
-                return new ExternalStructureType(addConstQualifier(addConst),
-                        addVolatileQualifier(addVolatile), getFields());
-            default:
-                throw new RuntimeException("unexpected variant of a tag type object");
-        }
     }
 
     @Override
     public final ExternalStructureType removeQualifiers(boolean removeConst,
             boolean removeVolatile, boolean removeRestrict) {
 
-        switch (getVariant()) {
-            case ONLY_DECLARATION:
-                return new ExternalStructureType(removeConstQualifier(removeConst),
+        return new ExternalStructureType(removeConstQualifier(removeConst),
                         removeVolatileQualifier(removeVolatile), getDeclaration());
-            case ONLY_FIELDS:
-            case FULL:
-                return new ExternalStructureType(removeConstQualifier(removeConst),
-                        removeVolatileQualifier(removeVolatile), getFields());
-            default:
-                throw new RuntimeException("unexpected variant of a tag type object");
-        }
     }
 
     @Override
