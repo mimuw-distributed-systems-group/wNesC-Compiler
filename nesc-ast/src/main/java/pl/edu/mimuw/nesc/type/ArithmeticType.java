@@ -127,4 +127,9 @@ public abstract class ArithmeticType extends AbstractType {
     public final boolean isExternalBaseType() {
         return this.externalScheme.isPresent();
     }
+
+    @Override
+    public final boolean maybeExternal() {
+        return false;
+    }
 }

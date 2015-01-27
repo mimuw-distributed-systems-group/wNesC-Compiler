@@ -117,7 +117,7 @@ public abstract class TagDeclaration extends Declaration {
         return Objects.equal(this.name, other.name);
     }
 
-    public abstract <R, A> R visit(Visitor<R, A> visitor, A arg);
+    public abstract <R, A> R accept(Visitor<R, A> visitor, A arg);
 
     public interface Visitor<R, A> {
         R visit(AttributeDeclaration attribute, A arg);

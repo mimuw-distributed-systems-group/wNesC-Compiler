@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.problem.issue;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
 
@@ -96,6 +97,23 @@ final class IssuesUtils {
         return n == 0 || n == 1
                 ? "is"
                 : "are";
+    }
+
+    /**
+     * Get text that depicts the given tag kind.
+     *
+     * @param kind Tag kind to depict.
+     * @return Text that depicts the given tag kind.
+     */
+    static String getExternalKindText(StructKind kind) {
+        switch (kind) {
+            case NX_STRUCT:
+                return "an external structure";
+            case NX_UNION:
+                return "an external union";
+            default:
+                throw new RuntimeException("unexpected kind of a tag '" + kind + "'");
+        }
     }
 
     /**

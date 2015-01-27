@@ -45,7 +45,7 @@ public final class AttributeDeclaration extends FieldTagDeclaration<AttributeRef
     }
 
     @Override
-    public <R, A> R visit(Visitor<R, A> visitor, A arg) {
+    public <R, A> R accept(Visitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
     }
 

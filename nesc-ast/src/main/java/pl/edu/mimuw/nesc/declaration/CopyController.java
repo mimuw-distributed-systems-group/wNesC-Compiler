@@ -19,6 +19,7 @@ import pl.edu.mimuw.nesc.declaration.tag.AttributeDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.EnumDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.FieldDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.StructDeclaration;
+import pl.edu.mimuw.nesc.declaration.tag.TagDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.UnionDeclaration;
 import pl.edu.mimuw.nesc.type.Type;
 
@@ -167,7 +168,7 @@ public final class CopyController {
     /**
      * Visitor that copies visited object declaration.
      */
-    private final ObjectDeclaration.Visitor<ObjectDeclaration, Void> declarationGateway =
+    private final ObjectDeclaration.Visitor<ObjectDeclaration, Void> objectDeclarationGateway =
             new ObjectDeclaration.Visitor<ObjectDeclaration, Void>() {
 
         @Override
@@ -198,6 +199,33 @@ public final class CopyController {
         @Override
         public ObjectDeclaration visit(VariableDeclaration variable, Void arg) {
             return copy(variable);
+        }
+    };
+
+    /**
+     * Visitor for copying visited tag declarations.
+     */
+    private final TagDeclaration.Visitor<TagDeclaration, Void> tagDeclarationGateway =
+            new TagDeclaration.Visitor<TagDeclaration, Void>() {
+
+        @Override
+        public TagDeclaration visit(AttributeDeclaration attribute, Void arg) {
+            return copy(attribute);
+        }
+
+        @Override
+        public TagDeclaration visit(EnumDeclaration enumDeclaration, Void arg) {
+            return copy(enumDeclaration);
+        }
+
+        @Override
+        public TagDeclaration visit(StructDeclaration struct, Void arg) {
+            return copy(struct);
+        }
+
+        @Override
+        public TagDeclaration visit(UnionDeclaration union, Void arg) {
+            return copy(union);
         }
     };
 
@@ -269,7 +297,13 @@ public final class CopyController {
 
     public ObjectDeclaration copy(ObjectDeclaration declaration) {
         return declaration != null
-                ? declaration.accept(declarationGateway, null)
+                ? declaration.accept(objectDeclarationGateway, null)
+                : null;
+    }
+
+    public TagDeclaration copy(TagDeclaration declaration) {
+        return declaration != null
+                ? declaration.accept(tagDeclarationGateway, null)
                 : null;
     }
 

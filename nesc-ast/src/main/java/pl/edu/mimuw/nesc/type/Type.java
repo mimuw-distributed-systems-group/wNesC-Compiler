@@ -218,6 +218,10 @@ public interface Type {
      *     <li>external structures and external unions</li>
      * </ul>
      *
+     * <p>Unknown and artificial types are not considered external types. To
+     * detect if this type can become an external type after substitution of
+     * unknown types, call {@link Type#maybeExternal}.</p>
+     *
      * @return <code>true</code> if and only if this type is an external type.
      */
     boolean isExternal();
@@ -226,11 +230,32 @@ public interface Type {
      * <p>Check if this type is an external base type. An external base type is
      * an arithmetic type that is associated with an external scheme.</p>
      *
+     * <p>Unknown and artificial types are not considered external base types.
+     * </p>
+     *
      * @return <code>true</code> if and only if this type is an arithmetic type
      *         associated with an external scheme. If so, it is safe to cast
      *         <code>this</code> to <code>IntegerType</code>.
      */
     boolean isExternalBaseType();
+
+    /**
+     * <p>Check if this type can become an external type after substitution of
+     * unknown types. It happens in the following cases:</p>
+     * <ol>
+     *      <li>this type is an unknown type</li>
+     *      <li>this type is an array type with an element type that can become
+     *      external after substitution of unknown types</li>
+     * </ol>
+     *
+     * <p>In other words, this method returns <code>true</code> if and only if
+     * this type is an unknown type or it is a multidimensional array of an
+     * unknown type.</p>
+     *
+     * @return <code>true</code> if and only if this type can become external
+     *         after substitution of unknown types.
+     */
+    boolean maybeExternal();
 
     /**
      * Check if an lvalue of this type could be entirely modified without

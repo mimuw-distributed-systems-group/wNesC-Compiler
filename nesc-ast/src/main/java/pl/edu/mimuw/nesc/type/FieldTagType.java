@@ -192,6 +192,11 @@ public abstract class FieldTagType<D extends FieldTagDeclaration<?>> extends Der
     }
 
     @Override
+    public final boolean maybeExternal() {
+        return false;
+    }
+
+    @Override
     public final Type decay() {
         return this;
     }

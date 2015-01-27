@@ -151,7 +151,7 @@ public final class TagsAnalysis {
                 size > 1 && (kind == StructKind.STRUCT || kind == StructKind.NX_STRUCT);
 
         // Check the structure
-        final FieldValidityVisitor visitor = new FieldValidityVisitor(errorHelper);
+        final FieldValidityVisitor visitor = new FieldValidityVisitor(errorHelper, kind);
         for (int i = 0; i < size; ++i) {
             final boolean canBeFlexibleMember = flexibleMemberConditions && i == size - 1;
             fieldsStructure.get(i).accept(visitor, canBeFlexibleMember);
@@ -457,7 +457,8 @@ public final class TagsAnalysis {
                         if (!fieldDecl.getName().isPresent()) {
                             final Optional<List<TreeElement>> maybeStructure = fieldDecl.getStructure();
                             if (maybeStructure.isPresent()) {
-                                appendElement(new BlockElement(maybeStructure.get(), fieldTagType.getBlockType()));
+                                appendElement(new BlockElement(maybeStructure.get(),
+                                        fieldTagType.getBlockType(), fieldDecl));
                             }
                         }
                     }
@@ -547,31 +548,39 @@ public final class TagsAnalysis {
          */
         private final ErrorHelper errorHelper;
 
-        private FieldValidityVisitor(ErrorHelper errorHelper) {
+        /**
+         * Kind of the tag that the visited fields come from.
+         */
+        private final StructKind structKind;
+
+        private FieldValidityVisitor(ErrorHelper errorHelper, StructKind structKind) {
             checkNotNull(errorHelper, "error helper cannot be null");
             this.errorHelper = errorHelper;
+            this.structKind = structKind;
         }
 
         @Override
         public Void visit(FieldElement element, Boolean canBeFlexibleMember) {
             final FieldDeclaration field = element.getFieldDeclaration();
-            final Optional<Type> maybeType = field.getType();
-            if (!maybeType.isPresent()) {
-                return null;
-            }
-            final Type type = maybeType.get();
-
-            // Check if the field is the flexible member
-            if (canBeFlexibleMember && !type.isComplete() && type.isArrayType()) {
+            if (!field.getType().isPresent()) {
                 return null;
             }
 
-            if (type.isFunctionType() || !type.isComplete()) {
-                errorHelper.error(
-                        field.getLocation(),
-                        field.getEndLocation(),
-                        new InvalidFieldTypeError(type)
-                );
+            final Type type = field.getType().get();
+            final Optional<? extends ErroneousIssue> error;
+
+            if (!type.isComplete() && (!canBeFlexibleMember || !type.isArrayType())
+                    || type.isFunctionType()) {
+                error = Optional.of(new InvalidFieldTypeError(type));
+            } else if (structKind.isExternal() && !type.isExternal() && !type.maybeExternal()) {
+                error = Optional.of(InvalidExternalTagFieldError.fieldOfNonExternalType(
+                        field.getName(), type, structKind));
+            } else {
+                error = Optional.absent();
+            }
+
+            if (error.isPresent()) {
+                errorHelper.error(field.getLocation(), field.getEndLocation(), error.get());
             }
 
             return null;
@@ -579,6 +588,16 @@ public final class TagsAnalysis {
 
         @Override
         public Void visit(BlockElement blockElement, Boolean canBeFlexibleMember) {
+            final FieldTagDeclaration<?> declaration = blockElement.getDeclaration();
+
+            if (structKind.isExternal() && !declaration.isExternal()) {
+                errorHelper.error(
+                        declaration.getAstNode().getLocation(),
+                        declaration.getAstNode().getEndLocation(),
+                        InvalidExternalTagFieldError.nonExternalBlock(blockElement.getType(), structKind)
+                );
+            }
+
             return null;
         }
     }
@@ -854,7 +873,7 @@ public final class TagsAnalysis {
         static void update(TagDeclaration tagDecl, TagRef tagRef) {
             checkNotNull(tagDecl, "tag declaration cannot be null");
             checkNotNull(tagRef, "tag reference cannot be null");
-            tagDecl.visit(new PredefinitionNode(tagRef), null);
+            tagDecl.accept(new PredefinitionNode(tagRef), null);
         }
 
         private PredefinitionNode(TagRef tagRef) {

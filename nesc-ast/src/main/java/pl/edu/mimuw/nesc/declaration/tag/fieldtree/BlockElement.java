@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import pl.edu.mimuw.nesc.declaration.CopyController;
+import pl.edu.mimuw.nesc.declaration.tag.FieldTagDeclaration;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -23,6 +24,11 @@ public final class BlockElement extends TreeElement {
     private final BlockType type;
 
     /**
+     * Tag declaration object created for this block element.
+     */
+    private final FieldTagDeclaration<?> declaration;
+
+    /**
      * Initializes this object with given children elements. The list is not
      * copied.
      *
@@ -30,15 +36,17 @@ public final class BlockElement extends TreeElement {
      * @throws IllegalArgumentException One of the elements of the given list
      *                                  is null.
      */
-    public BlockElement(List<TreeElement> children, BlockType type) {
+    public BlockElement(List<TreeElement> children, BlockType type, FieldTagDeclaration<?> declaration) {
         checkNotNull(children, "children elements cannot be null");
         checkNotNull(type, "type of the block element cannot be null");
+        checkNotNull(declaration, "declaration cannot be null");
         for (TreeElement element : children) {
             checkArgument(element != null, "a child tree element cannot be null");
         }
 
         this.children = children;
         this.type = type;
+        this.declaration = declaration;
     }
 
     public List<TreeElement> getChildren() {
@@ -47,6 +55,10 @@ public final class BlockElement extends TreeElement {
 
     public BlockType getType() {
         return type;
+    }
+
+    public FieldTagDeclaration<?> getDeclaration() {
+        return declaration;
     }
 
     @Override
@@ -62,7 +74,8 @@ public final class BlockElement extends TreeElement {
             childrenBuilder.add(child.deepCopy(controller));
         }
 
-        return new BlockElement(childrenBuilder.build(), this.type);
+        return new BlockElement(childrenBuilder.build(), this.type,
+                (FieldTagDeclaration<?>) controller.copy(this.declaration));
     }
 
     public enum BlockType {

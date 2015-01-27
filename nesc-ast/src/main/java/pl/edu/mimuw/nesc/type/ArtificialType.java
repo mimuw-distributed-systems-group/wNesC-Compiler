@@ -164,6 +164,11 @@ public abstract class ArtificialType implements Type {
     }
 
     @Override
+    public final boolean maybeExternal() {
+        return false;
+    }
+
+    @Override
     public final boolean isArtificialType() {
         return true;
     }

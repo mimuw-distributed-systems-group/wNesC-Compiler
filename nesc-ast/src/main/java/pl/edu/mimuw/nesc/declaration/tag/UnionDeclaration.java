@@ -52,7 +52,7 @@ public class UnionDeclaration extends FieldTagDeclaration<UnionRef> {
     }
 
     @Override
-    public <R, A> R visit(Visitor<R, A> visitor, A arg) {
+    public <R, A> R accept(Visitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
     }
 

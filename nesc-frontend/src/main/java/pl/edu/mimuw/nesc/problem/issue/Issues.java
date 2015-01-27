@@ -107,6 +107,7 @@ public final class Issues {
         INVALID_GOTO_STMT(76),
         INSTANTIATION_CYCLE(77),
         INVALID_EXTERNAL_BASE_ATTRIBUTE(78),
+        INVALID_EXTERNAL_TAG_FIELD(79),
         ;
 
         private final int codeNumber;
