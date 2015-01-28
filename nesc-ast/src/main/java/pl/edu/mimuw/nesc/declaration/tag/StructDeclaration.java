@@ -4,8 +4,8 @@ import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.StructRef;
 import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.ExternalStructureType;
+import pl.edu.mimuw.nesc.type.FieldTagType;
 import pl.edu.mimuw.nesc.type.StructureType;
-import pl.edu.mimuw.nesc.type.Type;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -43,7 +43,7 @@ public class StructDeclaration extends FieldTagDeclaration<StructRef> {
     }
 
     @Override
-    public Type getType(boolean constQualified, boolean volatileQualified) {
+    public FieldTagType<StructDeclaration> getType(boolean constQualified, boolean volatileQualified) {
         return   isExternal()
                ? new ExternalStructureType(constQualified, volatileQualified, this)
                : new StructureType(constQualified, volatileQualified, this);

@@ -119,7 +119,7 @@ public final class EnumDeclaration extends TagDeclaration {
     }
 
     @Override
-    public Type getType(boolean constQualified, boolean volatileQualified) {
+    public EnumeratedType getType(boolean constQualified, boolean volatileQualified) {
         return new EnumeratedType(constQualified, volatileQualified, this);
     }
 

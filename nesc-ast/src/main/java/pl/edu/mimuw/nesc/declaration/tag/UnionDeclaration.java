@@ -4,9 +4,8 @@ import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.UnionRef;
 import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.ExternalUnionType;
-import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.type.FieldTagType;
 import pl.edu.mimuw.nesc.type.UnionType;
-
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -45,7 +44,7 @@ public class UnionDeclaration extends FieldTagDeclaration<UnionRef> {
     }
 
     @Override
-    public Type getType(boolean constQualified, boolean volatileQualified) {
+    public FieldTagType<UnionDeclaration> getType(boolean constQualified, boolean volatileQualified) {
         return   isExternal()
                ? new ExternalUnionType(constQualified, volatileQualified, this)
                : new UnionType(constQualified, volatileQualified, this);

@@ -123,7 +123,7 @@ public abstract class TagDeclaration extends Declaration {
     /**
      * Get the alignment of objects of this tag.
      *
-     * @return Alignment in byts of objects of this tag.
+     * @return Alignment in bytes of objects of this tag.
      * @throws IllegalStateException Tha alignment has not been set yet.
      */
     public int getAlignment() {

@@ -132,6 +132,13 @@ public class FieldDeclaration extends Declaration {
         return offsetInBits.isPresent() && sizeInBits.isPresent() & alignmentInBits.isPresent();
     }
 
+    public void increaseOffset(int increment) {
+        checkArgument(increment >= 0, "increment cannot be negative");
+        checkState(offsetInBits.isPresent(), "offset has not been computed yet");
+
+        this.offsetInBits = Optional.of(offsetInBits.get() + increment);
+    }
+
     @Override
     public FieldDeclaration deepCopy(CopyController controller) {
         final FieldDeclaration result = new FieldDeclaration(this.name,

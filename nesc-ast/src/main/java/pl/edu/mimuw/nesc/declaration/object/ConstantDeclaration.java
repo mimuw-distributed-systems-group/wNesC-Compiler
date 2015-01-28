@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.declaration.object;
 
 import com.google.common.base.Optional;
+import java.math.BigInteger;
 import pl.edu.mimuw.nesc.ast.gen.Enumerator;
 import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.IntType;
@@ -26,6 +27,11 @@ public final class ConstantDeclaration extends ObjectDeclaration {
      */
     private final Enumerator enumerator;
 
+    /**
+     * Value of this enumeration constant. It is absent before it is computed.
+     */
+    private Optional<BigInteger> value;
+
     public static Builder builder() {
         return new Builder();
     }
@@ -34,6 +40,7 @@ public final class ConstantDeclaration extends ObjectDeclaration {
         super(builder);
         this.uniqueName = builder.uniqueName;
         this.enumerator = builder.enumerator;
+        this.value = Optional.absent();
     }
 
     /**
@@ -55,6 +62,30 @@ public final class ConstantDeclaration extends ObjectDeclaration {
         return enumerator;
     }
 
+    /**
+     * Get the value of this constant.
+     *
+     * @return Value of this constant. Never <code>null</code>. The object is
+     *         absent if the value has not been set yet.
+     */
+    public Optional<BigInteger> getValue() {
+        return value;
+    }
+
+    /**
+     * Set the value of this enumeration constant.
+     *
+     * @param value Value to set.
+     * @throws NullPointerException The given parameter is <code>null</code>.
+     * @throws IllegalStateException The value has been already set.
+     */
+    public void setValue(BigInteger value) {
+        checkNotNull(value, "value cannot be null");
+        checkState(!this.value.isPresent(), "value has been already set");
+
+        this.value = Optional.of(value);
+    }
+
     @Override
     public <R, A> R accept(Visitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
@@ -62,12 +93,15 @@ public final class ConstantDeclaration extends ObjectDeclaration {
 
     @Override
     public ConstantDeclaration deepCopy(CopyController controller) {
-        return ConstantDeclaration.builder()
+        final ConstantDeclaration result = ConstantDeclaration.builder()
                 .enumerator(controller.mapNode(this.enumerator))
                 .uniqueName(controller.mapUniqueName(this.uniqueName))
                 .name(this.name)
                 .startLocation(this.location)
                 .build();
+        result.value = this.value;
+
+        return result;
     }
 
     /**

@@ -11,6 +11,7 @@ import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.TagRef;
 import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.declaration.tag.fieldtree.TreeElement;
+import pl.edu.mimuw.nesc.type.FieldTagType;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -144,6 +145,9 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
 
         return Optional.fromNullable(namedFields.get().get(fieldName));
     }
+
+    @Override
+    public abstract FieldTagType<?> getType(boolean constQualified, boolean volatileQualified);
 
     @Override
     public final T getAstNode() {

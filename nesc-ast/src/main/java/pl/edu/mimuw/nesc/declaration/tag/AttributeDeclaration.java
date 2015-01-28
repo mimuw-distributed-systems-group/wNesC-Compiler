@@ -3,7 +3,7 @@ package pl.edu.mimuw.nesc.declaration.tag;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.AttributeRef;
 import pl.edu.mimuw.nesc.declaration.CopyController;
-import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.type.FieldTagType;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
@@ -39,7 +39,7 @@ public final class AttributeDeclaration extends FieldTagDeclaration<AttributeRef
     }
 
     @Override
-    public Type getType(boolean constQualified, boolean volatileQualified) {
+    public FieldTagType<?> getType(boolean constQualified, boolean volatileQualified) {
         throw new UnsupportedOperationException("an attribute declaration " +
                  "does not support the operation of getting the type it represents");
     }
