@@ -52,7 +52,7 @@ public abstract class AbstractDecoder implements Decoder {
             finalBits = new byte[bytesCount];
             System.arraycopy(sourceBits, 0, finalBits, middleIndex, sourceBits.length);
             final byte sign = n.signum() == -1
-                    ? (byte) -128
+                    ? (byte) -1
                     : 0;
             Arrays.fill(finalBits, 0, middleIndex, sign);
         } else {

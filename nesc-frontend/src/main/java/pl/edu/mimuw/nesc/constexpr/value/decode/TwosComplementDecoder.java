@@ -45,8 +45,8 @@ public final class TwosComplementDecoder extends AbstractDecoder {
         }
 
         final byte signByte = signBitCleared
-                ? 0
-                : (byte) -128;
+                ? (byte) 0
+                : -1;
         Arrays.fill(bits, 0, middleByteIndex, signByte);
 
         return new BigInteger(bits);
