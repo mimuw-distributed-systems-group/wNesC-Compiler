@@ -46,12 +46,12 @@ public abstract class ExpressionsAnalysis extends ExceptionVisitor<Optional<Expr
     /**
      * Type that is used as <code>size_t</code> type.
      */
-    private static final UnsignedIntegerType TYPE_SIZE_T = new UnsignedLongType();
+    protected static final UnsignedIntegerType TYPE_SIZE_T = new UnsignedLongType();
 
     /**
      * Type that is used as <code>ptrdiff_t</code> type.
      */
-    private static final SignedIntegerType TYPE_PTRDIFF_T = new LongType();
+    protected static final SignedIntegerType TYPE_PTRDIFF_T = new LongType();
 
     /**
      * Types of decimal constants for their suffixes.
@@ -583,13 +583,6 @@ public abstract class ExpressionsAnalysis extends ExceptionVisitor<Optional<Expr
     @Override
     public Optional<ExprData> visitAlignofExpr(AlignofExpr expr, Void arg) {
         return analyzeExprQueryExpr(expr, OP_ALIGNOF);
-    }
-
-    @Override
-    public Optional<ExprData> visitOffsetof(Offsetof expr, Void arg) {
-        touch(expr);
-        // FIXME
-        return Optional.absent();
     }
 
     @Override

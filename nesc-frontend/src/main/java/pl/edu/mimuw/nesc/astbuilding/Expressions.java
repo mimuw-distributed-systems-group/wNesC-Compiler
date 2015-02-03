@@ -214,8 +214,7 @@ public final class Expressions {
     }
 
     public static Expression makeOffsetof(Location startLocation, Location endLocation, AstType type,
-                                          LinkedList<Word> fields) {
-        // TODO: check if type is struct or union
+                                          LinkedList<FieldIdentifier> fields) {
         final Offsetof offsetof = new Offsetof(startLocation, type, fields);
         offsetof.setEndLocation(endLocation);
         return offsetof;

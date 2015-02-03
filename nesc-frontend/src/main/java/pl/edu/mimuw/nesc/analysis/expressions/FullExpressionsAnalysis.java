@@ -2,14 +2,18 @@ package pl.edu.mimuw.nesc.analysis.expressions;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.gen.ComponentDeref;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
+import pl.edu.mimuw.nesc.ast.gen.FieldIdentifier;
 import pl.edu.mimuw.nesc.ast.gen.FunctionCall;
 import pl.edu.mimuw.nesc.ast.gen.GenericCall;
 import pl.edu.mimuw.nesc.ast.gen.Identifier;
 import pl.edu.mimuw.nesc.ast.gen.InterfaceDeref;
+import pl.edu.mimuw.nesc.ast.gen.Offsetof;
 import pl.edu.mimuw.nesc.astbuilding.Declarations;
 import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
@@ -20,6 +24,8 @@ import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ObjectKind;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.VariableDeclaration;
+import pl.edu.mimuw.nesc.declaration.tag.FieldDeclaration;
+import pl.edu.mimuw.nesc.declaration.tag.FieldTagDeclaration;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.facade.component.reference.ComponentRefFacade;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
@@ -29,9 +35,11 @@ import pl.edu.mimuw.nesc.problem.issue.ErroneousIssue;
 import pl.edu.mimuw.nesc.problem.issue.InvalidComponentDerefExprError;
 import pl.edu.mimuw.nesc.problem.issue.InvalidIdentifierUsageError;
 import pl.edu.mimuw.nesc.problem.issue.InvalidNescCallError;
+import pl.edu.mimuw.nesc.problem.issue.InvalidOffsetofExprError;
 import pl.edu.mimuw.nesc.problem.issue.InvalidParameterTypeError;
 import pl.edu.mimuw.nesc.problem.issue.InvalidPostTaskExprError;
 import pl.edu.mimuw.nesc.problem.issue.UndeclaredIdentifierError;
+import pl.edu.mimuw.nesc.type.FieldTagType;
 import pl.edu.mimuw.nesc.type.FunctionType;
 import pl.edu.mimuw.nesc.type.IntType;
 import pl.edu.mimuw.nesc.type.Type;
@@ -185,6 +193,90 @@ public final class FullExpressionsAnalysis extends ExpressionsAnalysis {
         } else {
             return Optional.absent();
         }
+    }
+
+    @Override
+    public Optional<ExprData> visitOffsetof(Offsetof expr, Void arg) {
+        touch(expr);
+        final Optional<? extends ErroneousIssue> error;
+
+        if (!expr.getTypename().getType().isPresent()) {
+            // the analysis cannot be done if the type is erroneous
+            return Optional.absent();
+        } else if (!expr.getTypename().getType().get().isFieldTagType()) {
+            error = Optional.of(InvalidOffsetofExprError.expectedFieldTagType(
+                    expr.getTypename().getType().get()));
+        } else if (!expr.getTypename().getType().get().isComplete()) {
+            error = Optional.of(InvalidOffsetofExprError.incompleteType(
+                    expr.getTypename().getType().get()));
+        } else {
+            error = checkOffsetofFields((FieldTagType<?>) expr.getTypename().getType().get(),
+                        expr.getFieldlist());
+        }
+
+        if (error.isPresent()) {
+            errorHelper.error(expr.getLocation(), expr.getEndLocation(),
+                    error.get());
+            return Optional.absent();
+        }
+
+        final ExprData result = ExprData.builder()
+                .type(TYPE_SIZE_T)
+                .isLvalue(false)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build()
+                .spread(expr);
+
+        return Optional.of(result);
+    }
+
+    private Optional<? extends ErroneousIssue> checkOffsetofFields(FieldTagType<?> type,
+                List<FieldIdentifier> fieldIdentifiers) {
+        FieldTagDeclaration<?> declaration = type.getDeclaration();
+        final Iterator<FieldIdentifier> fieldIdIt = fieldIdentifiers.iterator();
+
+        while (fieldIdIt.hasNext()) {
+            final FieldIdentifier fieldId = fieldIdIt.next();
+
+            // Check if the structure or union contains the field
+
+            final Optional<FieldDeclaration> optFieldDecl =
+                    declaration.findField(fieldId.getName());
+
+            if (!optFieldDecl.isPresent()) {
+                return Optional.of(InvalidOffsetofExprError.nonexistentMemberReferred(
+                        type, fieldId.getName()));
+            }
+
+            final FieldDeclaration fieldDecl = optFieldDecl.get();
+            fieldId.setDeclaration(fieldDecl);
+
+            /* If there is a next field identifier, check if the field has
+               a field tag type and update variables. Otherwise, check if the
+               field is not a bit-field. */
+
+            if (fieldIdIt.hasNext()) {
+                if (!fieldDecl.getType().isPresent()) {
+                    return Optional.of(InvalidOffsetofExprError.memberErroneousType(type,
+                            fieldId.getName()));
+                } else if (!fieldDecl.getType().get().isFieldTagType()) {
+                    return Optional.of(InvalidOffsetofExprError.memberExpectedFieldTagType(
+                            type, fieldId.getName()));
+                } else if (!fieldDecl.getType().get().isComplete()) {
+                    return Optional.of(InvalidOffsetofExprError.memberIncompleteType(type,
+                            fieldId.getName()));
+                } else {
+                    type = (FieldTagType<?>) fieldDecl.getType().get();
+                    declaration = type.getDeclaration();
+                }
+            } else if (fieldDecl.isBitField()) {
+                return Optional.of(InvalidOffsetofExprError.memberBitFieldReferred(type,
+                        fieldId.getName()));
+            }
+        }
+
+        return Optional.absent();
     }
 
     @Override

@@ -1196,6 +1196,12 @@ public final class ASTWriter implements Closeable {
         }
 
         @Override
+        public Void visitFieldIdentifier(FieldIdentifier fieldIdentifier, Void arg) {
+            output.write(fieldIdentifier.getName());
+            return null;
+        }
+
+        @Override
         public Void visitSizeofExpr(SizeofExpr expr, Void arg) {
             writeLetterUnary(expr, OP_SIZEOF);
             return null;

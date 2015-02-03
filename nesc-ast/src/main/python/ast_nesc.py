@@ -700,7 +700,7 @@ class Offsetof(BasicASTNode):
     """ """
     superclass = Expression
     typename = ReferenceField("AstType")
-    fieldlist = ReferenceListField("Word")
+    fieldlist = ReferenceListField("FieldIdentifier")
 
 
 class AlignofType(BasicASTNode):
@@ -1211,6 +1211,27 @@ class AsmOperand(BasicASTNode):
     word1 = ReferenceField("Word", optional=True)
     string = ReferenceField("StringAst")
     arg1 = ReferenceField("Expression")
+
+
+class FieldIdentifier(BasicASTNode):
+    """
+    <p>This AST node represents an identifier that designates a field in an
+    offsetof expression:</p>
+
+    <pre>
+        union u { char c; int n; double d; };
+        struct s { int n; char c; union u un; float f; };
+        &#x22ee;
+        offsetof(struct s, un.c);
+    </pre>
+
+    <p><code>un</code> and <code>c</code> from the offsetof expression are
+    represented by <code>FieldIdentifier</code> AST nodes.</p>
+    """
+    superclass = Node
+    name = StringField()
+    declaration = ReferenceField("FieldDeclaration", constructor_variable=False, visitable=False,
+                                 deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
 
 #==============================================================================

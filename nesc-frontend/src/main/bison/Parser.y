@@ -403,7 +403,7 @@ import static java.lang.String.format;
 %type <LinkedList<TypeElement>> maybe_type_quals_attrs fn_quals
 %type <AstType> typename
 %type <Word> idword any_word tag
-%type <LinkedList<Word>> fieldlist
+%type <LinkedList<FieldIdentifier>> fieldlist
 %type <ValueStructKind> structkind
 
 %type <ValueCallKind> iface_callkind
@@ -1725,12 +1725,14 @@ primary:
 fieldlist:
       identifier
     {
-        final Word w = new Word($1.getLocation(), $1.getValue());
-        $$ = Lists.<Word>newList(w);
+        final FieldIdentifier w = new FieldIdentifier($1.getLocation(), $1.getValue());
+        w.setEndLocation($1.getEndLocation());
+        $$ = Lists.<FieldIdentifier>newList(w);
     }
     | fieldlist DOT identifier
     {
-        final Word w = new Word($3.getLocation(), $3.getValue());
+        final FieldIdentifier w = new FieldIdentifier($3.getLocation(), $3.getValue());
+        w.setEndLocation($3.getEndLocation());
         $$ = Lists.chain($1, w);
     }
     ;

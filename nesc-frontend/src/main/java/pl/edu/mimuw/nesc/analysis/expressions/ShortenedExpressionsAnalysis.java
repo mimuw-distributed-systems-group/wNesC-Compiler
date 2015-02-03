@@ -5,6 +5,7 @@ import pl.edu.mimuw.nesc.ast.gen.ComponentDeref;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.FunctionCall;
 import pl.edu.mimuw.nesc.ast.gen.Identifier;
+import pl.edu.mimuw.nesc.ast.gen.Offsetof;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -80,6 +81,20 @@ public final class ShortenedExpressionsAnalysis extends ExpressionsAnalysis {
     }
 
     @Override
+    public Optional<ExprData> visitOffsetof(Offsetof expr, Void arg) {
+        checkType(expr);
+
+        final ExprData result = ExprData.builder()
+                .type(expr.getType().get())
+                .isLvalue(false)
+                .isBitField(false)
+                .isNullPointerConstant(false)
+                .build();
+
+        return Optional.of(result);
+    }
+
+    @Override
     protected Optional<ExprData> analyzeNescCall(FunctionCall funCall, boolean isSignal) {
         return extractFromNescCall(funCall);
     }
@@ -103,9 +118,9 @@ public final class ShortenedExpressionsAnalysis extends ExpressionsAnalysis {
     }
 
     private void checkType(Expression expr) {
-        checkArgument(expr.getType() != null, "the identifier has null type");
-        checkArgument(expr.getType().isPresent(), "the type of the identifier is absent");
+        checkArgument(expr.getType() != null, "an expression has null type");
+        checkArgument(expr.getType().isPresent(), "the type of an expression is absent");
         checkArgument(!expr.getType().get().isUnknownType(),
-                "an identifier has unknown type set");
+                "an expression has set an unknown type");
     }
 }

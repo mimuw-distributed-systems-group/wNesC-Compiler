@@ -3,6 +3,9 @@ package pl.edu.mimuw.nesc.problem.issue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import pl.edu.mimuw.nesc.ast.StructKind;
+import pl.edu.mimuw.nesc.declaration.tag.FieldTagDeclaration;
+import pl.edu.mimuw.nesc.declaration.tag.fieldtree.BlockElement;
+import pl.edu.mimuw.nesc.type.FieldTagType;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.facade.iface.InterfaceEntity;
 
@@ -113,6 +116,49 @@ final class IssuesUtils {
                 return "an external union";
             default:
                 throw new RuntimeException("unexpected kind of a tag '" + kind + "'");
+        }
+    }
+
+    /**
+     * Get text that depicts the given structure kind.
+     *
+     * @param kind Tag kind to depict.
+     * @param firstLetterCapital Value indicating if the first letter will be
+     *                           capital.
+     * @return Text that depicts the given structure kind.
+     */
+    static String getStructKindText(StructKind kind, boolean firstLetterCapital) {
+        switch (kind) {
+            case NX_STRUCT:
+                return firstLetterCapital
+                        ? "External structure"
+                        : "external structure";
+            case NX_UNION:
+                return firstLetterCapital
+                        ? "External union"
+                        : "external union";
+            case STRUCT:
+                return firstLetterCapital
+                        ? "Structure"
+                        : "structure";
+            case UNION:
+                return firstLetterCapital
+                        ? "Union"
+                        : "union";
+            default:
+                throw new RuntimeException("unexpected kind of tag '" + kind + "'");
+        }
+    }
+
+    static String getFullFieldTagText(FieldTagDeclaration<?> declaration, boolean firstLetterCapital) {
+        if (declaration.getName().isPresent()) {
+            return getStructKindText(declaration.getKind(), firstLetterCapital)
+                    + " '" + declaration.getName().get() + "'";
+        } else {
+            final String prefix = firstLetterCapital
+                    ? "The unnamed "
+                    : "the unnamed ";
+            return prefix + getStructKindText(declaration.getKind(), false);
         }
     }
 

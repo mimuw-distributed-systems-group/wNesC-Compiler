@@ -224,6 +224,12 @@ class ASTFillingVisitor extends IdentityVisitor<Void> implements TypeVisitor<Typ
     }
 
     @Override
+    public Void visitFieldIdentifier(FieldIdentifier fieldIdentifier, Void arg) {
+        fieldIdentifier.setDeclaration(copyController.copy(fieldIdentifier.getDeclaration()));
+        return null;
+    }
+
+    @Override
     public Void visitPlus(Plus expr, Void arg) {
         substituteExprType(expr);
         return arg;
