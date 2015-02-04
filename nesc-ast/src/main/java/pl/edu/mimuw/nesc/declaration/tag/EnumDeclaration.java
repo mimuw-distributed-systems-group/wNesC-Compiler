@@ -10,6 +10,7 @@ import pl.edu.mimuw.nesc.ast.gen.EnumRef;
 import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.type.EnumeratedType;
+import pl.edu.mimuw.nesc.type.IntegerType;
 import pl.edu.mimuw.nesc.type.Type;
 
 import static com.google.common.base.Preconditions.*;
@@ -31,6 +32,12 @@ public final class EnumDeclaration extends TagDeclaration {
      * Object that represents this enumeration from AST.
      */
     private EnumRef astEnumRef;
+
+    /**
+     * Integer type that is compatible with this enumerated type and capable of
+     * representing all enumeration constants.
+     */
+    private Optional<IntegerType> compatibleType;
 
     /**
      * Get a builder for a definition of an enumeration type.
@@ -64,6 +71,7 @@ public final class EnumDeclaration extends TagDeclaration {
 
         this.enumerators = builder.buildEnumerators();
         this.astEnumRef = builder.astEnumRef;
+        this.compatibleType = Optional.absent();
     }
 
     /**
@@ -113,6 +121,33 @@ public final class EnumDeclaration extends TagDeclaration {
         this.astEnumRef = predefinitionNode;
     }
 
+    /**
+     * Get the type compatible with this enumerated type. The type is capable of
+     * representing all constants of this enumeration.
+     *
+     * @return Compatible type of this enumerated type.
+     * @throws IllegalStateException The compatible type has not been set.
+     */
+    public IntegerType getCompatibleType() {
+        checkState(compatibleType.isPresent(), "compatible type has not been set yet");
+        return compatibleType.get();
+    }
+
+    /**
+     * Set the compatible type of this enumerated type. It can be done exactly
+     * once.
+     *
+     * @param type Type to set as the compatible type of the enumerated type.
+     * @throws NullPointerException <code>type</code> is <code>null</code>.
+     * @throws IllegalStateException The compatible type has been already set.
+     */
+    public void setCompatibleType(IntegerType type) {
+        checkNotNull(type, "the compatible type cannot be null");
+        checkState(!compatibleType.isPresent(), "the compatible type has been already set");
+
+        this.compatibleType = Optional.of(type);
+    }
+
     @Override
     public EnumRef getAstNode() {
         return astEnumRef;
@@ -154,8 +189,13 @@ public final class EnumDeclaration extends TagDeclaration {
                 .name(this.getName().orNull(), controller.mapUniqueName(this.getUniqueName()).orNull())
                 .startLocation(this.location)
                 .build();
+
         if (hasLayout()) {
             result.setLayout(getSize(), getAlignment());
+        }
+
+        if (this.compatibleType.isPresent()) {
+            result.compatibleType = this.compatibleType;
         }
 
         return result;

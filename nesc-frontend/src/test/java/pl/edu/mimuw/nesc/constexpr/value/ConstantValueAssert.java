@@ -15,18 +15,18 @@ import static org.junit.Assert.assertEquals;
  */
 public final class ConstantValueAssert {
     public static void assertSignedIntAdd(String lhs, String rhs, String result, int bitsCount) {
-        assertIntAdd(lhs, rhs, result, bitsCount, SignedIntegerConstantFactory.getInstance());
+        assertIntAdd(lhs, rhs, result, new SignedIntegerConstantFactory(bitsCount));
     }
 
     public static void assertUnsignedIntAdd(String lhs, String rhs, String result, int bitsCount) {
-        assertIntAdd(lhs, rhs, result, bitsCount, UnsignedIntegerConstantFactory.getInstance());
+        assertIntAdd(lhs, rhs, result, new UnsignedIntegerConstantFactory(bitsCount));
     }
 
-    private static void assertIntAdd(String lhs, String rhs, String result, int bitsCount,
+    private static void assertIntAdd(String lhs, String rhs, String result,
             IntegerConstantFactory factory) {
-        final IntegerConstantType type = factory.newType(bitsCount);
-        final IntegerConstantValue<?> valueLhs = factory.newValue(lhs, bitsCount);
-        final IntegerConstantValue<?> valueRhs = factory.newValue(rhs, bitsCount);
+        final IntegerConstantType type = factory.newType();
+        final IntegerConstantValue<?> valueLhs = factory.newValue(lhs);
+        final IntegerConstantValue<?> valueRhs = factory.newValue(rhs);
         final IntegerConstantValue<?> valueResult = valueLhs.add(valueRhs);
 
         assertEquals(type, valueResult.getType());

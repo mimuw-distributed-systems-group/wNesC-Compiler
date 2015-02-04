@@ -21,6 +21,13 @@ public interface ConstantValue {
     ConstantType getType();
 
     /**
+     * Get the logical value of this constant.
+     *
+     * @return <code>true</code> if and only if this value is not equal to zero.
+     */
+    boolean logicalValue();
+
+    /**
      * Add the given constant value to this one. The argument and this value
      * are unchanged after the call.
      *

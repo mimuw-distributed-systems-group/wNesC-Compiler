@@ -28,6 +28,11 @@ public abstract class IntegerConstantValue<T extends IntegerConstantValue<T>> ex
     public abstract IntegerConstantType getType();
 
     @Override
+    public boolean logicalValue() {
+        return !getValue().equals(BigInteger.ZERO);
+    }
+
+    @Override
     public T add(ConstantValue value) {
         return newDecoded(getValue().add(prepareRhsOperand(value)));
     }

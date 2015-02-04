@@ -24,6 +24,11 @@ public final class DoubleConstantValue extends FloatingConstantValue<Double> {
     }
 
     @Override
+    public boolean logicalValue() {
+        return getValue() != .0;
+    }
+
+    @Override
     public DoubleConstantValue add(ConstantValue value) {
         return new DoubleConstantValue(getValue() + prepareRhsOperand(value));
     }

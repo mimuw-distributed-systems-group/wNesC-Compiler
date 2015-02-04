@@ -26,6 +26,11 @@ public final class FloatConstantValue extends FloatingConstantValue<Float> {
     }
 
     @Override
+    public boolean logicalValue() {
+        return getValue() != .0f;
+    }
+
+    @Override
     public FloatConstantValue add(ConstantValue value) {
         return new FloatConstantValue(getValue() + prepareRhsOperand(value));
     }
