@@ -150,6 +150,14 @@ public abstract class TagDeclaration extends Declaration {
     }
 
     /**
+     * Own objects that represent contents of this tag. For an enumeration tag
+     * it is owning constant declarations of the tag. For a field tag type
+     * this involves owning all fields of the tag. If this object does not
+     * represent a definition, calling this method has no effect.
+     */
+    public abstract void ownContents();
+
+    /**
      * Check if the size and alignment of objects of this tag are known.
      *
      * @return <code>true</code> if and only if the size and alignment of

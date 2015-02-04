@@ -18,6 +18,7 @@ import pl.edu.mimuw.nesc.declaration.object.VariableDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.AttributeDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.EnumDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.FieldDeclaration;
+import pl.edu.mimuw.nesc.declaration.tag.FieldTagDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.StructDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.TagDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.UnionDeclaration;
@@ -230,6 +231,33 @@ public final class CopyController {
     };
 
     /**
+     * Visitor that maps visited tag declarations.
+     */
+    private final TagDeclaration.Visitor<TagDeclaration, Void> tagDeclarationMapGateway =
+            new TagDeclaration.Visitor<TagDeclaration, Void>() {
+
+        @Override
+        public TagDeclaration visit(AttributeDeclaration attribute, Void arg) {
+            return map(attribute);
+        }
+
+        @Override
+        public TagDeclaration visit(EnumDeclaration enumDeclaration, Void arg) {
+            return map(enumDeclaration);
+        }
+
+        @Override
+        public TagDeclaration visit(StructDeclaration struct, Void arg) {
+            return map(struct);
+        }
+
+        @Override
+        public TagDeclaration visit(UnionDeclaration union, Void arg) {
+            return map(union);
+        }
+    };
+
+    /**
      * Initialize this copy controller to use given maps while copying
      * declaration objects.
      *
@@ -355,6 +383,12 @@ public final class CopyController {
         return map(declaration, attributes);
     }
 
+    public TagDeclaration map(TagDeclaration declaration) {
+        return declaration != null
+                ? declaration.accept(tagDeclarationMapGateway, null)
+                : null;
+    }
+
     /**
      * Get the mapping from the unique name in generic component to remangled
      * unique name. If the given unique name is not remangled,
@@ -424,6 +458,16 @@ public final class CopyController {
                 "the node in the map has different class than the given one");
 
         return (T) result.get();
+    }
+
+    public void mapOwners() {
+        for (Map.Entry<ConstantDeclaration, ConstantDeclaration> entry : constants.entrySet()) {
+            entry.getValue().ownedBy(map(entry.getKey().getOwner()));
+        }
+
+        for (Map.Entry<FieldDeclaration, FieldDeclaration> entry : fields.entrySet()) {
+            entry.getValue().ownedBy((FieldTagDeclaration<?>) map(entry.getKey().getOwner()));
+        }
     }
 
     private <T> T copy(T toCopy, Map<T, T> map, Function<T, T> factoryFun) {

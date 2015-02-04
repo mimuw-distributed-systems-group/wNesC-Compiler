@@ -616,6 +616,8 @@ public final class TagsAnalysis {
      *     <li>if the given tag reference is named, generating a unique name for
      *     it using the name mangler and storing the name in the returned object
      *     and in the given tag reference</li>
+     *     <li>owning fields or enumeration constants by the created tag
+     *     declaration</li>
      * </ul>
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -641,7 +643,7 @@ public final class TagsAnalysis {
 
         @Override
         public AttributeDeclaration visitAttributeRef(AttributeRef attrRef, Void arg) {
-            AttributeDeclaration.Builder builder;
+            final AttributeDeclaration.Builder builder;
 
             if (attrRef.getSemantics() == StructSemantics.DEFINITION) {
                 builder = AttributeDeclaration.definitionBuilder();
@@ -659,6 +661,7 @@ public final class TagsAnalysis {
 
             attrRef.setDeclaration(result);
             attrRef.setUniqueName(result.getUniqueName());
+            result.ownContents();
 
             return result;
         }
@@ -675,7 +678,7 @@ public final class TagsAnalysis {
 
         @Override
         public EnumDeclaration visitEnumRef(EnumRef enumRef, Void arg) {
-            EnumDeclaration.Builder builder;
+            final EnumDeclaration.Builder builder;
 
             if (enumRef.getSemantics() != StructSemantics.DEFINITION) {
                 builder = EnumDeclaration.declarationBuilder();
@@ -696,6 +699,7 @@ public final class TagsAnalysis {
 
             enumRef.setDeclaration(result);
             enumRef.setUniqueName(result.getUniqueName());
+            result.ownContents();
 
             return result;
         }
@@ -711,7 +715,7 @@ public final class TagsAnalysis {
         }
 
         private StructDeclaration makeStructDeclaration(StructRef structRef, boolean isExternal) {
-            StructDeclaration.Builder builder;
+            final StructDeclaration.Builder builder;
 
             if (structRef.getSemantics() == StructSemantics.DEFINITION) {
                 builder = StructDeclaration.definitionBuilder();
@@ -733,12 +737,13 @@ public final class TagsAnalysis {
 
             structRef.setDeclaration(result);
             structRef.setUniqueName(result.getUniqueName());
+            result.ownContents();
 
             return result;
         }
 
         private UnionDeclaration makeUnionDeclaration(UnionRef unionRef, boolean isExternal) {
-            UnionDeclaration.Builder builder;
+            final UnionDeclaration.Builder builder;
 
             if (unionRef.getSemantics() == StructSemantics.DEFINITION) {
                 builder = UnionDeclaration.definitionBuilder();
@@ -760,6 +765,7 @@ public final class TagsAnalysis {
 
             unionRef.setDeclaration(result);
             unionRef.setUniqueName(result.getUniqueName());
+            result.ownContents();
 
             return result;
         }
@@ -782,6 +788,7 @@ public final class TagsAnalysis {
      *     <li>making the given tag reference point to the given tag declaration
      *     object</li>
      *     <li>checking the definition of the tag and emitting found issues</li>
+     *     <li>owning fields or enumeration constants by the tag declaration</li>
      * </ul>
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -813,6 +820,7 @@ public final class TagsAnalysis {
             final AttributeDeclaration attrDecl = (AttributeDeclaration) tagDeclaration;
             attrDecl.define(getFieldTagStructure(attrRef, errorHelper));
             attrRef.setDeclaration(attrDecl);
+            attrDecl.ownContents();
             return null;
         }
 
@@ -845,6 +853,7 @@ public final class TagsAnalysis {
             final EnumDeclaration enumDecl = (EnumDeclaration) tagDeclaration;
             enumDecl.define(getEnumerators(enumRef));
             enumRef.setDeclaration(enumDecl);
+            enumDecl.ownContents();
             return null;
         }
 
@@ -852,12 +861,14 @@ public final class TagsAnalysis {
             final StructDeclaration structDecl = (StructDeclaration) tagDeclaration;
             structDecl.define(getFieldTagStructure(structRef, errorHelper));
             structRef.setDeclaration(structDecl);
+            structDecl.ownContents();
         }
 
         private void updateUnionDeclaration(UnionRef unionRef) {
             final UnionDeclaration unionDecl = (UnionDeclaration) tagDeclaration;
             unionDecl.define(getFieldTagStructure(unionRef, errorHelper));
             unionRef.setDeclaration(unionDecl);
+            unionDecl.ownContents();
         }
     }
 

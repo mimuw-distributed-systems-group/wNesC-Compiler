@@ -60,6 +60,11 @@ public class FieldDeclaration extends Declaration {
      */
     private Optional<Integer> alignmentInBits;
 
+    /**
+     * Declaration object of the field tag declaration that "owns" this field.
+     */
+    private Optional<FieldTagDeclaration<?>> owner;
+
     public FieldDeclaration(Optional<String> name, Location startLocation, Location endLocation,
                             Optional<Type> type, boolean isBitField, FieldDecl astField) {
         super(startLocation);
@@ -75,6 +80,7 @@ public class FieldDeclaration extends Declaration {
         this.offsetInBits = Optional.absent();
         this.sizeInBits = Optional.absent();
         this.alignmentInBits = Optional.absent();
+        this.owner = Optional.absent();
     }
 
     public Optional<String> getName() {
@@ -137,6 +143,34 @@ public class FieldDeclaration extends Declaration {
         checkState(offsetInBits.isPresent(), "offset has not been computed yet");
 
         this.offsetInBits = Optional.of(offsetInBits.get() + increment);
+    }
+
+    /**
+     * Get the owner of this field. The owner is the field tag that contains the
+     * definition of the field. In case of fields defined in anonymous
+     * structures or unions (an anonymous structure or union is an unnamed
+     * member whose type is an unnamed structure or union) the owning field
+     * tag type is the least nested structure or union that is named.
+     *
+     * @return The owner of this field.
+     * @throws IllegalStateException The owner has not been set.
+     */
+    public FieldTagDeclaration<?> getOwner() {
+        checkState(this.owner.isPresent(), "this field has not got any owner");
+        return this.owner.get();
+    }
+
+    /**
+     * Set the owner to the given declaration.
+     *
+     * @param declaration Declaration object of the tag type that owns this
+     *                    field.
+     * @throws NullPointerException <code>declaration</code> is
+     *                              <code>null</code>.
+     */
+    public void ownedBy(FieldTagDeclaration<?> declaration) {
+        checkNotNull(declaration, "declaration cannot be null");
+        this.owner = Optional.<FieldTagDeclaration<?>>of(declaration);
     }
 
     @Override

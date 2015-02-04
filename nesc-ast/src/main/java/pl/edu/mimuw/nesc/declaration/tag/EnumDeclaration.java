@@ -161,6 +161,15 @@ public final class EnumDeclaration extends TagDeclaration {
         return result;
     }
 
+    @Override
+    public void ownContents() {
+        if (enumerators.isPresent()) {
+            for (ConstantDeclaration constant : enumerators.get()) {
+                constant.ownedBy(this);
+            }
+        }
+    }
+
     /**
      * Builder for an enum declaration.
      *

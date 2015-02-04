@@ -231,6 +231,7 @@ public final class InstantiateExecutor {
         copy.accept(manglingVisitor, null);
         copy.substitute(substitution);
         copy.traverse(typeDiscoverer, null);
+        typeDiscoverer.mapOwners();
 
         if (copy instanceof Module) {
             final Module moduleCopy = (Module) copy;

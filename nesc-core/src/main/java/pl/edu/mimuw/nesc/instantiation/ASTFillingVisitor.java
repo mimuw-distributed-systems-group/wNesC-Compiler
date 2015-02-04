@@ -11,6 +11,7 @@ import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
+import pl.edu.mimuw.nesc.declaration.tag.FieldDeclaration;
 import pl.edu.mimuw.nesc.type.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -101,6 +102,14 @@ class ASTFillingVisitor extends IdentityVisitor<Void> implements TypeVisitor<Typ
         identifier.setUniqueName(copyController.mapUniqueName(identifier.getUniqueName()));
     }
 
+    /**
+     * Set owners in copied constant and field declarations to proper
+     * references.
+     */
+    public void mapOwners() {
+        copyController.mapOwners();
+    }
+
     @Override
     public Void visitEnumerator(Enumerator enumerator, Void arg) {
         enumerator.setDeclaration(copyController.copy(enumerator.getDeclaration()));
@@ -189,10 +198,6 @@ class ASTFillingVisitor extends IdentityVisitor<Void> implements TypeVisitor<Typ
         return null;
     }
 
-    private boolean canCopyTagDeclaration(TagRef tagRef) {
-        return !VariousUtils.getBooleanValue(tagRef.getIsPasted()) && tagRef.getNestedInNescEntity();
-    }
-
     @Override
     public Void visitIdLabel(IdLabel label, Void arg) {
         label.setDeclaration(copyController.copy(label.getDeclaration()));
@@ -225,7 +230,9 @@ class ASTFillingVisitor extends IdentityVisitor<Void> implements TypeVisitor<Typ
 
     @Override
     public Void visitFieldIdentifier(FieldIdentifier fieldIdentifier, Void arg) {
-        fieldIdentifier.setDeclaration(copyController.copy(fieldIdentifier.getDeclaration()));
+        if (canCopyFieldDeclaration(fieldIdentifier.getDeclaration())) {
+            fieldIdentifier.setDeclaration(copyController.copy(fieldIdentifier.getDeclaration()));
+        }
         return null;
     }
 
@@ -583,7 +590,9 @@ class ASTFillingVisitor extends IdentityVisitor<Void> implements TypeVisitor<Typ
 
     @Override
     public Void visitFieldRef(FieldRef expr, Void arg) {
-        expr.setDeclaration(copyController.copy(expr.getDeclaration()));
+        if (canCopyFieldDeclaration(expr.getDeclaration())) {
+            expr.setDeclaration(copyController.copy(expr.getDeclaration()));
+        }
         substituteExprType(expr);
         return arg;
     }
@@ -848,6 +857,24 @@ class ASTFillingVisitor extends IdentityVisitor<Void> implements TypeVisitor<Typ
         throw new RuntimeException("unexpected artificial type");
     }
 
+    private boolean canCopyTagDeclaration(TagRef tagRef) {
+        return !VariousUtils.getBooleanValue(tagRef.getIsPasted()) && tagRef.getNestedInNescEntity();
+    }
+
+    /**
+     * Check if the given field declaration is to be copied. It happens if it
+     * is defined in the instantiated component.
+     *
+     * @param fieldDeclaration Field declaration that is potentially to be
+     *                         copied.
+     * @return <code>true</code> if the given field declaration is to be copied.
+     */
+    private boolean canCopyFieldDeclaration(FieldDeclaration fieldDeclaration) {
+        /* The field declaration is to be copied if it is defined in the
+           instantiated component. It is the case if and only if the FieldDecl
+           AST node from the declaration object is a key in the nodes map. */
+        return nodesMap.containsKey(fieldDeclaration.getAstField());
+    }
 
     private Type prepareUnknownType(UnknownType unknownType) {
         final Type destType = typesMap.get(unknownType.getName());

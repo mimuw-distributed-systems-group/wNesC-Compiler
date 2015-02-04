@@ -4,6 +4,7 @@ import com.google.common.base.Optional;
 import java.math.BigInteger;
 import pl.edu.mimuw.nesc.ast.gen.Enumerator;
 import pl.edu.mimuw.nesc.declaration.CopyController;
+import pl.edu.mimuw.nesc.declaration.tag.EnumDeclaration;
 import pl.edu.mimuw.nesc.type.IntType;
 import pl.edu.mimuw.nesc.type.Type;
 
@@ -32,6 +33,11 @@ public final class ConstantDeclaration extends ObjectDeclaration {
      */
     private Optional<BigInteger> value;
 
+    /**
+     * Enumeration declaration that "owns" this constant.
+     */
+    private Optional<EnumDeclaration> owner;
+
     public static Builder builder() {
         return new Builder();
     }
@@ -41,6 +47,7 @@ public final class ConstantDeclaration extends ObjectDeclaration {
         this.uniqueName = builder.uniqueName;
         this.enumerator = builder.enumerator;
         this.value = Optional.absent();
+        this.owner = Optional.absent();
     }
 
     /**
@@ -84,6 +91,34 @@ public final class ConstantDeclaration extends ObjectDeclaration {
         checkState(!this.value.isPresent(), "value has been already set");
 
         this.value = Optional.of(value);
+    }
+
+    /**
+     * Get the owner of this constant declaration. The owner is the enumeration
+     * type that contains the definition of this constant.
+     *
+     * @return Declaration object for enumeration type that contains the
+     *         definition of this constant.
+     * @throws IllegalStateException The owner has not been set yet.
+     */
+    public EnumDeclaration getOwner() {
+        checkState(this.owner.isPresent(), "this constant has not any owner associated yet");
+        return this.owner.get();
+    }
+
+    /**
+     * Set the declaration object of the enumeration type that contains the
+     * definition of this constant.
+     *
+     * @param declaration Declaration object to set.
+     * @throws NullPointerException <code>declaration</code> is
+     *                              <code>null</code>.
+     * @throws IllegalStateException The owner has been already set.
+     */
+    public void ownedBy(EnumDeclaration declaration) {
+        checkNotNull(declaration, "declaration cannot be null");
+        checkState(!owner.isPresent(), "the owner has been already set");
+        this.owner = Optional.of(declaration);
     }
 
     @Override

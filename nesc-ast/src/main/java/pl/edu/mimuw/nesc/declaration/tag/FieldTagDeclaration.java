@@ -184,6 +184,15 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
         return result;
     }
 
+    @Override
+    public void ownContents() {
+        if (allFields.isPresent()) {
+            for (FieldDeclaration field : allFields.get()) {
+                field.ownedBy(this);
+            }
+        }
+    }
+
     /**
      * Builder for a field tag type declaration.
      *

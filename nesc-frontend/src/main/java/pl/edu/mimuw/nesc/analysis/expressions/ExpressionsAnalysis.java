@@ -1090,6 +1090,7 @@ public abstract class ExpressionsAnalysis extends ExceptionVisitor<Optional<Expr
                 final Optional<FieldDeclaration> fieldDecl = tagDecl.findField(expr.getFieldName());
 
                 if (fieldDecl.isPresent()) {
+                    expr.setDeclaration(fieldDecl.get());
                     isFieldPresent = true;
                     isBitField = fieldDecl.get().isBitField();
                     final Optional<Type> fieldType = fieldDecl.get().getType();
