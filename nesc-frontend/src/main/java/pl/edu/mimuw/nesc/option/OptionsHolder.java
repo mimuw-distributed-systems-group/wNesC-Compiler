@@ -27,6 +27,9 @@ public class OptionsHolder {
     public static final String NESC_IQUOTE = "iquote";
     public static final String NESC_DEFINE = "D";
     public static final String NESC_SCHEDULER = "scheduler";
+    public static final String NESC_ABI_PLATFORM = "abi-platform";
+    public static final String NESC_ABI_FILE = "abi-file";
+    public static final String NESC_OUTPUT_FILE = "o";
 
     private final CommandLine cmd;
 
@@ -152,6 +155,92 @@ public class OptionsHolder {
         return specification != null
                 ? Optional.of(new SchedulerSpecification(specification))
                 : Optional.<SchedulerSpecification>absent();
+    }
+
+    public String getABIPlatformName() {
+        return getValue(NESC_ABI_PLATFORM);
+    }
+
+    public String getABIFilename() {
+        return getValue(NESC_ABI_FILE);
+    }
+
+    public Optional<String> getOutputFile() {
+        return Optional.fromNullable(getValue(NESC_OUTPUT_FILE));
+    }
+
+    /**
+     * Check the correctness of the options that are present in this holder.
+     *
+     * @param isStandalone Value indicating if the options are passed to
+     *                     a standalone instance of the frontend (it has
+     *                     impact on checking their correctness).
+     * @return Description of an error of the usage of options. If the
+     *         validation succeeds, the object is absent.
+     */
+    public Optional<String> validate(boolean isStandalone) {
+        Optional<String> error;
+
+        error = validateSchedulerSpec(isStandalone);
+        if (error.isPresent()) {
+            return error;
+        }
+
+        error = validateABIOptions();
+        if (error.isPresent()) {
+            return error;
+        }
+
+        error = validateOutputFileOption(isStandalone);
+
+        return error;
+    }
+
+    private Optional<String> validateSchedulerSpec(boolean isStandalone) {
+        final String specification = getValue(NESC_SCHEDULER);
+        if (specification == null) {
+            return isStandalone
+                    ? Optional.of("missing scheduler specification, use '--scheduler' parameter")
+                    : Optional.<String>absent();
+        }
+
+        final String[] values = specification.split(",");
+
+        if (values.length != 6) {
+            return Optional.of("expecting six comma-separated values in the scheduler specification but "
+                    + values.length + " given");
+        } else {
+            // Check if all values aren't empty
+            for (int i = 0; i < values.length; ++i) {
+                if (values[i].isEmpty()) {
+                    final String ordinalForm;
+                    switch (i) {
+                        case 0: ordinalForm = "1st"; break;
+                        case 1: ordinalForm = "2nd"; break;
+                        case 2: ordinalForm = "3rd"; break;
+                        default: ordinalForm = (i + 1) + "th"; break;
+                    }
+
+                    return Optional.of("the " + ordinalForm + " value in the scheduler specification is empty");
+                }
+            }
+        }
+
+        return Optional.absent();
+    }
+
+    private Optional<String> validateABIOptions() {
+        if (getValue(NESC_ABI_FILE) != null && getValue(NESC_ABI_PLATFORM) != null) {
+            return Optional.of("cannot combine option '--abi-platform' (or equivalently '-a') with '--abi-file' (equivalently '-A')");
+        }
+        return Optional.absent();
+    }
+
+    private Optional<String> validateOutputFileOption(boolean isStandalone) {
+        if (!isStandalone && getValue(NESC_OUTPUT_FILE) != null) {
+            return Optional.of("cannot use option '-o' (or equivalently '--output-file') in the plug-in mode");
+        }
+        return Optional.absent();
     }
 
     private String[] parseArgWithValue(String str) {

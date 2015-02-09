@@ -77,11 +77,6 @@ public final class Main {
      */
     private final ContextRef context;
 
-    /**
-     * Name of the C file to write the generated code to.
-     */
-    private final String outputFileName;
-
     public static void main(String[] args) {
         try {
             new Main(args).compile();
@@ -94,41 +89,10 @@ public final class Main {
     }
 
     private Main(String[] args) throws InvalidOptionsException {
-        boolean schedulerSpecPresent = false;
-        Optional<String> outputFileName = Optional.absent();
-        final List<String> frontendParams = new ArrayList<>();
-        int i = 0;
-
-        // Check and prepare parameters for frontend
-
-        while (i < args.length) {
-            if (args[i].equals("--scheduler") || args[i].equals("-s")) {
-                schedulerSpecPresent = true;
-                frontendParams.add(args[i]);
-                ++i;
-            } else if (args[i].equals("-o") && i + 1 < args.length) {
-                outputFileName = Optional.of(args[i + 1]);
-                i += 2;
-            } else {
-                frontendParams.add(args[i]);
-                ++i;
-            }
-        }
-
-        if (!schedulerSpecPresent) {
-            System.err.println("error: missing scheduler specification, use '--scheduler' parameter");
-            System.exit(STATUS_ERROR);
-        }
-
-        final String[] frontendParamsArray = frontendParams.toArray(new String[frontendParams.size()]);
-
-        // Finally initialize the object
-
         this.frontend = NescFrontend.builder()
                 .standalone(true)
                 .build();
-        this.context = this.frontend.createContext(frontendParamsArray);
-        this.outputFileName = outputFileName.or("app.c");
+        this.context = this.frontend.createContext(args);
     }
 
     /**
@@ -150,7 +114,7 @@ public final class Main {
         finalReduce(projectData, taskWiringConf, instantiatedComponents, wiring);
         final ImmutableList<Declaration> finalCode = generate(projectData, instantiatedComponents,
                 intermediateFuns.values());
-        writeCode(finalCode);
+        writeCode(projectData, finalCode);
     }
 
     /**
@@ -415,7 +379,7 @@ public final class Main {
      *
      * @param finalCode All declarations to write in proper order.
      */
-    private void writeCode(ImmutableList<Declaration> finalCode) {
+    private void writeCode(ProjectData projectData, ImmutableList<Declaration> finalCode) {
         final WriteSettings writeSettings = WriteSettings.builder()
                 .charset("UTF-8")
                 .indentWithSpaces(3)
@@ -423,7 +387,7 @@ public final class Main {
                 .uniqueMode(WriteSettings.UniqueMode.OUTPUT_VALUES)
                 .build();
 
-        try (ASTWriter writer = new ASTWriter(outputFileName, writeSettings)) {
+        try (ASTWriter writer = new ASTWriter(projectData.getOutputFile(), writeSettings)) {
             writer.write(finalCode);
         } catch(IOException e) {
             System.err.println("Cannot write the code to the file: " + e.getMessage());

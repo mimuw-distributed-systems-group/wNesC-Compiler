@@ -39,6 +39,7 @@ import static java.lang.String.format;
  */
 public final class NescFrontend implements Frontend {
 
+    private static final String DEFAULT_OUTPUT_FILE = "app.c";
     private static final Logger LOG = Logger.getLogger(NescFrontend.class);
 
     public static Builder builder() {
@@ -79,6 +80,10 @@ public final class NescFrontend implements Frontend {
         final OptionsParser optionsParser = new OptionsParser();
         try {
             final OptionsHolder options = optionsParser.parse(args);
+            final Optional<String> error = options.validate(this.isStandalone);
+            if (error.isPresent()) {
+                throw new InvalidOptionsException(error.get());
+            }
             final FrontendContext context = getContext(contextRef);
             context.updateOptions(options);
         } catch (ParseException e) {
@@ -135,6 +140,7 @@ public final class NescFrontend implements Frontend {
                     .nameMangler(context.getNameMangler())
                     .schedulerSpecification(context.getSchedulerSpecification().orNull())
                     .addDefaultIncludeFiles(context.getDefaultIncludeFiles())
+                    .outputFile(context.getOptions().getOutputFile().or(DEFAULT_OUTPUT_FILE))
                     .build();
         }
     }
@@ -155,7 +161,8 @@ public final class NescFrontend implements Frontend {
                     .addRootFileData(findRootFileData(fileDatas, filePath))
                     .nameMangler(context.getNameMangler())
                     .schedulerSpecification(context.getSchedulerSpecification().orNull())
-                    .addDefaultIncludeFiles(context.getDefaultIncludeFiles());
+                    .addDefaultIncludeFiles(context.getDefaultIncludeFiles())
+                    .outputFile(context.getOptions().getOutputFile().or(DEFAULT_OUTPUT_FILE));
 
             if (context.getSchedulerSpecification().isPresent()) {
                 if (loadScheduler) {
@@ -202,18 +209,15 @@ public final class NescFrontend implements Frontend {
         final FrontendContext result;
         try {
             final OptionsHolder options = optionsParser.parse(args);
+            final Optional<String> error = options.validate(this.isStandalone);
+            if (error.isPresent()) {
+                reactToOptionsErrors(error.get(), optionsParser);
+            }
             result = new FrontendContext(options, this.isStandalone);
             return result;
         } catch (ParseException e) {
-            final String msg = e.getMessage();
-            if (this.isStandalone) {
-                System.out.println(msg);
-                optionsParser.printHelp();
-                System.exit(1);
-                return null;
-            } else {
-                throw new InvalidOptionsException(msg);
-            }
+            reactToOptionsErrors(e.getMessage(), optionsParser);
+            return null;
         } catch (IOException e) {
             if (this.isStandalone) {
                 e.printStackTrace();
@@ -223,6 +227,16 @@ public final class NescFrontend implements Frontend {
                 final String msg = "Cannot find options.properties file.";
                 throw new IllegalStateException(msg);
             }
+        }
+    }
+
+    private void reactToOptionsErrors(String error, OptionsParser parser) throws InvalidOptionsException {
+        if (this.isStandalone) {
+            System.out.println("error: " + error);
+            parser.printHelp();
+            System.exit(1);
+        } else {
+            throw new InvalidOptionsException(error);
         }
     }
 

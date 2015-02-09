@@ -58,7 +58,7 @@ public class IntegrationTestBase {
     @Before
     public void setUp() throws Exception {
         frontend = NescFrontend.builder()
-                .standalone(true)
+                .standalone(false)
                 .build();
     }
 
