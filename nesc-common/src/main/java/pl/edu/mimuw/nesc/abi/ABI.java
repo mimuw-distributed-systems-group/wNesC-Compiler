@@ -74,17 +74,16 @@ public final class ABI {
     private final FieldTagTypeData typeFieldTag;
 
     /**
-     * Load information about the ABI from an XML file with given path. The file
-     * should validate against the ABI XML Schema.
+     * Load the ABI from the given stream. It should contain XML data that
+     * validates against the ABI XML schema.
      *
-     * @param xmlFileName Name of the file with data about the ABI.
+     * @param xmlInput Input stream to read the ABI from.
      */
-    public ABI(String xmlFileName) throws SAXException, ParserConfigurationException,
+    public ABI(InputStream xmlInput) throws SAXException, ParserConfigurationException,
             IOException, XPathExpressionException {
-        checkNotNull(xmlFileName, "name of the XML file cannot be null");
-        checkArgument(!xmlFileName.isEmpty(), "name of the XML file cannot be an empty string");
+        checkNotNull(xmlInput, "the input stream with XML contents cannot be null");
 
-        final Builder builder = new Builder(xmlFileName);
+        final Builder builder = new Builder(xmlInput);
         builder.parse();
 
         this.endianness = builder.buildEndianness();
@@ -100,6 +99,17 @@ public final class ABI {
         this.typeSizeT = builder.buildSizeTData();
         this.typePtrdiffT = builder.buildPtrdiffTData();
         this.typeFieldTag = builder.buildFieldTagTypeData();
+    }
+
+    /**
+     * Load information about the ABI from an XML file with given path. The file
+     * should validate against the ABI XML Schema.
+     *
+     * @param xmlFileName Name of the file with data about the ABI.
+     */
+    public ABI(String xmlFileName) throws SAXException, ParserConfigurationException,
+            IOException, XPathExpressionException {
+        this(new FileInputStream(xmlFileName));
     }
 
     public Endianness getEndianness() {
@@ -172,9 +182,9 @@ public final class ABI {
         );
 
         /**
-         * Name of the XML file that will be loaded.
+         * Stream with the XML contents.
          */
-        private final String xmlFileName;
+        private final InputStream xmlInput;
 
         /**
          * Object for making XPath queries on the loaded document.
@@ -186,8 +196,8 @@ public final class ABI {
          */
         private Document root;
 
-        private Builder(String xmlFileName) {
-            this.xmlFileName = xmlFileName;
+        private Builder(InputStream xmlInput) {
+            this.xmlInput = xmlInput;
 
             this.xpath = XPathFactory.newInstance().newXPath();
             this.xpath.setNamespaceContext(this);
@@ -209,7 +219,7 @@ public final class ABI {
             parser.setErrorHandler(this);
 
             // Parse the XML file
-            this.root = parser.parse(new FileInputStream(xmlFileName));
+            this.root = parser.parse(xmlInput);
         }
 
         private Endianness buildEndianness() throws XPathExpressionException {
