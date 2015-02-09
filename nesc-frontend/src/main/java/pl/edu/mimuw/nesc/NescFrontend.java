@@ -1,12 +1,19 @@
 package pl.edu.mimuw.nesc;
 
 import com.google.common.base.Optional;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPathExpressionException;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Logger;
+import org.xml.sax.SAXException;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.analysis.SchedulerAnalyzer;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Interface;
 import pl.edu.mimuw.nesc.common.NesCFileType;
+import pl.edu.mimuw.nesc.exception.ABILoadFailureException;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 import pl.edu.mimuw.nesc.filesgraph.FilesGraph;
 import pl.edu.mimuw.nesc.filesgraph.GraphFile;
@@ -25,6 +32,7 @@ import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.problem.NescWarning;
 import pl.edu.mimuw.nesc.problem.issue.Issue;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
@@ -40,6 +48,8 @@ import static java.lang.String.format;
 public final class NescFrontend implements Frontend {
 
     private static final String DEFAULT_OUTPUT_FILE = "app.c";
+    private static final String DEFAULT_ABI_PLATFORM = "msp430";
+    private static final String DIR_PREDEFINED_ABI = "abi";
     private static final Logger LOG = Logger.getLogger(NescFrontend.class);
 
     public static Builder builder() {
@@ -86,12 +96,15 @@ public final class NescFrontend implements Frontend {
             }
             final FrontendContext context = getContext(contextRef);
             context.updateOptions(options);
+            context.setABI(loadABI(options));
         } catch (ParseException e) {
             final String msg = e.getMessage();
             throw new InvalidOptionsException(msg);
         } catch (IOException e) {
             // TODO
             e.printStackTrace();
+        } catch (ABILoadFailureException e) {
+            throw new RuntimeException("cannot load the ABI", e);
         }
     }
 
@@ -213,7 +226,7 @@ public final class NescFrontend implements Frontend {
             if (error.isPresent()) {
                 reactToOptionsErrors(error.get(), optionsParser);
             }
-            result = new FrontendContext(options, this.isStandalone);
+            result = new FrontendContext(options, this.isStandalone, loadABI(options));
             return result;
         } catch (ParseException e) {
             reactToOptionsErrors(e.getMessage(), optionsParser);
@@ -226,6 +239,14 @@ public final class NescFrontend implements Frontend {
             } else {
                 final String msg = "Cannot find options.properties file.";
                 throw new IllegalStateException(msg);
+            }
+        } catch (ABILoadFailureException e) {
+            if (this.isStandalone) {
+                System.out.println("error: " + e.getMessage());
+                System.exit(1);
+                return null;
+            } else {
+                throw new RuntimeException("cannot load the ABI", e);
             }
         }
     }
@@ -417,6 +438,48 @@ public final class NescFrontend implements Frontend {
         }
 
         throw new IllegalArgumentException("the list does not contain the root file data");
+    }
+
+    private ABI loadABI(OptionsHolder options) throws ABILoadFailureException {
+        checkArgument(options.getABIFilename() == null || options.getABIPlatformName() == null,
+                "cannot specify both ABI filename and ABI platform in options");
+
+        try {
+            if (options.getABIPlatformName() != null) {
+                return loadABIPlatform(options.getABIPlatformName());
+            } else if (options.getABIFilename() != null) {
+                return loadABIFile(options.getABIFilename());
+            } else {
+                return loadABIPlatform(DEFAULT_ABI_PLATFORM);
+            }
+        } catch (SAXException e) {
+            throw new ABILoadFailureException("invalid ABI XML data: " + e.getMessage(), e);
+        } catch (ParserConfigurationException | XPathExpressionException e) {
+            throw new ABILoadFailureException("internal XML processing error", e);
+        } catch (IOException e) {
+            throw new ABILoadFailureException("cannot read the ABI due to I/O error", e);
+        }
+    }
+
+    private ABI loadABIPlatform(String platformName) throws ABILoadFailureException, SAXException,
+                ParserConfigurationException, IOException, XPathExpressionException {
+        final String xmlFilename = format("%s/%sabi.xml", DIR_PREDEFINED_ABI, platformName);
+        final InputStream abiInput = getClass().getClassLoader().getResourceAsStream(xmlFilename);
+
+        if (abiInput == null) {
+            throw new ABILoadFailureException("cannot find ABI platform '" + platformName + "'");
+        }
+
+        return new ABI(abiInput);
+    }
+
+    private ABI loadABIFile(String fileName) throws ABILoadFailureException, SAXException,
+                ParserConfigurationException, IOException, XPathExpressionException {
+        try {
+            return new ABI(fileName);
+        } catch (FileNotFoundException e) {
+            throw new ABILoadFailureException("file '" + fileName + "' does not exist");
+        }
     }
 
     private static class DirtyFileVisitor extends DefaultFileGraphVisitor {

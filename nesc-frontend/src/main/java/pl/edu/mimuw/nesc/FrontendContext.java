@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc;
 
 import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
 import pl.edu.mimuw.nesc.environment.TranslationUnitEnvironment;
 import pl.edu.mimuw.nesc.filesgraph.FilesGraph;
@@ -21,6 +22,7 @@ import java.util.Map;
 
 /**
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class FrontendContext {
 
@@ -75,7 +77,12 @@ public final class FrontendContext {
 
     private boolean wasInitialBuild;
 
-    public FrontendContext(OptionsHolder options, boolean isStandalone) {
+    /**
+     * ABI that will be assumed by the frontend.
+     */
+    private ABI abi;
+
+    public FrontendContext(OptionsHolder options, boolean isStandalone, ABI abi) {
         this.isStandalone = isStandalone;
         this.options = options;
         this.predefinedMacros = options.getPredefinedMacros();
@@ -100,6 +107,7 @@ public final class FrontendContext {
         this.defaultMacros = new HashMap<>();
         this.defaultSymbols = new TranslationUnitEnvironment();
         this.wasInitialBuild = false;
+        this.abi = abi;
     }
 
     public boolean isStandalone() {
@@ -190,6 +198,14 @@ public final class FrontendContext {
         this.wasInitialBuild = wasInitialBuild;
     }
 
+    public ABI getABI() {
+        return abi;
+    }
+
+    public void setABI(ABI abi) {
+        this.abi = abi;
+    }
+
     public void updateOptions(OptionsHolder options) {
         this.options = options;
         this.pathsResolver = getPathsResolver(options);
@@ -204,7 +220,7 @@ public final class FrontendContext {
      * @return the new instance of {@link FrontendContext}
      */
     public FrontendContext basicCopy() {
-        return new FrontendContext(this.options, this.isStandalone);
+        return new FrontendContext(this.options, this.isStandalone, this.abi);
     }
 
     private PathsResolver getPathsResolver(OptionsHolder options) {
