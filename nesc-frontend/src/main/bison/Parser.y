@@ -4445,19 +4445,19 @@ string_chain:
         final AttributeAnalyzer attributeAnalyzer = new AttributeAnalyzer(semanticListener, errorHelper);
 
         this.declarations = new Declarations(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
+                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer, context.getABI());
         this.initializers = new Initializers(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
+                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer, context.getABI());
         this.statements = new Statements(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
+                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer, context.getABI());
         this.labels = new Labels(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
+                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer, context.getABI());
         this.nescDeclarations = new NescDeclarations(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
+                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer, context.getABI());
         this.nescComponents = new NescComponents(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
+                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer, context.getABI());
         this.nescAttributes = new NescAttributes(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer);
+                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer, context.getABI());
 
         switch (fileType) {
             case HEADER:
@@ -4649,13 +4649,13 @@ string_chain:
 
     private void analyzeExpression(Optional<? extends Expression> expr) {
         if (expr.isPresent()) {
-            FullExpressionsAnalysis.analyze(expr.get(), environment, errorHelper);
+            FullExpressionsAnalysis.analyze(expr.get(), environment, context.getABI(), errorHelper);
         }
     }
 
     private void analyzeExpressions(List<? extends Expression> exprs) {
         for (Expression expr : exprs) {
-            FullExpressionsAnalysis.analyze(expr, environment, errorHelper);
+            FullExpressionsAnalysis.analyze(expr, environment, context.getABI(), errorHelper);
         }
     }
 

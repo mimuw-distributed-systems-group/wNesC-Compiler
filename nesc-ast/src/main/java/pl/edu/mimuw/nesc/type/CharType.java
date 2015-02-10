@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.type;
 import com.google.common.base.Optional;
 import com.google.common.collect.Range;
 import java.math.BigInteger;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.external.ExternalScheme;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -63,18 +64,10 @@ public final class CharType extends IntegerType {
     }
 
     @Override
-    public final BigInteger getMinimumValue() {
-        throw new UnsupportedOperationException("getting the minimum value is unsupported for type 'char'");
-    }
-
-    @Override
-    public final BigInteger getMaximumValue() {
-        throw new UnsupportedOperationException("getting the maximum value is unsupported for type 'char'");
-    }
-
-    @Override
-    public final Range<BigInteger> getRange() {
-        throw new UnsupportedOperationException("getting the range of values is unsupported for type 'char'");
+    public final Range<BigInteger> getRange(ABI abi) {
+        return abi.getChar().isSigned()
+                ? abi.getChar().getSignedRange()
+                : abi.getChar().getUnsignedRange();
     }
 
     @Override

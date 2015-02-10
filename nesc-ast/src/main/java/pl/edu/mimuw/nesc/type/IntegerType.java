@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.type;
 import com.google.common.base.Optional;
 import com.google.common.collect.Range;
 import java.math.BigInteger;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.external.ExternalScheme;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -37,31 +38,35 @@ public abstract class IntegerType extends ArithmeticType {
     public abstract int getIntegerRank();
 
     /**
-     * Get the potential minimum value of this integer type.
+     * Get the minimum value of this integer type in the given ABI.
      *
-     * @return A value that could be the minimum value of this integer type.
-     * @throws UnsupportedOperationException This method is invoked on type
-     *                              <code>char</code> or an enumerated type.
+     * @return The minimum value of this integer type in the given ABI.
+     * @throws UnsupportedOperationException This method is invoked on an
+     *                                       enumerated type.
      */
-    public abstract BigInteger getMinimumValue();
+    public final BigInteger getMinimumValue(ABI abi) {
+        return getRange(abi).lowerEndpoint();
+    }
 
     /**
-     * Get the potential maximum value of this integer type.
+     * Get the maximum value of this integer type in the given ABI.
      *
-     * @return A value that could be the maximum value of this integer type.
-     * @throws UnsupportedOperationException This method is invoked on type
-     *                              <code>char</code> or an enumerated type.
+     * @return The maximum value of this integer type in the given ABI.
+     * @throws UnsupportedOperationException This method is invoked on an
+     *                                       enumerated type.
      */
-    public abstract BigInteger getMaximumValue();
+    public final BigInteger getMaximumValue(ABI abi) {
+        return getRange(abi).upperEndpoint();
+    }
 
     /**
-     * Get the range of potential values of this integer type.
+     * Get the range of values of this integer type in the given ABI.
      *
-     * @return Range that defines values this integer type could have.
-     * @throws UnsupportedOperationException This method is invoked on type
-     *                              <code>char</code> or an enumerated type.
+     * @return Range that defines values of this integer type in the given ABI.
+     * @throws UnsupportedOperationException This method is invoked on type an
+     *                                       enumerated type.
      */
-    public abstract Range<BigInteger> getRange();
+    public abstract Range<BigInteger> getRange(ABI abi);
 
     @Override
     public final IntegerType promote() {

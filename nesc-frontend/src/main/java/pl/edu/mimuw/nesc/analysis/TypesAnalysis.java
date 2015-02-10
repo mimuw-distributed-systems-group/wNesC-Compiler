@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.analysis;
 
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;
 import pl.edu.mimuw.nesc.astutil.Interval;
@@ -173,7 +174,8 @@ public final class TypesAnalysis {
     public static Optional<Type> resolveType(Environment environment,
             List<TypeElement> typeElements, Optional<Declarator> declarator,
             ErrorHelper errorHelper, Location apxStartLoc, Location apxEndLoc,
-            SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer) {
+            SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer,
+            ABI abi) {
 
         final Optional<Type> maybeBaseType = resolveBaseType(environment,
                 typeElements, false, errorHelper, apxStartLoc, apxEndLoc,
@@ -181,7 +183,7 @@ public final class TypesAnalysis {
 
         return   maybeBaseType.isPresent() && declarator.isPresent()
                ? resolveDeclaratorType(declarator.get(), environment,
-                        errorHelper, maybeBaseType.get())
+                        errorHelper, maybeBaseType.get(), abi)
                : maybeBaseType;
     }
 
@@ -199,16 +201,18 @@ public final class TypesAnalysis {
      * @throws NullPointerException One of the arguments is null.
      */
     public static Optional<Type> resolveDeclaratorType(Declarator declarator,
-                Environment environment, ErrorHelper errorHelper, Type baseType) {
+                Environment environment, ErrorHelper errorHelper, Type baseType,
+                ABI abi) {
         // Validate arguments
         checkNotNull(declarator, "declarator cannot be null");
         checkNotNull(environment, "environment cannot be null");
         checkNotNull(errorHelper, "error helper cannot be null");
         checkNotNull(baseType, "base type cannot be null");
+        checkNotNull(abi, "ABI cannot be null");
 
         // Resolve the type
         final DeclaratorTypeVisitor visitor = new DeclaratorTypeVisitor(baseType,
-                environment, errorHelper);
+                environment, abi, errorHelper);
         declarator.accept(visitor, null);
         return visitor.get();
     }
@@ -912,6 +916,11 @@ public final class TypesAnalysis {
         private final Environment environment;
 
         /**
+         * ABI of the target platform.
+         */
+        private final ABI abi;
+
+        /**
          * Object that will be notified about detected errors.
          */
         private final ErrorHelper errorHelper;
@@ -934,9 +943,10 @@ public final class TypesAnalysis {
         private Type accumulatedType;
 
         private DeclaratorTypeVisitor(Type baseType, Environment environment,
-                ErrorHelper errorHelper) {
+                ABI abi, ErrorHelper errorHelper) {
             this.accumulatedType = baseType;
             this.environment = environment;
+            this.abi = abi;
             this.errorHelper = errorHelper;
             this.validityVisitor = new TypeValidityVisitor(errorHelper);
         }
@@ -967,7 +977,8 @@ public final class TypesAnalysis {
         public Void visitArrayDeclarator(ArrayDeclarator declarator, Void v) {
             final Optional<Expression> arraySizeExpr = declarator.getSize();
             if (arraySizeExpr.isPresent()) {
-                FullExpressionsAnalysis.analyze(arraySizeExpr.get(), environment, errorHelper);
+                FullExpressionsAnalysis.analyze(arraySizeExpr.get(),
+                        environment, abi, errorHelper);
             }
 
             accumulatedType = new ArrayType(accumulatedType, declarator.getSize());

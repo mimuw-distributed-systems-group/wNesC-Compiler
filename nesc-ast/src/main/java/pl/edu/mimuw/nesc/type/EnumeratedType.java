@@ -4,6 +4,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import java.math.BigInteger;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.EnumDeclaration;
@@ -85,17 +86,7 @@ public final class EnumeratedType extends IntegerType {
     }
 
     @Override
-    public final BigInteger getMinimumValue() {
-        throw new UnsupportedOperationException("getting the minimum value is unsupported for an enumerated type");
-    }
-
-    @Override
-    public final BigInteger getMaximumValue() {
-        throw new UnsupportedOperationException("getting the maximum value is unsupported for an enumerated type");
-    }
-
-    @Override
-    public final Range<BigInteger> getRange() {
+    public final Range<BigInteger> getRange(ABI abi) {
         throw new UnsupportedOperationException("getting the range of values is unsupported for an enumerated type");
     }
 

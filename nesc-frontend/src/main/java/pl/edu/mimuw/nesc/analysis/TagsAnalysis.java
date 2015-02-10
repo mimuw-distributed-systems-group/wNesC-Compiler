@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.analysis;
 
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.StructSemantics;
@@ -74,7 +75,7 @@ public final class TagsAnalysis {
      * and is available with its <code>getDeclaration</code> method.
      */
     public static void makeFieldDeclaration(FieldDecl fieldDecl, Optional<Type> maybeBaseType,
-            Environment environment, ErrorHelper errorHelper) {
+            Environment environment, ABI abi, ErrorHelper errorHelper) {
         final Optional<Declarator> maybeDeclarator = fieldDecl.getDeclarator();
         final Optional<Expression> maybeBitField = fieldDecl.getBitfield();
 
@@ -87,7 +88,7 @@ public final class TagsAnalysis {
 
             if (maybeBaseType.isPresent()) {
                 fullType = resolveDeclaratorType(declarator, environment, errorHelper,
-                        maybeBaseType.get());
+                        maybeBaseType.get(), abi);
             }
         }
 

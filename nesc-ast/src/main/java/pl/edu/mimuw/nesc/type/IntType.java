@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.type;
 import com.google.common.base.Optional;
 import com.google.common.collect.Range;
 import java.math.BigInteger;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.external.ExternalScheme;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -14,9 +15,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public final class IntType extends SignedIntegerType {
     public static final int INTEGER_RANK = 15;
-    public static final BigInteger MIN_VALUE = BigInteger.valueOf(-32767L);
-    public static final BigInteger MAX_VALUE = BigInteger.valueOf(32767L);
-    public static final Range<BigInteger> RANGE = Range.closed(MIN_VALUE, MAX_VALUE);
 
     public IntType(boolean constQualified, boolean volatileQualified, Optional<ExternalScheme> externalScheme) {
         super(constQualified, volatileQualified, externalScheme);
@@ -64,18 +62,8 @@ public final class IntType extends SignedIntegerType {
     }
 
     @Override
-    public final BigInteger getMinimumValue() {
-        return MIN_VALUE;
-    }
-
-    @Override
-    public final BigInteger getMaximumValue() {
-        return MAX_VALUE;
-    }
-
-    @Override
-    public final Range<BigInteger> getRange() {
-        return RANGE;
+    public final Range<BigInteger> getRange(ABI abi) {
+        return abi.getInt().getSignedRange();
     }
 
     @Override

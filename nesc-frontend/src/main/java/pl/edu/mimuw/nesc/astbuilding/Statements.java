@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.astbuilding;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;
@@ -29,9 +30,10 @@ public final class Statements extends AstBuildingBase {
     public Statements(NescEntityEnvironment nescEnvironment,
                       ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
                       ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
-                      SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer) {
+                      SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer,
+                      ABI abi) {
         super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder,
-                semanticListener, attributeAnalyzer);
+                semanticListener, attributeAnalyzer, abi);
     }
 
     public ErrorStmt makeErrorStmt() {
@@ -40,7 +42,7 @@ public final class Statements extends AstBuildingBase {
 
     public ReturnStmt makeReturn(Environment environment, Location startLocation, Location endLocation,
             Expression expression) {
-        FullExpressionsAnalysis.analyze(expression, environment, errorHelper);
+        FullExpressionsAnalysis.analyze(expression, environment, abi, errorHelper);
         final ReturnStmt returnStmt = new ReturnStmt(startLocation, Optional.of(expression));
         returnStmt.setEndLocation(endLocation);
         return returnStmt;

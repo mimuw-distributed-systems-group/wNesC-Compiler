@@ -9,6 +9,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import org.apache.log4j.Logger;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.ast.IntegerCstKind;
 import pl.edu.mimuw.nesc.ast.IntegerCstSuffix;
 import pl.edu.mimuw.nesc.ast.NescCallKind;
@@ -38,21 +39,6 @@ import static pl.edu.mimuw.nesc.problem.issue.InvalidParameterTypeError.Paramete
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public abstract class ExpressionsAnalysis extends ExceptionVisitor<Optional<ExprData>, Void> {
-    /**
-     * Logger for this class.
-     */
-    private static final Logger LOG = Logger.getLogger(ExpressionsAnalysis.class);
-
-    /**
-     * Type that is used as <code>size_t</code> type.
-     */
-    protected static final UnsignedIntegerType TYPE_SIZE_T = new UnsignedLongType();
-
-    /**
-     * Type that is used as <code>ptrdiff_t</code> type.
-     */
-    protected static final SignedIntegerType TYPE_PTRDIFF_T = new LongType();
-
     /**
      * Types of decimal constants for their suffixes.
      */
@@ -126,11 +112,17 @@ public abstract class ExpressionsAnalysis extends ExceptionVisitor<Optional<Expr
     }
 
     /**
+     * ABI of the target platform.
+     */
+    protected final ABI abi;
+
+    /**
      * Object that will be notified about detected problems.
      */
     protected final ErrorHelper errorHelper;
 
-    protected ExpressionsAnalysis(ErrorHelper errorHelper) {
+    protected ExpressionsAnalysis(ABI abi, ErrorHelper errorHelper) {
+        this.abi = abi;
         this.errorHelper = errorHelper;
     }
 
@@ -233,7 +225,7 @@ public abstract class ExpressionsAnalysis extends ExceptionVisitor<Optional<Expr
 
             if (refType1.isComplete() && refType1.isObjectType() && refType2.isComplete()
                     && refType2.isObjectType() && refType1.isCompatibleWith(refType2)) {
-                resultType = Optional.of(TYPE_PTRDIFF_T);
+                resultType = Optional.of(TypeUtils.newIntegerType(this.abi.getPtrdiffT()));
             }
         } else if (cr.leftType().isPointerType() && cr.rightType().isGeneralizedIntegerType()) {
 
@@ -852,7 +844,7 @@ public abstract class ExpressionsAnalysis extends ExceptionVisitor<Optional<Expr
             final ImmutableList<IntegerType> typesList = map.get(expr.getSuffix());
 
             for (IntegerType possibleType : typesList) {
-                if (possibleType.getRange().contains(value.get())) {
+                if (possibleType.getRange(this.abi).contains(value.get())) {
                     type = Optional.of(possibleType);
                     break;
                 }
@@ -1298,7 +1290,7 @@ public abstract class ExpressionsAnalysis extends ExceptionVisitor<Optional<Expr
         }
 
         final ExprData result = ExprData.builder()
-                .type(TYPE_SIZE_T)
+                .type(TypeUtils.newIntegerType(this.abi.getSizeT()))
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
@@ -1329,7 +1321,7 @@ public abstract class ExpressionsAnalysis extends ExceptionVisitor<Optional<Expr
         }
 
         final ExprData result = ExprData.builder()
-                .type(TYPE_SIZE_T)
+                .type(TypeUtils.newIntegerType(this.abi.getSizeT()))
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)

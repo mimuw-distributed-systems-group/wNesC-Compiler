@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.analysis.expressions;
 
 import com.google.common.base.Optional;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.ast.gen.ComponentDeref;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.FunctionCall;
@@ -37,19 +38,20 @@ public final class ShortenedExpressionsAnalysis extends ExpressionsAnalysis {
      * @throws NullPointerException One of the arguments is <code>null</code>.
      * @throws IllegalArgumentException The given expression has errors.
      */
-    public static ExprData analyze(Expression expr, ErrorHelper errorHelper) {
+    public static ExprData analyze(Expression expr, ABI abi, ErrorHelper errorHelper) {
         checkNotNull(expr, "expression cannot be null");
+        checkNotNull(abi, "ABI cannot be null");
         checkNotNull(errorHelper, "error helper cannot be null");
 
-        final ExpressionsAnalysis analysisVisitor = new ShortenedExpressionsAnalysis(errorHelper);
+        final ExpressionsAnalysis analysisVisitor = new ShortenedExpressionsAnalysis(abi, errorHelper);
         final Optional<ExprData> result = expr.accept(analysisVisitor, null);
         checkArgument(result.isPresent(), "the analysis of the expression failed");
 
         return result.get();
     }
 
-    private ShortenedExpressionsAnalysis(ErrorHelper errorHelper) {
-        super(errorHelper);
+    private ShortenedExpressionsAnalysis(ABI abi, ErrorHelper errorHelper) {
+        super(abi, errorHelper);
     }
 
     @Override

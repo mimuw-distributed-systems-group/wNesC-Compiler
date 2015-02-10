@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.astbuilding.nesc;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
@@ -45,9 +46,10 @@ public final class NescDeclarations extends AstBuildingBase {
     public NescDeclarations(NescEntityEnvironment nescEnvironment,
                             ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
                             ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
-                            SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer) {
+                            SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer,
+                            ABI abi) {
         super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder,
-                semanticListener, attributeAnalyzer);
+                semanticListener, attributeAnalyzer, abi);
     }
 
     /**
@@ -197,7 +199,7 @@ public final class NescDeclarations extends AstBuildingBase {
             } else {
                 variableDecl.setType(resolveType(environment, elements, declarator,
                         errorHelper, startLocation, endLocation, semanticListener,
-                        attributeAnalyzer));
+                        attributeAnalyzer, abi));
                 builder = VariableDeclaration.builder().isGenericParameter(true)
                             .uniqueName(uniqueName)
                             .type(variableDecl.getType().orNull());

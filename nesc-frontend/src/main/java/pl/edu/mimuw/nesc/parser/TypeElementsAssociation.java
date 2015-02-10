@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.parser;
 
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.Location;
@@ -70,7 +71,8 @@ public final class TypeElementsAssociation {
     public Optional<Type> resolveType(Optional<Declarator> maybeDeclarator,
             Environment environment, ErrorHelper errorHelper,
             Location apxStartLoc, Location apxEndLoc,
-            SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer) {
+            SemanticListener semanticListener,
+            AttributeAnalyzer attributeAnalyzer, ABI abi) {
 
         final Optional<Type> maybeType = getType(environment, false, errorHelper,
                                                  apxStartLoc, apxEndLoc, semanticListener,
@@ -78,7 +80,7 @@ public final class TypeElementsAssociation {
 
         return   maybeType.isPresent() && maybeDeclarator.isPresent()
                ? resolveDeclaratorType(maybeDeclarator.get(), environment,
-                        errorHelper, maybeType.get())
+                        errorHelper, maybeType.get(), abi)
                : maybeType;
     }
 

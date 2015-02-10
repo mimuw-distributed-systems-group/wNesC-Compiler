@@ -5,6 +5,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.LabelAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
@@ -100,9 +101,10 @@ public final class Declarations extends AstBuildingBase {
     public Declarations(NescEntityEnvironment nescEnvironment,
                         ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
                         ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
-                        SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer) {
+                        SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer,
+                        ABI abi) {
         super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder,
-                semanticListener, attributeAnalyzer);
+                semanticListener, attributeAnalyzer, abi);
     }
 
     public ErrorDecl makeErrorDecl() {
@@ -133,7 +135,7 @@ public final class Declarations extends AstBuildingBase {
         // Resolve and save type
         final Optional<Type> declaratorType = association.resolveType(Optional.of(declarator),
                 environment, errorHelper, variableDecl.getLocation(),
-                variableDecl.getLocation(), semanticListener, attributeAnalyzer);
+                variableDecl.getLocation(), semanticListener, attributeAnalyzer, abi);
         final Optional<Type> type = TypeElementUtils.isTypedef(association.getTypeElements())
                 ? Optional.<Type>of(TypeDefinitionType.getInstance())
                 : declaratorType;
@@ -164,7 +166,7 @@ public final class Declarations extends AstBuildingBase {
                                    Optional<Expression> initializer) {
         if (initializer.isPresent()) {
             if (!IsInitializerPredicate.PREDICATE.apply(initializer.get())) {
-                FullExpressionsAnalysis.analyze(initializer.get(), environment, errorHelper);
+                FullExpressionsAnalysis.analyze(initializer.get(), environment, abi, errorHelper);
             }
             final Location endLocation = initializer.get().getEndLocation();
             declaration.setEndLocation(endLocation);
@@ -237,7 +239,8 @@ public final class Declarations extends AstBuildingBase {
         final FunctionDecl functionDecl = new FunctionDecl(startLocation, declarator, modifiers, attributes,
                 null, isNested);
         final Optional<Type> maybeType = resolveType(environment, modifiers, Optional.of(declarator),
-                errorHelper, startLocation, startLocation, semanticListener, attributeAnalyzer);
+                errorHelper, startLocation, startLocation, semanticListener, attributeAnalyzer,
+                abi);
         final SpecifiersSet specifiersSet = new SpecifiersSet(modifiers, errorHelper);
 
         final StartFunctionVisitor startVisitor = new StartFunctionVisitor(environment,
@@ -302,7 +305,8 @@ public final class Declarations extends AstBuildingBase {
 
         /* Resolve the type and adjust it if necessary. */
         final Optional<Type> declaratorType = resolveType(environment, elements, declarator,
-                errorHelper, varStartLocation, varEndLocation, semanticListener, attributeAnalyzer);
+                errorHelper, varStartLocation, varEndLocation, semanticListener,
+                attributeAnalyzer, abi);
         final Optional<Type> adjustedType = environment.getScopeType() == ScopeType.FUNCTION_PARAMETER
                 ? declaratorType.transform(DECAY_TRANSFORMATION)
                 : declaratorType;
@@ -428,7 +432,7 @@ public final class Declarations extends AstBuildingBase {
                                TypeElementsAssociation association, LinkedList<Attribute> attributes) {
         // Analyze the bit-field width expression
         if (bitfield.isPresent()) {
-            FullExpressionsAnalysis.analyze(bitfield.get(), environment, errorHelper);
+            FullExpressionsAnalysis.analyze(bitfield.get(), environment, abi, errorHelper);
         }
 
         // Resolve the base type for this field if it has not been already done
@@ -444,7 +448,7 @@ public final class Declarations extends AstBuildingBase {
         endLocation = getEndLocation(endLocation, attributes);
         final FieldDecl decl = new FieldDecl(startLocation, declarator, attributes, bitfield);
         decl.setEndLocation(endLocation);
-        makeFieldDeclaration(decl, maybeBaseType, environment, errorHelper);
+        makeFieldDeclaration(decl, maybeBaseType, environment, abi, errorHelper);
 
         return decl;
     }
@@ -452,7 +456,7 @@ public final class Declarations extends AstBuildingBase {
     public Enumerator makeEnumerator(Environment environment, Location startLocation, Location endLocation, String id,
                                      Optional<Expression> value) {
         if (value.isPresent()) {
-            FullExpressionsAnalysis.analyze(value.get(), environment, errorHelper);
+            FullExpressionsAnalysis.analyze(value.get(), environment, abi, errorHelper);
         }
 
         final Enumerator enumerator = new Enumerator(startLocation, id, value);
@@ -497,7 +501,8 @@ public final class Declarations extends AstBuildingBase {
 
         // Resolve the type
         type.setType(resolveType(environment, elements, declarator, errorHelper,
-                                 startLocation, endLocation, semanticListener, attributeAnalyzer));
+                                 startLocation, endLocation, semanticListener,
+                                 attributeAnalyzer, abi));
 
         return type;
     }

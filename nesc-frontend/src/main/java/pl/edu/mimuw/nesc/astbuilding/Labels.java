@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.astbuilding;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.gen.IdLabel;
@@ -24,9 +25,10 @@ public class Labels extends AstBuildingBase {
                   ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
                   ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
                   SemanticListener semanticListener,
-                  AttributeAnalyzer attributeAnalyzer) {
+                  AttributeAnalyzer attributeAnalyzer,
+                  ABI abi) {
         super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder,
-                semanticListener, attributeAnalyzer);
+                semanticListener, attributeAnalyzer, abi);
     }
 
     public void defineLabel(Environment environment, IdLabel label, boolean insideAtomicArea) {

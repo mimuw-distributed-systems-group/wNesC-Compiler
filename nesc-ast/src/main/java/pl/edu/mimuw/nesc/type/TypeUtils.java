@@ -64,6 +64,60 @@ public final class TypeUtils {
     }
 
     /**
+     * Create a new instance of an unqualified signed integer type that is
+     * depicted by the given value of enum type.
+     *
+     * @param type Value that indicates the integer type.
+     * @return Newly created instance of the signed integer type indicated by
+     *         given parameter.
+     */
+    public static SignedIntegerType newIntegerType(pl.edu.mimuw.nesc.abi.typedata.SignedIntegerType type) {
+        checkNotNull(type, "type cannot be null");
+
+        switch (type) {
+            case SIGNED_CHAR:
+                return new SignedCharType();
+            case SHORT:
+                return new ShortType();
+            case INT:
+                return new IntType();
+            case LONG:
+                return new LongType();
+            case LONG_LONG:
+                return new LongLongType();
+            default:
+                throw new RuntimeException("unexpected signed integer type '" + type + "'");
+        }
+    }
+
+    /**
+     * Create a new instance of an unqualified unsigned integer type that is
+     * depicted by the given value of enum type.
+     *
+     * @param type Value that indicates the integer type.
+     * @return Newly created instance of the unsigned integer type indicated by
+     *         given parameter.
+     */
+    public static UnsignedIntegerType newIntegerType(pl.edu.mimuw.nesc.abi.typedata.UnsignedIntegerType type) {
+        checkNotNull(type, "type cannot be null");
+
+        switch (type) {
+            case UNSIGNED_CHAR:
+                return new UnsignedCharType();
+            case UNSIGNED_SHORT:
+                return new UnsignedShortType();
+            case UNSIGNED_INT:
+                return new UnsignedIntType();
+            case UNSIGNED_LONG:
+                return new UnsignedLongType();
+            case UNSIGNED_LONG_LONG:
+                return new UnsignedLongLongType();
+            default:
+                throw new RuntimeException("unexpected unsigned integer type '" + type + "'");
+        }
+    }
+
+    /**
      * Private constructor to prevent this class from being instantiated.
      */
     private TypeUtils() {

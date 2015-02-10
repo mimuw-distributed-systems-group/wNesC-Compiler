@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import org.apache.log4j.Logger;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.ast.gen.ComponentDeref;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.FieldIdentifier;
@@ -43,6 +44,7 @@ import pl.edu.mimuw.nesc.type.FieldTagType;
 import pl.edu.mimuw.nesc.type.FunctionType;
 import pl.edu.mimuw.nesc.type.IntType;
 import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.type.TypeUtils;
 import pl.edu.mimuw.nesc.type.UnsignedCharType;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -75,12 +77,14 @@ public final class FullExpressionsAnalysis extends ExpressionsAnalysis {
      *         only if the expression is valid, otherwise it is absent.
      */
     public static Optional<ExprData> analyze(Expression expr, Environment environment,
-            ErrorHelper errorHelper) {
+            ABI abi, ErrorHelper errorHelper) {
         checkNotNull(expr, "expression cannot be null");
         checkNotNull(environment, "environment cannot be null");
+        checkNotNull(abi, "ABI cannot be null");
         checkNotNull(errorHelper, "error helper cannot be null");
 
-        final ExpressionsAnalysis analysisVisitor = new FullExpressionsAnalysis(environment, errorHelper);
+        final ExpressionsAnalysis analysisVisitor = new FullExpressionsAnalysis(
+                environment, abi, errorHelper);
         return expr.accept(analysisVisitor, null);
     }
 
@@ -88,10 +92,11 @@ public final class FullExpressionsAnalysis extends ExpressionsAnalysis {
      * Private constructor to prevent this class from being instantiated.
      *
      * @param environment Environment of the analyzed expression.
+     * @param abi ABI with necessary information.
      * @param errorHelper Object that will be notified about detected problems.
      */
-    private FullExpressionsAnalysis(Environment environment, ErrorHelper errorHelper) {
-        super(errorHelper);
+    private FullExpressionsAnalysis(Environment environment, ABI abi, ErrorHelper errorHelper) {
+        super(abi, errorHelper);
         this.environment = environment;
     }
 
@@ -221,7 +226,7 @@ public final class FullExpressionsAnalysis extends ExpressionsAnalysis {
         }
 
         final ExprData result = ExprData.builder()
-                .type(TYPE_SIZE_T)
+                .type(TypeUtils.newIntegerType(this.abi.getSizeT()))
                 .isLvalue(false)
                 .isBitField(false)
                 .isNullPointerConstant(false)
