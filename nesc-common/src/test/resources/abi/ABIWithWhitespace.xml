@@ -199,27 +199,21 @@
             </alignment>
         
         </pointer-type>        <size_t>
-            <size>   8
-            
-            </size>
-            <alignment>   16         
-            </alignment>
-            <minimum-value>   0    </minimum-value>
-            <maximum-value>         18446744073709551615</maximum-value>
+        
+        <alias-of>
+            unsigned        
+                 long    long
+        </alias-of>
+    
         </size_t>
         
         <ptrdiff_t>
-            <size>8     
-            </size>
-            <alignment>16
-            
-            </alignment>
-            <minimum-value>
+            <alias-of>
                 
-                -9223372036854775808   </minimum-value>
-            <maximum-value>
+                signed
+                     char
                 
-                9223372036854775807</maximum-value>
+            </alias-of>
         </ptrdiff_t>
         
         

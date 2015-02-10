@@ -8,6 +8,8 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPathExpressionException;
 import org.junit.Test;
 import org.xml.sax.SAXException;
+import pl.edu.mimuw.nesc.abi.typedata.SignedIntegerType;
+import pl.edu.mimuw.nesc.abi.typedata.UnsignedIntegerType;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.junit.Assert.*;
@@ -60,15 +62,7 @@ public class ABITest {
 
         checkFloatingTypes(simpleAbi, 4, 4, 8, 8, 16, 16);
         checkPointerType(simpleAbi, 8, 8);
-
-        checkSpecialTypes(
-                simpleAbi,
-                8, 8,
-                Range.closed(BigInteger.ZERO, BigInteger.valueOf(2L).pow(64).subtract(BigInteger.ONE)),
-                8, 8,
-                Range.closed(BigInteger.valueOf(-9223372036854775808L), BigInteger.valueOf(9223372036854775807L))
-        );
-
+        checkSpecialTypes(simpleAbi, UnsignedIntegerType.UNSIGNED_LONG, SignedIntegerType.LONG);
         checkFieldTagType(simpleAbi, 1, true, 8);
     }
 
@@ -114,15 +108,7 @@ public class ABITest {
 
         checkFloatingTypes(abiWithWhitespace, 4, 8, 8, 16, 16, 32);
         checkPointerType(abiWithWhitespace, 8, 16);
-
-        checkSpecialTypes(
-                abiWithWhitespace,
-                8, 16,
-                Range.closed(BigInteger.ZERO, BigInteger.valueOf(2L).pow(64).subtract(BigInteger.ONE)),
-                8, 16,
-                Range.closed(BigInteger.valueOf(-9223372036854775808L), BigInteger.valueOf(9223372036854775807L))
-        );
-
+        checkSpecialTypes(abiWithWhitespace, UnsignedIntegerType.UNSIGNED_LONG_LONG, SignedIntegerType.SIGNED_CHAR);
         checkFieldTagType(abiWithWhitespace, 2, false, 16);
     }
 
@@ -215,18 +201,9 @@ public class ABITest {
         assertEquals(alignPointer, abi.getPointerType().getAlignment());
     }
 
-    private void checkSpecialTypes(ABI abi, int sizeSizeT, int alignSizeT,
-            Range<BigInteger> rangeSizeT, int sizePtrdiffT, int alignPtrdiffT,
-            Range<BigInteger> rangePtrdiffT) {
-        // size_t
-        assertEquals(sizeSizeT, abi.getSizeT().getSize());
-        assertEquals(alignSizeT, abi.getSizeT().getAlignment());
-        assertEquals(rangeSizeT, abi.getSizeT().getRange());
-
-        // ptrdiff_t
-        assertEquals(sizePtrdiffT, abi.getPtrdiffT().getSize());
-        assertEquals(alignPtrdiffT, abi.getPtrdiffT().getAlignment());
-        assertEquals(rangePtrdiffT, abi.getPtrdiffT().getRange());
+    private void checkSpecialTypes(ABI abi, UnsignedIntegerType sizeT, SignedIntegerType ptrdiffT) {
+        assertEquals(sizeT, abi.getSizeT());
+        assertEquals(ptrdiffT, abi.getPtrdiffT());
     }
 
     private void checkFieldTagType(ABI abi, int minimumAlignment, boolean bitFieldTypeMatters,

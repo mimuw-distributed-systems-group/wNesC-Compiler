@@ -30,8 +30,8 @@
             <element name='double' type='tns:TypeTypeDescriptor'/>
             <element name='long-double' type='tns:TypeTypeDescriptor'/>
             <element name='pointer-type' type='tns:TypeTypeDescriptor'/>
-            <element name='size_t' type='tns:TypeUnsignedIntegerTypeDescriptor'/>
-            <element name='ptrdiff_t' type='tns:TypeSignedIntegerTypeDescriptor'/>
+            <element name='size_t' type='tns:TypeSizeTDescriptor'/>
+            <element name='ptrdiff_t' type='tns:TypePtrdiffTDescriptor'/>
             <element name='struct-or-union' type='tns:TypeStructOrUnionTypeDescriptor'/>
         </sequence>
     </complexType>
@@ -87,20 +87,16 @@
         </complexContent>
     </complexType>
 
-    <complexType name='TypeSignedIntegerTypeDescriptor'>
-        <complexContent>
-            <extension base='tns:TypeTypeDescriptor'>
-                <group ref='tns:GroupRange'/>
-            </extension>
-        </complexContent>
+    <complexType name='TypePtrdiffTDescriptor'>
+        <sequence>
+            <element name='alias-of' type='tns:TypeSignedIntegerType'/>
+        </sequence>
     </complexType>
 
-    <complexType name='TypeUnsignedIntegerTypeDescriptor'>
-        <complexContent>
-            <extension base='tns:TypeTypeDescriptor'>
-                <group ref='tns:GroupUnsignedRange'/>
-            </extension>
-        </complexContent>
+    <complexType name='TypeSizeTDescriptor'>
+        <sequence>
+            <element name='alias-of' type='tns:TypeUnsignedIntegerType'/>
+        </sequence>
     </complexType>
 
     <complexType name='TypeStructOrUnionTypeDescriptor'>
@@ -132,6 +128,36 @@
         <restriction base='integer'>
             <minInclusive value='1'/>
             <maxInclusive value='8192'/>
+        </restriction>
+    </simpleType>
+
+    <simpleType name='TypeUnsignedIntegerType'>
+        <annotation>
+            <documentation xml:lang='en'>
+                One of the standard unsigned integer types.
+            </documentation>
+        </annotation>
+        <restriction base='token'>
+            <enumeration value='unsigned char'/>
+            <enumeration value='unsigned short'/>
+            <enumeration value='unsigned int'/>
+            <enumeration value='unsigned long'/>
+            <enumeration value='unsigned long long'/>
+        </restriction>
+    </simpleType>
+
+    <simpleType name='TypeSignedIntegerType'>
+        <annotation>
+            <documentation xml:lang='en'>
+                One of the standard signed integer types.
+            </documentation>
+        </annotation>
+        <restriction base='token'>
+            <enumeration value='signed char'/>
+            <enumeration value='short'/>
+            <enumeration value='int'/>
+            <enumeration value='long'/>
+            <enumeration value='long long'/>
         </restriction>
     </simpleType>
 

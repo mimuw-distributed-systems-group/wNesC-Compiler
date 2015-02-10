@@ -32,9 +32,10 @@ import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 import pl.edu.mimuw.nesc.abi.typedata.CharData;
 import pl.edu.mimuw.nesc.abi.typedata.FieldTagTypeData;
-import pl.edu.mimuw.nesc.abi.typedata.IntegerTypeData;
+import pl.edu.mimuw.nesc.abi.typedata.SignedIntegerType;
 import pl.edu.mimuw.nesc.abi.typedata.StandardIntegerTypeData;
 import pl.edu.mimuw.nesc.abi.typedata.TypeData;
+import pl.edu.mimuw.nesc.abi.typedata.UnsignedIntegerType;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -53,6 +54,28 @@ public final class ABI {
     private static final String ABI_SCHEMA_FILENAME = "schemas/abi.xsd";
 
     /**
+     * Map for retrieving signed standard integer types.
+     */
+    private static final ImmutableMap<String, SignedIntegerType> SIGNED_TYPES_MAP = ImmutableMap.of(
+        "signed char", SignedIntegerType.SIGNED_CHAR,
+        "short", SignedIntegerType.SHORT,
+        "int", SignedIntegerType.INT,
+        "long", SignedIntegerType.LONG,
+        "long long", SignedIntegerType.LONG_LONG
+    );
+
+    /**
+     * Map for retrieving unsigned standard integer types.
+     */
+    private static final ImmutableMap<String, UnsignedIntegerType> UNSIGNED_TYPES_MAP = ImmutableMap.of(
+        "unsigned char", UnsignedIntegerType.UNSIGNED_CHAR,
+        "unsigned short", UnsignedIntegerType.UNSIGNED_SHORT,
+        "unsigned int", UnsignedIntegerType.UNSIGNED_INT,
+        "unsigned long", UnsignedIntegerType.UNSIGNED_LONG,
+        "unsigned long long", UnsignedIntegerType.UNSIGNED_LONG_LONG
+    );
+
+    /**
      * Endiannes of the target architecture.
      */
     private final Endianness endianness;
@@ -69,8 +92,8 @@ public final class ABI {
     private final TypeData typeDouble;
     private final TypeData typeLongDouble;
     private final TypeData typePointer;
-    private final IntegerTypeData typeSizeT;
-    private final IntegerTypeData typePtrdiffT;
+    private final UnsignedIntegerType typeSizeT;
+    private final SignedIntegerType typePtrdiffT;
     private final FieldTagTypeData typeFieldTag;
 
     /**
@@ -96,8 +119,8 @@ public final class ABI {
         this.typeDouble = builder.buildDoubleTypeData();
         this.typeLongDouble = builder.buildLongDoubleTypeData();
         this.typePointer = builder.buildPointerTypeData();
-        this.typeSizeT = builder.buildSizeTData();
-        this.typePtrdiffT = builder.buildPtrdiffTData();
+        this.typeSizeT = builder.buildSizeT();
+        this.typePtrdiffT = builder.buildPtrdiffT();
         this.typeFieldTag = builder.buildFieldTagTypeData();
     }
 
@@ -152,11 +175,11 @@ public final class ABI {
         return typePointer;
     }
 
-    public IntegerTypeData getSizeT() {
+    public UnsignedIntegerType getSizeT() {
         return typeSizeT;
     }
 
-    public IntegerTypeData getPtrdiffT() {
+    public SignedIntegerType getPtrdiffT() {
         return typePtrdiffT;
     }
 
@@ -280,12 +303,12 @@ public final class ABI {
             return retrieveTypeData("pointer-type");
         }
 
-        private IntegerTypeData buildSizeTData() throws XPathExpressionException {
-            return retrieveIntegerTypeData("size_t");
+        private UnsignedIntegerType buildSizeT() throws XPathExpressionException {
+            return retrieveUnsignedIntegerType("/abi:abi/abi:types/abi:size_t/abi:alias-of");
         }
 
-        private IntegerTypeData buildPtrdiffTData() throws XPathExpressionException {
-            return retrieveIntegerTypeData("ptrdiff_t");
+        private SignedIntegerType buildPtrdiffT() throws XPathExpressionException {
+            return retrieveSignedIntegerType("/abi:abi/abi:types/abi:ptrdiff_t/abi:alias-of");
         }
 
         private FieldTagTypeData buildFieldTagTypeData() throws XPathExpressionException {
@@ -296,20 +319,19 @@ public final class ABI {
             );
         }
 
-        private IntegerTypeData retrieveIntegerTypeData(String typeElementName) throws XPathExpressionException {
-            return new IntegerTypeData(
-                    retrieveInt(format("/abi:abi/abi:types/abi:%s/abi:size", typeElementName)),
-                    retrieveInt(format("/abi:abi/abi:types/abi:%s/abi:alignment", typeElementName)),
-                    retrieveUnboundedInteger(format("/abi:abi/abi:types/abi:%s/abi:minimum-value", typeElementName)),
-                    retrieveUnboundedInteger(format("/abi:abi/abi:types/abi:%s/abi:maximum-value", typeElementName))
-            );
-        }
-
         private TypeData retrieveTypeData(String typeElementName) throws XPathExpressionException {
             return new TypeData(
                     retrieveInt(format("/abi:abi/abi:types/abi:%s/abi:size", typeElementName)),
                     retrieveInt(format("/abi:abi/abi:types/abi:%s/abi:alignment", typeElementName))
             );
+        }
+
+        private SignedIntegerType retrieveSignedIntegerType(String path) throws XPathExpressionException {
+            return retrieveMappedValue(path, SIGNED_TYPES_MAP);
+        }
+
+        private UnsignedIntegerType retrieveUnsignedIntegerType(String path) throws XPathExpressionException {
+            return retrieveMappedValue(path, UNSIGNED_TYPES_MAP);
         }
 
         private StandardIntegerTypeData retrieveStandardIntegerTypeData(String typeElementName) throws XPathExpressionException {
@@ -335,6 +357,15 @@ public final class ABI {
                 default:
                     throw new RuntimeException("value '" + text + "' in an element of type 'boolean'");
             }
+        }
+
+        private <V> V retrieveMappedValue(String path, Map<String, V> values) throws XPathExpressionException {
+            final String text = retrieveText(path);
+            final Optional<V> value = Optional.fromNullable(values.get(text));
+            if (!value.isPresent()) {
+                throw new RuntimeException("value '" + text + "' not present in the map");
+            }
+            return value.get();
         }
 
         private int retrieveInt(String xpathExpr) throws XPathExpressionException {

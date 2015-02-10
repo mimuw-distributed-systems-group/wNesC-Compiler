@@ -88,17 +88,11 @@
         </pointer-type>
 
         <size_t>
-            <size>2</size>
-            <alignment>2</alignment>
-            <minimum-value>0</minimum-value>
-            <maximum-value>65535</maximum-value>
+            <alias-of>unsigned int</alias-of>
         </size_t>
 
         <ptrdiff_t>
-            <size>2</size>
-            <alignment>2</alignment>
-            <minimum-value>-32768</minimum-value>
-            <maximum-value>32767</maximum-value>
+            <alias-of>long</alias-of>
         </ptrdiff_t>
 
         <struct-or-union>
