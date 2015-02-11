@@ -132,6 +132,11 @@ public final class ArrayType extends DerivedType {
     }
 
     @Override
+    public final boolean isFullyKnown() {
+        return this.elementType.isFullyKnown();
+    }
+
+    @Override
     public final boolean isExternal() {
         return this.elementType.isExternal();
     }

@@ -306,6 +306,18 @@ public interface Type {
     boolean isComplete();
 
     /**
+     * Check if this type is not an unknown type and is not derived from such
+     * type. For all kinds of tag types, the return value is <code>true</code>.
+     *
+     * @return <code>true</code> if and only if this type is fully known,
+     *         i.e. it is not an unknown type and if it is an array, pointer or
+     *         function type, it is derived from fully known types.
+     * @throws UnsupportedOperationException The method is invoked on an
+     *                                       artificial type.
+     */
+    boolean isFullyKnown();
+
+    /**
      * @return Newly created object that represents the same type as this object
      *         but with given qualifiers added if necessary. If a type does not
      *         use a qualifier, the parameter related to it is ignored.

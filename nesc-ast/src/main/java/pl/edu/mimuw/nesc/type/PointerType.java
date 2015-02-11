@@ -152,6 +152,11 @@ public final class PointerType extends DerivedType {
     }
 
     @Override
+    public final boolean isFullyKnown() {
+        return this.referencedType.isFullyKnown();
+    }
+
+    @Override
     public final boolean isExternal() {
         return false;
     }

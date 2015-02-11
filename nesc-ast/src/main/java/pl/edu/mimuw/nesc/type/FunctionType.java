@@ -204,6 +204,21 @@ public final class FunctionType extends DerivedType {
     }
 
     @Override
+    public final boolean isFullyKnown() {
+        if (!this.returnType.isFullyKnown()) {
+            return false;
+        }
+
+        for (Optional<Type> argType : this.argumentsTypes) {
+            if (argType.isPresent() && !argType.get().isFullyKnown()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    @Override
     public final boolean isExternal() {
         return false;
     }

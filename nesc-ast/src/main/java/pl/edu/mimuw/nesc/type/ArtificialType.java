@@ -154,6 +154,11 @@ public abstract class ArtificialType implements Type {
     }
 
     @Override
+    public final boolean isFullyKnown() {
+        throw new UnsupportedOperationException("checking if an artificial type is fully known");
+    }
+
+    @Override
     public final boolean isExternal() {
         return false;
     }

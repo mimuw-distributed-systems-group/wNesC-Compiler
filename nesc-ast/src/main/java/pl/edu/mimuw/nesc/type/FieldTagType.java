@@ -132,6 +132,11 @@ public abstract class FieldTagType<D extends FieldTagDeclaration<?>> extends Der
     }
 
     @Override
+    public final boolean isFullyKnown() {
+        return true;
+    }
+
+    @Override
     public final boolean maybeExternal() {
         return false;
     }

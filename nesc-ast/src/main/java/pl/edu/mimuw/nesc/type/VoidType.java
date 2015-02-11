@@ -152,6 +152,11 @@ public final class VoidType extends AbstractType {
     }
 
     @Override
+    public final boolean isFullyKnown() {
+        return true;
+    }
+
+    @Override
     public <R, A> R accept(TypeVisitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
     }

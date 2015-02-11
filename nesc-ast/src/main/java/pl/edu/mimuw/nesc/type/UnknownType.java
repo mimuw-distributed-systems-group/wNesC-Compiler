@@ -133,6 +133,11 @@ public class UnknownType extends AbstractType {
     }
 
     @Override
+    public final boolean isFullyKnown() {
+        return false;
+    }
+
+    @Override
     public final boolean isObjectType() {
         return true;
     }

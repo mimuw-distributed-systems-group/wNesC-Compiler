@@ -132,4 +132,9 @@ public abstract class ArithmeticType extends AbstractType {
     public final boolean maybeExternal() {
         return false;
     }
+
+    @Override
+    public final boolean isFullyKnown() {
+        return true;
+    }
 }
