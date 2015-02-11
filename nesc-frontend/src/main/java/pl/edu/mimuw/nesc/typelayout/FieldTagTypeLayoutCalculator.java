@@ -94,9 +94,9 @@ public final class FieldTagTypeLayoutCalculator implements TypeLayoutCalculator 
 
         sizeInBits = VariousUtils.alignNumber(sizeInBits, alignmentInBits);
 
-        checkState(alignmentInBits % BITS_PER_BYTE != 0,
+        checkState(alignmentInBits % BITS_PER_BYTE == 0,
                 "alignment of the field tag type is not a multiple of a byte");
-        checkState(sizeInBits % BITS_PER_BYTE != 0,
+        checkState(sizeInBits % BITS_PER_BYTE == 0,
                 "size of the field tag type is not a multiple of a byte");
 
         this.calculatedLayout = Optional.of(new TypeLayout(sizeInBits / BITS_PER_BYTE,
@@ -226,6 +226,10 @@ public final class FieldTagTypeLayoutCalculator implements TypeLayoutCalculator 
             this.startSizeInBits = startSizeInBits;
             this.startAlignmentInBits = startAlignmentInBits;
             this.fieldTypeLayout = fieldTypeLayout;
+
+            this.newOffsetInBits = Optional.absent();
+            this.newSizeInBits = Optional.absent();
+            this.newAlignmentInBits = Optional.absent();
         }
 
         protected void align(int alignmentInBits) {

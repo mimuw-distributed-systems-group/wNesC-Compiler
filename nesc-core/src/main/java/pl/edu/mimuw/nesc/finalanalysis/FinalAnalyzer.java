@@ -184,7 +184,7 @@ public class FinalAnalyzer {
 
             for (ConstantDeclaration constant : declaration.getConstants().get()) {
                 if (constant.getEnumerator().getValue().isPresent()) {
-                    constant.getEnumerator().getValue().get().accept(tagCheckingVisitor, null);
+                    constant.getEnumerator().getValue().get().traverse(tagCheckingVisitor, null);
                 }
             }
 
@@ -235,7 +235,7 @@ public class FinalAnalyzer {
         private boolean checkBitField(FieldDeclaration fieldDeclaration, List<ErroneousIssue> errors) {
             final TagCheckingVisitor tagCheckingVisitor = new TagCheckingVisitor();
             final Expression widthExpr = fieldDeclaration.getAstField().getBitfield().get();
-            widthExpr.accept(tagCheckingVisitor, null);
+            widthExpr.traverse(tagCheckingVisitor, null);
 
             if (tagCheckingVisitor.errorFlag) {
                 return true;
