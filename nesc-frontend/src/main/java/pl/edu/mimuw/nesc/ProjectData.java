@@ -4,6 +4,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.List;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.common.SchedulerSpecification;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.problem.NescIssue;
@@ -31,6 +32,7 @@ public final class ProjectData {
     private final NameMangler nameMangler;
     private final Optional<SchedulerSpecification> schedulerSpecification;
     private final String outputFile;
+    private final ABI abi;
 
     private ProjectData(Builder builder) {
         builder.buildMaps();
@@ -44,6 +46,7 @@ public final class ProjectData {
         this.nameMangler = builder.nameMangler;
         this.schedulerSpecification = builder.schedulerSpecification;
         this.outputFile = builder.outputFile;
+        this.abi = builder.abi;
     }
 
     public ImmutableMap<String, FileData> getFileDatas() {
@@ -131,6 +134,15 @@ public final class ProjectData {
     }
 
     /**
+     * <p>Get ABI of the project.</p>
+     *
+     * @return ABI used in this project.
+     */
+    public ABI getABI() {
+        return abi;
+    }
+
+    /**
      * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
@@ -148,6 +160,7 @@ public final class ProjectData {
         private NameMangler nameMangler;
         private Optional<SchedulerSpecification> schedulerSpecification = Optional.absent();
         private String outputFile;
+        private ABI abi;
 
         public Builder() {
             this.fileDataBuilder = ImmutableMap.builder();
@@ -194,6 +207,11 @@ public final class ProjectData {
 
         public Builder outputFile(String outputFile) {
             this.outputFile = outputFile;
+            return this;
+        }
+
+        public Builder abi(ABI abi) {
+            this.abi = abi;
             return this;
         }
 

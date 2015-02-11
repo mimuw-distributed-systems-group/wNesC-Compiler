@@ -109,6 +109,7 @@ public final class Issues {
         INVALID_EXTERNAL_BASE_ATTRIBUTE(78),
         INVALID_EXTERNAL_TAG_FIELD(79),
         INVALID_OFFSETOF_EXPR(80),
+        INVALID_BITFIELD_DECLARATION(81),
         ;
 
         private final int codeNumber;

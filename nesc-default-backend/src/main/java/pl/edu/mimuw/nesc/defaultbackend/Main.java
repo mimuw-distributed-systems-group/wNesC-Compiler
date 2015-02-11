@@ -30,6 +30,7 @@ import pl.edu.mimuw.nesc.astwriting.WriteSettings;
 import pl.edu.mimuw.nesc.basicreduce.BasicReduceExecutor;
 import pl.edu.mimuw.nesc.connect.ConnectExecutor;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
+import pl.edu.mimuw.nesc.finalanalysis.FinalAnalyzer;
 import pl.edu.mimuw.nesc.fold.FoldExecutor;
 import pl.edu.mimuw.nesc.instantiation.CyclePresentException;
 import pl.edu.mimuw.nesc.instantiation.InstantiateExecutor;
@@ -106,6 +107,7 @@ public final class Main {
         collectUniqueNames(projectData);
         final Set<Component> instantiatedComponents = instantiate(projectData, taskWiringConf);
         fold(projectData, taskWiringConf, instantiatedComponents);
+        performFinalAnalysis(projectData, taskWiringConf, instantiatedComponents);
         final WiresGraph wiring = connect(projectData, taskWiringConf, instantiatedComponents);
         final ImmutableMap<String, String> combiningFunsAfterMangling =
                 stripCombiningFunsMangling(projectData);
@@ -252,6 +254,51 @@ public final class Main {
         // Fold calls to constant functions
 
         executorBuilder.build().fold();
+    }
+
+    /**
+     * Runs the final analysis for constraints that can only be fully checked
+     * after instantiation of components. If errors are detected, the
+     * compilation is terminated with error messages.
+     *
+     * @param projectData Data about loaded project.
+     * @param taskWiringConf Configuration that wires task interfaces from
+     *                       non-generic components.
+     * @param instantiatedComponents Set with components that have been
+     *                               instantiated.
+     */
+    private void performFinalAnalysis(ProjectData projectData, Optional<Configuration> taskWiringConf,
+                Set<Component> instantiatedComponents) {
+        final FinalAnalyzer finalAnalyzer = new FinalAnalyzer(projectData.getABI());
+
+        // Analyze all declarations except interfaces and generic components
+
+        for (FileData fileData : projectData.getFileDatas().values()) {
+            if (fileData.getEntityRoot().isPresent()
+                    && fileData.getEntityRoot().get() instanceof Component) {
+                final Component component = (Component) fileData.getEntityRoot().get();
+                if (!component.getIsAbstract()) {
+                    finalAnalyzer.analyze(component);
+                }
+            }
+
+            for (Declaration extDeclaration : fileData.getExtdefs()) {
+                finalAnalyzer.analyze(extDeclaration);
+            }
+        }
+
+        for (Component component : instantiatedComponents) {
+            finalAnalyzer.analyze(component);
+        }
+
+        if (taskWiringConf.isPresent()) {
+            finalAnalyzer.analyze(taskWiringConf.get());
+        }
+
+        // Handle the issues
+
+        final List<NescIssue> issues = new ArrayList<>(finalAnalyzer.getIssues().values());
+        handleIssues(issues);
     }
 
     /**
@@ -413,8 +460,17 @@ public final class Main {
             issues.addAll(fileData.getIssues().values());
         }
 
-        // Sort issues
+        handleIssues(issues);
+    }
 
+    /**
+     * Print given issues to stderr and terminate the compilation if at
+     * least one of them is an error.
+     *
+     * @param issues List with issues to handle.
+     */
+    private void handleIssues(List<NescIssue> issues) {
+        // Sort issues
         Collections.sort(issues, new NescIssueComparator());
 
         // Print issues

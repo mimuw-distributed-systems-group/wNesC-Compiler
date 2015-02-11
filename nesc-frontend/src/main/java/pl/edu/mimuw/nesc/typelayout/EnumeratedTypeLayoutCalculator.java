@@ -105,7 +105,7 @@ public final class EnumeratedTypeLayoutCalculator implements TypeLayoutCalculato
         final EnumDeclaration declaration = type.getEnumDeclaration();
         BigInteger precedingValue = BigInteger.valueOf(-1L);
 
-        for (ConstantDeclaration constant : declaration.getEnumerators().get()) {
+        for (ConstantDeclaration constant : declaration.getConstants().get()) {
             if (constant.getEnumerator().getValue().isPresent()) {
                 final ConstantValue value = interpreter.evaluate(constant.getEnumerator().getValue().get());
                 if (value.getType().getType() != ConstantType.Type.SIGNED_INTEGER
@@ -124,14 +124,14 @@ public final class EnumeratedTypeLayoutCalculator implements TypeLayoutCalculato
 
     private void determineConstantsRange() {
         final EnumDeclaration declaration = type.getEnumDeclaration();
-        final ConstantDeclaration firstConstant = declaration.getEnumerators().get().get(0);
+        final ConstantDeclaration firstConstant = declaration.getConstants().get().get(0);
 
         // Initialize the range
         minimumValue = firstConstant.getValue().get();
         maximumValue = minimumValue;
 
         // Determine the exact range
-        for (ConstantDeclaration constant : declaration.getEnumerators().get()) {
+        for (ConstantDeclaration constant : declaration.getConstants().get()) {
             minimumValue = minimumValue.min(constant.getValue().get());
             maximumValue = maximumValue.max(constant.getValue().get());
         }

@@ -177,8 +177,13 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
                 .name(getName().orNull(), controller.mapUniqueName(getUniqueName()).orNull())
                 .startLocation(this.location)
                 .build();
+
         if (hasLayout()) {
             result.setLayout(getSize(), getAlignment());
+        }
+
+        if (isCorrect().isPresent()) {
+            result.setIsCorrect(isCorrect().get());
         }
 
         return result;

@@ -11,7 +11,6 @@ import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.type.EnumeratedType;
 import pl.edu.mimuw.nesc.type.IntegerType;
-import pl.edu.mimuw.nesc.type.Type;
 
 import static com.google.common.base.Preconditions.*;
 
@@ -26,7 +25,7 @@ public final class EnumDeclaration extends TagDeclaration {
      * enumeration is ill-formed). This object is absent if and only if the
      * tag is not defined.
      */
-    private Optional<ImmutableList<ConstantDeclaration>> enumerators;
+    private Optional<ImmutableList<ConstantDeclaration>> constants;
 
     /**
      * Object that represents this enumeration from AST.
@@ -69,7 +68,7 @@ public final class EnumDeclaration extends TagDeclaration {
     private EnumDeclaration(Builder builder) {
         super(builder);
 
-        this.enumerators = builder.buildEnumerators();
+        this.constants = builder.buildConstants();
         this.astEnumRef = builder.astEnumRef;
         this.compatibleType = Optional.absent();
     }
@@ -80,23 +79,23 @@ public final class EnumDeclaration extends TagDeclaration {
      *
      * @return The list with enumerators for this declaration.
      */
-    public Optional<ImmutableList<ConstantDeclaration>> getEnumerators() {
-        return enumerators;
+    public Optional<ImmutableList<ConstantDeclaration>> getConstants() {
+        return constants;
     }
 
     /**
      * Make this object represent a definition of an enumeration type.
      *
-     * @param enumerators Enumerators that define the enumerated type.
+     * @param constants Enumerators that define the enumerated type.
      * @throws NullPointerException Given argument is null.
      * @throws IllegalStateException This enum declaration corresponds to
      *                               a defined enumerated type.
      */
-    public void define(List<ConstantDeclaration> enumerators) {
-        checkNotNull(enumerators, "enumerators cannot be null");
+    public void define(List<ConstantDeclaration> constants) {
+        checkNotNull(constants, "constants cannot be null");
         checkState(!isDefined(), "the enum declaration contains information about definition");
 
-        this.enumerators = Optional.of(ImmutableList.copyOf(enumerators));
+        this.constants = Optional.of(ImmutableList.copyOf(constants));
     }
 
     /**
@@ -160,7 +159,7 @@ public final class EnumDeclaration extends TagDeclaration {
 
     @Override
     public boolean isDefined() {
-        return enumerators.isPresent();
+        return constants.isPresent();
     }
 
     @Override
@@ -176,8 +175,8 @@ public final class EnumDeclaration extends TagDeclaration {
             final EnumDeclaration.DefinitionBuilder definitionBuilder =
                     EnumDeclaration.definitionBuilder();
 
-            for (ConstantDeclaration constant : this.enumerators.get()) {
-                definitionBuilder.addEnumerator(controller.copy(constant));
+            for (ConstantDeclaration constant : this.constants.get()) {
+                definitionBuilder.addConstant(controller.copy(constant));
             }
 
             builder = definitionBuilder;
@@ -198,13 +197,17 @@ public final class EnumDeclaration extends TagDeclaration {
             result.compatibleType = this.compatibleType;
         }
 
+        if (isCorrect().isPresent()) {
+            result.setIsCorrect(isCorrect().get());
+        }
+
         return result;
     }
 
     @Override
     public void ownContents() {
-        if (enumerators.isPresent()) {
-            for (ConstantDeclaration constant : enumerators.get()) {
+        if (constants.isPresent()) {
+            for (ConstantDeclaration constant : constants.get()) {
                 constant.ownedBy(this);
             }
         }
@@ -235,7 +238,7 @@ public final class EnumDeclaration extends TagDeclaration {
             return this;
         }
 
-        abstract Optional<ImmutableList<ConstantDeclaration>> buildEnumerators();
+        abstract Optional<ImmutableList<ConstantDeclaration>> buildConstants();
 
         @Override
         protected void beforeBuild() {
@@ -256,7 +259,7 @@ public final class EnumDeclaration extends TagDeclaration {
      */
     public static final class DeclarationBuilder extends Builder {
         @Override
-        Optional<ImmutableList<ConstantDeclaration>> buildEnumerators() {
+        Optional<ImmutableList<ConstantDeclaration>> buildConstants() {
             return Optional.absent();
         }
 
@@ -276,37 +279,37 @@ public final class EnumDeclaration extends TagDeclaration {
         /**
          * Data needed to build the object.
          */
-        private final ImmutableList.Builder<ConstantDeclaration> enumeratorsBuilder = ImmutableList.builder();
+        private final ImmutableList.Builder<ConstantDeclaration> constantsBuilder = ImmutableList.builder();
 
         /**
-         * Add next enumerator of an enumerated type definition.
+         * Add next constant of an enumerated type definition.
          *
-         * @param enumerator Enumerator to be added.
+         * @param constant Enumerator to be added.
          * @return <code>this</code>
          * @throws NullPointerException Given argument is null.
          */
-        public DefinitionBuilder addEnumerator(ConstantDeclaration enumerator) {
-            checkNotNull(enumerator, "the enumerator cannot be null");
-            enumeratorsBuilder.add(enumerator);
+        public DefinitionBuilder addConstant(ConstantDeclaration constant) {
+            checkNotNull(constant, "the constant cannot be null");
+            constantsBuilder.add(constant);
             return this;
         }
 
         /**
-         * Add enumerators from a list.
+         * Add constants from a list.
          *
-         * @param enumerators List of enumerators to add.
+         * @param constants List of constants to add.
          * @return <code>this</code>
          * @throws NullPointerException Given argument is null.
          */
-        public DefinitionBuilder addAllEnumerators(List<ConstantDeclaration> enumerators) {
-            checkNotNull(enumerators, "enumerators cannot be null");
-            enumeratorsBuilder.addAll(enumerators);
+        public DefinitionBuilder addAllConstants(List<ConstantDeclaration> constants) {
+            checkNotNull(constants, "constants cannot be null");
+            constantsBuilder.addAll(constants);
             return this;
         }
 
         @Override
-        Optional<ImmutableList<ConstantDeclaration>> buildEnumerators() {
-            return Optional.of(enumeratorsBuilder.build());
+        Optional<ImmutableList<ConstantDeclaration>> buildConstants() {
+            return Optional.of(constantsBuilder.build());
         }
     }
 }

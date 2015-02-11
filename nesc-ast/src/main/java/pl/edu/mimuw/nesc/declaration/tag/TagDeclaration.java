@@ -43,6 +43,12 @@ public abstract class TagDeclaration extends Declaration {
      */
     private Optional<Integer> alignment;
 
+    /**
+     * Value indicating if this tag has been already checked for correctness
+     * and if it is correct.
+     */
+    private Optional<Boolean> isCorrect;
+
     protected TagDeclaration(Builder<? extends TagDeclaration> builder) {
         super(builder);
         this.name = builder.name;
@@ -50,6 +56,7 @@ public abstract class TagDeclaration extends Declaration {
         this.kind = builder.kind;
         this.size = Optional.absent();
         this.alignment = Optional.absent();
+        this.isCorrect = Optional.absent();
     }
 
     /**
@@ -165,6 +172,28 @@ public abstract class TagDeclaration extends Declaration {
      */
     public boolean hasLayout() {
         return size.isPresent() && alignment.isPresent();
+    }
+
+    /**
+     * Check if this tag is fully correct.
+     *
+     * @return <code>true</code> if and only if this tag is fully correct. The
+     *         object is absent if its correctness has not been yet fully
+     *         checked.
+     */
+    public Optional<Boolean> isCorrect() {
+        return isCorrect;
+    }
+
+    /**
+     * Set the value indicating if this tag is correct.
+     *
+     * @param isCorrect Value to set.
+     * @throws IllegalStateException The value has been already set.
+     */
+    public void setIsCorrect(boolean isCorrect) {
+        checkState(!this.isCorrect.isPresent(), "the correctness has been already set");
+        this.isCorrect = Optional.of(isCorrect);
     }
 
     @Override

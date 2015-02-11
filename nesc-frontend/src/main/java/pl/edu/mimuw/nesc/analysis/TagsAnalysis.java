@@ -685,7 +685,7 @@ public final class TagsAnalysis {
                 builder = EnumDeclaration.declarationBuilder();
             } else {
                 builder = EnumDeclaration.definitionBuilder()
-                            .addAllEnumerators(getEnumerators(enumRef));
+                            .addAllConstants(getEnumerators(enumRef));
             }
 
             final Optional<String> name = getTagName(enumRef);

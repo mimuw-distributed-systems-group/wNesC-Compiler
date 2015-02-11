@@ -120,7 +120,7 @@ final class CAttributeAnalyzer implements AttributeSmallAnalyzer {
                anonymous enumerations have unmangled names only if they are
                declared in the global scope. */
             if (declaration.getKind() == StructKind.ENUM && declaration.isDefined()) {
-                emitEnumeratorsGlobalNameEvents(((EnumDeclaration) declaration).getEnumerators().get());
+                emitEnumeratorsGlobalNameEvents(((EnumDeclaration) declaration).getConstants().get());
             }
 
             return Optional.absent();
