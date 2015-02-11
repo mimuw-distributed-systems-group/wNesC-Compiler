@@ -1,7 +1,9 @@
 package pl.edu.mimuw.nesc.constexpr;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableListMultimap;
 import pl.edu.mimuw.nesc.abi.ABI;
+import pl.edu.mimuw.nesc.analysis.expressions.ShortenedExpressionsAnalysis;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.constexpr.value.ConstantValue;
 import pl.edu.mimuw.nesc.constexpr.value.DoubleConstantValue;
@@ -15,6 +17,8 @@ import pl.edu.mimuw.nesc.constexpr.value.type.ConstantType;
 import pl.edu.mimuw.nesc.constexpr.value.type.IntegerConstantType;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.FieldDeclaration;
+import pl.edu.mimuw.nesc.problem.ErrorHelper;
+import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.type.ArithmeticType;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.type.TypeUtils;
@@ -67,7 +71,15 @@ public class ConstExprInterpreter implements Interpreter {
     @Override
     public ConstantValue evaluate(Expression expr) {
         checkNotNull(expr, "expression cannot be null");
+        prepare(expr);
         return expr.accept(interpreter, null);
+    }
+
+    private void prepare(Expression expr) {
+        if (ReanalysisController.getInstance().isReanalysisNecessary(expr)) {
+            ShortenedExpressionsAnalysis.analyze(expr, abi, new ErrorHelper(
+                    ImmutableListMultimap.<Integer, NescIssue>builder()));
+        }
     }
 
     private IntegerConstantFactory getFactoryForType(IntegerConstantType type) {
