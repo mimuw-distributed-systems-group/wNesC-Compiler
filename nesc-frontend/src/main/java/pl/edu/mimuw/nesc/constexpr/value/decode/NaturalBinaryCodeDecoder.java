@@ -36,7 +36,8 @@ public final class NaturalBinaryCodeDecoder extends AbstractDecoder {
 
         final byte[] preparedBits;
 
-        if (bits[0] >>> 7 == 1) {
+        // If the sign bit is set, insert a zero byte at the beginning
+        if (bits[0] < 0) {
             preparedBits = new byte[bits.length + 1];
             System.arraycopy(bits, 0, preparedBits, 1, bits.length);
             preparedBits[0] = 0;
