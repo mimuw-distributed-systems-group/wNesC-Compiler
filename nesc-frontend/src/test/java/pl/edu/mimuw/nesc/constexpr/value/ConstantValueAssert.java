@@ -22,12 +22,31 @@ public final class ConstantValueAssert {
         assertIntAdd(lhs, rhs, result, new UnsignedIntegerConstantFactory(bitsCount));
     }
 
+    public static void assertSignedIntSubtract(String lhs, String rhs, String result, int bitsCount) {
+        assertIntSubtract(lhs, rhs, result, new SignedIntegerConstantFactory(bitsCount));
+    }
+
+    public static void assertUnsignedIntSubtract(String lhs, String rhs, String result, int bitsCount) {
+        assertIntSubtract(lhs, rhs, result, new UnsignedIntegerConstantFactory(bitsCount));
+    }
+
     private static void assertIntAdd(String lhs, String rhs, String result,
             IntegerConstantFactory factory) {
         final IntegerConstantType type = factory.newType();
         final IntegerConstantValue<?> valueLhs = factory.newValue(lhs);
         final IntegerConstantValue<?> valueRhs = factory.newValue(rhs);
         final IntegerConstantValue<?> valueResult = valueLhs.add(valueRhs);
+
+        assertEquals(type, valueResult.getType());
+        assertEquals(new BigInteger(result), valueResult.getValue());
+    }
+
+    private static void assertIntSubtract(String lhs, String rhs, String result,
+            IntegerConstantFactory factory) {
+        final IntegerConstantType type = factory.newType();
+        final IntegerConstantValue<?> valueLhs = factory.newValue(lhs);
+        final IntegerConstantValue<?> valueRhs = factory.newValue(rhs);
+        final IntegerConstantValue<?> valueResult = valueLhs.subtract(valueRhs);
 
         assertEquals(type, valueResult.getType());
         assertEquals(new BigInteger(result), valueResult.getValue());
