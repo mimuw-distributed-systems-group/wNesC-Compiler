@@ -41,8 +41,8 @@ public final class InvalidBitFieldDeclarationError extends ErroneousIssue {
 
     private static String getBitFieldText(Optional<String> bitFieldName) {
         return bitFieldName.isPresent()
-                ? "an unnamed bit-field"
-                : format("bit-field '%s'", bitFieldName.get());
+                ? format("bit-field '%s'", bitFieldName.get())
+                : "an unnamed bit-field";
     }
 
     private InvalidBitFieldDeclarationError(String description) {
