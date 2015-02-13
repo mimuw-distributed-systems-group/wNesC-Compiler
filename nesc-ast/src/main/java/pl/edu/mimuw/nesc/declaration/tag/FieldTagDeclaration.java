@@ -173,7 +173,7 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
             builder.structure(newStructure);
         }
 
-        final D result = builder.astNode(this.astTagRef)
+        final D result = builder.astNode(controller.mapNode(this.astTagRef))
                 .name(getName().orNull(), controller.mapUniqueName(getUniqueName()).orNull())
                 .startLocation(this.location)
                 .build();
