@@ -34,7 +34,7 @@ import pl.edu.mimuw.nesc.finalanalysis.FinalAnalyzer;
 import pl.edu.mimuw.nesc.fold.FoldExecutor;
 import pl.edu.mimuw.nesc.instantiation.CyclePresentException;
 import pl.edu.mimuw.nesc.instantiation.InstantiateExecutor;
-import pl.edu.mimuw.nesc.intermediate.IntermediateTransformer;
+import pl.edu.mimuw.nesc.finalreduce.FinalTransformer;
 import pl.edu.mimuw.nesc.intermediate.SimpleIntermediateGenerator;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.problem.NescError;
@@ -377,7 +377,7 @@ public final class Main {
      */
     private void finalReduce(ProjectData projectData, Optional<Configuration> taskWiringConf,
                 Set<Component> instantiatedComponents, WiresGraph graph) {
-        final IntermediateTransformer transformer = new IntermediateTransformer(graph);
+        final FinalTransformer transformer = new FinalTransformer(graph, projectData.getABI());
 
         for (Component component : instantiatedComponents) {
             component.traverse(transformer, Optional.<String>absent());

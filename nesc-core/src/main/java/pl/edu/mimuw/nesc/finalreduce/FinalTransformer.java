@@ -1,13 +1,18 @@
-package pl.edu.mimuw.nesc.intermediate;
+package pl.edu.mimuw.nesc.finalreduce;
 
 import com.google.common.base.Optional;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
+import pl.edu.mimuw.nesc.names.collecting.FieldNameCollector;
+import pl.edu.mimuw.nesc.names.collecting.NameCollector;
+import pl.edu.mimuw.nesc.names.mangling.CountingNameMangler;
+import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.wiresgraph.SpecificationElementNode;
 import pl.edu.mimuw.nesc.wiresgraph.WiresGraph;
 
@@ -31,22 +36,30 @@ import static java.lang.String.format;
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public final class IntermediateTransformer extends IdentityVisitor<Optional<String>> {
+public final class FinalTransformer extends IdentityVisitor<Optional<String>> {
     /**
      * Graph with names of intermediate functions.
      */
     private final WiresGraph wiresGraph;
 
     /**
+     * ABI used for the project.
+     */
+    private final ABI abi;
+
+    /**
      * Initializes this transformer to use the given graph and extend the given
      * map of specification elements.
      *
      * @param graph Graph with names of intermediate functions.
+     * @param abi ABI of the project.
      */
-    public IntermediateTransformer(WiresGraph graph) {
+    public FinalTransformer(WiresGraph graph, ABI abi) {
         checkNotNull(graph, "the wires graph cannot be null");
+        checkNotNull(abi, "ABI cannot be null");
 
         this.wiresGraph = graph;
+        this.abi = abi;
     }
 
     @Override
@@ -150,9 +163,55 @@ public final class IntermediateTransformer extends IdentityVisitor<Optional<Stri
     }
 
     @Override
-    public Optional<String> visitTagRef(TagRef tagReference, Optional<String> componentName) {
-        TypeElementUtils.removeNescTypeElements(tagReference.getAttributes());
+    public Optional<String> visitAttributeRef(AttributeRef attributeRef, Optional<String> componentName) {
+        removeNescTypeElements(attributeRef);
         return componentName;
+    }
+
+    @Override
+    public Optional<String> visitEnumRef(EnumRef enumRef, Optional<String> componentName) {
+        removeNescTypeElements(enumRef);
+        return componentName;
+    }
+
+    @Override
+    public Optional<String> visitUnionRef(UnionRef unionRef, Optional<String> componentName) {
+        removeNescTypeElements(unionRef);
+        return componentName;
+    }
+
+    @Override
+    public Optional<String> visitStructRef(StructRef structRef, Optional<String> componentName) {
+        removeNescTypeElements(structRef);
+        return componentName;
+    }
+
+    @Override
+    public Optional<String> visitNxUnionRef(NxUnionRef nxUnionRef, Optional<String> componentName) {
+        removeNescTypeElements(nxUnionRef);
+
+        if (!nxUnionRef.getDeclaration().isTransformed()) {
+            new ExternalUnionTransformer(nxUnionRef, this.abi, newManglerForFields(nxUnionRef))
+                    .transform();
+        }
+
+        return componentName;
+    }
+
+    @Override
+    public Optional<String> visitNxStructRef(NxStructRef nxStructRef, Optional<String> componentName) {
+        removeNescTypeElements(nxStructRef);
+
+        if (!nxStructRef.getDeclaration().isTransformed()) {
+            new ExternalStructureTransformer(nxStructRef, this.abi, newManglerForFields(nxStructRef))
+                    .transform();
+        }
+
+        return componentName;
+    }
+
+    private void removeNescTypeElements(TagRef tagReference) {
+        TypeElementUtils.removeNescTypeElements(tagReference.getAttributes());
     }
 
     private boolean removeKeywords(List<TypeElement> typeElements) {
@@ -180,5 +239,11 @@ public final class IntermediateTransformer extends IdentityVisitor<Optional<Stri
         }
 
         return cmdOrEventOccurred;
+    }
+
+    private NameMangler newManglerForFields(TagRef tagRef) {
+        final NameCollector<TagRef> nameCollector = new FieldNameCollector();
+        nameCollector.collect(tagRef);
+        return new CountingNameMangler(nameCollector.get());
     }
 }

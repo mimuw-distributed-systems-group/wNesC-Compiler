@@ -49,6 +49,12 @@ public abstract class TagDeclaration extends Declaration {
      */
     private Optional<Boolean> isCorrect;
 
+    /**
+     * Value indicating if the AST node with the definition of the tag has
+     * been already transformed to support bit-fields in external unions.
+     */
+    private boolean isTransformed;
+
     protected TagDeclaration(Builder<? extends TagDeclaration> builder) {
         super(builder);
         this.name = builder.name;
@@ -57,6 +63,7 @@ public abstract class TagDeclaration extends Declaration {
         this.size = Optional.absent();
         this.alignment = Optional.absent();
         this.isCorrect = Optional.absent();
+        this.isTransformed = false;
     }
 
     /**
@@ -194,6 +201,25 @@ public abstract class TagDeclaration extends Declaration {
     public void setIsCorrect(boolean isCorrect) {
         checkState(!this.isCorrect.isPresent(), "the correctness has been already set");
         this.isCorrect = Optional.of(isCorrect);
+    }
+
+    /**
+     * Check if the AST node with definition of the tag has been transformed
+     * to support bit-fields in external structures and external unions.
+     *
+     * @return Value of the flag.
+     */
+    public boolean isTransformed() {
+        return isTransformed;
+    }
+
+    /**
+     * Raise the transformed flag that indicates if the definition of the tag
+     * has been transformed to support bit-fields in external structures and
+     * external unions.
+     */
+    public void transformed() {
+        this.isTransformed = true;
     }
 
     @Override

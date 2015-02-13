@@ -749,6 +749,47 @@ public final class AstUtils {
     }
 
     /**
+     * Create a <code>DataDecl</code> node that contains a single
+     * <code>FieldDecl</code> declaration of type 'unsigned char [bytesCount]'
+     * and with the given name.
+     *
+     * @param fieldName Name of the field to create.
+     * @param bytesCount Number of elements in the array that the created
+     *                   field is.
+     * @return Newly created declaration of a filler field.
+     */
+    public static DataDecl newFillerField(String fieldName, int bytesCount) {
+        checkNotNull(fieldName, "field name cannot be null");
+        checkArgument(!fieldName.isEmpty(), "field name cannot be an empty string");
+        checkArgument(bytesCount > 0, "count of bytes must be positive");
+
+        // Identifier declarator
+
+        final IdentifierDeclarator identDeclarator = new IdentifierDeclarator(Location.getDummyLocation(),
+                fieldName);
+        identDeclarator.setUniqueName(Optional.<String>absent());
+
+        // Array declarator
+
+        final ArrayDeclarator arrayDeclarator = new ArrayDeclarator(Location.getDummyLocation(),
+                Optional.<Declarator>of(identDeclarator), Optional.of(newIntegerConstant(bytesCount)));
+
+        // Field declaration
+
+        final FieldDecl fieldDecl = new FieldDecl(Location.getDummyLocation(),
+                Optional.<Declarator>of(arrayDeclarator), Lists.<Attribute>newList(),
+                Optional.<Expression>absent());
+
+        // Data decl
+
+        return new DataDecl(
+                Location.getDummyLocation(),
+                newRidsList(RID.UNSIGNED, RID.CHAR),
+                Lists.<Declaration>newList(fieldDecl)
+        );
+    }
+
+    /**
      * <p>Creates a list of '==' expressions from lists of left and right sides
      * for the operator. The returned list has the same size as the given lists.
      * </p>

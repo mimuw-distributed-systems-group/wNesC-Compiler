@@ -186,6 +186,10 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
             result.setIsCorrect(isCorrect().get());
         }
 
+        if (isTransformed()) {
+            result.transformed();
+        }
+
         return result;
     }
 

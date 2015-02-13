@@ -201,6 +201,10 @@ public final class EnumDeclaration extends TagDeclaration {
             result.setIsCorrect(isCorrect().get());
         }
 
+        if (isTransformed()) {
+            result.transformed();
+        }
+
         return result;
     }
 
