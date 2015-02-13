@@ -154,7 +154,8 @@ public abstract class TagDeclaration extends Declaration {
      * @throws IllegalStateException Size and alignment have been already set.
      */
     public void setLayout(int size, int alignment) {
-        checkArgument(size > 0, "size must be positive");
+        // Zero size is allowed to support empty structures, a GCC extension.
+        checkArgument(size >= 0, "size cannot be negative");
         checkArgument(alignment > 0, "alignment must be positive");
         checkState(!this.size.isPresent() && !this.alignment.isPresent(),
                 "size and alignment have been already set");

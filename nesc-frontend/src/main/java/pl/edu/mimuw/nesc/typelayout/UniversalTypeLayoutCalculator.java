@@ -1,15 +1,17 @@
 package pl.edu.mimuw.nesc.typelayout;
 
 import com.google.common.base.Optional;
-import java.math.BigInteger;
 import pl.edu.mimuw.nesc.abi.ABI;
-import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.constexpr.ConstExprInterpreter;
 import pl.edu.mimuw.nesc.constexpr.Interpreter;
+import pl.edu.mimuw.nesc.constexpr.value.ConstantValue;
+import pl.edu.mimuw.nesc.constexpr.value.IntegerConstantValue;
+import pl.edu.mimuw.nesc.constexpr.value.type.ConstantType;
 import pl.edu.mimuw.nesc.type.*;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * <p>Class responsible for determining information about types. It allows
@@ -158,15 +160,22 @@ public class UniversalTypeLayoutCalculator implements TypeLayoutCalculator {
                     "cannot compute the layout of an incomplete array type");
 
             // Compute the size of the array
-            //final int arraySize = TypeLayoutCalculator.this.interpreter.evaluate(type.getSize().get()).intValue();
-            final int arraySize = 0;
-            checkArgument(arraySize >= 0, "size of an array cannot be negative");
+            final ConstantValue arraySizeValue = interpreter.evaluate(type.getSize().get());
+            checkState(arraySizeValue.getType().getType() == ConstantType.Type.SIGNED_INTEGER
+                        || arraySizeValue.getType().getType() == ConstantType.Type.UNSIGNED_INTEGER,
+                        "array size expression evaluated to non-integer type '" + arraySizeValue.getType().getType() + "'");
+            final IntegerConstantValue<?> arraySize = (IntegerConstantValue<?>) arraySizeValue;
+
+            // Zero size arrays are allowed to support the GCC extension
+            checkState(arraySize.getValue().signum() >= 0, "size of an array cannot be negative: %s",
+                    arraySize.getValue());
 
             // Compute the layout of the element type
             final TypeLayout elementTypeLayout = new UniversalTypeLayoutCalculator(UniversalTypeLayoutCalculator.this.abi,
                     type.getElementType()).calculate();
 
-            return new TypeLayout(arraySize * elementTypeLayout.getSize(), elementTypeLayout.getAlignment());
+            return new TypeLayout(arraySize.getValue().intValue() * elementTypeLayout.getSize(),
+                    elementTypeLayout.getAlignment());
         }
 
         @Override

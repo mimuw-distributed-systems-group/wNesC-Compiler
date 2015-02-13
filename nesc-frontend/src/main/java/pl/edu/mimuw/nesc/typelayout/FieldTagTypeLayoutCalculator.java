@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.typelayout;
 
 import com.google.common.base.Optional;
+import java.util.Iterator;
 import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.abi.Endianness;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
@@ -14,6 +15,7 @@ import pl.edu.mimuw.nesc.declaration.tag.fieldtree.BlockElement;
 import pl.edu.mimuw.nesc.declaration.tag.fieldtree.FieldElement;
 import pl.edu.mimuw.nesc.declaration.tag.fieldtree.TreeElement;
 import pl.edu.mimuw.nesc.type.ArithmeticType;
+import pl.edu.mimuw.nesc.type.ArrayType;
 import pl.edu.mimuw.nesc.type.ExternalStructureType;
 import pl.edu.mimuw.nesc.type.FieldTagType;
 import pl.edu.mimuw.nesc.type.StructureType;
@@ -79,13 +81,16 @@ public final class FieldTagTypeLayoutCalculator implements TypeLayoutCalculator 
         int sizeInBits = 0;
         int alignmentInBits = BITS_PER_BYTE;
         Optional<Endianness> previousEndianness = Optional.absent();
+        final Iterator<TreeElement> structureIt = type.getDeclaration().getStructure().get().iterator();
 
-        for (TreeElement element : type.getDeclaration().getStructure().get()) {
+        while (structureIt.hasNext()) {
+            final TreeElement element = structureIt.next();
+            final boolean last = !structureIt.hasNext();
             final ElementDispatchVisitor dispatchVisitor = new ElementDispatchVisitor(offsetInBits,
-                    sizeInBits, alignmentInBits, previousEndianness);
+                    sizeInBits, alignmentInBits, previousEndianness, last);
 
             final TinyCalculator tinyCalculator = element.accept(dispatchVisitor, null);
-            tinyCalculator.calculate();;
+            tinyCalculator.calculate();
             offsetInBits = tinyCalculator.getNewOffsetInBits();
             sizeInBits = tinyCalculator.getNewSizeInBits();
             alignmentInBits = tinyCalculator.getNewAlignmentInBits();
@@ -105,16 +110,28 @@ public final class FieldTagTypeLayoutCalculator implements TypeLayoutCalculator 
 
     private TinyCalculator calculateFieldElement(FieldDeclaration field,
                 int startOffsetInBits, int startSizeInBits, int startAlignmentInBits,
-                Optional<Endianness> previousEndianness) {
-
-        final TypeLayout fieldTypeLayout = new UniversalTypeLayoutCalculator(this.abi,
-                field.getType().get()).calculate();
-
+                Optional<Endianness> previousEndianness, boolean isLast) {
         if (!field.isBitField()) {
+            // Check if the field is a flexible array member
+            if (field.getType().get().isArrayType()) {
+                final ArrayType arrayType = (ArrayType) field.getType().get();
+                if (!arrayType.isOfKnownSize() && isLast) {
+                    final TypeLayout elementTypeLayout = new UniversalTypeLayoutCalculator(this.abi,
+                            arrayType.getElementType()).calculate();
+                    return new FlexibleArrayMemberTinyCalculator(startOffsetInBits, startSizeInBits,
+                            startAlignmentInBits, elementTypeLayout, field);
+                }
+            }
+
+            final TypeLayout fieldTypeLayout = new UniversalTypeLayoutCalculator(this.abi,
+                    field.getType().get()).calculate();
+
             return new RegularFieldTinyCalculator(startOffsetInBits,
                     startSizeInBits, startAlignmentInBits, fieldTypeLayout, field);
         } else {
-            // FIXME compilation error if width < 0
+            final TypeLayout fieldTypeLayout = new UniversalTypeLayoutCalculator(this.abi,
+                    field.getType().get()).calculate();
+
             final ConstantValue widthValue = interpreter.evaluate(field.getAstField().getBitfield().get());
             if (widthValue.getType().getType() != ConstantType.Type.UNSIGNED_INTEGER
                     && widthValue.getType().getType() != ConstantType.Type.SIGNED_INTEGER) {
@@ -153,14 +170,17 @@ public final class FieldTagTypeLayoutCalculator implements TypeLayoutCalculator 
     private final class ElementDispatchVisitor implements TreeElement.Visitor<TinyCalculator, Void> {
         private final int startOffsetInBits, startSizeInBits, startAlignmentInBits;
         private final Optional<Endianness> previousEndianness;
+        private final boolean last;
         private Optional<Endianness> currentEndianness;
 
         private ElementDispatchVisitor(int startOffsetInBits, int startSizeInBits,
-                int startAlignmentInBits, Optional<Endianness> previousEndianness) {
+                int startAlignmentInBits, Optional<Endianness> previousEndianness,
+                boolean last) {
             this.startOffsetInBits = startOffsetInBits;
             this.startSizeInBits = startSizeInBits;
             this.startAlignmentInBits = startAlignmentInBits;
             this.previousEndianness = previousEndianness;
+            this.last = last;
         }
 
         @Override
@@ -176,7 +196,7 @@ public final class FieldTagTypeLayoutCalculator implements TypeLayoutCalculator 
 
             return calculateFieldElement(fieldElement.getFieldDeclaration(),
                     this.startOffsetInBits, this.startSizeInBits,
-                    this.startAlignmentInBits, previousEndianness);
+                    this.startAlignmentInBits, previousEndianness, last);
         }
 
         @Override
@@ -416,6 +436,24 @@ public final class FieldTagTypeLayoutCalculator implements TypeLayoutCalculator 
 
             update(declaration.getSize() * BITS_PER_BYTE,
                     declaration.getAlignment() * BITS_PER_BYTE);
+        }
+    }
+
+    private final class FlexibleArrayMemberTinyCalculator extends FieldElementTinyCalculator {
+        private FlexibleArrayMemberTinyCalculator(int startOffsetInBits, int startSizeInBits,
+                    int startAlignmentInBits, TypeLayout arrayElementTypeLayout,
+                    FieldDeclaration declaration) {
+            super(startOffsetInBits, startSizeInBits, startAlignmentInBits, arrayElementTypeLayout, declaration);
+        }
+
+        @Override
+        public void calculate() {
+            final int alignmentInBits = fieldTypeLayout.getAlignment() * BITS_PER_BYTE;
+            final int structAlignmentInBits = VariousUtils.lcm(alignmentInBits, startAlignmentInBits);
+
+            align(structAlignmentInBits);
+            declaration.setLayout(getNewOffsetInBits(), 0, structAlignmentInBits);
+            update(0, structAlignmentInBits);
         }
     }
 }

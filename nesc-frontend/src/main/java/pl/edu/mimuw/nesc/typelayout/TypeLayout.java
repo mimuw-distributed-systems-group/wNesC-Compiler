@@ -12,8 +12,10 @@ public class TypeLayout {
     private final int alignment;
 
     TypeLayout(int size, int alignment) {
-        checkArgument(size > 0, "size cannot be non-positive");
-        checkArgument(alignment > 0, "the alignment cannot be non-positive");
+        /* Zero size is allowed to support empty structures that are
+           a GCC extension. */
+        checkArgument(size >= 0, "size cannot be negative: %s", size);
+        checkArgument(alignment > 0, "the alignment cannot be non-positive: %s", alignment);
         this.size = size;
         this.alignment = alignment;
     }
