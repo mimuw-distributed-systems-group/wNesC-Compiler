@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.finalreduce;
 
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.abi.Endianness;
+import pl.edu.mimuw.nesc.common.util.VariousUtils;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -35,6 +36,10 @@ final class BitFieldSequenceData {
     public void reset() {
         endianness = Optional.absent();
         totalSizeInBits = 0;
+    }
+
+    public void alignToByte() {
+        totalSizeInBits = VariousUtils.alignNumber(totalSizeInBits, 8);
     }
 
     public void update(int sizeIncrease, Endianness endianness) {

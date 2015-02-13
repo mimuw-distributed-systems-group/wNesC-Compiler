@@ -138,9 +138,8 @@ final class ExternalStructureTransformer {
                     final Endianness fieldEndianness = bitFieldType.getExternalScheme().get().getEndianness();
                     astDeclIt.remove();
 
-                    if (!bitFieldsData.hasSameEndianness(fieldEndianness) && bitFieldsData.isNonEmpty()) {
-                        insertFillerField(astDeclIt, bitFieldsData.getTotalSizeInBits(), false);
-                        bitFieldsData.reset();
+                    if (!bitFieldsData.hasSameEndianness(fieldEndianness)) {
+                        bitFieldsData.alignToByte();
                     }
 
                     bitFieldsData.update(fieldDeclaration.getSizeInBits(), fieldEndianness);
