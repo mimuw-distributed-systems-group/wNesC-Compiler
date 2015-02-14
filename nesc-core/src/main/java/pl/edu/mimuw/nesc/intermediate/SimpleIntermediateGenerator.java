@@ -79,7 +79,7 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
 
             final IntermediateFunctionData funData = (IntermediateFunctionData) node.getEntityData();
 
-            if (!funData.returnsVoid() && !funData.getDefaultImplementationUniqueName().isPresent()) {
+            if (!funData.getDefaultImplementationUniqueName().isPresent()) {
                 generateValidResultFunctionUniqueName(node.getComponentName(), node.getInterfaceRefName(),
                         node.getEntityName(), funData);
                 intermediateFunctions.put(node.getSpecificationElementFullName(),
@@ -194,7 +194,7 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
         final FunctionDecl funDecl = new FunctionDecl(
                 Location.getDummyLocation(),
                 funDeclarator,
-                AstUtils.newRidsList(RID.STATIC, RID.INT),
+                AstUtils.newRidsList(RID.STATIC, RID.INLINE, RID.INT),
                 Lists.<Attribute>newList(),
                 AstUtils.newEmptyCompoundStmt(),
                 false
@@ -300,7 +300,7 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
                 ? AstUtils.zipWithEq(instanceParams, edge.getSourceParameters().get())
                 : Lists.<Expression>newList();
 
-        if (!funData.returnsVoid() && !successor.getEntityData().isImplemented()) {
+        if (!successor.getEntityData().isImplemented()) {
             conditions.add(generateValidResultFunctionCall(edge, (IntermediateFunctionData) successor.getEntityData(),
                     funData.getInstanceParametersNames()));
         }
