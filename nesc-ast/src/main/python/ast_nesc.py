@@ -85,11 +85,16 @@ class Expression(BasicASTNode):
     <p><code>parenthesesCount</code> is the number of parentheses that surround the
     expression directly. If no parentheses surround it, it is <code>null</code> or zero.
     This field is relevant when generating error messages.</p>
+    <p><code>isNxTransformed</code> is <code>true</code> if this expression does
+    not need any further transformations that are related to reading values of
+    external base types.</p>
     """
     superclass = Node
     genericIndicator = GenericIndicator()
     type = ReferenceField("Type", optional=True, constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
     parenthesesCount = IntField(constructor_variable=False, deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
+    isLvalue = BoolField(constructor_variable=False)
+    isNxTransformed = BoolField(constructor_variable=False)
     # FIXME: the fields below are borrowed from ncc, but they are propably not required in our implementation.
     # LVALUE is true if this expression can be used in a context requiring an
     # lvalue.

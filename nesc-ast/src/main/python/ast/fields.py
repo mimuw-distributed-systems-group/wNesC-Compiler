@@ -1,4 +1,4 @@
-from ast.util import first_to_cap, DST_LANGUAGE, tab, ast_nodes
+from ast.util import first_to_cap, DST_LANGUAGE, tab, ast_nodes, language_dispatch
 from ast.field_copy import DEEP_COPY_MODE
 
 #the basic class from which all field classes must derive.
@@ -47,6 +47,10 @@ class BasicASTNodeField:
         return []
 
     def gen_mangling_code(self, lang, field_name, nodes_names, node_ref_name):
+        return []
+
+    def gen_transform_code(self, lang, node_name, field_name, trans_class_name,
+                           trans_method_name, trans_arg_name):
         return []
 
     #expected result for c++ and java is a string
@@ -527,6 +531,26 @@ class ReferenceField(BasicASTNodeField):
         code.append("}")
 
         return code
+
+    def gen_transform_code(self, lang, node_name, field_name, trans_class_name, trans_method_name,
+                           trans_arg_name):
+        return language_dispatch(lang, self.gen_transform_code_java, self.gen_transform_code_cpp,
+                    node_name, field_name, trans_class_name, trans_method_name, trans_arg_name)
+
+    def gen_transform_code_cpp(self, node_name, field_name, trans_class_name, trans_method_name,
+                           trans_arg_name):
+        # FIXME
+        raise NotImplementedError
+
+    def gen_transform_code_java(self, node_name, field_name, trans_class_name,
+                                trans_method_name, trans_arg_name):
+        if self.ref_type != trans_class_name:
+            return []
+
+        getter_name = "get" + first_to_cap(field_name)
+        setter_name = "set" + first_to_cap(field_name)
+
+        return ["{0}.{1}({2}({0}.{3}(), {4}));".format(node_name, setter_name, trans_method_name, getter_name, trans_arg_name)]
 
     def generate_code(self, lang):
         res = None
@@ -1120,6 +1144,23 @@ class ReferenceListField(BasicASTNodeField):
         code.append("}")
 
         return code
+
+    def gen_transform_code(self, lang, node_name, field_name, trans_class_name, trans_method_name,
+                           trans_arg_name):
+        return language_dispatch(lang, self.gen_transform_code_java, self.gen_transform_code_cpp,
+                    node_name, field_name, trans_class_name, trans_method_name, trans_arg_name)
+
+    def gen_transform_code_cpp(self, node_name, field_name, trans_class_name, trans_method_name,
+                           trans_arg_name):
+        # FIXME
+        raise NotImplementedError
+
+    def gen_transform_code_java(self, node_name, field_name, trans_class_name,
+                                trans_method_name, trans_arg_name):
+        if self.ref_type != trans_class_name:
+            return []
+
+        return ["{}s({}.get{}(), {});".format(trans_method_name, node_name, first_to_cap(field_name), trans_arg_name)]
 
     def generate_code(self, lang):
         res = None

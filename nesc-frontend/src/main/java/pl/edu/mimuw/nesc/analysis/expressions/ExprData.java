@@ -194,6 +194,7 @@ public class ExprData {
      * object. Information that are saved:</p>
      * <ul>
      *     <li>type of the expression</li>
+     *     <li>information if the expression is an lvalue</li>
      * </ul>
      *
      * @param expr Expression to store the information in.
@@ -204,6 +205,7 @@ public class ExprData {
     ExprData spread(Expression expr) {
         checkNotNull(expr, "expression cannot be null");
         expr.setType(Optional.of(type));
+        expr.setIsLvalue(isLvalue);
         return this;
     }
 

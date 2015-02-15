@@ -114,6 +114,20 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
 
         return code
 
+    def build_fields_dict(self):
+        fields = { name : self.__getattribute__(name)
+                   for name in dir(self)
+                   if isinstance(self.__getattribute__(name), BasicASTNodeField) }
+        node = self
+        while hasattr(node, "superclass"):
+            node = node.superclass()
+            superfields = [(attr_name, node.__getattribute__(attr_name)) for attr_name in dir(node)]
+            for name, value in superfields:
+                if name not in fields and isinstance(value, BasicASTNodeField):
+                    fields[name] = value
+
+        return fields
+
     def gen_deep_copy(self, lang):
         """Generate the code of the method that creates a deep clone of an AST node.
 
@@ -404,16 +418,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
 
     def gen_traverse_code_java(self):
         # Build the fields dictionary
-        fields = { name : self.__getattribute__(name)
-                   for name in dir(self)
-                   if isinstance(self.__getattribute__(name), BasicASTNodeField) }
-        node = self
-        while hasattr(node, "superclass"):
-            node = node.superclass()
-            superfields = [(attr_name, node.__getattribute__(attr_name)) for attr_name in dir(node)]
-            for name, value in superfields:
-                if name not in fields and isinstance(value, BasicASTNodeField):
-                    fields[name] = value
+        fields = self.build_fields_dict()
 
         # Process all fields
         body = []
@@ -439,6 +444,38 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         code += tab + "public <A> A traverse(Visitor<A, A> visitor, A arg) {\n"
         code += "\n".join(body) + "\n" if body else ""
         code += tab + "}\n"
+
+        return code
+
+    def gen_transform_code(self, lang, class_name, method_name, arg_class_name):
+        return language_dispatch(lang, self.gen_transform_code_java,
+                    self.gen_transform_code_cpp, class_name,
+                    method_name, arg_class_name)
+
+    def gen_transform_code_cpp(self, class_name, method_name, arg_class_name):
+        # FIXME
+        raise NotImplementedError
+
+    def gen_transform_code_java(self, class_name, method_name, arg_class_name):
+        node_class = self.__class__.__name__
+        fields = self.build_fields_dict()
+        fields_code = []
+
+        for name, fielddesc in fields.items():
+            field_code = fielddesc.gen_transform_code(DST_LANGUAGE.JAVA,
+                            "node", name, class_name, method_name, "arg")
+            fields_code.extend(field_code)
+
+        if not fields_code:
+            return ""
+
+        fields_code = [tab * 2 + line if line else "" for line in fields_code]
+
+        code = tab + "@Override\n"
+        code += tab + "public A visit{0}({0} node, {1} arg) {{\n".format(node_class, arg_class_name)
+        code += "\n".join(fields_code)
+        code += "\n" + tab * 2 + "return arg;\n"
+        code += tab + "}\n\n"
 
         return code
 
@@ -783,6 +820,117 @@ def gen_subst_manager_java(directory):
         f.write("}\n")
 
 
+def gen_expr_transformation(lang, directory):
+    language_dispatch(lang, gen_expr_transformation_java,
+                gen_expr_transformation_cpp, directory)
+
+
+def gen_expr_transformation_cpp(directory):
+    # FIXME
+    raise NotImplementedError
+
+
+def gen_expr_transformation_java(directory):
+    with open(path.join(directory, "ExprTransformation.java"), 'w') as f:
+        f.write("package pl.edu.mimuw.nesc.ast.gen;\n\n")
+        f.write("import java.util.LinkedList;\n\n")
+        f.write("public interface ExprTransformation<A> {\n")
+        f.write(tab + "LinkedList<Expression> transform(Expression expr, A arg);\n")
+        f.write("}\n")
+
+
+def gen_expr_transformer(lang, directory):
+    language_dispatch(lang, gen_expr_transformer_java, gen_expr_transformer_cpp,
+                      directory)
+
+
+def gen_expr_transformer_cpp(directory):
+    # FIXME
+    raise NotImplementedError
+
+
+def gen_expr_transformer_java(directory):
+    with open(path.join(directory, "ExprTransformer.java"), "w") as f:
+        f.write("package pl.edu.mimuw.nesc.ast.gen;\n\n")
+        f.write("import com.google.common.base.Optional;\n")
+        f.write("import java.util.Iterator;\n")
+        f.write("import java.util.LinkedList;\n")
+        f.write("import java.util.ListIterator;\n")
+        f.write("import pl.edu.mimuw.nesc.ast.Location;\n\n")
+        f.write("import static com.google.common.base.Preconditions.checkNotNull;\n\n")
+        f.write("public class ExprTransformer<A> extends IdentityVisitor<A> {\n")
+        f.write(tab + "private final ExprTransformation<A> transformation;\n\n")
+        f.write(tab + "public ExprTransformer(ExprTransformation<A> transformation) {\n")
+        f.write(tab * 2 + 'checkNotNull(transformation, "transformation cannot be null");\n')
+        f.write(tab * 2 + 'this.transformation = transformation;\n')
+        f.write(tab + "}\n\n")
+
+        for node_cls in ast_nodes.values():
+            f.write(node_cls().gen_transform_code(DST_LANGUAGE.JAVA,
+                    "Expression", "performTransformation", "A"))
+
+        gen_expr_transformer_ref_methods_java(f)
+        gen_expr_transformer_list_methods_java(f)
+        f.write("}\n")
+
+
+def gen_expr_transformer_ref_methods_java(f):
+    f.write(tab + "private Expression performTransformation(Expression expr, A arg) {\n")
+    f.write(tab * 2 + "if (expr == null) {\n")
+    f.write(tab * 3 + "return null;\n")
+    f.write(tab * 2 + "}\n\n")
+    f.write(tab * 2 + "final LinkedList<Expression> result = transformation.transform(expr, arg);\n\n")
+    f.write(tab * 2 + "if (result.isEmpty()) {\n")
+    f.write(tab * 3 + 'throw new RuntimeException("expression transformed to an empty list");\n')
+    f.write(tab * 2 + "} else if (result.size() == 1) {\n")
+    f.write(tab * 3 + "return result.getFirst();\n")
+    f.write(tab * 2 + "} else {\n")
+    f.write(tab * 3 + "final Comma comma = new Comma(Location.getDummyLocation(), result);\n")
+    f.write(tab * 3 + "comma.setType(result.getLast().getType());\n")
+    f.write(tab * 3 + "comma.setIsLvalue(false);\n")
+    f.write(tab * 3 + "comma.setParenthesesCount(1);\n")
+    f.write(tab * 3 + "return comma;\n")
+    f.write(tab * 2 + "}\n")
+    f.write(tab + "}\n\n")
+    f.write(tab + "private Optional<Expression> performTransformation(Optional<Expression> expr, A arg) {\n")
+    f.write(tab * 2 + "if (expr == null) {\n")
+    f.write(tab * 3 + "return null;\n")
+    f.write(tab * 2 + "}\n\n")
+    f.write(tab * 2 + "return expr.isPresent()\n")
+    f.write(tab * 3 + "? Optional.of(performTransformation(expr.get(), arg))\n")
+    f.write(tab * 3 + ": Optional.<Expression>absent();\n")
+    f.write(tab + "}\n\n")
+
+
+def gen_expr_transformer_list_methods_java(f):
+    f.write(tab + "private void performTransformations(LinkedList<Expression> exprs, A arg) {\n")
+    f.write(tab * 2 + "if (exprs == null) {\n")
+    f.write(tab * 3 + "return;\n")
+    f.write(tab * 2 + "}\n\n")
+    f.write(tab * 2 + 'final ListIterator<Expression> exprsIt = exprs.listIterator();\n\n')
+    f.write(tab * 2 + "while (exprsIt.hasNext()) {\n")
+    f.write(tab * 3 + "final Expression expr = exprsIt.next();\n")
+    f.write(tab * 3 + "final Iterator<Expression> newExprsIt = transformation.transform(expr, arg).iterator();\n\n")
+    f.write(tab * 3 + "if (!newExprsIt.hasNext()) {\n")
+    f.write(tab * 4 + 'throw new RuntimeException("expression transformed to an empty list");\n')
+    f.write(tab * 3 + "} else {\n")
+    f.write(tab * 4 + "final Expression first = newExprsIt.next();\n\n")
+    f.write(tab * 4 + "if (first != expr) {\n")
+    f.write(tab * 5 + "exprsIt.set(first);\n")
+    f.write(tab * 4 + "}\n\n")
+    f.write(tab * 4 + "while (newExprsIt.hasNext()) {\n")
+    f.write(tab * 5 + "exprsIt.add(newExprsIt.next());\n")
+    f.write(tab * 4 + "}\n")
+    f.write(tab * 3 + "}\n")
+    f.write(tab * 2 + "}\n")
+    f.write(tab + "}\n\n")
+    f.write(tab + "private void performTransformations(Optional<LinkedList<Expression>> exprs, A arg) {\n")
+    f.write(tab * 2 + "if (exprs != null && exprs.isPresent()) {\n")
+    f.write(tab * 3 + "performTransformations(exprs.get(), arg);\n")
+    f.write(tab * 2 + "}\n")
+    f.write(tab + "}\n")
+
+
 def gen_remangling_visitor(lang, directory):
     if lang == DST_LANGUAGE.JAVA:
         gen_remangling_visitor_java(directory)
@@ -888,4 +1036,8 @@ def generate_java_code(directory):
     gen_subst_manager(DST_LANGUAGE.JAVA, directory)
 
     gen_remangling_visitor(DST_LANGUAGE.JAVA, directory)
+
+    gen_expr_transformation(DST_LANGUAGE.JAVA, directory)
+
+    gen_expr_transformer(DST_LANGUAGE.JAVA, directory)
 
