@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.analysis.attributes;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import java.util.LinkedList;
 import java.util.List;
 import pl.edu.mimuw.nesc.abi.Endianness;
@@ -9,6 +10,7 @@ import pl.edu.mimuw.nesc.ast.gen.Attribute;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.GccAttribute;
 import pl.edu.mimuw.nesc.ast.gen.Identifier;
+import pl.edu.mimuw.nesc.astutil.predicates.ExternalBaseAttributePredicate;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.environment.Environment;
@@ -27,20 +29,21 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 final class ExternalBaseAttributeAnalyzer implements AttributeSmallAnalyzer {
-    /**
-     * Names of the attributes that specify external base types.
-     */
-    private static final String NAME_NX_BASE_BE = "nx_base_be";
-    private static final String NAME_NX_BASE_LE = "nx_base_le";
 
     /**
      * Object that will be notified about detected errors.
      */
     private final ErrorHelper errorHelper;
 
+    /**
+     * Predicate that will be used to detect an external base attribute.
+     */
+    private final Predicate<Attribute> predicate;
+
     ExternalBaseAttributeAnalyzer(ErrorHelper errorHelper) {
         checkNotNull(errorHelper, "error helper cannot be null");
         this.errorHelper = errorHelper;
+        this.predicate = new ExternalBaseAttributePredicate();
     }
 
     @Override
@@ -49,13 +52,9 @@ final class ExternalBaseAttributeAnalyzer implements AttributeSmallAnalyzer {
         Optional<ExternalScheme> externalScheme = Optional.absent();
 
         for (Attribute attribute : attributes) {
-            if (!(attribute instanceof GccAttribute)) {
-                continue;
-            }
+            if (predicate.apply(attribute)) {
+                final GccAttribute gccAttribute = (GccAttribute) attribute;
 
-            final GccAttribute gccAttribute = (GccAttribute) attribute;
-
-            if (isExternalBaseAttribute(gccAttribute.getName().getName())) {
                 externalScheme = analyzeAttribute(gccAttribute.getArguments(),
                         gccAttribute.getName().getName(), gccAttribute.getLocation(),
                         gccAttribute.getEndLocation());
@@ -87,10 +86,6 @@ final class ExternalBaseAttributeAnalyzer implements AttributeSmallAnalyzer {
         }
     }
 
-    private boolean isExternalBaseAttribute(String name) {
-        return name.equals(NAME_NX_BASE_BE) || name.equals(NAME_NX_BASE_LE);
-    }
-
     private Optional<ExternalScheme> analyzeAttribute(Optional<LinkedList<Expression>> parameters,
                 String attributeName, Location startLoc, Location endLoc) {
         final ErroneousIssue error;
@@ -107,9 +102,9 @@ final class ExternalBaseAttributeAnalyzer implements AttributeSmallAnalyzer {
             final Identifier paramValue = (Identifier) parameters.get().getFirst();
             final Endianness endianness;
 
-            if (NAME_NX_BASE_BE.equals(attributeName)) {
+            if (ExternalBaseAttributePredicate.getBigEndianName().equals(attributeName)) {
                 endianness = Endianness.BIG_ENDIAN;
-            } else if (NAME_NX_BASE_LE.equals(attributeName)) {
+            } else if (ExternalBaseAttributePredicate.getLittleEndianName().equals(attributeName)) {
                 endianness = Endianness.LITTLE_ENDIAN;
             } else {
                 throw new RuntimeException("unexpected external base type attribute name '" + attributeName + "'");
