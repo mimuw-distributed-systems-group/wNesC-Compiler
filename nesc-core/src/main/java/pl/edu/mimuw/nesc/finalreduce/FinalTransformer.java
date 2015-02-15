@@ -147,6 +147,7 @@ public final class FinalTransformer extends IdentityVisitor<Optional<String>> {
     @Override
     public Optional<String> visitDataDecl(DataDecl dataDecl, Optional<String> componentName) {
         TypeElementUtils.removeNescTypeElements(dataDecl.getModifiers());
+        new ExternalBaseTransformer(dataDecl, this.abi).transform();
         return componentName;
     }
 
