@@ -5,6 +5,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.ListIterator;
 import java.util.Map;
@@ -628,6 +629,19 @@ public final class AstUtils {
     }
 
     /**
+     * Creates a function call AST node using the given name for the identifier
+     * of the called function (that is created for the node) and directly given
+     * expressions for parameters (a new list for them is created).
+     *
+     * @param funName Name to be used as the function identifier.
+     * @param parameters Parameters for the function in the call.
+     * @return Newly created AST node of function call.
+     */
+    public static FunctionCall newNormalCall(String funName, Expression... parameters) {
+        return newNormalCall(funName, new LinkedList<>(Arrays.asList(parameters)));
+    }
+
+    /**
      * Creates an constant integer expression that evaluates to the given value.
      *
      * @param value Value of the integer constant expression to create.
@@ -868,6 +882,33 @@ public final class AstUtils {
         return false;
     }
 
+    /**
+     * Creates a new binary expression that is not a simple nor compound
+     * assignment. The operation is the same as in <code>operation</code>.
+     *
+     * @param lhs Left argument of the created expression.
+     * @param rhs Right argument of the created expression.
+     * @param operation Expression that indicates the operation that the
+     *                  returned expression would make, i.e. the actual class
+     *                  of the created expression. However, the returned
+     *                  expression is never a subclass of
+     *                  <code>Assignment</code>.
+     * @return Newly created instance of a binary expression with given
+     *         parameters as subexpressions. The operation is the same as
+     *         in the last parameter but it is never an assignment.
+     * @throws IllegalArgumentException <code>operation</code> is of class
+     *                                  <code>Assign</code>.
+     */
+    public static Binary newBinaryExpr(Expression lhs, Expression rhs,
+            Assignment operation) {
+        checkNotNull(lhs, "left-hand side expression cannot be null");
+        checkNotNull(rhs, "right-hand side expression cannot be null");
+        checkNotNull(operation, "operation cannot be null");
+
+        final OperationCloningVisitor cloningVisitor = new OperationCloningVisitor(lhs, rhs);
+        return operation.accept(cloningVisitor, null);
+    }
+
     private AstUtils() {
     }
 
@@ -974,6 +1015,77 @@ public final class AstUtils {
         @Override
         public Boolean visitNescAttribute(NescAttribute attribute, Void arg) {
             return false;
+        }
+    }
+
+    /**
+     * <p>Visitor that creates expressions based on an assignment expression.
+     * The only nodes it visits are subclasses of <code>Assignment</code>.</p>
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class OperationCloningVisitor extends ExceptionVisitor<Binary, Void> {
+        private final Expression lhs;
+        private final Expression rhs;
+
+        private OperationCloningVisitor(Expression lhs, Expression rhs) {
+            this.lhs = lhs;
+            this.rhs = rhs;
+        }
+
+        @Override
+        public Binary visitPlusAssign(PlusAssign elem, Void arg) {
+            return new Plus(Location.getDummyLocation(), lhs, rhs);
+        }
+
+        @Override
+        public Binary visitMinusAssign(MinusAssign elem, Void arg) {
+            return new Minus(Location.getDummyLocation(), lhs, rhs);
+        }
+
+        @Override
+        public Binary visitTimesAssign(TimesAssign elem, Void arg) {
+            return new Times(Location.getDummyLocation(), lhs, rhs);
+        }
+
+        @Override
+        public Binary visitDivideAssign(DivideAssign elem, Void arg) {
+            return new Divide(Location.getDummyLocation(), lhs, rhs);
+        }
+
+        @Override
+        public Binary visitModuloAssign(ModuloAssign elem, Void arg) {
+            return new Modulo(Location.getDummyLocation(), lhs, rhs);
+        }
+
+        @Override
+        public Binary visitLshiftAssign(LshiftAssign elem, Void arg) {
+            return new Lshift(Location.getDummyLocation(), lhs, rhs);
+        }
+
+        @Override
+        public Binary visitRshiftAssign(RshiftAssign elem, Void arg) {
+            return new Rshift(Location.getDummyLocation(), lhs, rhs);
+        }
+
+        @Override
+        public Binary visitBitandAssign(BitandAssign elem, Void arg) {
+            return new Bitand(Location.getDummyLocation(), lhs, rhs);
+        }
+
+        @Override
+        public Binary visitBitorAssign(BitorAssign elem, Void arg) {
+            return new Bitor(Location.getDummyLocation(), lhs, rhs);
+        }
+
+        @Override
+        public Binary visitBitxorAssign(BitxorAssign elem, Void arg) {
+            return new Bitxor(Location.getDummyLocation(), lhs, rhs);
+        }
+
+        @Override
+        public Binary visitAssign(Assign elem, Void arg) {
+            throw new IllegalArgumentException("simple assignment does not specify any operation");
         }
     }
 }

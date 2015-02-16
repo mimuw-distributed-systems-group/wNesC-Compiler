@@ -18,11 +18,15 @@ final class AstTypeBuildingVisitor implements TypeVisitor<Void, Void> {
     /**
      * Variable that accumulates the result.
      */
-    private final AstType accumulatedType = new AstType(
+    private final AstType accumulatedType;
+    {
+        accumulatedType = new AstType(
             Location.getDummyLocation(),
             Optional.<Declarator>absent(),
             Lists.<TypeElement>newList()
-    );
+        );
+        accumulatedType.setType(Optional.<Type>absent());
+    }
 
     /**
      * Get the AST type built by the visitor.

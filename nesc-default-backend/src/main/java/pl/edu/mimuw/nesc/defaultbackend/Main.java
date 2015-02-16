@@ -31,6 +31,8 @@ import pl.edu.mimuw.nesc.basicreduce.BasicReduceExecutor;
 import pl.edu.mimuw.nesc.connect.ConnectExecutor;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 import pl.edu.mimuw.nesc.finalanalysis.FinalAnalyzer;
+import pl.edu.mimuw.nesc.finalreduce.ExternalExprBlockData;
+import pl.edu.mimuw.nesc.finalreduce.ExternalExprTransformer;
 import pl.edu.mimuw.nesc.fold.FoldExecutor;
 import pl.edu.mimuw.nesc.instantiation.CyclePresentException;
 import pl.edu.mimuw.nesc.instantiation.InstantiateExecutor;
@@ -378,9 +380,13 @@ public final class Main {
     private void finalReduce(ProjectData projectData, Optional<Configuration> taskWiringConf,
                 Set<Component> instantiatedComponents, WiresGraph graph) {
         final FinalTransformer transformer = new FinalTransformer(graph, projectData.getABI());
+        final ExternalExprTransformer externalTransformer = new ExternalExprTransformer(
+                projectData.getNameMangler());
+        final ExternalExprBlockData blockData = new ExternalExprBlockData();
 
         for (Component component : instantiatedComponents) {
             component.traverse(transformer, Optional.<String>absent());
+            component.traverse(externalTransformer, blockData);
         }
 
         for (FileData fileData : projectData.getFileDatas().values()) {
@@ -389,15 +395,18 @@ public final class Main {
                 final Component component = (Component) fileData.getEntityRoot().get();
                 if (!component.getIsAbstract()) {
                     component.traverse(transformer, Optional.<String>absent());
+                    component.traverse(externalTransformer, blockData);
                 }
             }
             for (Declaration declaration : fileData.getExtdefs()) {
                 declaration.traverse(transformer, Optional.<String>absent());
+                declaration.traverse(externalTransformer, blockData);
             }
         }
 
         if (taskWiringConf.isPresent()) {
             taskWiringConf.get().traverse(transformer, Optional.<String>absent());
+            taskWiringConf.get().traverse(externalTransformer, blockData);
         }
     }
 
