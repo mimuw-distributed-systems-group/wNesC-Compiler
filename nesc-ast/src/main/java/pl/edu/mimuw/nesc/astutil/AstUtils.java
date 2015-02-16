@@ -60,6 +60,11 @@ public final class AstUtils {
     };
 
     /**
+     * The only instance of the visitor used for operations.
+     */
+    private static final IncrementOperationCloningVisitor INCREMENT_OPERATION_CLONING_VISITOR = new IncrementOperationCloningVisitor();
+
+    /**
      * Returns start location of nodes in the list.
      *
      * @param nodesList nodes list
@@ -909,6 +914,24 @@ public final class AstUtils {
         return operation.accept(cloningVisitor, null);
     }
 
+    /**
+     * Creates a new binary expression that is either a <code>Plus</code> or
+     * <code>Minus</code> expression depending on <code>operation</code>.
+     *
+     * @param argument Argument for the operation.
+     * @param operation Expression that indicates the operation that will be
+     *                  made by the returned expression.
+     * @return Newly created instance of a binary expression with given argument
+     *         as the left-hand side operand of the expression and integer
+     *         literal 1 as the right-hand side operand. The exact class depends
+     *         on the given operation.
+     */
+    public static Binary newBinaryExpr(Expression argument, Increment operation) {
+        checkNotNull(argument, "argument cannot be null");
+        checkNotNull(operation, "operation cannot be null");
+        return operation.accept(INCREMENT_OPERATION_CLONING_VISITOR, argument);
+    }
+
     private AstUtils() {
     }
 
@@ -1086,6 +1109,31 @@ public final class AstUtils {
         @Override
         public Binary visitAssign(Assign elem, Void arg) {
             throw new IllegalArgumentException("simple assignment does not specify any operation");
+        }
+    }
+
+    /**
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class IncrementOperationCloningVisitor extends ExceptionVisitor<Binary, Expression> {
+        @Override
+        public Binary visitPreincrement(Preincrement elem, Expression arg) {
+            return new Plus(Location.getDummyLocation(), arg, newIntegerConstant(1));
+        }
+
+        @Override
+        public Binary visitPredecrement(Predecrement elem, Expression arg) {
+            return new Minus(Location.getDummyLocation(), arg, newIntegerConstant(1));
+        }
+
+        @Override
+        public Binary visitPostincrement(Postincrement elem, Expression arg) {
+            return new Plus(Location.getDummyLocation(), arg, newIntegerConstant(1));
+        }
+
+        @Override
+        public Binary visitPostdecrement(Postdecrement elem, Expression arg) {
+            return new Minus(Location.getDummyLocation(), arg, newIntegerConstant(1));
         }
     }
 }

@@ -16,6 +16,7 @@ import pl.edu.mimuw.nesc.type.PointerType;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.type.VoidType;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -44,6 +45,8 @@ final class ExternalExprTransformation implements ExprTransformation<ExternalExp
             return transformSimpleAssign((Assign) expr, blockData);
         } else if (expr instanceof Assignment) {
             return transformCompoundAssign((Assignment) expr, blockData);
+        } else if (expr instanceof Increment) {
+            return transformIncrement((Increment) expr, blockData);
         } else {
             return transformRead(expr, blockData);
         }
@@ -55,21 +58,9 @@ final class ExternalExprTransformation implements ExprTransformation<ExternalExp
         }
 
         final Expression lhsExpr = assign.getLeftArgument();
-        final ExternalScheme externalScheme = getExternalScheme(lhsExpr);
-        final Expression replacement;
-
-        if (isBitFieldReference(lhsExpr)) {
-            final FieldRef fieldRef = (FieldRef) lhsExpr;
-            final FieldDeclaration fieldDeclaration = fieldRef.getDeclaration();
-
-            replacement = newWriteBitFieldCall(externalScheme.getWriteBitFieldFunctionName(),
-                    newBitFieldDataExpr(fieldRef), fieldDeclaration.getOffsetInBits(),
-                    fieldDeclaration.getSizeInBits(), assign.getRightArgument(), assign.getType());
-        } else {
-            replacement = newWriteCall(externalScheme.getWriteFunctionName(),
-                    newNonBitFieldDataExpr(lhsExpr), assign.getRightArgument(),
-                    assign.getType());
-        }
+        final ExternalCallFactory callFactory = newFactoryForExpr(lhsExpr);
+        final Expression replacement = callFactory.newWriteCall(callFactory.newDataExpr(lhsExpr),
+                assign.getRightArgument(), assign.getType());
 
         lhsExpr.setIsNxTransformed(true);
 
@@ -82,13 +73,13 @@ final class ExternalExprTransformation implements ExprTransformation<ExternalExp
         }
 
         final Expression lhsExpr = assign.getLeftArgument();
-        final ExternalScheme externalScheme = getExternalScheme(lhsExpr);
+        final ExternalCallFactory callFactory = newFactoryForExpr(lhsExpr);
         assign.getRightArgument().setParenthesesCount(1);
 
         // Create and add the declaration of the temporary variable
 
         final String temporaryName = nameMangler.mangle(NAME_TEMPORARY_VAR);
-        blockData.getEnclosingBlock().get().getDeclarations().add(0, newTemporaryVariable(temporaryName));
+        blockData.getEnclosingBlock().get().getDeclarations().addFirst(newDataTemporary(temporaryName));
 
         // Prepare the temporary identifier
 
@@ -99,30 +90,11 @@ final class ExternalExprTransformation implements ExprTransformation<ExternalExp
 
         // Make the transformation
 
-        final Expression temporaryAssignedVal;
-        final Expression compoundAssign;
-
-        if (isBitFieldReference(lhsExpr)) {
-            final FieldRef fieldRef = (FieldRef) lhsExpr;
-            final FieldDeclaration fieldDeclaration = fieldRef.getDeclaration();
-            temporaryAssignedVal = newBitFieldDataExpr(fieldRef);
-
-            final Expression oldValueReadExpr = newReadBitFieldCall(externalScheme.getReadBitFieldFunctionName(),
-                    temporaryId, fieldDeclaration.getOffsetInBits(), fieldDeclaration.getSizeInBits(),
-                    lhsExpr.getType());
-            final Expression newValueExpr = AstUtils.newBinaryExpr(oldValueReadExpr, assign.getRightArgument(), assign);
-            compoundAssign = newWriteBitFieldCall(externalScheme.getWriteBitFieldFunctionName(),
-                    temporaryId.deepCopy(true), fieldDeclaration.getOffsetInBits(),
-                    fieldDeclaration.getSizeInBits(), newValueExpr, lhsExpr.getType());
-        } else {
-            temporaryAssignedVal = newNonBitFieldDataExpr(lhsExpr);
-            final Expression oldValueReadExpr = newReadCall(externalScheme.getReadFunctionName(),
-                    temporaryId, lhsExpr.getType());
-            final Expression newValueExpr = AstUtils.newBinaryExpr(oldValueReadExpr,
-                    assign.getRightArgument(), assign);
-            compoundAssign = newWriteCall(externalScheme.getWriteFunctionName(),
-                    temporaryId.deepCopy(true), newValueExpr, lhsExpr.getType());
-        }
+        final Expression temporaryAssignedVal = callFactory.newDataExpr(lhsExpr);
+        final Expression oldValueReadExpr = callFactory.newReadCall(temporaryId, lhsExpr.getType());
+        final Expression newValueExpr = AstUtils.newBinaryExpr(oldValueReadExpr, assign.getRightArgument(), assign);
+        final Expression compoundAssign = callFactory.newWriteCall(temporaryId.deepCopy(true),
+                newValueExpr, lhsExpr.getType());
 
         // Construct the final replacement
 
@@ -135,7 +107,42 @@ final class ExternalExprTransformation implements ExprTransformation<ExternalExp
         lhsExpr.setIsNxTransformed(true);
 
         return exprs;
+    }
 
+    private LinkedList<Expression> transformIncrement(Increment increment, ExternalExprBlockData blockData) {
+        if (!needsTransformation(increment.getArgument())) {
+            return Lists.<Expression>newList(increment);
+        }
+
+        if (increment instanceof Preincrement || increment instanceof Predecrement) {
+            return transformPreOperators(increment, blockData);
+        } else if (increment instanceof Postincrement || increment instanceof Postdecrement) {
+            return transformPostOperators(increment, blockData);
+        } else {
+            throw new RuntimeException("unexpected class of increment expression '"
+                    + increment.getClass().getCanonicalName() + "'");
+        }
+    }
+
+    private LinkedList<Expression> transformPreOperators(Increment increment, ExternalExprBlockData blockData) {
+        /* Use the fact that '++e' is equivalent to 'e += 1' and '--e' to
+           'e -= 1'. */
+
+        final Expression one = AstUtils.newIntegerConstant(1);
+        final Assignment equivalentExpr = increment instanceof Preincrement
+                ? new PlusAssign(Location.getDummyLocation(), increment.getArgument(), one)
+                : new MinusAssign(Location.getDummyLocation(), increment.getArgument(), one);
+
+        equivalentExpr.setIsLvalue(increment.getIsLvalue());
+        equivalentExpr.setType(increment.getType());
+        equivalentExpr.setParenthesesCount(1);
+        equivalentExpr.setIsPasted(increment.getIsPasted());
+
+        return transformCompoundAssign(equivalentExpr, blockData);
+    }
+
+    private LinkedList<Expression> transformPostOperators(Increment increment, ExternalExprBlockData blockData) {
+        return new PostOperatorsTransformer(increment, blockData).transform();
     }
 
     private LinkedList<Expression> transformRead(Expression expr, ExternalExprBlockData blockData) {
@@ -143,82 +150,14 @@ final class ExternalExprTransformation implements ExprTransformation<ExternalExp
             return Lists.newList(expr);
         }
 
-        final ExternalScheme externalScheme = getExternalScheme(expr);
-        final Expression replacement;
-
-        if (isBitFieldReference(expr)) {
-            final FieldRef fieldRef = (FieldRef) expr;
-            final FieldDeclaration fieldDeclaration = fieldRef.getDeclaration();
-
-            replacement = newReadBitFieldCall(externalScheme.getReadBitFieldFunctionName(),
-                    newBitFieldDataExpr(fieldRef), fieldDeclaration.getOffsetInBits(),
-                    fieldDeclaration.getSizeInBits(), expr.getType());
-        } else {
-            replacement = newReadCall(externalScheme.getReadFunctionName(),
-                    newNonBitFieldDataExpr(expr), expr.getType());
-        }
-
+        final ExternalCallFactory callFactory = newFactoryForExpr(expr);
+        final Expression replacement = callFactory.newReadCall(callFactory.newDataExpr(expr), expr.getType());
         expr.setIsNxTransformed(true);
 
         return Lists.newList(replacement);
     }
 
-    private FunctionCall newWriteBitFieldCall(String funName, Expression target,
-                int offsetInBits, int sizeInBits, Expression assignedValue,
-                Optional<Type> callType) {
-        final FunctionCall result = AstUtils.newNormalCall(funName, target,
-                AstUtils.newIntegerConstant(offsetInBits),
-                AstUtils.newIntegerConstant(sizeInBits),
-                assignedValue);
-        result.setIsLvalue(false);
-        result.setType(callType);
-
-        return result;
-    }
-
-    private FunctionCall newWriteCall(String funName, Expression target,
-            Expression value, Optional<Type> callType) {
-        final FunctionCall result = AstUtils.newNormalCall(funName, target, value);
-        result.setIsLvalue(false);
-        result.setType(callType);
-        return result;
-    }
-
-    private FunctionCall newReadBitFieldCall(String funName, Expression source,
-                int offsetInBits, int sizeInBits, Optional<Type> callType) {
-        final FunctionCall result = AstUtils.newNormalCall(funName, source,
-                AstUtils.newIntegerConstant(offsetInBits),
-                AstUtils.newIntegerConstant(sizeInBits));
-        result.setIsLvalue(false);
-        result.setType(callType);
-        return result;
-    }
-
-    private FunctionCall newReadCall(String funName, Expression source, Optional<Type> callType) {
-        final FunctionCall result = AstUtils.newNormalCall(funName, source);
-        result.setIsLvalue(false);
-        result.setType(callType);
-        return result;
-    }
-
-    private AddressOf newBitFieldDataExpr(FieldRef bitFieldRef) {
-        final AddressOf result = new AddressOf(Location.getDummyLocation(),
-                bitFieldRef.getArgument());
-        result.setIsLvalue(false);
-        result.setType(Optional.<Type>of(new PointerType(bitFieldRef.getArgument().getType().get())));
-        bitFieldRef.getArgument().setParenthesesCount(1);
-        return result;
-    }
-
-    private FieldRef newNonBitFieldDataExpr(Expression expr) {
-        final FieldRef result = new FieldRef(Location.getDummyLocation(), expr,
-                ExternalBaseTransformer.getBaseFieldName());
-        result.setIsLvalue(false);
-        expr.setParenthesesCount(1);
-        return result;
-    }
-
-    private DataDecl newTemporaryVariable(String name) {
+    private DataDecl newDataTemporary(String name) {
         // Identifier declarator
 
         final IdentifierDeclarator identDecl = new IdentifierDeclarator(Location.getDummyLocation(),
@@ -255,12 +194,220 @@ final class ExternalExprTransformation implements ExprTransformation<ExternalExp
                 && expr.getType().get().isExternalBaseType();
     }
 
-    private ExternalScheme getExternalScheme(Expression expr) {
-        return ((ArithmeticType) expr.getType().get()).getExternalScheme().get();
+    private ExternalCallFactory newFactoryForExpr(Expression expr) {
+        final ExternalScheme scheme = ((ArithmeticType) expr.getType().get())
+                .getExternalScheme().get();
+
+        if (expr instanceof FieldRef) {
+            final FieldDeclaration fieldDeclaration = ((FieldRef) expr).getDeclaration();
+            return fieldDeclaration.isBitField()
+                    ? new BitFieldCallFactory(scheme, fieldDeclaration)
+                    : new NonBitFieldCallFactory(scheme);
+        } else {
+            return new NonBitFieldCallFactory(scheme);
+        }
     }
 
     private boolean isBitFieldReference(Expression expr) {
         return expr instanceof FieldRef
                 && ((FieldRef) expr).getDeclaration().isBitField();
+    }
+
+    private interface ExternalCallFactory {
+        Expression newDataExpr(Expression expr);
+        FunctionCall newReadCall(Expression source, Optional<Type> resultType);
+        FunctionCall newWriteCall(Expression target, Expression value, Optional<Type> resultType);
+    }
+
+    private static final class BitFieldCallFactory implements ExternalCallFactory {
+        private final ExternalScheme scheme;
+        private final int offsetInBits;
+        private final int sizeInBits;
+
+        private BitFieldCallFactory(ExternalScheme scheme, FieldDeclaration declaration) {
+            this.scheme = scheme;
+            this.offsetInBits = declaration.getOffsetInBits();
+            this.sizeInBits = declaration.getSizeInBits();
+        }
+
+        @Override
+        public Expression newDataExpr(Expression bitFieldRef) {
+            final FieldRef afterCast = (FieldRef) bitFieldRef;
+
+            final AddressOf result = new AddressOf(Location.getDummyLocation(),
+                    afterCast.getArgument());
+            result.setIsLvalue(false);
+            result.setType(Optional.<Type>of(new PointerType(afterCast.getArgument().getType().get())));
+            afterCast.getArgument().setParenthesesCount(1);
+
+            return result;
+        }
+
+        @Override
+        public FunctionCall newReadCall(Expression source, Optional<Type> resultType) {
+            final FunctionCall result = AstUtils.newNormalCall(
+                    scheme.getReadBitFieldFunctionName(),
+                    source,
+                    AstUtils.newIntegerConstant(offsetInBits),
+                    AstUtils.newIntegerConstant(sizeInBits)
+            );
+            result.setIsLvalue(false);
+            result.setType(resultType);
+            return result;
+        }
+
+        @Override
+        public FunctionCall newWriteCall(Expression target, Expression value, Optional<Type> resultType) {
+            final FunctionCall result = AstUtils.newNormalCall(
+                    scheme.getWriteBitFieldFunctionName(),
+                    target,
+                    AstUtils.newIntegerConstant(offsetInBits),
+                    AstUtils.newIntegerConstant(sizeInBits),
+                    value
+            );
+            result.setIsLvalue(false);
+            result.setType(resultType);
+            return result;
+        }
+    }
+
+    private static final class NonBitFieldCallFactory implements ExternalCallFactory {
+        private final ExternalScheme scheme;
+
+        private NonBitFieldCallFactory(ExternalScheme scheme) {
+            this.scheme = scheme;
+        }
+
+        @Override
+        public Expression newDataExpr(Expression expr) {
+            final FieldRef result = new FieldRef(Location.getDummyLocation(), expr,
+                    ExternalBaseTransformer.getBaseFieldName());
+            result.setIsLvalue(false);
+            expr.setParenthesesCount(1);
+            return result;
+        }
+
+        @Override
+        public FunctionCall newReadCall(Expression source, Optional<Type> resultType) {
+            final FunctionCall result = AstUtils.newNormalCall(scheme.getReadFunctionName(),
+                    source);
+            result.setIsLvalue(false);
+            result.setType(resultType);
+            return result;
+        }
+
+        @Override
+        public FunctionCall newWriteCall(Expression target, Expression value, Optional<Type> resultType) {
+            final FunctionCall result = AstUtils.newNormalCall(scheme.getWriteFunctionName(),
+                    target, value);
+            result.setIsLvalue(false);
+            result.setType(resultType);
+            return result;
+        }
+    }
+
+    /**
+     * Class that facilities transforming of post operators expressions.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private final class PostOperatorsTransformer {
+        private final Increment increment;
+        private final ExternalExprBlockData blockData;
+
+        private final Expression incrementedObj;
+        private final ExternalCallFactory callFactory;
+
+        private Identifier dataTemporaryIdent;
+        private Identifier valueTemporaryIdent;
+
+        private Expression dataInitExpr;
+        private Expression assignExpr;
+
+        private PostOperatorsTransformer(Increment increment, ExternalExprBlockData blockData) {
+            checkNotNull(increment, "increment cannot be null");
+            checkNotNull(blockData, "block data cannot be null");
+            checkArgument(increment instanceof Postincrement || increment instanceof Postdecrement,
+                    "invalid expression for post operators transformer '" + increment.getClass().getCanonicalName()
+                            + "'");
+
+            this.increment = increment;
+            this.blockData = blockData;
+            this.incrementedObj = increment.getArgument();
+            this.callFactory = newFactoryForExpr(increment.getArgument());
+        }
+
+        private LinkedList<Expression> transform() {
+            declareTemporaries();
+            generateCommonExpressions();
+            updateTransformedExprState();
+            return generateFinalExpressions();
+        }
+
+        private void declareTemporaries() {
+            // Create and declare necessary temporary variables
+
+            final String dataTemporaryName = nameMangler.mangle(NAME_TEMPORARY_VAR);
+            final String valueTemporaryName = nameMangler.mangle(NAME_TEMPORARY_VAR);
+            final LinkedList<Declaration> blockDecls = blockData.getEnclosingBlock().get().getDeclarations();
+
+            blockDecls.addFirst(AstUtils.newSimpleDeclaration(valueTemporaryName,
+                    valueTemporaryName, true, Optional.<Expression>absent(),
+                    incrementedObj.getType().get().toAstType()));
+            blockDecls.addFirst(newDataTemporary(dataTemporaryName));
+
+            // Prepare identifiers
+
+            dataTemporaryIdent = AstUtils.newIdentifier(dataTemporaryName,
+                    dataTemporaryName, false, true);
+            dataTemporaryIdent.setIsLvalue(true);
+            dataTemporaryIdent.setType(Optional.<Type>of(new PointerType(new VoidType())));
+
+            valueTemporaryIdent = AstUtils.newIdentifier(valueTemporaryName,
+                    valueTemporaryName, false, true);
+            valueTemporaryIdent.setIsLvalue(true);
+            valueTemporaryIdent.setType(incrementedObj.getType());
+            valueTemporaryIdent.setIsNxTransformed(true);
+        }
+
+        private void generateCommonExpressions() {
+            dataInitExpr = callFactory.newDataExpr(incrementedObj);
+
+            // Generate the expression that only reads the old value
+
+            final Expression oldValueExpr = callFactory.newReadCall(dataTemporaryIdent.deepCopy(true),
+                    incrementedObj.getType());
+
+            // Generate the expression that saves value the before incrementing it
+
+            final Assign oldValueAssign = new Assign(Location.getDummyLocation(),
+                    valueTemporaryIdent.deepCopy(true), oldValueExpr);
+            oldValueAssign.setIsLvalue(false);
+            oldValueAssign.setType(incrementedObj.getType());
+            oldValueAssign.setParenthesesCount(1);
+
+            // Generate the expression that saves the new value
+
+            final Expression newValueExpr = AstUtils.newBinaryExpr(oldValueAssign, increment);
+
+            assignExpr = callFactory.newWriteCall(dataTemporaryIdent.deepCopy(true),
+                    newValueExpr, incrementedObj.getType());
+        }
+
+        private void updateTransformedExprState() {
+            incrementedObj.setIsNxTransformed(true);
+        }
+
+        private LinkedList<Expression> generateFinalExpressions() {
+            final Expression dataTmpAssign = new Assign(Location.getDummyLocation(),
+                    dataTemporaryIdent.deepCopy(true), dataInitExpr);
+
+            final LinkedList<Expression> replacement = new LinkedList<Expression>();
+            replacement.add(dataTmpAssign);
+            replacement.add(assignExpr);
+            replacement.add(valueTemporaryIdent.deepCopy(true));
+
+            return replacement;
+        }
     }
 }
