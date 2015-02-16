@@ -569,7 +569,7 @@ public final class AstUtils {
         final Declarator declarator;
         if (deepestNestedDeclarator.isPresent()) {
             deepestNestedDeclarator.get().setDeclarator(Optional.<Declarator>of(identDeclarator));
-            declarator = deepestNestedDeclarator.get();
+            declarator = astType.getDeclarator().get();
         } else {
             declarator = identDeclarator;
         }
