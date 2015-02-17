@@ -654,13 +654,23 @@ public final class AstUtils {
      *         given value.
      */
     public static Expression newIntegerConstant(int value) {
-        final boolean negation = value < 0;
-        value = Math.abs(value);
+        return newIntegerConstant(BigInteger.valueOf(value));
+    }
+
+    /**
+     * Create an integer constant that evaluates to the given value.
+     *
+     * @param value Value of the integer constant to create.
+     * @return Newly created integer constant that evaluates to the given value.
+     */
+    public static Expression newIntegerConstant(BigInteger value) {
+        final boolean negation = value.signum() < 0;
+        value = value.abs();
 
         final IntegerCst constant = new IntegerCst(
                 Location.getDummyLocation(),
-                Integer.toString(value),
-                Optional.of(BigInteger.valueOf(value)),
+                value.toString(),
+                Optional.of(value),
                 IntegerCstKind.DECIMAL,
                 IntegerCstSuffix.NO_SUFFIX
         );
@@ -676,6 +686,24 @@ public final class AstUtils {
         }
 
         return result;
+    }
+
+    /**
+     * Create a list of expressions that evaluate to corresponding values on the
+     * given list.
+     *
+     * @param values List with values of the created expressions.
+     * @return Newly created list with expressions that evaluate to
+     *         corresponding values from the given list. The returned
+     *         list have the same size that the given one.
+     */
+    public static LinkedList<Expression> newIntegerConstantsList(List<BigInteger> values) {
+        checkNotNull(values, "values cannot be null");
+        final LinkedList<Expression> exprs = new LinkedList<>();
+        for (BigInteger value : values) {
+            exprs.add(newIntegerConstant(value));
+        }
+        return exprs;
     }
 
     /**

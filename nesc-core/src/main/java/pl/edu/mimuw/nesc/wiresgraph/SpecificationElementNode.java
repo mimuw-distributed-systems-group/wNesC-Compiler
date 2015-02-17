@@ -1,11 +1,11 @@
 package pl.edu.mimuw.nesc.wiresgraph;
 
 import com.google.common.base.Optional;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-import pl.edu.mimuw.nesc.ast.gen.Expression;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimaps;
+import java.math.BigInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -37,20 +37,28 @@ public final class SpecificationElementNode {
     private final String entityName;
 
     /**
+     * Count of indices for this specification element. If it is not a command
+     * or event from a parameterised interface or a parameterised bare command
+     * or event, then it is equal to zero.
+     */
+    private final int indicesCount;
+
+    /**
      * Data for the generation of intermediate functions.
      */
     private final EntityData entityData;
 
     /**
-     * List with all successors of this node, i.e. nodes that provide command or
-     * event this node represents.
+     * Multimap with successors of this node. Absent object as the key
+     * represents connections without parameters specified for this node.
      */
-    private final List<WiringEdge> successors = new ArrayList<>();
+    private final ListMultimap<Optional<ImmutableList<BigInteger>>, Successor> successors = ArrayListMultimap.create();
 
     /**
-     * Unmodifiable view of the successors list.
+     * Unmodifiable view of the successors multimap.
      */
-    private final List<WiringEdge> unmodifiableSuccessors = Collections.unmodifiableList(successors);
+    private final ListMultimap<Optional<ImmutableList<BigInteger>>, Successor> unmodifiableSuccessors =
+            Multimaps.unmodifiableListMultimap(successors);
 
     /**
      * <p>Initializes this node by storing values from given parameters in
@@ -63,7 +71,7 @@ public final class SpecificationElementNode {
      * @throws IllegalArgumentException One of the arguments is an empty string.
      */
     SpecificationElementNode(String componentName, Optional<String> interfaceRefName, String entityName,
-            EntityData entityData) {
+            int indicesCount, EntityData entityData) {
         checkNotNull(componentName, "name of the component cannot be null");
         checkNotNull(interfaceRefName, "name of the interface reference cannot be null");
         checkNotNull(entityName, "name of the specification element cannot be null");
@@ -72,10 +80,12 @@ public final class SpecificationElementNode {
         checkArgument(!interfaceRefName.isPresent() || !interfaceRefName.get().isEmpty(),
                 "name of the interface reference cannot be null");
         checkArgument(!entityName.isEmpty(), "name of the specification element cannot be an empty string");
+        checkArgument(indicesCount >= 0, "count of indices cannot be negative");
 
         this.componentName = componentName;
         this.interfaceRefName = interfaceRefName;
         this.entityName = entityName;
+        this.indicesCount = indicesCount;
         this.entityData = entityData;
     }
 
@@ -107,6 +117,17 @@ public final class SpecificationElementNode {
      */
     public String getEntityName() {
         return entityName;
+    }
+
+    /**
+     * <p>Get the count of indices of this specification element node if it
+     * represents a command or event from a parameterised interface or
+     * a bare parameterised command or event.</p>
+     *
+     * @return Count of indices.
+     */
+    public int getIndicesCount() {
+        return indicesCount;
     }
 
     /**
@@ -147,24 +168,45 @@ public final class SpecificationElementNode {
     /**
      * <p>Create and add a new edge to a successor of this node.</p>
      *
-     * @param successor Successor of this node and the destination node of the
-     *                  edge.
-     * @param sourceParameters Parameters for this node.
-     * @param destinationParameters Parameters for the destination node.
+     * @param destinationNode Successor of this node.
+     * @param sourceIndices Indices for this node.
+     * @param destinationIndices Indices for the destination node.
      */
-    void addSuccessor(SpecificationElementNode successor, Optional<LinkedList<Expression>> sourceParameters,
-            Optional<LinkedList<Expression>> destinationParameters) {
+    void addSuccessor(SpecificationElementNode destinationNode, Optional<ImmutableList<BigInteger>> sourceIndices,
+            Optional<ImmutableList<BigInteger>> destinationIndices) {
 
-        final WiringEdge newEdge = new WiringEdge(successor, sourceParameters, destinationParameters);
-        successors.add(newEdge);
+        // Validate the edge
+
+        checkNotNull(destinationNode, "destination node cannot be null");
+        checkNotNull(sourceIndices, "source indices cannot be null");
+        checkNotNull(destinationIndices, "destination indices cannot be null");
+        checkArgument(!sourceIndices.isPresent() || sourceIndices.get().size() > 0,
+                "source indices cannot be an empty list");
+        checkArgument(!destinationIndices.isPresent() || destinationIndices.get().size() > 0,
+                "destination indices cannot be an empty list");
+
+        if (sourceIndices.isPresent() && sourceIndices.get().size() != indicesCount) {
+            throw new IllegalArgumentException("invalid count of source indices, expected "
+                    + indicesCount + " but got " + sourceIndices.get().size());
+        }
+
+        if (destinationIndices.isPresent() && destinationIndices.get().size() != destinationNode.indicesCount) {
+            throw new IllegalArgumentException("invalid count of destination indices, expected"
+                    + destinationNode.indicesCount + " but got " + destinationIndices.get().size());
+        }
+
+        // Create and add the successor
+
+        final Successor newSuccessor = new Successor(destinationNode, destinationIndices);
+        successors.put(sourceIndices, newSuccessor);
     }
 
     /**
-     * <p>Get the unmodifiable view of the list of successors of this node.</p>
+     * <p>Get the unmodifiable view of the successors map of this node.</p>
      *
-     * @return Unmodifiable view of list with successors of this node.
+     * @return Unmodifiable view of map with successors of this node.
      */
-    public List<WiringEdge> getSuccessors() {
+    public ListMultimap<Optional<ImmutableList<BigInteger>>, Successor> getSuccessors() {
         return unmodifiableSuccessors;
     }
 }

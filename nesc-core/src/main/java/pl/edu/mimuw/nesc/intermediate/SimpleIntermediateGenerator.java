@@ -2,7 +2,10 @@ package pl.edu.mimuw.nesc.intermediate;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+import java.math.BigInteger;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -15,8 +18,8 @@ import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.wiresgraph.IntermediateFunctionData;
 import pl.edu.mimuw.nesc.wiresgraph.SpecificationElementNode;
+import pl.edu.mimuw.nesc.wiresgraph.Successor;
 import pl.edu.mimuw.nesc.wiresgraph.WiresGraph;
-import pl.edu.mimuw.nesc.wiresgraph.WiringEdge;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -93,11 +96,12 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
         return intermediateFunctions;
     }
 
-    private FunctionDecl generateValidResultFunction(IntermediateFunctionData funData, List<WiringEdge> successors) {
+    private FunctionDecl generateValidResultFunction(IntermediateFunctionData funData,
+                ListMultimap<Optional<ImmutableList<BigInteger>>, Successor> successors) {
         // Check if a trivial function can be generated
-        for (WiringEdge edge : successors) {
-            if (edge.getDestinationNode().getEntityData().isImplemented()
-                    && !edge.getSourceParameters().isPresent()) {
+        for (Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge : successors.entries()) {
+            if (edge.getValue().getNode().getEntityData().isImplemented()
+                    && !edge.getKey().isPresent()) {
                 return generateTrivialValidResultFun(funData);
             }
         }
@@ -113,11 +117,11 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
     }
 
     private FunctionDecl generateNontrivialValidResultFun(IntermediateFunctionData funData,
-            List<WiringEdge> successors) {
+                ListMultimap<Optional<ImmutableList<BigInteger>>, Successor> successors) {
         final FunctionDecl validResultFun = generateEmptyValidResultFunction(funData);
         final LinkedList<Statement> statements = ((CompoundStmt) validResultFun.getBody()).getStatements();
 
-        for (WiringEdge edge : successors) {
+        for (Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge : successors.entries()) {
             statements.add(generateValidResultFunctionStep(funData, edge));
         }
 
@@ -127,14 +131,14 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
     }
 
     private Statement generateValidResultFunctionStep(IntermediateFunctionData funData,
-            WiringEdge edge) {
-        final SpecificationElementNode successor = edge.getDestinationNode();
+                Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge) {
+        final SpecificationElementNode successor = edge.getValue().getNode();
 
         // Add the instance parameters conditions
 
         final List<Expression> instanceParams = AstUtils.newIdentifiersList(funData.getInstanceParametersNames());
-        final LinkedList<Expression> conditions = edge.getSourceParameters().isPresent()
-                ? AstUtils.zipWithEq(instanceParams, edge.getSourceParameters().get())
+        final LinkedList<Expression> conditions = edge.getKey().isPresent()
+                ? AstUtils.zipWithEq(instanceParams, AstUtils.newIntegerConstantsList(edge.getKey().get()))
                 : Lists.<Expression>newList();
 
         // Add the call
@@ -219,7 +223,7 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
     }
 
     private FunctionDecl generateFunction(IntermediateFunctionData funData,
-            List<WiringEdge> successors) {
+            ListMultimap<Optional<ImmutableList<BigInteger>>, Successor> successors) {
         final Optional<String> combiningFunName = resolveCombiningFunction(funData.getIntermediateFunction());
         final LocalVariables localVariables = createLocalVariables(funData.returnsVoid(),
                 AstUtils.extractReturnType(funData.getIntermediateFunction()));
@@ -229,7 +233,7 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
 
         funBody.getDeclarations().addAll(localVariables.declarations);
 
-        for (WiringEdge edge : successors) {
+        for (Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge : successors.entries()) {
             stmts.add(generateFunctionStep(funData, edge, localVariables, combiningFunName));
         }
 
@@ -274,8 +278,9 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
                 );
     }
 
-    private Statement generateFunctionStep(IntermediateFunctionData funData, WiringEdge edge,
-            LocalVariables variables, Optional<String> combiningFunName) {
+    private Statement generateFunctionStep(IntermediateFunctionData funData,
+                Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge,
+                LocalVariables variables, Optional<String> combiningFunName) {
 
         final LinkedList<Expression> conditions = generateConnectionConditions(funData, edge);
         final FunctionCall successorCall = generateConnectionCall(funData, edge);
@@ -293,11 +298,11 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
     }
 
     private LinkedList<Expression> generateConnectionConditions(IntermediateFunctionData funData,
-            WiringEdge edge) {
-        final SpecificationElementNode successor = edge.getDestinationNode();
+            Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge) {
+        final SpecificationElementNode successor = edge.getValue().getNode();
         final List<Expression> instanceParams = AstUtils.newIdentifiersList(funData.getInstanceParametersNames());
-        final LinkedList<Expression> conditions = edge.getSourceParameters().isPresent()
-                ? AstUtils.zipWithEq(instanceParams, edge.getSourceParameters().get())
+        final LinkedList<Expression> conditions = edge.getKey().isPresent()
+                ? AstUtils.zipWithEq(instanceParams, AstUtils.newIntegerConstantsList(edge.getKey().get()))
                 : Lists.<Expression>newList();
 
         if (!successor.getEntityData().isImplemented()) {
@@ -308,13 +313,13 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
         return conditions;
     }
 
-    private FunctionCall generateConnectionCall(IntermediateFunctionData funData, WiringEdge edge) {
-        final LinkedList<Expression> allParameters = edge.getDestinationParameters().isPresent()
-                ? AstUtils.deepCopyNodes(edge.getDestinationParameters().get(),
-                        true, Optional.<Map<Node, Node>>absent())
+    private FunctionCall generateConnectionCall(IntermediateFunctionData funData,
+            Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge) {
+        final LinkedList<Expression> allParameters = edge.getValue().getIndices().isPresent()
+                ? AstUtils.newIntegerConstantsList(edge.getValue().getIndices().get())
                 : Lists.<Expression>newList();
-        final int usedInstanceParamsCount = edge.getSourceParameters().isPresent()
-                ? edge.getSourceParameters().get().size()
+        final int usedInstanceParamsCount = edge.getKey().isPresent()
+                ? edge.getKey().get().size()
                 : 0;
 
         final List<String> remainingParameters = funData.getParametersNames().subList(
@@ -322,7 +327,7 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
         allParameters.addAll(AstUtils.newIdentifiersList(remainingParameters));
 
         return AstUtils.newNormalCall(
-                edge.getDestinationNode().getEntityData().getUniqueName(),
+                edge.getValue().getNode().getEntityData().getUniqueName(),
                 allParameters
         );
     }
@@ -387,20 +392,19 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
         );
     }
 
-    private FunctionCall generateValidResultFunctionCall(WiringEdge edge, IntermediateFunctionData successorData,
-            List<String> instanceParamsNames) {
+    private FunctionCall generateValidResultFunctionCall(Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge,
+                IntermediateFunctionData successorData, List<String> instanceParamsNames) {
         final LinkedList<Expression> callParameters;
 
-        if (edge.getDestinationParameters().isPresent()) {
-            callParameters = AstUtils.deepCopyNodes(edge.getDestinationParameters().get(),
-                    true, Optional.<Map<Node, Node>>absent());
-        } else if (!instanceParamsNames.isEmpty() && !edge.getSourceParameters().isPresent()) {
+        if (edge.getValue().getIndices().isPresent()) {
+            callParameters = AstUtils.newIntegerConstantsList(edge.getValue().getIndices().get());
+        } else if (!instanceParamsNames.isEmpty() && !edge.getKey().isPresent()) {
             callParameters = AstUtils.newIdentifiersList(instanceParamsNames);
         } else {
             callParameters = Lists.newList();
         }
 
-        final SpecificationElementNode successor = edge.getDestinationNode();
+        final SpecificationElementNode successor = edge.getValue().getNode();
 
         generateValidResultFunctionUniqueName(successor.getComponentName(), successor.getInterfaceRefName(),
                 successor.getEntityName(), successorData);

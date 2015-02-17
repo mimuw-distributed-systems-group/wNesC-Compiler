@@ -3,11 +3,14 @@ package pl.edu.mimuw.nesc.connect;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import org.apache.log4j.Logger;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.ast.gen.Component;
 import pl.edu.mimuw.nesc.ast.gen.Configuration;
 import pl.edu.mimuw.nesc.ast.gen.ConfigurationImpl;
@@ -17,6 +20,10 @@ import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.NescDecl;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.ast.gen.ParameterisedIdentifier;
+import pl.edu.mimuw.nesc.constexpr.ConstExprInterpreter;
+import pl.edu.mimuw.nesc.constexpr.value.ConstantValue;
+import pl.edu.mimuw.nesc.constexpr.value.IntegerConstantValue;
+import pl.edu.mimuw.nesc.constexpr.value.type.ConstantType;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.wiresgraph.WiresGraph;
 
@@ -47,16 +54,23 @@ public final class ConnectExecutor {
     private final ImmutableList<Configuration> configurations;
 
     /**
+     * Interpreter used for evaluation of parameters given at endpoints.
+     */
+    private final ConstExprInterpreter interpreter;
+
+    /**
      * <p>Get the builder that will build a connect executor.</p>
      *
      * @param nameMangler Name mangler that will be used for mangling names of
      *                    parameters for intermediate functions.
+     * @param abi ABI that is necessary for evaluation endpoints expressions.
      * @return Newly created builder that will build a connect executor.
      * @throws NullPointerException Name mangler is <code>null</code>.
      */
-    public static Builder builder(NameMangler nameMangler) {
+    public static Builder builder(NameMangler nameMangler, ABI abi) {
         checkNotNull(nameMangler, "name mangler cannot be null");
-        return new Builder(nameMangler);
+        checkNotNull(abi, "ABI cannot be null");
+        return new Builder(nameMangler, abi);
     }
 
     /**
@@ -69,6 +83,7 @@ public final class ConnectExecutor {
     private ConnectExecutor(Builder builder) {
         this.graph = builder.buildInitialGraph();
         this.configurations = builder.buildConfigurationsList();
+        this.interpreter = new ConstExprInterpreter(builder.abi);
     }
 
     /**
@@ -135,17 +150,21 @@ public final class ConnectExecutor {
 
         final String edgeTailName = resolveEndpoint(edgeTail, confName, aliasesResolver);
         final String edgeHeadName = resolveEndpoint(edgeHead, confName, aliasesResolver);
-        final Optional<LinkedList<Expression>> tailParameters = getEndpointParameters(edgeTail);
-        final Optional<LinkedList<Expression>> headParameters = getEndpointParameters(edgeHead);
+        final Optional<ImmutableList<BigInteger>> tailIndices =
+                evaluateEndpointParameters(getEndpointParameters(edgeTail));
+        final Optional<ImmutableList<BigInteger>> headIndices =
+                evaluateEndpointParameters(getEndpointParameters(edgeHead));
 
         // Add the edge
 
         final int newEdgesCount = graph.connectElements(edgeTailName, edgeHeadName,
-                tailParameters, headParameters);
+                tailIndices, headIndices);
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug(format("Add connection %s -> %s (%d new edge(s))", edgeTailName,
-                    edgeHeadName, newEdgesCount));
+            LOG.debug(format("Add connection %s -> %s (%d new edge(s))",
+                    buildEndpointString(edgeTailName, tailIndices),
+                    buildEndpointString(edgeHeadName, headIndices),
+                    newEdgesCount));
         }
 
     }
@@ -177,6 +196,49 @@ public final class ConnectExecutor {
                 : Optional.<LinkedList<Expression>>absent();
     }
 
+    private Optional<ImmutableList<BigInteger>> evaluateEndpointParameters(Optional<LinkedList<Expression>> params) {
+        if  (!params.isPresent()) {
+            return Optional.absent();
+        }
+
+        final ImmutableList.Builder<BigInteger> indicesBuilder = ImmutableList.builder();
+
+        for (Expression indexExpr : params.get()) {
+            final ConstantValue value = interpreter.evaluate(indexExpr);
+            if (value.getType().getType() != ConstantType.Type.SIGNED_INTEGER
+                    && value.getType().getType() != ConstantType.Type.UNSIGNED_INTEGER) {
+                throw new RuntimeException("endpoint parameter expression evaluated to a constant of type '"
+                        + value.getType().getType() + "'");
+            }
+            final IntegerConstantValue<?> integerValue = (IntegerConstantValue<?>) value;
+            indicesBuilder.add(integerValue.getValue());
+        }
+
+        return Optional.of(indicesBuilder.build());
+    }
+
+    private String buildEndpointString(String endpointName, Optional<ImmutableList<BigInteger>> indices) {
+        final StringBuilder builder = new StringBuilder(endpointName);
+
+        if (indices.isPresent()) {
+            builder.append('[');
+
+            final Iterator<BigInteger> indicesIt = indices.get().iterator();
+            if (indicesIt.hasNext()) {
+                builder.append(indicesIt.next());
+
+                while (indicesIt.hasNext()) {
+                    builder.append(", ");
+                    builder.append(indicesIt.next());
+                }
+            }
+
+            builder.append(']');
+        }
+
+        return builder.toString();
+    }
+
     /**
      * Builder for a connect executor.
      *
@@ -188,12 +250,14 @@ public final class ConnectExecutor {
          */
         private final List<NescDecl> nescDeclarations = new ArrayList<>();
         private final NameMangler nameMangler;
+        private final ABI abi;
 
         /**
          * Private constructor to limit its accessibility.
          */
-        private Builder(NameMangler nameMangler) {
+        private Builder(NameMangler nameMangler, ABI abi) {
             this.nameMangler = nameMangler;
+            this.abi = abi;
         }
 
         /**

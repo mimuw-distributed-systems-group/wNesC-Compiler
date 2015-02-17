@@ -5,6 +5,7 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,6 +21,7 @@ import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
+import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.facade.component.specification.InterfaceEntityElement;
 import pl.edu.mimuw.nesc.facade.component.specification.ModuleTable;
 import pl.edu.mimuw.nesc.facade.component.specification.TaskElement;
@@ -101,55 +103,55 @@ public final class WiresGraph {
      *                      command or event the edges start in.
      * @param edgesHeadName Name of an interface reference or a bare command
      *                      or event the edges end in.
-     * @param tailParameters List with expressions that constitute parameters
-     *                       for the tail specification element.
-     * @param headParameters List with expressions that constitute parameters
-     *                       for the head specification element.
+     * @param tailIndices List with numbers that constitute indices for the tail
+     *                    tail specification element.
+     * @param headIndices List with numbers that constitute indices for the head
+     *                    specification element.
      * @return Count of edges that have been added.
      * @throws NullPointerException One of the arguments is <code>null</code>.
      * @throws IllegalArgumentException There is no a specification element with
      *                                  name <code>edgeTailName</code> or
      *                                  <code>edgeHeadName</code>.
      */
-    public int connectElements(String edgesTailName, String edgesHeadName, Optional<LinkedList<Expression>> tailParameters,
-            Optional<LinkedList<Expression>> headParameters) {
+    public int connectElements(String edgesTailName, String edgesHeadName, Optional<ImmutableList<BigInteger>> tailIndices,
+            Optional<ImmutableList<BigInteger>> headIndices) {
 
-        checkNotNull(tailParameters, "parameters of the specification element at the tail of the edge cannot be null");
-        checkNotNull(headParameters, "parameters of the specification element at the head of the edge cannot be null");
+        checkNotNull(tailIndices, "indices of the specification element at the tail of the edge cannot be null");
+        checkNotNull(headIndices, "indices of the specification element at the head of the edge cannot be null");
 
         /* Check whether interfaces references or bare commands or events are
            connected. */
 
         if (interfaceRefs.containsKey(edgesTailName)) {
-            return connectInterfaceRefElements(edgesTailName, edgesHeadName, tailParameters, headParameters);
+            return connectInterfaceRefElements(edgesTailName, edgesHeadName, tailIndices, headIndices);
         } else {
-            addEdge(edgesTailName, edgesHeadName, tailParameters, headParameters);
+            addEdge(edgesTailName, edgesHeadName, tailIndices, headIndices);
             return 1;
         }
     }
 
-    private int connectInterfaceRefElements(String tailName, String headName, Optional<LinkedList<Expression>> tailParameters,
-            Optional<LinkedList<Expression>> headParameters) {
+    private int connectInterfaceRefElements(String tailName, String headName, Optional<ImmutableList<BigInteger>> tailIndices,
+            Optional<ImmutableList<BigInteger>> headIndices) {
         final InterfaceContents interfaceContents = interfaces.get(interfaceRefs.get(tailName));
 
         for (String commandName : interfaceContents.commandsNames) {
             addEdge(format("%s.%s", tailName, commandName), format("%s.%s", headName, commandName),
-                    tailParameters, headParameters);
+                    tailIndices, headIndices);
         }
 
         for (String eventName : interfaceContents.eventsNames) {
             addEdge(format("%s.%s", headName, eventName), format("%s.%s", tailName, eventName),
-                    headParameters, tailParameters);
+                    headIndices, tailIndices);
         }
 
         return interfaceContents.commandsNames.size() + interfaceContents.eventsNames.size();
     }
 
-    private void addEdge(String tailName, String headName, Optional<LinkedList<Expression>> tailParameters,
-               Optional<LinkedList<Expression>> headParameters) {
+    private void addEdge(String tailName, String headName, Optional<ImmutableList<BigInteger>> tailIndices,
+            Optional<ImmutableList<BigInteger>> headIndices) {
         final SpecificationElementNode tailNode = requireNode(tailName);
         final SpecificationElementNode headNode = requireNode(headName);
-        tailNode.addSuccessor(headNode, tailParameters, headParameters);
+        tailNode.addSuccessor(headNode, tailIndices, headIndices);
     }
 
     /**
@@ -387,12 +389,16 @@ public final class WiresGraph {
                     checkState(variableDecl.getDeclarator().isPresent(), "declarator of a specification element is absent");
                     final Optional<String> optEntityName = DeclaratorUtils.getDeclaratorName(variableDecl.getDeclarator().get());
                     checkState(optEntityName.isPresent(), "declarator of a specification element does not contain name");
+                    final FunctionDeclaration declaration = (FunctionDeclaration) variableDecl.getDeclaration();
 
                     final String entityName = optEntityName.get();
                     final EntityData entityData = createBareEntityData(dataDecl.getModifiers(),
                             variableDecl, componentName, entityName, moduleTable);
+                    final int indicesCount = declaration.getInstanceParameters().isPresent()
+                            ? declaration.getInstanceParameters().get().size()
+                            : 0;
                     final SpecificationElementNode newNode = new SpecificationElementNode(componentName,
-                            Optional.<String>absent(), entityName, entityData);
+                            Optional.<String>absent(), entityName, indicesCount, entityData);
                     nodesMapBuilder.put(newNode.getName(), newNode);
                 }
             }
@@ -630,8 +636,11 @@ public final class WiresGraph {
                     // Update data
                     final String uniqueName = generateIntermediateFunctionName(componentName,
                             Optional.of(interfaceRefName), entityName, declarator);
+                    final int indicesCount = instanceParameters.isPresent()
+                            ? instanceParameters.get().size()
+                            : 0;
                     nodes.put(elementName, new SpecificationElementNode(componentName,
-                            Optional.of(interfaceRefName), entityName,
+                            Optional.of(interfaceRefName), entityName, indicesCount,
                             createInterfaceEntityData(entityName, uniqueName)));
                     switch (interfaceEntityKind) {
                         case COMMAND:

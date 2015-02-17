@@ -315,7 +315,8 @@ public final class Main {
      */
     private WiresGraph connect(ProjectData projectData, Optional<Configuration> taskWiringConf,
                 Set<Component> instantiatedComponents) {
-        final ConnectExecutor.Builder executorBuilder = ConnectExecutor.builder(projectData.getNameMangler())
+        final ConnectExecutor.Builder executorBuilder = ConnectExecutor.builder(
+                        projectData.getNameMangler(), projectData.getABI())
                 .addNescDeclarations(instantiatedComponents);
 
         // Add all necessary nodes
