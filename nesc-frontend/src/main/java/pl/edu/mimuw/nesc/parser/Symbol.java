@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.parser;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import pl.edu.mimuw.nesc.ast.Location;
 
@@ -77,7 +78,7 @@ public class Symbol {
     }
 
     public String print() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("symbolCode", symbolCode)
                 .add("startLocation", startLocation)
                 .add("endLocation", endLocation)

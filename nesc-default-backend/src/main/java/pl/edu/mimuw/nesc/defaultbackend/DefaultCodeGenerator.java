@@ -10,6 +10,7 @@ import com.google.common.collect.PeekingIterator;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -105,7 +106,7 @@ public final class DefaultCodeGenerator {
         public Void visit(InstantiatedData instantiatedData, Void arg) {
             final Component component = instantiatedData.getComponent();
             final PeekingIterator<IncludeDirective> emptyInclIt =
-                    Iterators.peekingIterator(Iterators.<IncludeDirective>emptyIterator());
+                    Iterators.peekingIterator(Collections.<IncludeDirective>emptyIterator());
 
             // Push the implementation of the component
             final Optional<PeekingIterator<Declaration>> implIt =

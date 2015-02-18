@@ -1,6 +1,6 @@
 package pl.edu.mimuw.nesc.preprocessor;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import org.anarres.cpp.Macro;
 
@@ -51,7 +51,7 @@ public class PreprocessorMacro {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("processedObject", processedObject)
                 .add("sourceFile", sourceFile)
                 .add("name", name)

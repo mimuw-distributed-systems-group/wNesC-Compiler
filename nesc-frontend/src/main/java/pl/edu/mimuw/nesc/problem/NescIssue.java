@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.problem;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.Location;
@@ -50,7 +51,7 @@ public abstract class NescIssue {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("startLocation", startLocation)
                 .add("endLocation", endLocation)
                 .add("code", code)

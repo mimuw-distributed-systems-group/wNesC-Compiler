@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.ast;
 
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
 import java.util.Comparator;
@@ -69,7 +70,7 @@ public final class Location implements Comparable<Location> {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("line", line)
                 .add("column", column)
                 .add("filePath", filePath)

@@ -1,9 +1,8 @@
 package pl.edu.mimuw.nesc.lexer;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import pl.edu.mimuw.nesc.ast.Location;
 
@@ -49,7 +48,7 @@ public final class Comment {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("location", location)
                 .add("body", body.substring(0, Math.min(body.length(), 100)))
                 .add("isC", isC)
