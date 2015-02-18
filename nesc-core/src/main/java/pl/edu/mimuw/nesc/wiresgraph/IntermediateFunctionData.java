@@ -40,6 +40,12 @@ public final class IntermediateFunctionData extends EntityData {
     private final FunctionDecl intermediateFunction;
 
     /**
+     * Value indicating if the command or event is a used command or event
+     * from a module.
+     */
+    private final boolean isCallSource;
+
+    /**
      * Unique name of the function that is the default implementation of the
      * command or event.
      */
@@ -65,6 +71,8 @@ public final class IntermediateFunctionData extends EntityData {
      * @param defaultImplementationUniqueName Unique name of the function that
      *                                        is the default implementation of
      *                                        the command or event.
+     * @param isCallSource Value indicating if the function corresponds to
+     *                     a used command or event from a module.
      * @throws NullPointerException One of the reference arguments is
      *                              <code>null</code>.
      * @throws IllegalArgumentException Unique name is an empty string.
@@ -72,7 +80,8 @@ public final class IntermediateFunctionData extends EntityData {
     IntermediateFunctionData(String uniqueName, ImmutableList<String> argumentsNames,
             int instanceParametersCount, boolean returnsVoid,
             FunctionDecl intermediateFunTemplate,
-            Optional<String> defaultImplementationUniqueName) {
+            Optional<String> defaultImplementationUniqueName,
+            boolean isCallSource) {
         super(uniqueName);  // throws if 'uniqueName' is null or empty
 
         checkNotNull(argumentsNames, "names of parameters cannot be null");
@@ -87,6 +96,7 @@ public final class IntermediateFunctionData extends EntityData {
         this.returnsVoid = returnsVoid;
         this.intermediateFunction = intermediateFunTemplate;
         this.defaultImplementationUniqueName = defaultImplementationUniqueName;
+        this.isCallSource = isCallSource;
     }
 
     @Override
@@ -130,6 +140,17 @@ public final class IntermediateFunctionData extends EntityData {
      */
     public FunctionDecl getIntermediateFunction() {
         return intermediateFunction;
+    }
+
+    /**
+     * Check if the intermediate function corresponds to a used command or event
+     * from a module.
+     *
+     * @return <code>true</code> if and only if the intermediate function
+     *         corresponds to used command or event from a module.
+     */
+    public boolean isCallSource() {
+        return isCallSource;
     }
 
     /**

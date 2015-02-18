@@ -13,12 +13,11 @@ import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
-import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.wiresgraph.IntermediateFunctionData;
 import pl.edu.mimuw.nesc.wiresgraph.SpecificationElementNode;
-import pl.edu.mimuw.nesc.wiresgraph.Successor;
+import pl.edu.mimuw.nesc.wiresgraph.IndexedNode;
 import pl.edu.mimuw.nesc.wiresgraph.WiresGraph;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -42,10 +41,10 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
     private final NameMangler nameMangler;
 
     /**
-     * Map with unique names of type definitions as keys and names of
-     * corresponding combining functions as values.
+     * Object responsible for determining combining functions to use in
+     * generated intermediate functions.
      */
-    private final Map<String, String> combiningFunctions;
+    private final CombiningFunctionResolver combiningFunctionResolver;
 
     /**
      * Initializes this generator to generate functions according to the given
@@ -67,7 +66,7 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
         checkNotNull(nameMangler, "name mangler cannot be null");
 
         this.wiresGraph = graph;
-        this.combiningFunctions = combiningFunctions;
+        this.combiningFunctionResolver = new CombiningFunctionResolver(combiningFunctions);
         this.nameMangler = nameMangler;
     }
 
@@ -97,9 +96,9 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
     }
 
     private FunctionDecl generateValidResultFunction(IntermediateFunctionData funData,
-                ListMultimap<Optional<ImmutableList<BigInteger>>, Successor> successors) {
+                ListMultimap<Optional<ImmutableList<BigInteger>>, IndexedNode> successors) {
         // Check if a trivial function can be generated
-        for (Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge : successors.entries()) {
+        for (Map.Entry<Optional<ImmutableList<BigInteger>>, IndexedNode> edge : successors.entries()) {
             if (edge.getValue().getNode().getEntityData().isImplemented()
                     && !edge.getKey().isPresent()) {
                 return generateTrivialValidResultFun(funData);
@@ -117,11 +116,11 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
     }
 
     private FunctionDecl generateNontrivialValidResultFun(IntermediateFunctionData funData,
-                ListMultimap<Optional<ImmutableList<BigInteger>>, Successor> successors) {
+                ListMultimap<Optional<ImmutableList<BigInteger>>, IndexedNode> successors) {
         final FunctionDecl validResultFun = generateEmptyValidResultFunction(funData);
         final LinkedList<Statement> statements = ((CompoundStmt) validResultFun.getBody()).getStatements();
 
-        for (Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge : successors.entries()) {
+        for (Map.Entry<Optional<ImmutableList<BigInteger>>, IndexedNode> edge : successors.entries()) {
             statements.add(generateValidResultFunctionStep(funData, edge));
         }
 
@@ -131,7 +130,7 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
     }
 
     private Statement generateValidResultFunctionStep(IntermediateFunctionData funData,
-                Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge) {
+                Map.Entry<Optional<ImmutableList<BigInteger>>, IndexedNode> edge) {
         final SpecificationElementNode successor = edge.getValue().getNode();
 
         // Add the instance parameters conditions
@@ -223,8 +222,9 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
     }
 
     private FunctionDecl generateFunction(IntermediateFunctionData funData,
-            ListMultimap<Optional<ImmutableList<BigInteger>>, Successor> successors) {
-        final Optional<String> combiningFunName = resolveCombiningFunction(funData.getIntermediateFunction());
+            ListMultimap<Optional<ImmutableList<BigInteger>>, IndexedNode> successors) {
+        final Optional<String> combiningFunName = combiningFunctionResolver.resolve(
+                funData.getIntermediateFunction());
         final LocalVariables localVariables = createLocalVariables(funData.returnsVoid(),
                 AstUtils.extractReturnType(funData.getIntermediateFunction()));
 
@@ -233,7 +233,7 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
 
         funBody.getDeclarations().addAll(localVariables.declarations);
 
-        for (Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge : successors.entries()) {
+        for (Map.Entry<Optional<ImmutableList<BigInteger>>, IndexedNode> edge : successors.entries()) {
             stmts.add(generateFunctionStep(funData, edge, localVariables, combiningFunName));
         }
 
@@ -279,7 +279,7 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
     }
 
     private Statement generateFunctionStep(IntermediateFunctionData funData,
-                Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge,
+                Map.Entry<Optional<ImmutableList<BigInteger>>, IndexedNode> edge,
                 LocalVariables variables, Optional<String> combiningFunName) {
 
         final LinkedList<Expression> conditions = generateConnectionConditions(funData, edge);
@@ -298,7 +298,7 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
     }
 
     private LinkedList<Expression> generateConnectionConditions(IntermediateFunctionData funData,
-            Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge) {
+            Map.Entry<Optional<ImmutableList<BigInteger>>, IndexedNode> edge) {
         final SpecificationElementNode successor = edge.getValue().getNode();
         final List<Expression> instanceParams = AstUtils.newIdentifiersList(funData.getInstanceParametersNames());
         final LinkedList<Expression> conditions = edge.getKey().isPresent()
@@ -314,7 +314,7 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
     }
 
     private FunctionCall generateConnectionCall(IntermediateFunctionData funData,
-            Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge) {
+            Map.Entry<Optional<ImmutableList<BigInteger>>, IndexedNode> edge) {
         final LinkedList<Expression> allParameters = edge.getValue().getIndices().isPresent()
                 ? AstUtils.newIntegerConstantsList(edge.getValue().getIndices().get())
                 : Lists.<Expression>newList();
@@ -392,7 +392,7 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
         );
     }
 
-    private FunctionCall generateValidResultFunctionCall(Map.Entry<Optional<ImmutableList<BigInteger>>, Successor> edge,
+    private FunctionCall generateValidResultFunctionCall(Map.Entry<Optional<ImmutableList<BigInteger>>, IndexedNode> edge,
                 IntermediateFunctionData successorData, List<String> instanceParamsNames) {
         final LinkedList<Expression> callParameters;
 
@@ -410,29 +410,6 @@ public final class SimpleIntermediateGenerator implements IntermediateGenerator 
                 successor.getEntityName(), successorData);
 
         return AstUtils.newNormalCall(successorData.getValidResultFunctionUniqueName().get(), callParameters);
-    }
-
-    /**
-     * Get the name of the combining function for the return type of given
-     * function.
-     *
-     * @param funDecl AST node of function.
-     * @return Name of the combining function for the return type of given
-     *         function. The object is absent if no combining function is
-     *         associated with the return type.
-     */
-    private Optional<String> resolveCombiningFunction(FunctionDecl funDecl) {
-        /* Check if the return type of the function is entirely defined with
-           a type elements list. */
-
-        if (AstUtils.declaratorAffectsReturnType(funDecl)) {
-            return Optional.absent();
-        }
-
-        final Optional<String> typedefUniqueName = TypeElementUtils.getTypedefUniqueName(funDecl.getModifiers());
-        return typedefUniqueName.isPresent()
-                ? Optional.fromNullable(combiningFunctions.get(typedefUniqueName.get()))
-                : Optional.<String>absent();
     }
 
     private LocalVariables createLocalVariables(boolean returnsVoid, AstType returnType) {

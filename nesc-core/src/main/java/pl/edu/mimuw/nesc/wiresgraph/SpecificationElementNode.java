@@ -52,12 +52,12 @@ public final class SpecificationElementNode {
      * Multimap with successors of this node. Absent object as the key
      * represents connections without parameters specified for this node.
      */
-    private final ListMultimap<Optional<ImmutableList<BigInteger>>, Successor> successors = ArrayListMultimap.create();
+    private final ListMultimap<Optional<ImmutableList<BigInteger>>, IndexedNode> successors = ArrayListMultimap.create();
 
     /**
      * Unmodifiable view of the successors multimap.
      */
-    private final ListMultimap<Optional<ImmutableList<BigInteger>>, Successor> unmodifiableSuccessors =
+    private final ListMultimap<Optional<ImmutableList<BigInteger>>, IndexedNode> unmodifiableSuccessors =
             Multimaps.unmodifiableListMultimap(successors);
 
     /**
@@ -180,24 +180,17 @@ public final class SpecificationElementNode {
         checkNotNull(destinationNode, "destination node cannot be null");
         checkNotNull(sourceIndices, "source indices cannot be null");
         checkNotNull(destinationIndices, "destination indices cannot be null");
-        checkArgument(!sourceIndices.isPresent() || sourceIndices.get().size() > 0,
+        checkArgument(!sourceIndices.isPresent() || !sourceIndices.get().isEmpty(),
                 "source indices cannot be an empty list");
-        checkArgument(!destinationIndices.isPresent() || destinationIndices.get().size() > 0,
-                "destination indices cannot be an empty list");
 
         if (sourceIndices.isPresent() && sourceIndices.get().size() != indicesCount) {
             throw new IllegalArgumentException("invalid count of source indices, expected "
                     + indicesCount + " but got " + sourceIndices.get().size());
         }
 
-        if (destinationIndices.isPresent() && destinationIndices.get().size() != destinationNode.indicesCount) {
-            throw new IllegalArgumentException("invalid count of destination indices, expected"
-                    + destinationNode.indicesCount + " but got " + destinationIndices.get().size());
-        }
-
         // Create and add the successor
 
-        final Successor newSuccessor = new Successor(destinationNode, destinationIndices);
+        final IndexedNode newSuccessor = new IndexedNode(destinationNode, destinationIndices);
         successors.put(sourceIndices, newSuccessor);
     }
 
@@ -206,7 +199,7 @@ public final class SpecificationElementNode {
      *
      * @return Unmodifiable view of map with successors of this node.
      */
-    public ListMultimap<Optional<ImmutableList<BigInteger>>, Successor> getSuccessors() {
+    public ListMultimap<Optional<ImmutableList<BigInteger>>, IndexedNode> getSuccessors() {
         return unmodifiableSuccessors;
     }
 }

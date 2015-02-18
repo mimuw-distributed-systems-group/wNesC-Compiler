@@ -37,7 +37,7 @@ import pl.edu.mimuw.nesc.fold.FoldExecutor;
 import pl.edu.mimuw.nesc.instantiation.CyclePresentException;
 import pl.edu.mimuw.nesc.instantiation.InstantiateExecutor;
 import pl.edu.mimuw.nesc.finalreduce.FinalTransformer;
-import pl.edu.mimuw.nesc.intermediate.SimpleIntermediateGenerator;
+import pl.edu.mimuw.nesc.intermediate.TraversingIntermediateGenerator;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.problem.NescError;
 import pl.edu.mimuw.nesc.problem.NescIssue;
@@ -371,7 +371,7 @@ public final class Main {
      */
     private Multimap<String, FunctionDecl> generateIntermediateFuns(WiresGraph graph,
             ImmutableMap<String, String> combiningFuns, NameMangler nameMangler) {
-        return new SimpleIntermediateGenerator(graph, combiningFuns, nameMangler).generate();
+        return new TraversingIntermediateGenerator(graph, combiningFuns, nameMangler).generate();
     }
 
     /**

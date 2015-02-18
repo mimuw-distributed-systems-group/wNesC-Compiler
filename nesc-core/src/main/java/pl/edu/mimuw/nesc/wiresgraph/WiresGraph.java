@@ -461,7 +461,8 @@ public final class WiresGraph {
                 funDecl.setOldParms(Lists.<Declaration>newList());
 
                 return new IntermediateFunctionData(uniqueName, prepareParametersNames(funDeclarator.getParameters()),
-                        instanceParametersCount, returnsVoid, funDecl, defaultImplementationUniqueName);
+                        instanceParametersCount, returnsVoid, funDecl, defaultImplementationUniqueName,
+                        moduleTable.isPresent());
             }
 
             /**
@@ -708,7 +709,8 @@ public final class WiresGraph {
 
                     final EntityData result = new IntermediateFunctionData(uniqueName, parametersNames,
                             instanceParameters.isPresent() ? instanceParameters.get().size() : 0,
-                            returnsVoid, functionDecl, defaultImplementationUniqueName);
+                            returnsVoid, functionDecl, defaultImplementationUniqueName,
+                            moduleTable.isPresent());
 
                     intermediateDeclarator = null;
                     parametersNames = null;

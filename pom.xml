@@ -42,7 +42,7 @@
     </modules>
 
     <properties>
-        <guava.version>16.0</guava.version>
+        <guava.version>18.0</guava.version>
         <junit.version>4.11</junit.version>
         <log4j.version>1.2.17</log4j.version>
         <fest.version>1.4</fest.version>
