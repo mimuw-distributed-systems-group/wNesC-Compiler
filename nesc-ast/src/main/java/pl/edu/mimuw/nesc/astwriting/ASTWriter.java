@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.astwriting;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.FileOutputStream;
@@ -1978,8 +1979,17 @@ public final class ASTWriter implements Closeable {
         }
 
         private void writeTag(TagRef tagRef, String tagKeyword, boolean at) {
+            final SeparatedAttributes attributes = new SeparatedAttributes(tagRef.getAttributes());
+
             // Write the tag keyword
             output.write(tagKeyword);
+
+            // Write GCC attributes if the tag reference is not definition
+            if (tagRef.getSemantics() == StructSemantics.OTHER
+                    && !attributes.getGccAttributes().isEmpty()) {
+                output.write(SPACE);
+                writeSpaceSeparated(attributes.getGccAttributes());
+            }
 
             // Write '@' if it is necessary
             if (at) {
@@ -1996,10 +2006,10 @@ public final class ASTWriter implements Closeable {
                 writeName(tag.get().getName(), tagRef.getUniqueName().get());
             }
 
-            // Write attributes
-            if (!tagRef.getAttributes().isEmpty()) {
+            // Write NesC attributes
+            if (!attributes.getNescAttributes().isEmpty()) {
                 output.write(SPACE);
-                writeSpaceSeparated(tagRef.getAttributes());
+                writeSpaceSeparated(attributes.getNescAttributes());
             }
 
             // Write fields
@@ -2011,6 +2021,10 @@ public final class ASTWriter implements Closeable {
                         writeCommaSeparatedInBraces(tagRef.getFields());
                     } else {
                         writeSemicolonTerminatedInBraces(tagRef.getFields());
+                    }
+                    if (!attributes.getGccAttributes().isEmpty()) {
+                        output.write(SPACE);
+                        writeSpaceSeparated(attributes.getGccAttributes());
                     }
                     break;
                 case OTHER:
@@ -2393,6 +2407,45 @@ public final class ASTWriter implements Closeable {
             final FileOutputStream fileOutStream = new FileOutputStream(fileName);
             fileOutStream.getChannel().truncate(0);
             return createPrintWriter(fileOutStream);
+        }
+    }
+
+    /**
+     * Class responsible for separating NesC attributes and GCC attributes.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class SeparatedAttributes {
+        private final ImmutableList<NescAttribute> nescAttributes;
+        private final ImmutableList<GccAttribute> gccAttributes;
+
+        private SeparatedAttributes(List<? extends Attribute> attributes) {
+            checkNotNull(attributes, "attributes cannot be null");
+
+            final ImmutableList.Builder<NescAttribute> nescAttrsBuilder = ImmutableList.builder();
+            final ImmutableList.Builder<GccAttribute> gccAttrsBuilder = ImmutableList.builder();
+
+            for (Attribute attribute : attributes) {
+                if (attribute instanceof NescAttribute) {
+                    nescAttrsBuilder.add((NescAttribute) attribute);
+                } else if (attribute instanceof GccAttribute) {
+                    gccAttrsBuilder.add((GccAttribute) attribute);
+                } else {
+                    throw new RuntimeException("unexpected attribute subclass "
+                            + attribute.getClass().getCanonicalName());
+                }
+            }
+
+            this.nescAttributes = nescAttrsBuilder.build();
+            this.gccAttributes = gccAttrsBuilder.build();
+        }
+
+        private ImmutableList<NescAttribute> getNescAttributes() {
+            return nescAttributes;
+        }
+
+        private ImmutableList<GccAttribute> getGccAttributes() {
+            return gccAttributes;
         }
     }
 }

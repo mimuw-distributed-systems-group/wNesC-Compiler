@@ -15,6 +15,7 @@ import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.astutil.predicates.PackedAttributePredicate;
 import pl.edu.mimuw.nesc.type.IntType;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
@@ -958,6 +959,19 @@ public final class AstUtils {
         checkNotNull(argument, "argument cannot be null");
         checkNotNull(operation, "operation cannot be null");
         return operation.accept(INCREMENT_OPERATION_CLONING_VISITOR, argument);
+    }
+
+    /**
+     * Create a new AST node of GCC attribute 'packed'.
+     *
+     * @return Newly created instance of GCC 'packed' attribute.
+     */
+    public static GccAttribute newPackedAttribute() {
+        return new GccAttribute(
+                Location.getDummyLocation(),
+                new Word(Location.getDummyLocation(), PackedAttributePredicate.getAttributeName()),
+                Optional.<LinkedList<Expression>>absent()
+        );
     }
 
     private AstUtils() {

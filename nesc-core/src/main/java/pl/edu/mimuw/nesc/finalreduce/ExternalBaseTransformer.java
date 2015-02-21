@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.finalreduce;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.Iterables;
 import java.util.Collection;
 import java.util.Iterator;
 import pl.edu.mimuw.nesc.abi.ABI;
@@ -21,6 +22,7 @@ import pl.edu.mimuw.nesc.ast.gen.TypeElement;
 import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.predicates.ExternalBaseAttributePredicate;
+import pl.edu.mimuw.nesc.astutil.predicates.PackedAttributePredicate;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.typelayout.UniversalTypeLayoutCalculator;
@@ -114,7 +116,7 @@ final class ExternalBaseTransformer {
                         + innerDecl.getClass().getCanonicalName() + "'");
             }
 
-            nxBaseDeclaration = externalBasePredicate.remove(attributes)
+            nxBaseDeclaration = Iterables.removeIf(attributes, externalBasePredicate)
                     || nxBaseDeclaration;
         }
 
@@ -168,7 +170,7 @@ final class ExternalBaseTransformer {
 
         return new StructRef(
                 Location.getDummyLocation(),
-                Lists.<Attribute>newList(),
+                Lists.<Attribute>newList(AstUtils.newPackedAttribute()),
                 Lists.<Declaration>newList(dataDecl),
                 null,  // unnamed structure
                 StructSemantics.DEFINITION

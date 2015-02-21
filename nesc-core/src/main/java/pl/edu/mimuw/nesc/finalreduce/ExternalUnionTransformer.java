@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.finalreduce;
 
+import com.google.common.collect.Iterables;
 import java.util.Iterator;
 import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.ast.StructSemantics;
@@ -10,6 +11,7 @@ import pl.edu.mimuw.nesc.ast.gen.NxStructRef;
 import pl.edu.mimuw.nesc.ast.gen.NxUnionRef;
 import pl.edu.mimuw.nesc.ast.gen.TagRef;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
+import pl.edu.mimuw.nesc.astutil.predicates.PackedAttributePredicate;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.declaration.tag.FieldDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.UnionDeclaration;
@@ -85,6 +87,7 @@ final class ExternalUnionTransformer {
         computeMaximumFieldsSizes();
         removeBitFields();
         addFillerField();
+        addPackedAttribute();
         raiseTransformedFlag();
     }
 
@@ -131,6 +134,12 @@ final class ExternalUnionTransformer {
             final String fieldName = nameMangler.mangle(FILLER_FIELD_NAME);
             final int fieldSize = VariousUtils.alignNumber(elementVisitor.maxBitFieldSizeInBits, 8) / 8;
             nxUnionRef.getFields().add(AstUtils.newFillerField(fieldName, fieldSize));
+        }
+    }
+
+    private void addPackedAttribute() {
+        if (!Iterables.any(nxUnionRef.getAttributes(), new PackedAttributePredicate())) {
+            nxUnionRef.getAttributes().add(AstUtils.newPackedAttribute());
         }
     }
 

@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.finalreduce;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -16,6 +17,7 @@ import pl.edu.mimuw.nesc.ast.gen.NxStructRef;
 import pl.edu.mimuw.nesc.ast.gen.NxUnionRef;
 import pl.edu.mimuw.nesc.ast.gen.TypeElement;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
+import pl.edu.mimuw.nesc.astutil.predicates.PackedAttributePredicate;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.tag.FieldDeclaration;
@@ -84,6 +86,7 @@ final class ExternalStructureTransformer {
         calculateLayout();
         separateFields();
         packBitFields();
+        addPackedAttribute();
         raiseTransformedFlag();
     }
 
@@ -155,6 +158,12 @@ final class ExternalStructureTransformer {
 
         if (bitFieldsData.isNonEmpty()) {
             insertFillerField(astDeclIt, bitFieldsData.getTotalSizeInBits(), false);
+        }
+    }
+
+    private void addPackedAttribute() {
+        if (!Iterables.any(nxStructRef.getAttributes(), new PackedAttributePredicate())) {
+            nxStructRef.getAttributes().add(AstUtils.newPackedAttribute());
         }
     }
 
