@@ -89,42 +89,42 @@ public class UniversalTypeLayoutCalculator implements TypeLayoutCalculator {
 
         @Override
         public TypeLayout visit(ShortType type, Void arg) {
-            return computeShortLayout();
+            return computeShortLayout(type.isExternal());
         }
 
         @Override
         public TypeLayout visit(UnsignedShortType type, Void arg) {
-            return computeShortLayout();
+            return computeShortLayout(type.isExternal());
         }
 
         @Override
         public TypeLayout visit(IntType type, Void arg) {
-            return computeIntLayout();
+            return computeIntLayout(type.isExternal());
         }
 
         @Override
         public TypeLayout visit(UnsignedIntType type, Void arg) {
-            return computeIntLayout();
+            return computeIntLayout(type.isExternal());
         }
 
         @Override
         public TypeLayout visit(LongType type, Void arg) {
-            return computeLongLayout();
+            return computeLongLayout(type.isExternal());
         }
 
         @Override
         public TypeLayout visit(UnsignedLongType type, Void arg) {
-            return computeLongLayout();
+            return computeLongLayout(type.isExternal());
         }
 
         @Override
         public TypeLayout visit(LongLongType type, Void arg) {
-            return computeLongLongLayout();
+            return computeLongLongLayout(type.isExternal());
         }
 
         @Override
         public TypeLayout visit(UnsignedLongLongType type, Void arg) {
-            return computeLongLongLayout();
+            return computeLongLongLayout(type.isExternal());
         }
 
         @Override
@@ -135,17 +135,17 @@ public class UniversalTypeLayoutCalculator implements TypeLayoutCalculator {
 
         @Override
         public TypeLayout visit(FloatType type, Void arg) {
-            return new TypeLayout(abi.getFloat().getSize(), abi.getFloat().getAlignment());
+            return computeLayout(abi.getFloat().getSize(), abi.getFloat().getAlignment(), type.isExternal());
         }
 
         @Override
         public TypeLayout visit(DoubleType type, Void arg) {
-            return new TypeLayout(abi.getDouble().getSize(), abi.getDouble().getAlignment());
+            return computeLayout(abi.getDouble().getSize(), abi.getDouble().getAlignment(), type.isExternal());
         }
 
         @Override
         public TypeLayout visit(LongDoubleType type, Void arg) {
-            return new TypeLayout(abi.getLongDouble().getSize(), abi.getLongDouble().getAlignment());
+            return computeLayout(abi.getLongDouble().getSize(), abi.getLongDouble().getAlignment(), type.isExternal());
         }
 
         @Override
@@ -174,8 +174,8 @@ public class UniversalTypeLayoutCalculator implements TypeLayoutCalculator {
             final TypeLayout elementTypeLayout = new UniversalTypeLayoutCalculator(UniversalTypeLayoutCalculator.this.abi,
                     type.getElementType()).calculate();
 
-            return new TypeLayout(arraySize.getValue().intValue() * elementTypeLayout.getSize(),
-                    elementTypeLayout.getAlignment());
+            return computeLayout(arraySize.getValue().intValue() * elementTypeLayout.getSize(),
+                    elementTypeLayout.getAlignment(), type.isExternal());
         }
 
         @Override
@@ -238,25 +238,29 @@ public class UniversalTypeLayoutCalculator implements TypeLayoutCalculator {
             throw new RuntimeException("calculating layout for a component type");
         }
 
-        private TypeLayout computeShortLayout() {
-            return new TypeLayout(abi.getShort().getSize(), abi.getShort().getAlignment());
+        private TypeLayout computeShortLayout(boolean isExternal) {
+            return computeLayout(abi.getShort().getSize(), abi.getShort().getAlignment(), isExternal);
         }
 
-        private TypeLayout computeIntLayout() {
-            return new TypeLayout(abi.getInt().getSize(), abi.getInt().getAlignment());
+        private TypeLayout computeIntLayout(boolean isExternal) {
+            return computeLayout(abi.getInt().getSize(), abi.getInt().getAlignment(), isExternal);
         }
 
-        private TypeLayout computeLongLayout() {
-            return new TypeLayout(abi.getLong().getSize(), abi.getLong().getAlignment());
+        private TypeLayout computeLongLayout(boolean isExternal) {
+            return computeLayout(abi.getLong().getSize(), abi.getLong().getAlignment(), isExternal);
         }
 
-        private TypeLayout computeLongLongLayout() {
-            return new TypeLayout(abi.getLongLong().getSize(), abi.getLongLong().getAlignment());
+        private TypeLayout computeLongLongLayout(boolean isExternal) {
+            return computeLayout(abi.getLongLong().getSize(), abi.getLongLong().getAlignment(), isExternal);
         }
 
         private TypeLayout computeFieldTagLayout(FieldTagType<?> fieldTagType) {
             return new FieldTagTypeLayoutCalculator(UniversalTypeLayoutCalculator.this.abi, fieldTagType)
                     .calculate();
+        }
+
+        private TypeLayout computeLayout(int size, int nonExternalAlignment, boolean isExternal) {
+            return new TypeLayout(size, isExternal ? 1 : nonExternalAlignment);
         }
     }
 }
