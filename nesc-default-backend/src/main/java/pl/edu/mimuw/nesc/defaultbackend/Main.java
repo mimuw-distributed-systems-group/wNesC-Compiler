@@ -21,6 +21,7 @@ import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Component;
 import pl.edu.mimuw.nesc.ast.gen.Configuration;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
+import pl.edu.mimuw.nesc.ast.gen.ExprTransformer;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.ast.gen.Module;
 import pl.edu.mimuw.nesc.ast.gen.ModuleImpl;
@@ -33,6 +34,7 @@ import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 import pl.edu.mimuw.nesc.finalanalysis.FinalAnalyzer;
 import pl.edu.mimuw.nesc.finalreduce.ExternalExprBlockData;
 import pl.edu.mimuw.nesc.finalreduce.ExternalExprTransformer;
+import pl.edu.mimuw.nesc.finalreduce.OffsetofTransformation;
 import pl.edu.mimuw.nesc.fold.FoldExecutor;
 import pl.edu.mimuw.nesc.instantiation.CyclePresentException;
 import pl.edu.mimuw.nesc.instantiation.InstantiateExecutor;
@@ -384,10 +386,13 @@ public final class Main {
         final ExternalExprTransformer externalTransformer = new ExternalExprTransformer(
                 projectData.getNameMangler());
         final ExternalExprBlockData blockData = new ExternalExprBlockData();
+        final ExprTransformer<Void> offsetofTransformer = new ExprTransformer<>(
+                new OffsetofTransformation(projectData.getABI()));
 
         for (Component component : instantiatedComponents) {
             component.traverse(transformer, Optional.<String>absent());
             component.traverse(externalTransformer, blockData);
+            component.traverse(offsetofTransformer, null);
         }
 
         for (FileData fileData : projectData.getFileDatas().values()) {
@@ -397,17 +402,20 @@ public final class Main {
                 if (!component.getIsAbstract()) {
                     component.traverse(transformer, Optional.<String>absent());
                     component.traverse(externalTransformer, blockData);
+                    component.traverse(offsetofTransformer, null);
                 }
             }
             for (Declaration declaration : fileData.getExtdefs()) {
                 declaration.traverse(transformer, Optional.<String>absent());
                 declaration.traverse(externalTransformer, blockData);
+                declaration.traverse(offsetofTransformer, null);
             }
         }
 
         if (taskWiringConf.isPresent()) {
             taskWiringConf.get().traverse(transformer, Optional.<String>absent());
             taskWiringConf.get().traverse(externalTransformer, blockData);
+            taskWiringConf.get().traverse(offsetofTransformer, null);
         }
     }
 
