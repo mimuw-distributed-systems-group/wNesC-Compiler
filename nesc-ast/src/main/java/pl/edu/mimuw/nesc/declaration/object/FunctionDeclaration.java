@@ -76,6 +76,11 @@ public class FunctionDeclaration extends ObjectDeclaration {
      */
     private Optional<Boolean> isProvided = Optional.absent();
 
+    /**
+     * Assumptions that can be made about calls to the function.
+     */
+    private CallAssumptions callAssumptions = CallAssumptions.NONE;
+
     public static Builder builder() {
         return new Builder();
     }
@@ -186,6 +191,33 @@ public class FunctionDeclaration extends ObjectDeclaration {
         return uniqueName;
     }
 
+    /**
+     * Get the assumptions that can be made about calls to the function.
+     *
+     * @return The call assumptions.
+     * @see CallAssumptions
+     */
+    public CallAssumptions getCallAssumptions() {
+        return callAssumptions;
+    }
+
+    /**
+     * Set the call assumptions for the function. The assumptions can only be
+     * set to the greater or equal ones in its natural ordering.
+     *
+     * @param newCallAssumptions New call assumptions to set.
+     * @throws IllegalArgumentException The given assumptions are less than the
+     *                                  current assumptions in their natural
+     *                                  ordering.
+     */
+    public void setCallAssumptions(CallAssumptions newCallAssumptions) {
+        checkNotNull(newCallAssumptions, "call assumptions cannot be null");
+        checkArgument(newCallAssumptions.compareTo(callAssumptions) >= 0,
+                "call assumptions cannot be less than the current assumptions");
+
+        this.callAssumptions = newCallAssumptions;
+    }
+
     @Override
     public FunctionDeclaration deepCopy(CopyController controller) {
         final FunctionDeclaration newDeclaration = FunctionDeclaration.builder()
@@ -204,8 +236,48 @@ public class FunctionDeclaration extends ObjectDeclaration {
         }
         newDeclaration.isDefined = this.isDefined;
         newDeclaration.isProvided = this.isProvided;
+        newDeclaration.callAssumptions = this.callAssumptions;
 
         return newDeclaration;
+    }
+
+    /**
+     * <p>Enum type that represents assumptions that can be made about calls to
+     * a function. They correspond to predefined NesC attributes:
+     * <code>spontaneous</code>, <code>hwevent</code> and
+     * <code>atomic_hwevent</code>.</p>
+     *
+     * <p>The order in which the constants are declared is the order of increasing
+     * count of assumptions that are implied by each constant. It can be used to
+     * compare constants using {@link pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration.CallAssumptions#compareTo compareTo}.</p>
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    public static enum CallAssumptions {
+        /**
+         * No assumptions about calls to the function.
+         */
+        NONE,
+
+        /**
+         * There are calls to the function that are not visible in the source code.
+         * Corresponds to the predefined NesC attribute with the same name.
+         */
+        SPONTANEOUS,
+
+        /**
+         * The function is an interrupt handler and there are calls to the function
+         * invisible in the source code. Corresponds to the predefined NesC
+         * attribute with the same name.
+         */
+        HWEVENT,
+
+        /**
+         * The function is an interrupt handler executed atomically and there are
+         * calls to the function invisible in the source code. Corresponds to the
+         * predefined NesC attribute with the same name.
+         */
+        ATOMIC_HWEVENT,
     }
 
     /**
