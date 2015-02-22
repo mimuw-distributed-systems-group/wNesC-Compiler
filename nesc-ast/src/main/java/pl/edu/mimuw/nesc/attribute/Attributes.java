@@ -7,12 +7,19 @@ package pl.edu.mimuw.nesc.attribute;
  */
 public final class Attributes {
     /**
-     * Names of attributes.
+     * Names of NesC attributes.
      */
     private static final String ATTRIBUTE_NAME_C = "C";
     private static final String ATTRIBUTE_NAME_SPONTANEOUS = "spontaneous";
     private static final String ATTRIBUTE_NAME_HWEVENT = "hwevent";
     private static final String ATTRIBUTE_NAME_ATOMIC_HWEVENT = "atomic_hwevent";
+
+    /**
+     * Names of GCC attributes.
+     */
+    private static final String ATTRIBUTE_NAME_PACKED = "packed";
+    private static final String ATTRIBUTE_NAME_INTERRUPT = "interrupt";
+    private static final String ATTRIBUTE_NAME_SIGNAL = "signal";
 
     public static String getCAttributeName() {
         return ATTRIBUTE_NAME_C;
@@ -28,6 +35,18 @@ public final class Attributes {
 
     public static String getAtomicHweventAttributeName() {
         return ATTRIBUTE_NAME_ATOMIC_HWEVENT;
+    }
+
+    public static String getPackedAttributeName() {
+        return ATTRIBUTE_NAME_PACKED;
+    }
+
+    public static String getInterruptAttributeName() {
+        return ATTRIBUTE_NAME_INTERRUPT;
+    }
+
+    public static String getSignalAttributeName() {
+        return ATTRIBUTE_NAME_SIGNAL;
     }
 
     /**

@@ -22,7 +22,6 @@ import pl.edu.mimuw.nesc.ast.gen.TypeElement;
 import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.predicates.ExternalBaseAttributePredicate;
-import pl.edu.mimuw.nesc.astutil.predicates.PackedAttributePredicate;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.typelayout.UniversalTypeLayoutCalculator;

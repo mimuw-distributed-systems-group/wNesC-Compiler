@@ -11,7 +11,7 @@ import pl.edu.mimuw.nesc.ast.gen.NxStructRef;
 import pl.edu.mimuw.nesc.ast.gen.NxUnionRef;
 import pl.edu.mimuw.nesc.ast.gen.TagRef;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
-import pl.edu.mimuw.nesc.astutil.predicates.PackedAttributePredicate;
+import pl.edu.mimuw.nesc.astutil.predicates.AttributePredicates;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.declaration.tag.FieldDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.UnionDeclaration;
@@ -138,7 +138,7 @@ final class ExternalUnionTransformer {
     }
 
     private void addPackedAttribute() {
-        if (!Iterables.any(nxUnionRef.getAttributes(), new PackedAttributePredicate())) {
+        if (!Iterables.any(nxUnionRef.getAttributes(), AttributePredicates.getPackedPredicate())) {
             nxUnionRef.getAttributes().add(AstUtils.newPackedAttribute());
         }
     }

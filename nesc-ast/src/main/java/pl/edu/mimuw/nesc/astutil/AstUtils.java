@@ -15,7 +15,7 @@ import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
-import pl.edu.mimuw.nesc.astutil.predicates.PackedAttributePredicate;
+import pl.edu.mimuw.nesc.attribute.Attributes;
 import pl.edu.mimuw.nesc.type.IntType;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
@@ -969,7 +969,7 @@ public final class AstUtils {
     public static GccAttribute newPackedAttribute() {
         return new GccAttribute(
                 Location.getDummyLocation(),
-                new Word(Location.getDummyLocation(), PackedAttributePredicate.getAttributeName()),
+                new Word(Location.getDummyLocation(), Attributes.getPackedAttributeName()),
                 Optional.<LinkedList<Expression>>absent()
         );
     }
