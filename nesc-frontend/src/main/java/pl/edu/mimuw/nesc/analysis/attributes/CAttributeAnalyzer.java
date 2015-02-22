@@ -5,7 +5,8 @@ import java.util.List;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.Attribute;
-import pl.edu.mimuw.nesc.astutil.predicates.CAttributePredicate;
+import pl.edu.mimuw.nesc.astutil.PredicateTester;
+import pl.edu.mimuw.nesc.astutil.predicates.AttributePredicates;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
@@ -60,8 +61,8 @@ final class CAttributeAnalyzer implements AttributeSmallAnalyzer {
 
     @Override
     public void analyzeAttribute(List<Attribute> attributes, Declaration declaration, Environment environment) {
-        final CAttributePredicate predicate = new CAttributePredicate();
-        if (!predicate.apply(attributes)) {
+        final PredicateTester<Attribute> tester = new PredicateTester<>(AttributePredicates.getCPredicate());
+        if (!tester.test(attributes)) {
             return;
         }
 
@@ -83,8 +84,8 @@ final class CAttributeAnalyzer implements AttributeSmallAnalyzer {
         }
 
         if (error.isPresent()) {
-            this.errorHelper.error(predicate.getStartLocation().get(),
-                    predicate.getEndLocation().get(), error.get());
+            this.errorHelper.error(tester.getStartLocation().get(),
+                    tester.getEndLocation().get(), error.get());
         } else {
             this.semanticListener.globalName(this.uniqueName, this.name);
         }
