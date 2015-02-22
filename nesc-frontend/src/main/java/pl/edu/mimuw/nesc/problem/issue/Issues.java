@@ -110,6 +110,7 @@ public final class Issues {
         INVALID_EXTERNAL_TAG_FIELD(79),
         INVALID_OFFSETOF_EXPR(80),
         INVALID_BITFIELD_DECLARATION(81),
+        INVALID_CALL_INFO_ATTRIBUTE_USAGE(82),
         ;
 
         private final int codeNumber;

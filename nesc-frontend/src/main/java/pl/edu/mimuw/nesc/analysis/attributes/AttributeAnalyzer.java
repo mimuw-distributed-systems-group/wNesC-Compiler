@@ -29,7 +29,8 @@ public final class AttributeAnalyzer {
         this.analyzersChain = ImmutableList.of(
                 new CombineAttributeAnalyzer(errorHelper, semanticListener),
                 new CAttributeAnalyzer(errorHelper, semanticListener),
-                new ExternalBaseAttributeAnalyzer(errorHelper)
+                new ExternalBaseAttributeAnalyzer(errorHelper),
+                new CallInfoAttributesAnalyzer(errorHelper)
         );
     }
 
