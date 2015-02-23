@@ -23,6 +23,7 @@ public class OptionsParser {
         this.parser = new DefaultParser();
         this.options = new Options();
         this.helpFormatter = new HelpFormatter();
+        this.helpFormatter.setWidth(100);
     }
 
     /**

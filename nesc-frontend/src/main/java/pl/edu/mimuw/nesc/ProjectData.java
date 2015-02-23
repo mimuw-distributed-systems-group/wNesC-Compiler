@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.common.SchedulerSpecification;
@@ -33,6 +34,7 @@ public final class ProjectData {
     private final Optional<SchedulerSpecification> schedulerSpecification;
     private final String outputFile;
     private final ABI abi;
+    private final ImmutableSet<String> externalVariables;
 
     private ProjectData(Builder builder) {
         builder.buildMaps();
@@ -47,6 +49,7 @@ public final class ProjectData {
         this.schedulerSpecification = builder.schedulerSpecification;
         this.outputFile = builder.outputFile;
         this.abi = builder.abi;
+        this.externalVariables = builder.externalVariablesBuilder.build();
     }
 
     public ImmutableMap<String, FileData> getFileDatas() {
@@ -143,6 +146,16 @@ public final class ProjectData {
     }
 
     /**
+     * <p>Get a set with names of global variables whose external linkage must
+     * not be changed in the output C file.</p>
+     *
+     * @return Set with names of external variables.
+     */
+    public ImmutableSet<String> getExternalVariables() {
+        return externalVariables;
+    }
+
+    /**
      * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
@@ -151,6 +164,7 @@ public final class ProjectData {
         private ImmutableMap.Builder<String, FileData> fileDataBuilder;
         private ImmutableList.Builder<String> defaultIncludedFilesBuilder;
         private ImmutableList.Builder<NescIssue> issueListBuilder;
+        private ImmutableSet.Builder<String> externalVariablesBuilder;
         private FileData rootFileData;
 
         private ImmutableMap<String, FileData> fileDatas;
@@ -166,6 +180,7 @@ public final class ProjectData {
             this.fileDataBuilder = ImmutableMap.builder();
             this.defaultIncludedFilesBuilder = ImmutableList.builder();
             this.issueListBuilder = ImmutableList.builder();
+            this.externalVariablesBuilder = ImmutableSet.builder();
         }
 
         public Builder addRootFileData(FileData fileData) {
@@ -192,6 +207,11 @@ public final class ProjectData {
 
         public Builder addIssues(Collection<NescIssue> issues) {
             this.issueListBuilder.addAll(issues);
+            return this;
+        }
+
+        public Builder addExternalVariables(Collection<String> names) {
+            this.externalVariablesBuilder.addAll(names);
             return this;
         }
 

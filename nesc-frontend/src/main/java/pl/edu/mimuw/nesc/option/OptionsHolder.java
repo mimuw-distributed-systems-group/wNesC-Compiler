@@ -2,9 +2,11 @@ package pl.edu.mimuw.nesc.option;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.apache.commons.cli.CommandLine;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,7 @@ public class OptionsHolder {
     public static final String NESC_ABI_PLATFORM = "abi-platform";
     public static final String NESC_ABI_FILE = "abi-file";
     public static final String NESC_OUTPUT_FILE = "o";
+    public static final String NESC_EXTERNAL_VARIABLES = "e";
 
     private final CommandLine cmd;
 
@@ -169,6 +172,13 @@ public class OptionsHolder {
         return Optional.fromNullable(getValue(NESC_OUTPUT_FILE));
     }
 
+    public ImmutableSet<String> getExternalVariables() {
+        final String externalVariables = getValue(NESC_EXTERNAL_VARIABLES);
+        return externalVariables == null
+                ? ImmutableSet.<String>of()
+                : ImmutableSet.copyOf(Arrays.asList(externalVariables.split(",")));
+    }
+
     /**
      * Check the correctness of the options that are present in this holder.
      *
@@ -192,6 +202,11 @@ public class OptionsHolder {
         }
 
         error = validateOutputFileOption(isStandalone);
+        if (error.isPresent()) {
+            return error;
+        }
+
+        error = validateExternalVariablesOption();
 
         return error;
     }
@@ -204,7 +219,7 @@ public class OptionsHolder {
                     : Optional.<String>absent();
         }
 
-        final String[] values = specification.split(",");
+        final String[] values = specification.split(",", -1);
 
         if (values.length != 6) {
             return Optional.of("expecting six comma-separated values in the scheduler specification but "
@@ -213,15 +228,8 @@ public class OptionsHolder {
             // Check if all values aren't empty
             for (int i = 0; i < values.length; ++i) {
                 if (values[i].isEmpty()) {
-                    final String ordinalForm;
-                    switch (i) {
-                        case 0: ordinalForm = "1st"; break;
-                        case 1: ordinalForm = "2nd"; break;
-                        case 2: ordinalForm = "3rd"; break;
-                        default: ordinalForm = (i + 1) + "th"; break;
-                    }
-
-                    return Optional.of("the " + ordinalForm + " value in the scheduler specification is empty");
+                    return Optional.of("the " + getOrdinalForm(i + 1)
+                            + " value in the scheduler specification is empty");
                 }
             }
         }
@@ -241,6 +249,35 @@ public class OptionsHolder {
             return Optional.of("cannot use option '-o' (or equivalently '--output-file') in the plug-in mode");
         }
         return Optional.absent();
+    }
+
+    private Optional<String> validateExternalVariablesOption() {
+        final String externalVariables = getValue(NESC_EXTERNAL_VARIABLES);
+        if (externalVariables == null) {
+            return Optional.absent();
+        }
+
+        // Check if all names are not empty
+
+        final String[] names = externalVariables.split(",", -1);
+
+        for (int i = 0; i < names.length; ++i) {
+            if (names[i].isEmpty()) {
+                return Optional.of("the " + getOrdinalForm(i + 1)
+                        + " name in external variables list is empty");
+            }
+        }
+
+        return Optional.absent();
+    }
+
+    private String getOrdinalForm(int n) {
+        switch (n) {
+            case 1:  return "1st";
+            case 2:  return "2nd";
+            case 3:  return "3rd";
+            default: return n + "th";
+        }
     }
 
     private String[] parseArgWithValue(String str) {
