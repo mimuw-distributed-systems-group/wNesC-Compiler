@@ -41,6 +41,7 @@ import pl.edu.mimuw.nesc.instantiation.InstantiateExecutor;
 import pl.edu.mimuw.nesc.finalreduce.FinalTransformer;
 import pl.edu.mimuw.nesc.intermediate.TraversingIntermediateGenerator;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
+import pl.edu.mimuw.nesc.optimization.MainDeclarationsCleaner;
 import pl.edu.mimuw.nesc.problem.NescError;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.problem.NescIssueComparator;
@@ -120,7 +121,8 @@ public final class Main {
         finalReduce(projectData, taskWiringConf, instantiatedComponents, wiring);
         final ImmutableList<Declaration> finalCode = generate(projectData, instantiatedComponents,
                 intermediateFuns.values());
-        writeCode(projectData, finalCode);
+        final ImmutableList<Declaration> cleanedCode = clean(projectData, finalCode);
+        writeCode(projectData, cleanedCode);
     }
 
     /**
@@ -437,6 +439,19 @@ public final class Main {
                 .addDefaultIncludeFiles(projectData.getDefaultIncludeFiles())
                 .build()
                 .generate();
+    }
+
+    /**
+     * Get a list of declarations after filtering it by removing unnecessary
+     * declarations.
+     */
+    private ImmutableList<Declaration> clean(ProjectData projectData,
+                ImmutableList<Declaration> declarations) {
+        return MainDeclarationsCleaner.builder()
+                .addDeclarations(declarations)
+                .addExternalVariables(projectData.getExternalVariables())
+                .build()
+                .clean();
     }
 
     /**

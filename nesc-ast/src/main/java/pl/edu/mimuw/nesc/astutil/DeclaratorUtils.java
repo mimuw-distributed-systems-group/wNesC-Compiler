@@ -19,6 +19,7 @@ public final class DeclaratorUtils {
     private static final FunctionDeclaratorExtractor FUNCTION_DECLARATOR_EXTRACTOR = new FunctionDeclaratorExtractor();
     private static final IdentifierIntervalVisitor IDENTIFIER_INTERVAL_VISITOR = new IdentifierIntervalVisitor();
     private static final SetUniqueNameVisitor SET_UNIQUE_NAME_VISITOR = new SetUniqueNameVisitor();
+    private static final GetUniqueNameVisitor GET_UNIQUE_NAME_VISITOR = new GetUniqueNameVisitor();
     private static final DeepestNestedDeclaratorVisitor DEEPEST_NESTED_DECLARATOR_VISITOR = new DeepestNestedDeclaratorVisitor();
 
     /**
@@ -83,6 +84,32 @@ public final class DeclaratorUtils {
     public static void setUniqueName(Declarator declarator, Optional<String> nameToSet) {
         checkNotNull(nameToSet, "name to set in the declarator cannot be null");
         declarator.accept(SET_UNIQUE_NAME_VISITOR, nameToSet);
+    }
+
+    /**
+     * <p>Get the unique name contained in the encountered indetifier declarator
+     * that is contained in given declarator.</p>
+     *
+     * @param declarator Declarator with the unique name to retrieve.
+     * @return Unique name contained in identifier declarator. The object is
+     *         absent if the declarator does not contain an identifier
+     *         declarator or it is absent in the identifier declarator.
+     */
+    public static Optional<String> getUniqueName(Declarator declarator) {
+        checkNotNull(declarator, "declarator cannot be null");
+        return declarator.accept(GET_UNIQUE_NAME_VISITOR, null);
+    }
+
+    /**
+     * <p>Get the unique name contained in the given declarator.</p>
+     *
+     * @param declarator Declarator with the unique name to retrieve.
+     * @return Unique name from nested identifier declarator.
+     */
+    public static Optional<String> getUniqueName(Optional<Declarator> declarator) {
+        return declarator.isPresent()
+                ? getUniqueName(declarator.get())
+                : Optional.<String>absent();
     }
 
     /**
@@ -396,6 +423,49 @@ public final class DeclaratorUtils {
             }
 
             return null;
+        }
+    }
+
+    /**
+     * Get the unique name in the encountered identifier declarator.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class GetUniqueNameVisitor extends ExceptionVisitor<Optional<String>, Void> {
+        @Override
+        public Optional<String> visitIdentifierDeclarator(IdentifierDeclarator declarator, Void arg) {
+            return declarator.getUniqueName();
+        }
+
+        @Override
+        public Optional<String> visitInterfaceRefDeclarator(InterfaceRefDeclarator declarator, Void arg) {
+            return jump(declarator.getDeclarator());
+        }
+
+        @Override
+        public Optional<String> visitArrayDeclarator(ArrayDeclarator declarator, Void arg) {
+            return jump(declarator.getDeclarator());
+        }
+
+        @Override
+        public Optional<String> visitQualifiedDeclarator(QualifiedDeclarator declarator, Void arg) {
+            return jump(declarator.getDeclarator());
+        }
+
+        @Override
+        public Optional<String> visitFunctionDeclarator(FunctionDeclarator declarator, Void arg) {
+            return jump(declarator.getDeclarator());
+        }
+
+        @Override
+        public Optional<String> visitPointerDeclarator(PointerDeclarator declarator, Void arg) {
+            return jump(declarator.getDeclarator());
+        }
+
+        private Optional<String> jump(Optional<Declarator> nextDeclarator) {
+            return nextDeclarator.isPresent()
+                    ? nextDeclarator.get().accept(this, null)
+                    : Optional.<String>absent();
         }
     }
 
