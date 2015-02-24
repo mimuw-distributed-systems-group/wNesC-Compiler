@@ -43,6 +43,7 @@ import pl.edu.mimuw.nesc.intermediate.TraversingIntermediateGenerator;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.optimization.LinkageOptimizer;
 import pl.edu.mimuw.nesc.optimization.MainDeclarationsCleaner;
+import pl.edu.mimuw.nesc.optimization.TypeDeclarationsCleaner;
 import pl.edu.mimuw.nesc.problem.NescError;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.problem.NescIssueComparator;
@@ -453,8 +454,12 @@ public final class Main {
                 .addExternalVariables(projectData.getExternalVariables())
                 .build()
                 .clean();
+        final ImmutableList<Declaration> afterTypesCleaning = TypeDeclarationsCleaner.builder()
+                .addDeclarations(afterMainCleaning)
+                .build()
+                .clean();
         return new LinkageOptimizer(projectData.getExternalVariables(), projectData.getNameMangler())
-                .optimize(afterMainCleaning);
+                .optimize(afterTypesCleaning);
     }
 
     /**

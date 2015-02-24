@@ -167,12 +167,15 @@ final class ExternalBaseTransformer {
 
         // Structure definition
 
-        return new StructRef(
+        final StructRef structRef = new StructRef(
                 Location.getDummyLocation(),
                 Lists.<Attribute>newList(AstUtils.newPackedAttribute()),
                 Lists.<Declaration>newList(dataDecl),
                 null,  // unnamed structure
                 StructSemantics.DEFINITION
         );
+        structRef.setUniqueName(Optional.<String>absent());
+
+        return structRef;
     }
 }
