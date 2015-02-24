@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.astutil;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.Iterator;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.StructKind;
@@ -23,6 +24,7 @@ public final class TypeElementUtils {
 
     private static final IsTypedefVisitor IS_TYPEDEF_VISITOR = new IsTypedefVisitor();
     private static final StructKindVisitor STRUCT_KIND_VISITOR = new StructKindVisitor();
+    private static final SpecifierCollectorVisitor SPECIFIER_COLLECTOR_VISITOR = new SpecifierCollectorVisitor();
 
     /**
      * Set that contains keywords added to C in NesC language.
@@ -130,6 +132,57 @@ public final class TypeElementUtils {
             if (optRID.isPresent() && NESC_RID.contains(optRID.get())
                     || !optRID.isPresent() && typeElement instanceof NescAttribute) {
                 it.remove();
+            }
+        }
+    }
+
+    /**
+     * Collect all RID specifiers from <code>Rid</code> and
+     * <code>Qualifier</code> AST nodes into a single set.
+     *
+     * @param typeElements Type elements with RID to collect.
+     * @return Newly created set of RID found in <code>Rid</code> and
+     *         <code>Qualifier</code> AST nodes from given list.
+     */
+    public static EnumSet<RID> collectRID(Collection<? extends TypeElement> typeElements) {
+        checkNotNull(typeElements, "type elements cannot be null");
+
+        final EnumSet<RID> ridSet = EnumSet.noneOf(RID.class);
+        for (TypeElement typeElement : typeElements) {
+            typeElement.accept(SPECIFIER_COLLECTOR_VISITOR, ridSet);
+        }
+
+        return ridSet;
+    }
+
+    /**
+     * Remove from the given collection <code>Rid</code> and
+     * <code>Qualifier</code> AST nodes that contain one of given rids.
+     *
+     * @param typeElements Collection with elements to removal.
+     * @param rid First element for removal.
+     * @param other Remaining elements from removal.
+     */
+    public static void removeRID(Collection<? extends TypeElement> typeElements, RID rid, RID... other) {
+        checkNotNull(typeElements, "type elements cannot be null");
+
+        final EnumSet<RID> ridSet = EnumSet.of(rid, other);
+        final Iterator<? extends TypeElement> typeElementIt = typeElements.iterator();
+
+        while (typeElementIt.hasNext()) {
+            final TypeElement typeElement = typeElementIt.next();
+            final Optional<RID> nestedRID;
+
+            if (typeElement instanceof Rid) {
+                nestedRID = Optional.of(((Rid) typeElement).getId());
+            } else if (typeElement instanceof Qualifier) {
+                nestedRID = Optional.of(((Qualifier) typeElement).getId());
+            } else {
+                nestedRID = Optional.absent();
+            }
+
+            if (nestedRID.isPresent() && ridSet.contains(nestedRID.get())) {
+                typeElementIt.remove();
             }
         }
     }
@@ -242,6 +295,101 @@ public final class TypeElementUtils {
         @Override
         public StructKind visitEnumRef(EnumRef tagRef, Void arg) {
             return StructKind.ENUM;
+        }
+    }
+
+    /**
+     * Visitor that adds visited specifiers to given collection.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static class SpecifierCollectorVisitor extends ExceptionVisitor<Void, Collection<RID>> {
+
+        @Override
+        public Void visitRid(Rid elem, Collection<RID> arg) {
+            arg.add(elem.getId());
+            return null;
+        }
+
+        @Override
+        public Void visitQualifier(Qualifier elem, Collection<RID> arg) {
+            arg.add(elem.getId());
+            return null;
+        }
+
+        @Override
+        public Void visitTypename(Typename elem, Collection<RID> arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitTypeofExpr(TypeofExpr elem, Collection<RID> arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitTypeofType(TypeofType elem, Collection<RID> arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitAttribute(Attribute elem, Collection<RID> arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitGccAttribute(GccAttribute elem, Collection<RID> arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitTagRef(TagRef elem, Collection<RID> arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitStructRef(StructRef elem, Collection<RID> arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitAttributeRef(AttributeRef elem, Collection<RID> arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitUnionRef(UnionRef elem, Collection<RID> arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitEnumRef(EnumRef elem, Collection<RID> arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitComponentTyperef(ComponentTyperef elem, Collection<RID> arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitNxStructRef(NxStructRef elem, Collection<RID> arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitNxUnionRef(NxUnionRef elem, Collection<RID> arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitNescAttribute(NescAttribute elem, Collection<RID> arg) {
+            return null;
+        }
+
+        @Override
+        public Void visitTargetAttribute(TargetAttribute elem, Collection<RID> arg) {
+            return null;
         }
     }
 

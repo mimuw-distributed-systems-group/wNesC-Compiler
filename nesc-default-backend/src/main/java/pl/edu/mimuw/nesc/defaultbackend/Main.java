@@ -41,6 +41,7 @@ import pl.edu.mimuw.nesc.instantiation.InstantiateExecutor;
 import pl.edu.mimuw.nesc.finalreduce.FinalTransformer;
 import pl.edu.mimuw.nesc.intermediate.TraversingIntermediateGenerator;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
+import pl.edu.mimuw.nesc.optimization.LinkageOptimizer;
 import pl.edu.mimuw.nesc.optimization.MainDeclarationsCleaner;
 import pl.edu.mimuw.nesc.problem.NescError;
 import pl.edu.mimuw.nesc.problem.NescIssue;
@@ -447,11 +448,13 @@ public final class Main {
      */
     private ImmutableList<Declaration> clean(ProjectData projectData,
                 ImmutableList<Declaration> declarations) {
-        return MainDeclarationsCleaner.builder()
+        final ImmutableList<Declaration> afterMainCleaning = MainDeclarationsCleaner.builder()
                 .addDeclarations(declarations)
                 .addExternalVariables(projectData.getExternalVariables())
                 .build()
                 .clean();
+        return new LinkageOptimizer(projectData.getExternalVariables(), projectData.getNameMangler())
+                .optimize(afterMainCleaning);
     }
 
     /**
