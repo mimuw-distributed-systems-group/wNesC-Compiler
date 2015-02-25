@@ -10,6 +10,7 @@ import pl.edu.mimuw.nesc.astutil.predicates.AttributePredicates;
 import pl.edu.mimuw.nesc.declaration.Declaration;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.ObjectDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.TypenameDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.VariableDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.EnumDeclaration;
@@ -19,6 +20,7 @@ import pl.edu.mimuw.nesc.environment.ScopeType;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 import pl.edu.mimuw.nesc.problem.issue.ErroneousIssue;
 import pl.edu.mimuw.nesc.problem.issue.InvalidCAttributeUsageError;
+import pl.edu.mimuw.nesc.symboltable.SymbolTable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration.FunctionType.COMMAND;
@@ -83,9 +85,16 @@ final class CAttributeAnalyzer implements AttributeSmallAnalyzer {
             error = Optional.of(InvalidCAttributeUsageError.appliedToInvalidEntity());
         }
 
-        if (error.isPresent()) {
+        final Optional<? extends ErroneousIssue> finalError;
+        if (!error.isPresent()) {
+            finalError = addToGlobalScope(environment, declaration);
+        } else {
+            finalError = error;
+        }
+
+        if (finalError.isPresent()) {
             this.errorHelper.error(tester.getStartLocation().get(),
-                    tester.getEndLocation().get(), error.get());
+                    tester.getEndLocation().get(), finalError.get());
         } else {
             this.semanticListener.globalName(this.uniqueName, this.name);
         }
@@ -151,5 +160,33 @@ final class CAttributeAnalyzer implements AttributeSmallAnalyzer {
             this.semanticListener.globalName(constantDeclaration.getUniqueName(),
                     constantDeclaration.getName());
         }
+    }
+
+    private Optional<? extends ErroneousIssue> addToGlobalScope(Environment environment, Declaration declaration) {
+        // Look for the global environment
+        while (environment.getScopeType() != ScopeType.GLOBAL) {
+            environment = environment.getParent().get();
+        }
+
+        // Add the declaration to the global scope
+        if (declaration instanceof ObjectDeclaration) {
+            final ObjectDeclaration objectDeclaration = (ObjectDeclaration) declaration;
+            return addOrConflictError(environment.getObjects(), objectDeclaration.getName(),
+                    objectDeclaration);
+        } else if (declaration instanceof TagDeclaration) {
+            final TagDeclaration tagDeclaration = (TagDeclaration) declaration;
+            return addOrConflictError(environment.getTags(), tagDeclaration.getName().get(),
+                    tagDeclaration);
+        } else {
+            throw new RuntimeException("unexpected kind of declaration "
+                    + declaration.getClass().getCanonicalName());
+        }
+    }
+
+    private <T extends Declaration> Optional<? extends ErroneousIssue> addOrConflictError(
+            SymbolTable<T> table, String name, T declaration) {
+        return !table.add(name, declaration)
+                ? Optional.of(InvalidCAttributeUsageError.conflictWithGlobalDeclaration(name))
+                : Optional.<ErroneousIssue>absent();
     }
 }
