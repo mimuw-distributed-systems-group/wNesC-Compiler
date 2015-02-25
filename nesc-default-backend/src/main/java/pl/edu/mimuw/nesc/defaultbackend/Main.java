@@ -12,6 +12,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.log4j.Level;
 import pl.edu.mimuw.nesc.ContextRef;
 import pl.edu.mimuw.nesc.FileData;
 import pl.edu.mimuw.nesc.Frontend;
@@ -29,6 +30,7 @@ import pl.edu.mimuw.nesc.ast.gen.NescDecl;
 import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
 import pl.edu.mimuw.nesc.basicreduce.BasicReduceExecutor;
+import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.connect.ConnectExecutor;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 import pl.edu.mimuw.nesc.finalanalysis.FinalAnalyzer;
@@ -86,6 +88,7 @@ public final class Main {
 
     public static void main(String[] args) {
         try {
+            VariousUtils.setLoggingLevel(Level.OFF);
             new Main(args).compile();
             System.exit(STATUS_SUCCESS);
         } catch (Exception e) {

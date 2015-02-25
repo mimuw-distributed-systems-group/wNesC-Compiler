@@ -1,7 +1,17 @@
 package pl.edu.mimuw.nesc.common.util;
 
 import com.google.common.collect.Range;
+import java.io.IOException;
 import java.math.BigInteger;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.List;
+import org.apache.log4j.Appender;
+import org.apache.log4j.FileAppender;
+import org.apache.log4j.Level;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -91,6 +101,42 @@ public final class VariousUtils {
         }
 
         return true;
+    }
+
+    /**
+     * Set the log4j logging level to the given one in all current loggers.
+     *
+     * @param level Logging level to set.
+     */
+    public static void setLoggingLevel(Level level) {
+        checkNotNull(level, "logging level cannot be null");
+
+        LogManager.getRootLogger().setLevel(level);
+
+        final Enumeration<Logger> loggersEnum = LogManager.getCurrentLoggers();
+        while (loggersEnum.hasMoreElements()) {
+            loggersEnum.nextElement().setLevel(level);
+        }
+    }
+
+    /**
+     * Create an appender that directs all log messages to a file with
+     * given name and replace all current appenders with it.
+     *
+     * @param fileName Name of the log file to use.
+     * @param append Value indicating if messages will be appended to the
+     *               given file or it will be truncated.
+     */
+    public static void logToFile(String fileName, boolean append) throws IOException {
+        final Appender newAppender = new FileAppender(new PatternLayout(), fileName, append);
+
+        final List<Logger> loggers = Collections.list(LogManager.getCurrentLoggers());
+        loggers.add(LogManager.getRootLogger());
+
+        for (Logger logger : loggers) {
+            logger.removeAllAppenders();
+            logger.addAppender(newAppender);
+        }
     }
 
     /**
