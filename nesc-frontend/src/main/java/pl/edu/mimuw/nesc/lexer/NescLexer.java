@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.lexer;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableSet;
 import org.anarres.cpp.*;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.Location;
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.util.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static pl.edu.mimuw.nesc.common.util.file.FileUtils.normalizePath;
 import static pl.edu.mimuw.nesc.lexer.SymbolFactory.getSymbolCode;
 import static pl.edu.mimuw.nesc.parser.Parser.Lexer.*;
@@ -34,6 +36,8 @@ public final class NescLexer extends AbstractLexer {
     @VisibleForTesting
     public static final String FLOAT_REGEX =
             "(((([0-9]*\\.[0-9]+)|([0-9]+\\.))([eE][+-]?[0-9]+)?)|([0-9]+[eE][+-]?[0-9]+)|((0[xX]([0-9a-fA-F]*\\.[0-9a-fA-F]+|[0-9a-fA-F]+\\.|[0-9a-fA-F]+))[pP][+-]?[0-9]+))[fFlL]?";
+
+    private static final ImmutableSet<String> PREDEFINED_MACROS = ImmutableSet.of("__FILE__", "__LINE__", "__COUNTER__");
 
     private final Preprocessor preprocessor;
     /**
@@ -156,6 +160,22 @@ public final class NescLexer extends AbstractLexer {
             result.put(macroName, pm);
         }
         return result;
+    }
+
+    @Override
+    public void removeMacros() {
+        /* Use the fact that the preprocessor does not return a copy of its
+           internal macros map. */
+
+        this.preprocessor.getMacros().keySet().retainAll(PREDEFINED_MACROS);
+        checkState(this.preprocessor.getMacros().size() <= PREDEFINED_MACROS.size(),
+                "cannot remove macros from the preprocessor");
+    }
+
+    @Override
+    public void replaceMacros(Collection<PreprocessorMacro> newMacros) throws pl.edu.mimuw.nesc.exception.LexerException {
+        removeMacros();
+        addMacros(newMacros);
     }
 
     @Override

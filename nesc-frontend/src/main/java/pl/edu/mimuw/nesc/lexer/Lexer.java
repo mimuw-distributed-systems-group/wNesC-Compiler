@@ -66,6 +66,16 @@ public interface Lexer {
     Map<String, PreprocessorMacro> getMacros();
 
     /**
+     * Removes all known macros except predefined ones.
+     */
+    void removeMacros();
+
+    /**
+     * Sets the current macros that are known to the given macros.
+     */
+    void replaceMacros(Collection<PreprocessorMacro> macros) throws LexerException;
+
+    /**
      * Cancels lexical analysis.
      *
      * @throws IOException

@@ -42,12 +42,6 @@ class StandaloneLoadExecutor extends LoadFileExecutor {
     }
 
     @Override
-    protected void finish() {
-        super.finish();
-        context.getMacroManager().replace(context.getCache().get(currentFilePath).getEndFileMacros());
-    }
-
-    @Override
     protected void consumeData(FileCache newCache) {
         context.getCache().put(currentFilePath, newCache);
         LOG.trace("Put file cache into context; file: " + currentFilePath);
@@ -89,7 +83,9 @@ class StandaloneLoadExecutor extends LoadFileExecutor {
         /* Update files graph. */
         updateFilesGraph(currentFilePath, includedFilePath);
         if (!wasVisited) {
-            context.getMacroManager().replace(lexer.getMacros());
+            if (!wasExtdefsFinished) {
+                context.getMacroManager().replace(lexer.getMacros());
+            }
             fileDependency(includedFilePath, true);
         }
     }
@@ -133,9 +129,7 @@ class StandaloneLoadExecutor extends LoadFileExecutor {
          * Symbols are already in the symbol table.
          */
         if (includeMacros) {
-            final Map<String, PreprocessorMacro> visibleMacros = context.getCache().get(otherFilePath)
-                    .getEndFileMacros();
-            lexer.addMacros(visibleMacros.values());
+            lexer.replaceMacros(context.getMacroManager().getAll().values());
         }
     }
 
@@ -154,24 +148,23 @@ class StandaloneLoadExecutor extends LoadFileExecutor {
      *
      * |
      * |-> #include, reference to Nesc entity
-     * |    Get all current macros from the lexer and save them in
-     * |    the macrosManager, since they need to be visible in the included
-     * |    file or the referenced entity.
+     * |    If external definitions have not yet been finished, get all current
+     * |    macros from the lexer and save them in the macrosManager, since they
+     * |    need to be visible in the included file. If the #include or the
+     * |    reference to a NesC entity appears inside a component or interface
+     * |    definition, changes to macros made inside the definition will not be
+     * |    visible although changes of macros made in references to other NesC
+     * |    entities will be visible.
      * |
      * |<- #include finished
-     * |    Get all "endFileMacros" from the included file, and pass them
+     * |    Get the current macros from the macroManager, and pass them
      * |    to the lexer (but before that clear the lexer's map of macros).
      * |    Some of the macros might be #undefined!
      * |
      * |-> extdefsFinished (in the case of NesC files) or EOF (C files)
      * |    Saves all current macros in the fileCache as "endFileMacros".
-     * |    Only those macros will be visible in subsequently parsed files.
-     * |    Therefore, we need to keep them aside.
      * |
      * |    "private" macros are handled as usual
      * |    "private" #includes are handled as usual
-     * |
-     * |-> EOF (NesC files, C files)
-     *      Saves endFileMacros to macroManager.
      */
 }
