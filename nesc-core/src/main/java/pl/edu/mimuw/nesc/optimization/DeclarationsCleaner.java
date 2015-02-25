@@ -163,7 +163,6 @@ public final class DeclarationsCleaner {
     }
 
     private void initialize() {
-        this.objectsForRemoval.removeAll(externalVariables);
         this.objectsForRemoval.removeAll(objectNamesQueue);
         this.visitedObjects.addAll(objectNamesQueue);
     }
@@ -598,6 +597,22 @@ public final class DeclarationsCleaner {
 
                 variableDeclsBuilder.put(name, new FullVariableDecl(declaration, variableDecl));
                 objectsForRemoval.add(name);
+
+                /* Check if it is a declaration of external variable and if so
+                   add it to the objects queue. */
+
+                if (!isTypedef && externalVariables.contains(name)) {
+                    final Optional<NestedDeclarator> deepestNestedDeclarator =
+                            DeclaratorUtils.getDeepestNestedDeclarator(variableDecl.getDeclarator());
+
+                    if (deepestNestedDeclarator.isPresent()
+                            && deepestNestedDeclarator.get() instanceof InterfaceRefDeclarator) {
+                        throw new RuntimeException("unexpected interface reference declarator");
+                    } else if (!deepestNestedDeclarator.isPresent()
+                            || !(deepestNestedDeclarator.get() instanceof FunctionDeclarator)) {
+                        objectNamesQueue.add(name);
+                    }
+                }
             }
 
             return null;
