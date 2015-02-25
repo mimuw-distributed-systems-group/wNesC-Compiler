@@ -4,6 +4,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -18,6 +19,7 @@ import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -25,38 +27,52 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * <p>Cleaner that takes a list of top-level declarations and removes from it
  * the following elements:</p>
  * <ul>
+ *     <li>variables with names different from all external names given at
+ *     construction of the cleaner and that not referred (either directly or
+ *     indirectly) from global variables with these names or from spontaneous
+ *     functions</li>
+ *     <li>functions that are not spontaneous and are not referred, directly or
+ *     indirectly, from spontaneous functions</li>
  *     <li>unused global type definitions</li>
  *     <li>unused global structures and unions definitions</li>
  *     <li>enumerated types definitions if the types themselves are not used and
  *     all constants are unused</li>
  * </ul>
  *
+ * <p>The order of declarations in the returned list is the same as in the
+ * input list.</p>
+ *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public final class TypeDeclarationsCleaner {
+public final class DeclarationsCleaner {
     /**
      * Queues with names of declarations to traverse.
      */
     private final Queue<String> objectNamesQueue;
-    private final Queue<String> tagNamesQueue = new ArrayDeque<>();
+    private final Queue<String> tagNamesQueue;
+
+    /**
+     * Set that contains names of external variables that will not be removed.
+     */
+    private final ImmutableSet<String> externalVariables;
 
     /**
      * Set with names of type definitions and enumeration constants that have
      * been visited.
      */
-    private final Set<String> visitedObjects = new HashSet<>();
+    private final Set<String> visitedObjects;
 
     /**
      * Set with names of tags that have been visited. A separate set is
      * necessary because the namespaces of tags and objects are different
      * in C.
      */
-    private final Set<String> visitedTags = new HashSet<>();
+    private final Set<String> visitedTags;
 
     /**
      * Set with unnamed enums that have been visited.
      */
-    private final Set<EnumRef> visitedUnnnamedEnums = new HashSet<>();
+    private final Set<EnumRef> visitedUnnnamedEnums;
 
     /**
      * Map with definitions of tags.
@@ -97,7 +113,7 @@ public final class TypeDeclarationsCleaner {
     /**
      * List with declarations after cleaning.
      */
-    private Optional<ImmutableList<Declaration>> cleanedDeclarations = Optional.absent();
+    private Optional<ImmutableList<Declaration>> cleanedDeclarations;
 
     /**
      * Get a builder that will create a type declarations cleaner.
@@ -108,7 +124,8 @@ public final class TypeDeclarationsCleaner {
         return new Builder();
     }
 
-    private TypeDeclarationsCleaner(PrivateBuilder builder) {
+    private DeclarationsCleaner(PrivateBuilder builder) {
+        // Objects built by the builder
         this.objectNamesQueue = builder.buildObjectNamesQueue();
         this.tags = builder.buildTags();
         this.functions = builder.buildFunctions();
@@ -117,6 +134,14 @@ public final class TypeDeclarationsCleaner {
         this.tagsForRemoval = builder.buildTagsForRemoval();
         this.declarations = builder.buildDeclarations();
         this.constants = builder.buildConstants();
+        this.externalVariables = builder.buildExternalVariables();
+
+        // Other member fields
+        this.tagNamesQueue = new ArrayDeque<>();
+        this.visitedObjects = new HashSet<>();
+        this.visitedTags = new HashSet<>();
+        this.visitedUnnnamedEnums = new HashSet<>();
+        this.cleanedDeclarations = Optional.absent();
     }
 
     /**
@@ -130,18 +155,20 @@ public final class TypeDeclarationsCleaner {
             return cleanedDeclarations.get();
         }
 
-        initializeVisitedSets();
-        traverseDeclarations();
-        cleanedDeclarations = Optional.of(filterDeclarations());
+        initialize();
+        traverse();
+        cleanedDeclarations = Optional.of(filter());
 
         return cleanedDeclarations.get();
     }
 
-    private void initializeVisitedSets() {
-        visitedObjects.addAll(objectNamesQueue);
+    private void initialize() {
+        this.objectsForRemoval.removeAll(externalVariables);
+        this.objectsForRemoval.removeAll(objectNamesQueue);
+        this.visitedObjects.addAll(objectNamesQueue);
     }
 
-    private void traverseDeclarations() {
+    private void traverse() {
         final LookingVisitor lookingVisitor = new LookingVisitor();
 
         while (!objectNamesQueue.isEmpty() || !tagNamesQueue.isEmpty()) {
@@ -166,7 +193,7 @@ public final class TypeDeclarationsCleaner {
         }
     }
 
-    private ImmutableList<Declaration> filterDeclarations() {
+    private ImmutableList<Declaration> filter() {
         final FilteringVisitor filteringVisitor = new FilteringVisitor();
         final ImmutableList.Builder<Declaration> declarationsBuilder = ImmutableList.builder();
 
@@ -243,6 +270,11 @@ public final class TypeDeclarationsCleaner {
                     }
 
                     objectsForRemoval.remove(identifier.getUniqueName().get());
+                } else if ((functions.containsKey(name) || variableDecls.containsKey(name))
+                        && !visitedObjects.contains(name)) {
+                    visitedObjects.add(name);
+                    objectNamesQueue.add(name);
+                    objectsForRemoval.remove(name);
                 }
             }
 
@@ -285,7 +317,9 @@ public final class TypeDeclarationsCleaner {
     private final class FilteringVisitor extends ExceptionVisitor<Boolean, Void> {
         @Override
         public Boolean visitFunctionDecl(FunctionDecl declaration, Void arg) {
-            return true;
+            final String funUniqueName = DeclaratorUtils.getUniqueName(
+                    declaration.getDeclarator()).get();
+            return !objectsForRemoval.contains(funUniqueName);
         }
 
         @Override
@@ -368,6 +402,7 @@ public final class TypeDeclarationsCleaner {
         Set<String> buildObjectsForRemoval();
         Set<String> buildTagsForRemoval();
         ImmutableList<Declaration> buildDeclarations();
+        ImmutableSet<String> buildExternalVariables();
     }
 
     /**
@@ -381,6 +416,7 @@ public final class TypeDeclarationsCleaner {
          * Data necessary to build a type declarations cleaner.
          */
         private final ImmutableList.Builder<Declaration> declarationsBuilder = ImmutableList.builder();
+        private final ImmutableSet.Builder<String> externalVariablesBuilder = ImmutableSet.builder();
 
         /**
          * Private constructor to limit its accessibility.
@@ -401,8 +437,20 @@ public final class TypeDeclarationsCleaner {
             return this;
         }
 
-        public TypeDeclarationsCleaner build() {
-            return new TypeDeclarationsCleaner(new RealBuilder(declarationsBuilder.build()));
+        /**
+         * Add names from the given collection as names of external variables.
+         *
+         * @param names Names to add.
+         * @return <code>this</code>
+         */
+        public Builder addExternalVariables(Collection<String> names) {
+            this.externalVariablesBuilder.addAll(names);
+            return this;
+        }
+
+        public DeclarationsCleaner build() {
+            return new DeclarationsCleaner(new RealBuilder(declarationsBuilder.build(),
+                    externalVariablesBuilder.build()));
         }
     }
 
@@ -413,9 +461,10 @@ public final class TypeDeclarationsCleaner {
      */
     private static final class RealBuilder extends ExceptionVisitor<Void, Void> implements PrivateBuilder {
         /**
-         * List with declarations that will be cleaned.
+         * Necessary input data for the builder.
          */
         private final ImmutableList<Declaration> declarations;
+        private final ImmutableSet<String> externalVariables;
 
         /**
          * Objects for building the other elements.
@@ -429,9 +478,9 @@ public final class TypeDeclarationsCleaner {
         private final Queue<String> objectNamesQueue = new ArrayDeque<>();
         private boolean visited = false;
 
-        private RealBuilder(ImmutableList<Declaration> declarations) {
-            checkNotNull(declarations, "declaration cannot be null");
+        private RealBuilder(ImmutableList<Declaration> declarations, ImmutableSet<String> externalVariables) {
             this.declarations = declarations;
+            this.externalVariables = externalVariables;
         }
 
         @Override
@@ -481,6 +530,11 @@ public final class TypeDeclarationsCleaner {
             return declarations;
         }
 
+        @Override
+        public ImmutableSet<String> buildExternalVariables() {
+            return externalVariables;
+        }
+
         private void visitDeclarations() {
             if (visited) {
                 return;
@@ -496,8 +550,26 @@ public final class TypeDeclarationsCleaner {
         @Override
         public Void visitFunctionDecl(FunctionDecl declaration, Void arg) {
             final String funName = DeclaratorUtils.getUniqueName(declaration.getDeclarator()).get();
+            final FunctionDeclaration functionDeclaration = declaration.getDeclaration();
+
             functionsBuilder.put(funName, declaration);
-            objectNamesQueue.add(funName);
+            objectsForRemoval.add(funName);
+
+            if (functionDeclaration != null) {
+                switch (functionDeclaration.getCallAssumptions()) {
+                    case SPONTANEOUS:
+                    case HWEVENT:
+                    case ATOMIC_HWEVENT:
+                        objectNamesQueue.add(funName);
+                        break;
+                    case NONE:
+                        break;
+                    default:
+                        throw new RuntimeException("unexpected call assumptions '"
+                                + functionDeclaration.getCallAssumptions() + "'");
+                }
+            }
+
             return null;
         }
 
@@ -525,12 +597,7 @@ public final class TypeDeclarationsCleaner {
                 final String name = DeclaratorUtils.getUniqueName(variableDecl.getDeclarator()).get();
 
                 variableDeclsBuilder.put(name, new FullVariableDecl(declaration, variableDecl));
-
-                if (isTypedef) {
-                    objectsForRemoval.add(name);
-                } else {
-                    objectNamesQueue.add(name);
-                }
+                objectsForRemoval.add(name);
             }
 
             return null;
