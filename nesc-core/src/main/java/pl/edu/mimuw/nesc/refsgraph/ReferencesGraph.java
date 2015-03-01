@@ -14,6 +14,7 @@ import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -80,6 +81,37 @@ public final class ReferencesGraph {
      */
     public Map<String, EntityNode> getTags() {
         return unmodifiableTags;
+    }
+
+    /**
+     * Remove the node that represents the tag with given name from the graph.
+     * The node and all edges it is a part of are removed.
+     *
+     * @param tagUniqueName Unique name of tag to remove.
+     */
+    public void removeTag(String tagUniqueName) {
+        checkNotNull(tagUniqueName, "unique name of tag cannot be null");
+        checkArgument(!tagUniqueName.isEmpty(), "unique name of tag cannot be empty");
+        removeNode(tags, tagUniqueName);
+    }
+
+    /**
+     * Remove the node that represents an entity with given name from the graph.
+     * The node and all edges it is a part of are removed.
+     *
+     * @param uniqueName Unique name of the ordinary entity to remove.
+     */
+    public void removeOrdinaryId(String uniqueName) {
+        checkNotNull(uniqueName, "unique name cannot be null");
+        checkArgument(!uniqueName.isEmpty(), "unique name cannot be empty");
+        removeNode(ordinaryIds, uniqueName);
+    }
+
+    private void removeNode(Map<String, EntityNode> nodesMap, String key) {
+        if (nodesMap.containsKey(key)) {
+            nodesMap.get(key).removeAllEdges();
+            nodesMap.remove(key);
+        }
     }
 
     /**

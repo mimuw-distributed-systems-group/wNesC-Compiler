@@ -2,8 +2,6 @@ package pl.edu.mimuw.nesc.optimization;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -14,7 +12,6 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 import pl.edu.mimuw.nesc.ast.RID;
-import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
@@ -23,8 +20,6 @@ import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.refsgraph.EntityNode;
 import pl.edu.mimuw.nesc.refsgraph.Reference;
 import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * <p>Cleaner that takes a list of top-level declarations and removes from it
@@ -68,6 +63,11 @@ public final class DeclarationsCleaner {
     private final ImmutableList<Declaration> declarations;
 
     /**
+     * Graph with references between entities.
+     */
+    private final ReferencesGraph refsGraph;
+
+    /**
      * List with declarations after cleaning.
      */
     private Optional<ImmutableList<Declaration>> cleanedDeclarations;
@@ -89,6 +89,7 @@ public final class DeclarationsCleaner {
         this.objectsForRemoval = builder.buildObjectsForRemoval();
         this.tagsForRemoval = builder.buildTagsForRemoval();
         this.declarations = builder.buildDeclarations();
+        this.refsGraph = builder.buildRefsGraph();
 
         // Other member fields
         this.cleanedDeclarations = Optional.absent();
@@ -150,7 +151,8 @@ public final class DeclarationsCleaner {
 
     /**
      * Visitor that decides if declarations are to be preserved and cleans them.
-     * <code>true</code> is returned if the declaration is preserved.
+     * It also removes nodes from the references graph. <code>true</code> is
+     * returned if the declaration is preserved.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
@@ -159,7 +161,13 @@ public final class DeclarationsCleaner {
         public Boolean visitFunctionDecl(FunctionDecl declaration, Void arg) {
             final String funUniqueName = DeclaratorUtils.getUniqueName(
                     declaration.getDeclarator()).get();
-            return !objectsForRemoval.contains(funUniqueName);
+            final boolean preserve = !objectsForRemoval.contains(funUniqueName);
+
+            if (!preserve) {
+                refsGraph.removeOrdinaryId(funUniqueName);
+            }
+
+            return preserve;
         }
 
         @Override
@@ -193,16 +201,49 @@ public final class DeclarationsCleaner {
                         ? filterEnumeration((EnumRef) typeElement)
                         : filterStructOrUnion((TagRef) typeElement);
 
-                return preserve || !declaration.getDeclarations().isEmpty();
+                final boolean finalPreserve = preserve || !declaration.getDeclarations().isEmpty();
+
+                if (!finalPreserve) {
+                    removeFromRefsGraph((TagRef) typeElement);
+                }
+
+                return finalPreserve;
             }
 
             return !declaration.getDeclarations().isEmpty();
         }
 
+        private void removeFromRefsGraph(TagRef tagRef) {
+            // Remove enumeration constants
+
+            if (tagRef instanceof EnumRef) {
+                final EnumRef enumRef = (EnumRef) tagRef;
+
+                if (enumRef.getDeclaration().getConstants().isPresent()) {
+                    for (ConstantDeclaration cstDeclaration : enumRef.getDeclaration().getConstants().get()) {
+                        refsGraph.removeOrdinaryId(cstDeclaration.getEnumerator().getUniqueName());
+                    }
+                }
+            }
+
+            // Remove the tag
+
+            if (tagRef.getUniqueName().isPresent()) {
+                refsGraph.removeTag(tagRef.getUniqueName().get());
+            }
+        }
+
         @Override
         public Boolean visitVariableDecl(VariableDecl declaration, Void arg) {
-            return !objectsForRemoval.contains(DeclaratorUtils.getUniqueName(
-                                declaration.getDeclarator().get()).get());
+            final String uniqueName = DeclaratorUtils.getUniqueName(
+                    declaration.getDeclarator().get()).get();
+            final boolean preserve = !objectsForRemoval.contains(uniqueName);
+
+            if (!preserve) {
+                refsGraph.removeOrdinaryId(uniqueName);
+            }
+
+            return preserve;
         }
 
         private boolean filterEnumeration(EnumRef enumRef) {
@@ -210,6 +251,9 @@ public final class DeclarationsCleaner {
             if (enumRef.getDeclaration().getConstants().isPresent()) {
                 final List<String> constantsNames = new ArrayList<>();
                 for (ConstantDeclaration cstDeclaration : enumRef.getDeclaration().getConstants().get()) {
+                    /* We take the unique name of the constant because currently
+                       unique names in declaration objects are not updated after
+                       remangling reversing. */
                     constantsNames.add(cstDeclaration.getEnumerator().getUniqueName());
                 }
 
@@ -238,6 +282,7 @@ public final class DeclarationsCleaner {
         Set<String> buildObjectsForRemoval();
         Set<String> buildTagsForRemoval();
         ImmutableList<Declaration> buildDeclarations();
+        ReferencesGraph buildRefsGraph();
     }
 
     /**
@@ -315,6 +360,11 @@ public final class DeclarationsCleaner {
             this.refsGraph = refsGraph;
             this.declarations = declarations;
             this.externalVariables = externalVariables;
+        }
+
+        @Override
+        public ReferencesGraph buildRefsGraph() {
+            return refsGraph;
         }
 
         @Override
@@ -405,24 +455,6 @@ public final class DeclarationsCleaner {
             }
 
             return null;
-        }
-    }
-
-    /**
-     * Helper class that allows associating a variable declaration with data
-     * declaration that contains it.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    private static final class FullVariableDecl {
-        private final VariableDecl variableDecl;
-        private final DataDecl dataDecl;
-
-        private FullVariableDecl(DataDecl dataDecl, VariableDecl variableDecl) {
-            checkNotNull(dataDecl, "data declaration cannot be null");
-            checkNotNull(variableDecl, "variable declaration cannot be null");
-            this.dataDecl = dataDecl;
-            this.variableDecl = variableDecl;
         }
     }
 }

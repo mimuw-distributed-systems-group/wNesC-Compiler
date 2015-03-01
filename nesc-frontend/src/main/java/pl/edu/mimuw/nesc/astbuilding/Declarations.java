@@ -461,10 +461,11 @@ public final class Declarations extends AstBuildingBase {
 
         final Enumerator enumerator = new Enumerator(startLocation, id, value);
         enumerator.setEndLocation(endLocation);
+        enumerator.setUniqueName(semanticListener.nameManglingRequired(id));
 
         final ConstantDeclaration symbol = ConstantDeclaration.builder()
                 .enumerator(enumerator)
-                .uniqueName(semanticListener.nameManglingRequired(id))
+                .uniqueName(enumerator.getUniqueName())
                 .name(id)
                 .startLocation(startLocation)
                 .build();
@@ -479,7 +480,6 @@ public final class Declarations extends AstBuildingBase {
         }
 
         enumerator.setDeclaration(symbol);
-        enumerator.setUniqueName(symbol.getUniqueName());
         enumerator.setNestedInNescEntity(environment.isEnclosedInNescEntity());
 
         return enumerator;

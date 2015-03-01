@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.refsgraph;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -120,6 +121,40 @@ public final class EntityNode {
 
         successors.add(newReference);
         referencedEntity.predecessors.add(newReference);
+    }
+
+    /**
+     * Remove all edges to and from this node. After this operation the in and
+     * out degrees of this node are equal to zero.
+     */
+    void removeAllEdges() {
+        // Remove edges in successors
+        for (Reference successorRef : successors) {
+            final Iterator<Reference> predecessorsIt =
+                    successorRef.getReferencedNode().predecessors.iterator();
+
+            while (predecessorsIt.hasNext()) {
+                if (this == predecessorsIt.next().getReferencingNode()) {
+                    predecessorsIt.remove();
+                }
+            }
+        }
+
+        // Remove edges in predecessors
+        for (Reference predecessorRef : predecessors) {
+            final Iterator<Reference> successorsIt =
+                    predecessorRef.getReferencingNode().successors.iterator();
+
+            while (successorsIt.hasNext()) {
+                if (this == successorsIt.next().getReferencedNode()) {
+                    successorsIt.remove();
+                }
+            }
+        }
+
+        // Remove edges in this node
+        successors.clear();
+        predecessors.clear();
     }
 
     /**
