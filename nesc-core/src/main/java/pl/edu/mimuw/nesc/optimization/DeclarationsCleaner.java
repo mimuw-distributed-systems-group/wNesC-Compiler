@@ -20,6 +20,9 @@ import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
+import pl.edu.mimuw.nesc.refsgraph.EntityNode;
+import pl.edu.mimuw.nesc.refsgraph.Reference;
+import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -46,55 +49,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public final class DeclarationsCleaner {
     /**
-     * Queues with names of declarations to traverse.
+     * Queue with entities to visit.
      */
-    private final Queue<String> objectNamesQueue;
-    private final Queue<String> tagNamesQueue;
-
-    /**
-     * Set that contains names of external variables that will not be removed.
-     */
-    private final ImmutableSet<String> externalVariables;
-
-    /**
-     * Set with names of type definitions and enumeration constants that have
-     * been visited.
-     */
-    private final Set<String> visitedObjects;
-
-    /**
-     * Set with names of tags that have been visited. A separate set is
-     * necessary because the namespaces of tags and objects are different
-     * in C.
-     */
-    private final Set<String> visitedTags;
-
-    /**
-     * Set with unnamed enums that have been visited.
-     */
-    private final Set<EnumRef> visitedUnnnamedEnums;
-
-    /**
-     * Map with definitions of tags.
-     */
-    private final ImmutableMap<String, TagRef> tags;
-
-    /**
-     * Map with definitions of functions.
-     */
-    private final ImmutableMap<String, FunctionDecl> functions;
-
-    /**
-     * Map with declarations of type definitions and variables and forward
-     * declarations of functions.
-     */
-    private final ImmutableListMultimap<String, FullVariableDecl> variableDecls;
-
-    /**
-     * Map with names of enumeration constants as keys. Each name is mapped to
-     * the AST node of the enumerated type it is defined in.
-     */
-    private final ImmutableMap<String, EnumRef> constants;
+    private final Queue<EntityNode> entitiesQueue;
 
     /**
      * Sets with names of type definitions, structures, unions, enumerated
@@ -118,29 +75,22 @@ public final class DeclarationsCleaner {
     /**
      * Get a builder that will create a type declarations cleaner.
      *
+     * @param refsGraph Graph with references between entities that will be
+     *                  added later to the builder.
      * @return Newly created builder of a type declarations cleaner.
      */
-    public static Builder builder() {
-        return new Builder();
+    public static Builder builder(ReferencesGraph refsGraph) {
+        return new Builder(refsGraph);
     }
 
     private DeclarationsCleaner(PrivateBuilder builder) {
         // Objects built by the builder
-        this.objectNamesQueue = builder.buildObjectNamesQueue();
-        this.tags = builder.buildTags();
-        this.functions = builder.buildFunctions();
-        this.variableDecls = builder.buildVariableDecls();
+        this.entitiesQueue = builder.buildEntitiesQueue();
         this.objectsForRemoval = builder.buildObjectsForRemoval();
         this.tagsForRemoval = builder.buildTagsForRemoval();
         this.declarations = builder.buildDeclarations();
-        this.constants = builder.buildConstants();
-        this.externalVariables = builder.buildExternalVariables();
 
         // Other member fields
-        this.tagNamesQueue = new ArrayDeque<>();
-        this.visitedObjects = new HashSet<>();
-        this.visitedTags = new HashSet<>();
-        this.visitedUnnnamedEnums = new HashSet<>();
         this.cleanedDeclarations = Optional.absent();
     }
 
@@ -155,39 +105,32 @@ public final class DeclarationsCleaner {
             return cleanedDeclarations.get();
         }
 
-        initialize();
         traverse();
         cleanedDeclarations = Optional.of(filter());
 
         return cleanedDeclarations.get();
     }
 
-    private void initialize() {
-        this.objectsForRemoval.removeAll(objectNamesQueue);
-        this.visitedObjects.addAll(objectNamesQueue);
-    }
-
     private void traverse() {
-        final LookingVisitor lookingVisitor = new LookingVisitor();
+        final Set<EntityNode> visitedEntities = new HashSet<>(entitiesQueue);
 
-        while (!objectNamesQueue.isEmpty() || !tagNamesQueue.isEmpty()) {
-            if (!objectNamesQueue.isEmpty()) {
-                final String nextObject = objectNamesQueue.remove();
+        while (!entitiesQueue.isEmpty()) {
+            final EntityNode node = entitiesQueue.remove();
 
-                if (functions.containsKey(nextObject)) {
-                    functions.get(nextObject).traverse(lookingVisitor, null);
-                } else if (variableDecls.containsKey(nextObject)) {
-                    for (FullVariableDecl fullVariableDecl : variableDecls.get(nextObject)) {
-                        for (TypeElement typeElement : fullVariableDecl.dataDecl.getModifiers()) {
-                            typeElement.traverse(lookingVisitor, null);
-                        }
-                        fullVariableDecl.variableDecl.traverse(lookingVisitor, null);
-                    }
-                } else {
-                    throw new RuntimeException("Cannot find object with name '" + nextObject + "'");
+            switch (node.getKind()) {
+                case TAG:
+                    tagsForRemoval.remove(node.getUniqueName());
+                    break;
+                default:
+                    objectsForRemoval.remove(node.getUniqueName());
+                    break;
+            }
+
+            for (Reference ref : node.getSuccessors()) {
+                if (!visitedEntities.contains(ref.getReferencedNode())) {
+                    visitedEntities.add(ref.getReferencedNode());
+                    entitiesQueue.add(ref.getReferencedNode());
                 }
-            } else {
-                tags.get(tagNamesQueue.remove()).traverse(lookingVisitor, null);
             }
         }
     }
@@ -203,108 +146,6 @@ public final class DeclarationsCleaner {
         }
 
         return declarationsBuilder.build();
-    }
-
-    /**
-     * Visitor that looks for references to type definitions and tags.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    private final class LookingVisitor extends IdentityVisitor<Void> {
-        @Override
-        public Void visitTypename(Typename typename, Void arg) {
-            lookAtTypename(typename);
-            return null;
-        }
-
-        @Override
-        public Void visitComponentTyperef(ComponentTyperef typename, Void arg) {
-            lookAtTypename(typename);
-            return null;
-        }
-
-        @Override
-        public Void visitStructRef(StructRef node, Void arg) {
-            lookAtTagRef(node);
-            return null;
-        }
-
-        @Override
-        public Void visitUnionRef(UnionRef node, Void arg) {
-            lookAtTagRef(node);
-            return null;
-        }
-
-        @Override
-        public Void visitEnumRef(EnumRef node, Void arg) {
-            lookAtTagRef(node);
-            return null;
-        }
-
-        @Override
-        public Void visitNxStructRef(NxStructRef node, Void arg) {
-            lookAtTagRef(node);
-            return null;
-        }
-
-        @Override
-        public Void visitNxUnionRef(NxUnionRef node, Void arg) {
-            lookAtTagRef(node);
-            return null;
-        }
-
-        @Override
-        public Void visitIdentifier(Identifier identifier, Void arg) {
-            if (identifier.getUniqueName().isPresent()) {
-                final String name = identifier.getUniqueName().get();
-
-                if (constants.containsKey(name)) {
-                    final EnumRef enumRef = constants.get(name);
-
-                    if (enumRef.getUniqueName().isPresent()) {
-                        lookAtTagRef(constants.get(name));
-                    } else if (!visitedUnnnamedEnums.contains(enumRef)) {
-                        visitedUnnnamedEnums.add(enumRef);
-                        enumRef.traverse(this, null);
-                    }
-
-                    objectsForRemoval.remove(identifier.getUniqueName().get());
-                } else if ((functions.containsKey(name) || variableDecls.containsKey(name))
-                        && !visitedObjects.contains(name)) {
-                    visitedObjects.add(name);
-                    objectNamesQueue.add(name);
-                    objectsForRemoval.remove(name);
-                }
-            }
-
-            return null;
-        }
-
-        private void lookAtTypename(Typename typename) {
-            final String name = typename.getUniqueName();
-
-            if (variableDecls.containsKey(name) && !visitedObjects.contains(name)) {
-                objectNamesQueue.add(name);
-                visitedObjects.add(name);
-            }
-
-            objectsForRemoval.remove(name);
-        }
-
-        private void lookAtTagRef(TagRef tagRef) {
-            if (!tagRef.getUniqueName().isPresent()) {
-                return;
-            }
-
-            final String name = tagRef.getUniqueName().get();
-
-            if (tags.containsKey(name) && !visitedTags.contains(name)) {
-                tagNamesQueue.add(name);
-                visitedTags.add(name);
-            }
-
-            tagsForRemoval.remove(name);
-        }
     }
 
     /**
@@ -393,15 +234,10 @@ public final class DeclarationsCleaner {
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     private interface PrivateBuilder {
-        Queue<String> buildObjectNamesQueue();
-        ImmutableMap<String, TagRef> buildTags();
-        ImmutableMap<String, FunctionDecl> buildFunctions();
-        ImmutableListMultimap<String, FullVariableDecl> buildVariableDecls();
-        ImmutableMap<String, EnumRef> buildConstants();
+        Queue<EntityNode> buildEntitiesQueue();
         Set<String> buildObjectsForRemoval();
         Set<String> buildTagsForRemoval();
         ImmutableList<Declaration> buildDeclarations();
-        ImmutableSet<String> buildExternalVariables();
     }
 
     /**
@@ -414,13 +250,15 @@ public final class DeclarationsCleaner {
         /**
          * Data necessary to build a type declarations cleaner.
          */
+        private final ReferencesGraph refsGraph;
         private final ImmutableList.Builder<Declaration> declarationsBuilder = ImmutableList.builder();
         private final ImmutableSet.Builder<String> externalVariablesBuilder = ImmutableSet.builder();
 
         /**
          * Private constructor to limit its accessibility.
          */
-        private Builder() {
+        private Builder(ReferencesGraph refsGraph) {
+            this.refsGraph = refsGraph;
         }
 
         /**
@@ -448,8 +286,8 @@ public final class DeclarationsCleaner {
         }
 
         public DeclarationsCleaner build() {
-            return new DeclarationsCleaner(new RealBuilder(declarationsBuilder.build(),
-                    externalVariablesBuilder.build()));
+            return new DeclarationsCleaner(new RealBuilder(refsGraph,
+                    declarationsBuilder.build(), externalVariablesBuilder.build()));
         }
     }
 
@@ -462,76 +300,42 @@ public final class DeclarationsCleaner {
         /**
          * Necessary input data for the builder.
          */
+        private final ReferencesGraph refsGraph;
         private final ImmutableList<Declaration> declarations;
         private final ImmutableSet<String> externalVariables;
 
         /**
          * Objects for building the other elements.
          */
-        private final ImmutableMap.Builder<String, FunctionDecl> functionsBuilder = ImmutableMap.builder();
-        private final ImmutableMap.Builder<String, TagRef> tagsBuilder = ImmutableMap.builder();
-        private final ImmutableListMultimap.Builder<String, FullVariableDecl> variableDeclsBuilder = ImmutableListMultimap.builder();
-        private final ImmutableMap.Builder<String, EnumRef> constantsBuilder = ImmutableMap.builder();
-        private final Set<String> objectsForRemoval = new HashSet<>();
-        private final Set<String> tagsForRemoval = new HashSet<>();
-        private final Queue<String> objectNamesQueue = new ArrayDeque<>();
+        private final Queue<EntityNode> entitiesQueue = new ArrayDeque<>();
         private boolean visited = false;
 
-        private RealBuilder(ImmutableList<Declaration> declarations, ImmutableSet<String> externalVariables) {
+        private RealBuilder(ReferencesGraph refsGraph, ImmutableList<Declaration> declarations,
+                    ImmutableSet<String> externalVariables) {
+            this.refsGraph = refsGraph;
             this.declarations = declarations;
             this.externalVariables = externalVariables;
         }
 
         @Override
-        public Queue<String> buildObjectNamesQueue() {
+        public Queue<EntityNode> buildEntitiesQueue() {
             visitDeclarations();
-            return objectNamesQueue;
-        }
-
-        @Override
-        public ImmutableMap<String, TagRef> buildTags() {
-            visitDeclarations();
-            return tagsBuilder.build();
-        }
-
-        @Override
-        public ImmutableMap<String, FunctionDecl> buildFunctions() {
-            visitDeclarations();
-            return functionsBuilder.build();
-        }
-
-        @Override
-        public ImmutableListMultimap<String, FullVariableDecl> buildVariableDecls() {
-            visitDeclarations();
-            return variableDeclsBuilder.build();
-        }
-
-        @Override
-        public ImmutableMap<String, EnumRef> buildConstants() {
-            visitDeclarations();
-            return constantsBuilder.build();
+            return entitiesQueue;
         }
 
         @Override
         public Set<String> buildObjectsForRemoval() {
-            visitDeclarations();
-            return objectsForRemoval;
+            return new HashSet<>(refsGraph.getOrdinaryIds().keySet());
         }
 
         @Override
         public Set<String> buildTagsForRemoval() {
-            visitDeclarations();
-            return tagsForRemoval;
+            return new HashSet<>(refsGraph.getTags().keySet());
         }
 
         @Override
         public ImmutableList<Declaration> buildDeclarations() {
             return declarations;
-        }
-
-        @Override
-        public ImmutableSet<String> buildExternalVariables() {
-            return externalVariables;
         }
 
         private void visitDeclarations() {
@@ -551,15 +355,12 @@ public final class DeclarationsCleaner {
             final String funName = DeclaratorUtils.getUniqueName(declaration.getDeclarator()).get();
             final FunctionDeclaration functionDeclaration = declaration.getDeclaration();
 
-            functionsBuilder.put(funName, declaration);
-            objectsForRemoval.add(funName);
-
             if (functionDeclaration != null) {
                 switch (functionDeclaration.getCallAssumptions()) {
                     case SPONTANEOUS:
                     case HWEVENT:
                     case ATOMIC_HWEVENT:
-                        objectNamesQueue.add(funName);
+                        entitiesQueue.add(refsGraph.getOrdinaryIds().get(funName));
                         break;
                     case NONE:
                         break;
@@ -582,21 +383,9 @@ public final class DeclarationsCleaner {
         public Void visitDataDecl(DataDecl declaration, Void arg) {
             final boolean isTypedef = TypeElementUtils.isTypedef(declaration.getModifiers());
 
-            if (isTypedef || declaration.getDeclarations().isEmpty()) {
-                // Visit potential tags references
-                for (TypeElement typeElement : declaration.getModifiers()) {
-                    if (typeElement instanceof TagRef) {
-                        addTag((TagRef) typeElement);
-                    }
-                }
-            }
-
             for (Declaration innerDecl : declaration.getDeclarations()) {
                 final VariableDecl variableDecl = (VariableDecl) innerDecl;
                 final String name = DeclaratorUtils.getUniqueName(variableDecl.getDeclarator()).get();
-
-                variableDeclsBuilder.put(name, new FullVariableDecl(declaration, variableDecl));
-                objectsForRemoval.add(name);
 
                 /* Check if it is a declaration of external variable and if so
                    add it to the objects queue. */
@@ -610,33 +399,12 @@ public final class DeclarationsCleaner {
                         throw new RuntimeException("unexpected interface reference declarator");
                     } else if (!deepestNestedDeclarator.isPresent()
                             || !(deepestNestedDeclarator.get() instanceof FunctionDeclarator)) {
-                        objectNamesQueue.add(name);
+                        entitiesQueue.add(refsGraph.getOrdinaryIds().get(name));
                     }
                 }
             }
 
             return null;
-        }
-
-        private void addTag(TagRef tagRef) {
-            if (tagRef instanceof EnumRef && tagRef.getSemantics() != StructSemantics.OTHER) {
-                for (Declaration declaration : tagRef.getFields()) {
-                    final Enumerator enumerator = (Enumerator) declaration;
-                    objectsForRemoval.add(enumerator.getUniqueName());
-                    constantsBuilder.put(enumerator.getUniqueName(), (EnumRef) tagRef);
-                }
-            }
-
-            if (!tagRef.getUniqueName().isPresent()) {
-                return;
-            }
-
-            final String tagName = tagRef.getUniqueName().get();
-
-            if (tagRef.getSemantics() != StructSemantics.OTHER) {
-                tagsBuilder.put(tagName, tagRef);
-            }
-            tagsForRemoval.add(tagName);
         }
     }
 

@@ -51,6 +51,7 @@ import pl.edu.mimuw.nesc.problem.NescIssueComparator;
 import pl.edu.mimuw.nesc.problem.NescWarning;
 import pl.edu.mimuw.nesc.problem.issue.InstantiationCycleError;
 import pl.edu.mimuw.nesc.problem.issue.Issue;
+import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
 import pl.edu.mimuw.nesc.wiresgraph.WiresGraph;
 
 /**
@@ -125,7 +126,8 @@ public final class Main {
         finalReduce(projectData, taskWiringConf, instantiatedComponents, wiring);
         final ImmutableList<Declaration> finalCode = generate(projectData, instantiatedComponents,
                 intermediateFuns.values());
-        final ImmutableList<Declaration> cleanedCode = clean(projectData, finalCode);
+        final ReferencesGraph refsGraph = buildReferencesGraph(finalCode);
+        final ImmutableList<Declaration> cleanedCode = clean(projectData, finalCode, refsGraph);
         writeCode(projectData, cleanedCode);
     }
 
@@ -446,12 +448,24 @@ public final class Main {
     }
 
     /**
+     * Create the graph of references between given top-level declarations.
+     *
+     * @param topLevelDecls List with top-level declarations.
+     * @return The built references graph.
+     */
+    private ReferencesGraph buildReferencesGraph(ImmutableList<Declaration> topLevelDecls) {
+        return ReferencesGraph.builder()
+                .addDeclarations(topLevelDecls)
+                .build();
+    }
+
+    /**
      * Get a list of declarations after filtering it by removing unnecessary
      * declarations.
      */
     private ImmutableList<Declaration> clean(ProjectData projectData,
-                ImmutableList<Declaration> declarations) {
-        final ImmutableList<Declaration> afterCleaning = DeclarationsCleaner.builder()
+                ImmutableList<Declaration> declarations, ReferencesGraph refsGraph) {
+        final ImmutableList<Declaration> afterCleaning = DeclarationsCleaner.builder(refsGraph)
                 .addDeclarations(declarations)
                 .addExternalVariables(projectData.getExternalVariables())
                 .build()

@@ -247,9 +247,7 @@ public final class ReferencesGraph {
 
         @Override
         public Void visitDataDecl(DataDecl declaration, Void arg) {
-            final EntityNode.Kind kind = TypeElementUtils.isTypedef(declaration.getModifiers())
-                    ? EntityNode.Kind.TYPE_DEFINITION
-                    : EntityNode.Kind.VARIABLE;
+            final boolean isTypedef = TypeElementUtils.isTypedef(declaration.getModifiers());
 
             for (TypeElement typeElement : declaration.getModifiers()) {
                 if (typeElement instanceof TagRef) {
@@ -258,20 +256,31 @@ public final class ReferencesGraph {
             }
 
             for (Declaration innerDecl : declaration.getDeclarations()) {
-                if (innerDecl instanceof VariableDecl) {
-                    final VariableDecl variableDecl = (VariableDecl) innerDecl;
-                    final String uniqueName = DeclaratorUtils.getUniqueName(
-                            variableDecl.getDeclarator().get()).get();
-                    final Optional<EntityNode> optNode = Optional.fromNullable(ordinaryIds.get(uniqueName));
+                final VariableDecl variableDecl = (VariableDecl) innerDecl;
+                final Optional<NestedDeclarator> deepestDeclarator =
+                        DeclaratorUtils.getDeepestNestedDeclarator(variableDecl.getDeclarator());
 
-                    if (optNode.isPresent()) {
-                        checkState(optNode.get().getKind() == kind, "previous kind differs");
-                    } else {
-                        ordinaryIds.put(uniqueName, new EntityNode(uniqueName, kind));
-                    }
+                final EntityNode.Kind kind;
+                if (isTypedef) {
+                    kind = EntityNode.Kind.TYPE_DEFINITION;
+                } else if (!deepestDeclarator.isPresent()) {
+                    kind = EntityNode.Kind.VARIABLE;
+                } else if (deepestDeclarator.get() instanceof FunctionDeclarator) {
+                    kind = EntityNode.Kind.FUNCTION;
+                } else if (deepestDeclarator.get() instanceof InterfaceRefDeclarator) {
+                    throw new RuntimeException("unexpected interface reference declarator");
                 } else {
-                    throw new RuntimeException("unexpected inner class of data declaration '"
-                            + innerDecl.getClass().getCanonicalName() + "'");
+                    kind = EntityNode.Kind.VARIABLE;
+                }
+
+                final String uniqueName = DeclaratorUtils.getUniqueName(
+                        variableDecl.getDeclarator().get()).get();
+                final Optional<EntityNode> optNode = Optional.fromNullable(ordinaryIds.get(uniqueName));
+
+                if (optNode.isPresent()) {
+                    checkState(optNode.get().getKind() == kind, "previous kind differs");
+                } else {
+                    ordinaryIds.put(uniqueName, new EntityNode(uniqueName, kind));
                 }
             }
 
@@ -353,25 +362,14 @@ public final class ReferencesGraph {
         public Void visitDataDecl(DataDecl declaration, Void arg) {
             // Add references from tag definitions
 
-            Optional<EntityNode> typeNode = Optional.absent();
-
             for (TypeElement typeElement : declaration.getModifiers()) {
                 if (typeElement instanceof TagRef) {
-                    checkState(!typeNode.isPresent(), "multiple conflicting type specifiers in a declaration");
-                    final TagRef tagRef = (TagRef) typeElement;
-                    addEntitiesReferencedByTag(tagRef);
-
-                    if (tagRef.getUniqueName().isPresent()) {
-                        typeNode = Optional.of(tags.get(tagRef.getUniqueName().get()));
-                    }
-                } else if (typeElement instanceof Typename) {
-                    checkState(!typeNode.isPresent(), "multiple conflicting type specifiers in a declaration");
-                    final Typename typename = (Typename) typeElement;
-                    typeNode = Optional.of(ordinaryIds.get(typename.getUniqueName()));
+                    addEntitiesReferencedByTag((TagRef) typeElement);
                 }
             }
 
-            // Add references
+            /* Add references from declared type definitions, functions or
+            variables. */
 
             for (Declaration innerDecl : declaration.getDeclarations()) {
                 final VariableDecl variableDecl = (VariableDecl) innerDecl;
@@ -380,8 +378,20 @@ public final class ReferencesGraph {
                 variableDecl.traverse(new ReferencesCreatorVisitor(referencingNode, ordinaryIds, tags),
                         new Oracle());
 
-                if (typeNode.isPresent()) {
-                    referencingNode.addReference(typeNode.get(), Reference.Type.NORMAL, false, false);
+                for (TypeElement typeElement : declaration.getModifiers()) {
+                    if (typeElement instanceof TagRef) {
+                        final TagRef tagRef = (TagRef) typeElement;
+                        if (tagRef.getUniqueName().isPresent()) {
+                            referencingNode.addReference(tags.get(tagRef.getUniqueName().get()),
+                                    Reference.Type.NORMAL, false, false);
+                        } else {
+                            tagRef.traverse(new ReferencesCreatorVisitor(referencingNode, ordinaryIds, tags),
+                                    new Oracle());
+                        }
+                    } else if (typeElement instanceof Typename) {
+                        referencingNode.addReference(ordinaryIds.get(((Typename) typeElement).getUniqueName()),
+                                Reference.Type.NORMAL, false, false);
+                    }
                 }
             }
 
