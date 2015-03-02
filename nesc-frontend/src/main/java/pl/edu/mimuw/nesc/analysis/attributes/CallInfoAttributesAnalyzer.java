@@ -74,8 +74,8 @@ final class CallInfoAttributesAnalyzer implements AttributeSmallAnalyzer {
 
         final FunctionDeclaration funDeclaration = (FunctionDeclaration) declaration;
 
-        if (strongestAssumptions.compareTo(funDeclaration.getCallAssumptions()) > 0) {
-            funDeclaration.setCallAssumptions(strongestAssumptions);
+        if (strongestAssumptions.compareTo(funDeclaration.getMinimalCallAssumptions()) > 0) {
+            funDeclaration.setMinimalCallAssumptions(strongestAssumptions);
         }
     }
 

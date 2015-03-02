@@ -81,6 +81,11 @@ public class FunctionDeclaration extends ObjectDeclaration {
      */
     private CallAssumptions callAssumptions = CallAssumptions.NONE;
 
+    /**
+     * Normal call assumptions cannot be set to weaker than these.
+     */
+    private CallAssumptions minimalCallAssumptions = CallAssumptions.NONE;
+
     public static Builder builder() {
         return new Builder();
     }
@@ -202,20 +207,50 @@ public class FunctionDeclaration extends ObjectDeclaration {
     }
 
     /**
+     * Get the call assumptions that are certain for this function.
+     *
+     * @return Certain call assumptions for this function.
+     */
+    public CallAssumptions getMinimalCallAssumptions() {
+        return minimalCallAssumptions;
+    }
+
+    /**
      * Set the call assumptions for the function. The assumptions can only be
-     * set to the greater or equal ones in its natural ordering.
+     * set to the greater or equal to the current minimal assumptions in its
+     * natural ordering.
      *
      * @param newCallAssumptions New call assumptions to set.
      * @throws IllegalArgumentException The given assumptions are less than the
-     *                                  current assumptions in their natural
-     *                                  ordering.
+     *                                  current minimal assumptions in their
+     *                                  natural ordering.
      */
     public void setCallAssumptions(CallAssumptions newCallAssumptions) {
         checkNotNull(newCallAssumptions, "call assumptions cannot be null");
-        checkArgument(newCallAssumptions.compareTo(callAssumptions) >= 0,
-                "call assumptions cannot be less than the current assumptions");
+        checkArgument(newCallAssumptions.compareTo(minimalCallAssumptions) >= 0,
+                "call assumptions cannot be less than the current minimal assumptions");
 
         this.callAssumptions = newCallAssumptions;
+    }
+
+    /**
+     * Set the minimal call assumptions to the given ones. Normal assumptions,
+     * if weaker, are also set to the given value.
+     *
+     * @param newMinimalCallAssumptions New call assumptions to set.
+     * @throws IllegalArgumentException The given assumptions are less than the
+     *                                  current minimal assumptions in their
+     *                                  natural ordering.
+     */
+    public void setMinimalCallAssumptions(CallAssumptions newMinimalCallAssumptions) {
+        checkNotNull(newMinimalCallAssumptions, "new minimal call assumptions cannot be null");
+        checkArgument(newMinimalCallAssumptions.compareTo(minimalCallAssumptions) >= 0,
+                "minimal call assumptions cannot be less than the current minimal assumptions");
+
+        this.minimalCallAssumptions = newMinimalCallAssumptions;
+        if (newMinimalCallAssumptions.compareTo(this.callAssumptions) > 0) {
+            this.callAssumptions = newMinimalCallAssumptions;
+        }
     }
 
     @Override

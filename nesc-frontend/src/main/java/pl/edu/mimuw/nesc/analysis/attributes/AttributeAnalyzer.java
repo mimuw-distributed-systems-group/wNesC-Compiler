@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.analysis.attributes;
 
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.gen.Attribute;
 import pl.edu.mimuw.nesc.declaration.Declaration;
@@ -22,7 +23,8 @@ public final class AttributeAnalyzer {
      */
     private final ImmutableList<AttributeSmallAnalyzer> analyzersChain;
 
-    public AttributeAnalyzer(SemanticListener semanticListener, ErrorHelper errorHelper) {
+    public AttributeAnalyzer(ABI abi, SemanticListener semanticListener, ErrorHelper errorHelper) {
+        checkNotNull(abi, "ABI cannot be null");
         checkNotNull(semanticListener, "semantic listener cannot be null");
         checkNotNull(errorHelper, "error helper cannot be null");
 
@@ -31,7 +33,7 @@ public final class AttributeAnalyzer {
                 new CAttributeAnalyzer(errorHelper, semanticListener),
                 new ExternalBaseAttributeAnalyzer(errorHelper),
                 new CallInfoAttributesAnalyzer(errorHelper),
-                new GccInterruptAttributesAnalyzer()
+                new GccInterruptAttributesAnalyzer(abi)
         );
     }
 

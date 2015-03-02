@@ -4442,7 +4442,8 @@ string_chain:
         this.pstate = new ParserState();
 
         this.errorHelper = new ErrorHelper(this.issuesMultimapBuilder);
-        final AttributeAnalyzer attributeAnalyzer = new AttributeAnalyzer(semanticListener, errorHelper);
+        final AttributeAnalyzer attributeAnalyzer = new AttributeAnalyzer(context.getABI(),
+                semanticListener, errorHelper);
 
         this.declarations = new Declarations(this.nescEnvironment, this.issuesMultimapBuilder,
                 this.tokensMultimapBuilder, semanticListener, attributeAnalyzer, context.getABI());
