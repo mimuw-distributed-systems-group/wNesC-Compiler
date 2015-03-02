@@ -29,7 +29,10 @@ import pl.edu.mimuw.nesc.ast.gen.ModuleImpl;
 import pl.edu.mimuw.nesc.ast.gen.NescDecl;
 import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
+import pl.edu.mimuw.nesc.atomic.AtomicBlockData;
+import pl.edu.mimuw.nesc.atomic.AtomicTransformer;
 import pl.edu.mimuw.nesc.basicreduce.BasicReduceExecutor;
+import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.connect.ConnectExecutor;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
@@ -127,7 +130,8 @@ public final class Main {
         final ImmutableList<Declaration> finalCode = generate(projectData, instantiatedComponents,
                 intermediateFuns.values());
         final ReferencesGraph refsGraph = buildReferencesGraph(finalCode);
-        final ImmutableList<Declaration> cleanedCode = clean(projectData, finalCode, refsGraph);
+        final ImmutableList<Declaration> cleanedCode = optimize(projectData, finalCode, refsGraph);
+        reduceAtomic(projectData, cleanedCode);
         writeCode(projectData, cleanedCode);
     }
 
@@ -463,7 +467,7 @@ public final class Main {
      * Get a list of declarations after filtering it by removing unnecessary
      * declarations.
      */
-    private ImmutableList<Declaration> clean(ProjectData projectData,
+    private ImmutableList<Declaration> optimize(ProjectData projectData,
                 ImmutableList<Declaration> declarations, ReferencesGraph refsGraph) {
         final ImmutableList<Declaration> afterCleaning = DeclarationsCleaner.builder(refsGraph)
                 .addDeclarations(declarations)
@@ -472,6 +476,16 @@ public final class Main {
                 .clean();
         return new LinkageOptimizer(projectData.getExternalVariables(), projectData.getNameMangler())
                 .optimize(afterCleaning);
+    }
+
+    private void reduceAtomic(ProjectData projectData, ImmutableList<Declaration> declarations) {
+        final AtomicTransformer atomicTransformer = new AtomicTransformer(
+                AtomicSpecification.DEFAULT_SPECIFICATION, projectData.getNameMangler());
+        final AtomicBlockData initialData = AtomicBlockData.newInitialData();
+
+        for (Declaration declaration : declarations) {
+            declaration.traverse(atomicTransformer, initialData);
+        }
     }
 
     /**

@@ -8,13 +8,11 @@ import java.util.Map;
 import pl.edu.mimuw.nesc.ast.gen.Configuration;
 import pl.edu.mimuw.nesc.ast.gen.NescDecl;
 import pl.edu.mimuw.nesc.ast.gen.Node;
-import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.SchedulerSpecification;
 import pl.edu.mimuw.nesc.names.collecting.NescEntityNameCollector;
 import pl.edu.mimuw.nesc.names.mangling.CountingNameMangler;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -26,10 +24,6 @@ import static com.google.common.base.Preconditions.checkState;
  *     <li>reversing mangling of global entities or entities with @C()
  *     attribute</li>
  *     <li>transforming tasks into implementations of the task interface</li>
- *     <li>transforming atomic statements into statements that guarantee the
- *     atomicity</li>
- *     <li>fully completing types associated with all expressions AST nodes and
- *     <code>AstType</code> nodes (if the type is present)</li>
  * </ul>
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -115,7 +109,6 @@ public final class BasicReduceExecutor {
                 .putGlobalNames(globalNames)
                 .schedulerSpecification(schedulerSpecification)
                 .taskWiringConfigurationName(taskWiringConfigurationName)
-                .atomicSpecification(AtomicSpecification.DEFAULT_SPECIFICATION)
                 .build();
 
         final BlockData initialData = BlockData.builder()
