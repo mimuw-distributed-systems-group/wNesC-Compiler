@@ -76,6 +76,23 @@ public final class ABI {
     );
 
     /**
+     * Map for retrieving interrupt semantics indicated by GCC attributes
+     * 'atomic_hwevent' and 'hwevent'.
+     */
+    private static final ImmutableMap<String, AttributesAssumptions.InterruptSemantics> INTERRUPT_SEMANTICS_MAP = ImmutableMap.of(
+        "atomic-hwevent", AttributesAssumptions.InterruptSemantics.ATOMIC,
+        "hwevent", AttributesAssumptions.InterruptSemantics.NORMAL
+    );
+
+    /**
+     * Map for retrieving the preferential GCC attribute.
+     */
+    private static final ImmutableMap<String, AttributesAssumptions.PreferentialAttribute> PREFERENTIAL_ATTRIBUTES_MAP = ImmutableMap.of(
+        "signal", AttributesAssumptions.PreferentialAttribute.SIGNAL,
+        "interrupt", AttributesAssumptions.PreferentialAttribute.INTERRUPT
+    );
+
+    /**
      * Endiannes of the target architecture.
      */
     private final Endianness endianness;
@@ -95,6 +112,11 @@ public final class ABI {
     private final UnsignedIntegerType typeSizeT;
     private final SignedIntegerType typePtrdiffT;
     private final FieldTagTypeData typeFieldTag;
+
+    /**
+     * Assumptions about interrupt handlers indicated by GCC attributes.
+     */
+    private final AttributesAssumptions attributesAssumptions;
 
     /**
      * Load the ABI from the given stream. It should contain XML data that
@@ -122,6 +144,7 @@ public final class ABI {
         this.typeSizeT = builder.buildSizeT();
         this.typePtrdiffT = builder.buildPtrdiffT();
         this.typeFieldTag = builder.buildFieldTagTypeData();
+        this.attributesAssumptions = builder.buildAttributesAssumptions();
     }
 
     /**
@@ -185,6 +208,10 @@ public final class ABI {
 
     public FieldTagTypeData getFieldTagType() {
         return typeFieldTag;
+    }
+
+    public AttributesAssumptions getAttributesAssumptions() {
+        return attributesAssumptions;
     }
 
     /**
@@ -319,11 +346,27 @@ public final class ABI {
             );
         }
 
+        private AttributesAssumptions buildAttributesAssumptions() throws XPathExpressionException {
+            return new AttributesAssumptions(
+                    retrieveInterruptSemantics("/abi:abi/abi:call-assumptions/abi:for-interrupt-attribute"),
+                    retrieveInterruptSemantics("/abi:abi/abi:call-assumptions/abi:for-signal-attribute"),
+                    retrievePreferentialAttribute("/abi:abi/abi:call-assumptions/abi:preferential-attribute")
+            );
+        }
+
         private TypeData retrieveTypeData(String typeElementName) throws XPathExpressionException {
             return new TypeData(
                     retrieveInt(format("/abi:abi/abi:types/abi:%s/abi:size", typeElementName)),
                     retrieveInt(format("/abi:abi/abi:types/abi:%s/abi:alignment", typeElementName))
             );
+        }
+
+        private AttributesAssumptions.InterruptSemantics retrieveInterruptSemantics(String path) throws XPathExpressionException {
+            return retrieveMappedValue(path, INTERRUPT_SEMANTICS_MAP);
+        }
+
+        private AttributesAssumptions.PreferentialAttribute retrievePreferentialAttribute(String path) throws XPathExpressionException {
+            return retrieveMappedValue(path, PREFERENTIAL_ATTRIBUTES_MAP);
         }
 
         private SignedIntegerType retrieveSignedIntegerType(String path) throws XPathExpressionException {

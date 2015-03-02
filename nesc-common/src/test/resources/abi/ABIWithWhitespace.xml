@@ -231,5 +231,20 @@
         </struct-or-union>
 
     </types>
+    
+
+    <call-assumptions>
+        
+        
+        <for-interrupt-attribute>     hwevent
+        
+        </for-interrupt-attribute>
+        <for-signal-attribute>      atomic-hwevent    </for-signal-attribute>
+        <preferential-attribute>            
+            
+            interrupt
+        
+        </preferential-attribute>
+    </call-assumptions>
 
 </abi>

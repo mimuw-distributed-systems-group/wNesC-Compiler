@@ -85,4 +85,9 @@
             <empty-bitfield-alignment-in-bits>8</empty-bitfield-alignment-in-bits>
         </struct-or-union>
     </types>
+    <call-assumptions>
+        <for-interrupt-attribute>atomic-hwevent</for-interrupt-attribute>
+        <for-signal-attribute>hwevent</for-signal-attribute>
+        <preferential-attribute>signal</preferential-attribute>
+    </call-assumptions>
 </abi>

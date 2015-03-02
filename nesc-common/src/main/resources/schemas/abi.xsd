@@ -9,6 +9,7 @@
         <sequence>
             <element name='endianness' type='tns:TypeEndianness'/>
             <element name='types' type='tns:TypeTypes'/>
+            <element name='call-assumptions' type='tns:TypeCallAssumptions'/>
         </sequence>
     </complexType>
 
@@ -33,6 +34,14 @@
             <element name='size_t' type='tns:TypeSizeTDescriptor'/>
             <element name='ptrdiff_t' type='tns:TypePtrdiffTDescriptor'/>
             <element name='struct-or-union' type='tns:TypeStructOrUnionTypeDescriptor'/>
+        </sequence>
+    </complexType>
+
+    <complexType name='TypeCallAssumptions'>
+        <sequence>
+            <element name='for-interrupt-attribute' type='tns:TypeInterruptAssumptions'/>
+            <element name='for-signal-attribute' type='tns:TypeInterruptAssumptions'/>
+            <element name='preferential-attribute' type='tns:TypeInterruptAttribute'/>
         </sequence>
     </complexType>
 
@@ -158,6 +167,20 @@
             <enumeration value='int'/>
             <enumeration value='long'/>
             <enumeration value='long long'/>
+        </restriction>
+    </simpleType>
+
+    <simpleType name='TypeInterruptAssumptions'>
+        <restriction base='token'>
+            <enumeration value='hwevent'/>
+            <enumeration value='atomic-hwevent'/>
+        </restriction>
+    </simpleType>
+
+    <simpleType name='TypeInterruptAttribute'>
+        <restriction base='token'>
+            <enumeration value='signal'/>
+            <enumeration value='interrupt'/>
         </restriction>
     </simpleType>
 

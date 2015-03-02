@@ -64,6 +64,9 @@ public class ABITest {
         checkPointerType(simpleAbi, 8, 8);
         checkSpecialTypes(simpleAbi, UnsignedIntegerType.UNSIGNED_LONG, SignedIntegerType.LONG);
         checkFieldTagType(simpleAbi, 1, true, 8);
+        checkAttributesAssumptions(simpleAbi, AttributesAssumptions.InterruptSemantics.ATOMIC,
+                AttributesAssumptions.InterruptSemantics.NORMAL,
+                AttributesAssumptions.PreferentialAttribute.SIGNAL);
     }
 
     @Test
@@ -110,6 +113,10 @@ public class ABITest {
         checkPointerType(abiWithWhitespace, 8, 16);
         checkSpecialTypes(abiWithWhitespace, UnsignedIntegerType.UNSIGNED_LONG_LONG, SignedIntegerType.SIGNED_CHAR);
         checkFieldTagType(abiWithWhitespace, 2, false, 16);
+        checkAttributesAssumptions(abiWithWhitespace,
+                AttributesAssumptions.InterruptSemantics.NORMAL,
+                AttributesAssumptions.InterruptSemantics.ATOMIC,
+                AttributesAssumptions.PreferentialAttribute.INTERRUPT);
     }
 
     @Test(expected=org.xml.sax.SAXException.class)
@@ -211,5 +218,13 @@ public class ABITest {
         assertEquals(bitFieldTypeMatters, abi.getFieldTagType().bitFieldTypeMatters());
         assertEquals(emptyBitFieldAlignment, abi.getFieldTagType().getEmptyBitFieldAlignmentInBits());
         assertEquals(minimumAlignment, abi.getFieldTagType().getMinimumAlignment());
+    }
+
+    private void checkAttributesAssumptions(ABI abi, AttributesAssumptions.InterruptSemantics semanticsInterrupt,
+                AttributesAssumptions.InterruptSemantics semanticsSignal,
+                AttributesAssumptions.PreferentialAttribute preferentialAttribute) {
+        assertEquals(semanticsInterrupt, abi.getAttributesAssumptions().getInterruptSemantics());
+        assertEquals(semanticsSignal, abi.getAttributesAssumptions().getSignalSemantics());
+        assertEquals(preferentialAttribute, abi.getAttributesAssumptions().getPreferentialAttribute());
     }
 }
