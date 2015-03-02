@@ -919,6 +919,116 @@ def gen_expr_transformer_list_methods_java(f):
     f.write(tab + "}\n")
 
 
+def gen_stmt_transformation(lang, directory):
+    language_dispatch(lang, gen_stmt_transformation_java,
+                      gen_stmt_transformation_cpp, directory)
+
+
+def gen_stmt_transformation_cpp(directory):
+    # FIXME
+    raise NotImplementedError
+
+
+def gen_stmt_transformation_java(directory):
+    with open(path.join(directory, "StmtTransformation.java"), "w") as f:
+        f.write("package pl.edu.mimuw.nesc.ast.gen;\n\n")
+        f.write("import java.util.LinkedList;\n\n")
+        f.write("public interface StmtTransformation<A> {\n")
+        f.write(tab + "LinkedList<Statement> transform(Statement stmt, A arg);\n")
+        f.write("}\n")
+
+
+def gen_stmt_transformer(lang, directory):
+    language_dispatch(lang, gen_stmt_transformer_java,
+                      gen_stmt_transformer_cpp, directory)
+
+
+def gen_stmt_transformer_cpp(directory):
+    # FIXME
+    raise NotImplementedError
+
+
+def gen_stmt_transformer_java(directory):
+    with open(path.join(directory, "StmtTransformer.java"), "w") as f:
+        f.write("package pl.edu.mimuw.nesc.ast.gen;\n\n")
+        f.write("import com.google.common.base.Optional;\n")
+        f.write("import java.util.Iterator;\n")
+        f.write("import java.util.LinkedList;\n")
+        f.write("import java.util.ListIterator;\n")
+        f.write("import pl.edu.mimuw.nesc.common.util.list.Lists;\n")
+        f.write("import pl.edu.mimuw.nesc.ast.Location;\n\n")
+        f.write("import static com.google.common.base.Preconditions.checkNotNull;\n\n")
+        f.write("public class StmtTransformer<A> extends IdentityVisitor<A> {\n")
+        f.write(tab + "private final StmtTransformation<A> transformation;\n\n")
+        f.write(tab + "public StmtTransformer(StmtTransformation<A> transformation) {\n")
+        f.write(tab * 2 + 'checkNotNull(transformation, "transformation cannot be null");\n')
+        f.write(tab * 2 + "this.transformation = transformation;\n")
+        f.write(tab + "}\n\n")
+
+        for node_cls in ast_nodes.values():
+            f.write(node_cls().gen_transform_code(DST_LANGUAGE.JAVA,
+                    "Statement", "performTransformation", "A"))
+
+        gen_stmt_transformer_ref_methods_java(f)
+        gen_stmt_transformer_list_methods_java(f)
+        f.write("}\n")
+
+
+def gen_stmt_transformer_ref_methods_java(f):
+    f.write(tab + "private Statement performTransformation(Statement stmt, A arg) {\n")
+    f.write(tab * 2 + "if (stmt == null) {\n")
+    f.write(tab * 3 + "return null;\n")
+    f.write(tab * 2 + "}\n\n")
+    f.write(tab * 2 + "final LinkedList<Statement> result = transformation.transform(stmt, arg);\n\n")
+    f.write(tab * 2 + "if (result.isEmpty()) {\n")
+    f.write(tab * 3 + "return new EmptyStmt(Location.getDummyLocation());\n")
+    f.write(tab * 2 + "} else if (result.size() == 1) {\n")
+    f.write(tab * 3 + "return result.getFirst();\n")
+    f.write(tab * 2 + "} else {\n")
+    f.write(tab * 3 + "return new CompoundStmt(\n")
+    f.write(tab * 4 + "Location.getDummyLocation(),\n")
+    f.write(tab * 4 + "Lists.<IdLabel>newList(),\n")
+    f.write(tab * 4 + "Lists.<Declaration>newList(),\n")
+    f.write(tab * 4 + "result\n")
+    f.write(tab * 3 + ");\n")
+    f.write(tab * 2 + "}\n")
+    f.write(tab + "}\n\n")
+    f.write(tab + "private Optional<Statement> performTransformation(Optional<Statement> stmt, A arg) {\n")
+    f.write(tab * 2 + "if (stmt == null) {\n")
+    f.write(tab * 3 + "return null;\n")
+    f.write(tab * 2 + "}\n\n")
+    f.write(tab * 2 + "return stmt.isPresent()\n")
+    f.write(tab * 3 + "? Optional.of(performTransformation(stmt.get(), arg))\n")
+    f.write(tab * 3 + ": Optional.<Statement>absent();\n")
+    f.write(tab + "}\n\n")
+
+
+def gen_stmt_transformer_list_methods_java(f):
+    f.write(tab + "private void performTransformations(LinkedList<Statement> stmts, A arg) {\n")
+    f.write(tab * 2 + "if (stmts == null) {\n")
+    f.write(tab * 3 + "return;\n")
+    f.write(tab * 2 + "}\n\n")
+    f.write(tab * 2 + "final ListIterator<Statement> stmtsIt = stmts.listIterator();\n\n")
+    f.write(tab * 2 + "while (stmtsIt.hasNext()) {\n")
+    f.write(tab * 3 + "final LinkedList<Statement> newStmts = transformation.transform(stmtsIt.next(), arg);\n\n")
+    f.write(tab * 3 + "if (newStmts.isEmpty()) {\n")
+    f.write(tab * 4 + "stmtsIt.remove();\n")
+    f.write(tab * 3 + "} else {\n")
+    f.write(tab * 4 + "final Iterator<Statement> newStmtsIt = newStmts.iterator();\n")
+    f.write(tab * 4 + "stmtsIt.set(newStmtsIt.next());\n\n")
+    f.write(tab * 4 + "while (newStmtsIt.hasNext()) {\n")
+    f.write(tab * 5 + "stmtsIt.add(newStmtsIt.next());\n")
+    f.write(tab * 4 + "}\n")
+    f.write(tab * 3 + "}\n")
+    f.write(tab * 2 + "}\n")
+    f.write(tab + "}\n\n")
+    f.write(tab + "private void performTransformations(Optional<LinkedList<Statement>> stmts, A arg) {\n")
+    f.write(tab * 2 + "if (stmts != null && stmts.isPresent()) {\n")
+    f.write(tab * 3 + "performTransformations(stmts.get(), arg);\n")
+    f.write(tab * 2 + "}\n")
+    f.write(tab + "}\n")
+
+
 def gen_remangling_visitor(lang, directory):
     if lang == DST_LANGUAGE.JAVA:
         gen_remangling_visitor_java(directory)
@@ -1028,4 +1138,8 @@ def generate_java_code(directory):
     gen_expr_transformation(DST_LANGUAGE.JAVA, directory)
 
     gen_expr_transformer(DST_LANGUAGE.JAVA, directory)
+
+    gen_stmt_transformation(DST_LANGUAGE.JAVA, directory)
+
+    gen_stmt_transformer(DST_LANGUAGE.JAVA, directory)
 
