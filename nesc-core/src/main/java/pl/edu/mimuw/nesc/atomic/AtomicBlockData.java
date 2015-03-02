@@ -40,6 +40,12 @@ public class AtomicBlockData {
     private final Optional<AstType> functionReturnType;
 
     /**
+     * Value indicating if a node is located inside a function that is known to
+     * execute atomically.
+     */
+    private final boolean insideAtomicFunction;
+
+    /**
      * Get an atomic block data object that contains initial information that
      * is suitable for traversing a top-level declaration, e.g. a function
      * definition or global declarations.
@@ -78,6 +84,7 @@ public class AtomicBlockData {
         this.insideLoopOrSwitch = builder.insideLoopOrSwitch;
         this.insideBreakableAtomic = builder.insideBreakableAtomic;
         this.functionReturnType = builder.functionReturnType;
+        this.insideAtomicFunction = builder.insideAtomicFunction;
     }
 
     /**
@@ -138,6 +145,18 @@ public class AtomicBlockData {
     }
 
     /**
+     * Check if this node is located inside an atomic function, i.e. a function
+     * that is known to always execute atomically:
+     * {@link pl.edu.mimuw.nesc.ast.gen.FunctionDecl#isAtomic}.
+     *
+     * @return <code>true</code> if and only if the node is located inside an
+     *         atomic function.
+     */
+    public boolean isInsideAtomicFunction() {
+        return insideAtomicFunction;
+    }
+
+    /**
      * Builder for an atomic block data object.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -150,6 +169,7 @@ public class AtomicBlockData {
         private Optional<AstType> functionReturnType = Optional.absent();
         private boolean insideLoopOrSwitch = false;
         private boolean insideBreakableAtomic = false;
+        private boolean insideAtomicFunction = false;
 
         /**
          * Private constructor to limit its accessibility.
@@ -167,6 +187,7 @@ public class AtomicBlockData {
             this.insideLoopOrSwitch = specimen.insideLoopOrSwitch;
             this.insideBreakableAtomic = specimen.insideBreakableAtomic;
             this.functionReturnType = specimen.functionReturnType;
+            this.insideAtomicFunction = specimen.insideAtomicFunction;
         }
 
         /**
@@ -218,6 +239,18 @@ public class AtomicBlockData {
          */
         public Builder functionReturnType(AstType functionReturnType) {
             this.functionReturnType = Optional.fromNullable(functionReturnType);
+            return this;
+        }
+
+        /**
+         * Set the value indicating if the node is located inside an atomic
+         * function.
+         *
+         * @param insideAtomicFun Value to set.
+         * @return <code>this</code>
+         */
+        public Builder insideAtomicFunction(boolean insideAtomicFun) {
+            this.insideAtomicFunction = insideAtomicFun;
             return this;
         }
 

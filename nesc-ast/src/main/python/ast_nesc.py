@@ -238,6 +238,17 @@ class FunctionDecl(BasicASTNode):
     <p>A function declaration.</p>
     <p><code>declaration</code> can be function declaration or interface
     reference.</p>
+    <p><code>isAtomic</code> is set to <code>true</code> when all of the
+    following conditions are fulfilled:</p>
+    <ol>
+        <li>the only references of this function in the whole application are
+        in function calls</li>
+        <li>all calls to this function are made from areas of code that
+        is known to execute atomically; an example of such situation is when
+        all calls of the function are located inside an atomic block</li>
+        <li>call assumptions for this function are NORMAL or ATOMIC_HWEVENT
+        </code>
+    </ol>
     """
     superclass = Declaration
     declarator = ReferenceField("Declarator")
@@ -249,6 +260,7 @@ class FunctionDecl(BasicASTNode):
     isNested = BoolField(visitable=False)
     declaration = ReferenceField("FunctionDeclaration", constructor_variable=False, visitable=False,
                                  deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
+    isAtomic = BoolField(constructor_variable=False)
 
     # FIXME refactor attributes below
     #parentFunction = ReferenceField("FunctionDecl", constructor_variable=False, visitable=False)

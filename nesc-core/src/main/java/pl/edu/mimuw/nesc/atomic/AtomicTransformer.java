@@ -11,6 +11,7 @@ import pl.edu.mimuw.nesc.ast.gen.SwitchStmt;
 import pl.edu.mimuw.nesc.ast.gen.WhileStmt;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
+import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -35,6 +36,7 @@ public class AtomicTransformer extends StmtTransformer<AtomicBlockData> {
     public AtomicBlockData visitFunctionDecl(FunctionDecl node, AtomicBlockData arg) {
         return AtomicBlockData.builder(arg)
                 .functionReturnType(AstUtils.extractReturnType(node))
+                .insideAtomicFunction(VariousUtils.getBooleanValue(node.getIsAtomic()))
                 .build();
     }
 

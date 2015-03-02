@@ -86,15 +86,16 @@ final class AtomicTransformation implements StmtTransformation<AtomicBlockData> 
      *         and no other statement takes its place.
      */
     private LinkedList<Statement> transform(AtomicStmt stmt, AtomicBlockData stmtData) {
-        return stmtData.isInsideAtomicBlock()
+        return stmtData.isInsideAtomicBlock() || stmtData.isInsideAtomicFunction()
                 ? atomizeAtomicInsideAtomic(stmt, stmtData)
                 : atomizeRealAtomic(stmt);
     }
 
     private LinkedList<Statement> atomizeAtomicInsideAtomic(AtomicStmt stmt, AtomicBlockData stmtData) {
         /* 'atomic' is removed from an atomic statement nested in an atomic
-           block. We need to continue transforming the statement inside atomic
-           because it wouldn't happen if the statement was returned. */
+           block or in an atomic function. We need to continue transforming
+           the statement inside atomic because it wouldn't happen if the
+           statement was returned. */
         return transform(stmt.getStatement(), stmtData);
     }
 

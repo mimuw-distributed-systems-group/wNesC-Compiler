@@ -46,6 +46,7 @@ import pl.edu.mimuw.nesc.instantiation.InstantiateExecutor;
 import pl.edu.mimuw.nesc.finalreduce.FinalTransformer;
 import pl.edu.mimuw.nesc.intermediate.TraversingIntermediateGenerator;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
+import pl.edu.mimuw.nesc.optimization.AtomicOptimizer;
 import pl.edu.mimuw.nesc.optimization.LinkageOptimizer;
 import pl.edu.mimuw.nesc.optimization.DeclarationsCleaner;
 import pl.edu.mimuw.nesc.problem.NescError;
@@ -474,8 +475,12 @@ public final class Main {
                 .addExternalVariables(projectData.getExternalVariables())
                 .build()
                 .clean();
-        return new LinkageOptimizer(projectData.getExternalVariables(), projectData.getNameMangler())
+        final ImmutableList<Declaration> afterLinkageOptimization =
+                new LinkageOptimizer(projectData.getExternalVariables(), projectData.getNameMangler())
                 .optimize(afterCleaning);
+        new AtomicOptimizer(afterLinkageOptimization, refsGraph).optimize();
+
+        return afterLinkageOptimization;
     }
 
     private void reduceAtomic(ProjectData projectData, ImmutableList<Declaration> declarations) {
