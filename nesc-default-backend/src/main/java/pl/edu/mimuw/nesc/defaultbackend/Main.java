@@ -49,6 +49,7 @@ import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.optimization.AtomicOptimizer;
 import pl.edu.mimuw.nesc.optimization.LinkageOptimizer;
 import pl.edu.mimuw.nesc.optimization.DeclarationsCleaner;
+import pl.edu.mimuw.nesc.optimization.TaskOptimizer;
 import pl.edu.mimuw.nesc.problem.NescError;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.problem.NescIssueComparator;
@@ -131,7 +132,8 @@ public final class Main {
         final ImmutableList<Declaration> finalCode = generate(projectData, instantiatedComponents,
                 intermediateFuns.values());
         final ReferencesGraph refsGraph = buildReferencesGraph(finalCode);
-        final ImmutableList<Declaration> cleanedCode = optimize(projectData, finalCode, refsGraph);
+        final ImmutableList<Declaration> cleanedCode = optimize(projectData,
+                wiring, finalCode, refsGraph);
         reduceAtomic(projectData, cleanedCode);
         writeCode(projectData, cleanedCode);
     }
@@ -468,7 +470,7 @@ public final class Main {
      * Get a list of declarations after filtering it by removing unnecessary
      * declarations.
      */
-    private ImmutableList<Declaration> optimize(ProjectData projectData,
+    private ImmutableList<Declaration> optimize(ProjectData projectData, WiresGraph wiresGraph,
                 ImmutableList<Declaration> declarations, ReferencesGraph refsGraph) {
         final ImmutableList<Declaration> afterCleaning = DeclarationsCleaner.builder(refsGraph)
                 .addDeclarations(declarations)
@@ -478,9 +480,13 @@ public final class Main {
         final ImmutableList<Declaration> afterLinkageOptimization =
                 new LinkageOptimizer(projectData.getExternalVariables(), projectData.getNameMangler())
                 .optimize(afterCleaning);
-        new AtomicOptimizer(afterLinkageOptimization, refsGraph).optimize();
+        final ImmutableList<Declaration> afterTaskOptimization =
+                new TaskOptimizer(afterLinkageOptimization, wiresGraph,
+                        refsGraph, projectData.getSchedulerSpecification().get())
+                .optimize();
+        new AtomicOptimizer(afterTaskOptimization, refsGraph).optimize();
 
-        return afterLinkageOptimization;
+        return afterTaskOptimization;
     }
 
     private void reduceAtomic(ProjectData projectData, ImmutableList<Declaration> declarations) {
