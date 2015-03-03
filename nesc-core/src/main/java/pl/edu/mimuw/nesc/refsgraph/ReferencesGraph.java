@@ -2,7 +2,6 @@ package pl.edu.mimuw.nesc.refsgraph;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -415,14 +414,14 @@ public final class ReferencesGraph {
                         final TagRef tagRef = (TagRef) typeElement;
                         if (tagRef.getUniqueName().isPresent()) {
                             referencingNode.addReference(tags.get(tagRef.getUniqueName().get()),
-                                    Reference.Type.NORMAL, false, false);
+                                    Reference.Type.NORMAL, tagRef, false, false);
                         } else {
                             tagRef.traverse(new ReferencesCreatorVisitor(referencingNode, ordinaryIds, tags),
                                     new Oracle());
                         }
                     } else if (typeElement instanceof Typename) {
                         referencingNode.addReference(ordinaryIds.get(((Typename) typeElement).getUniqueName()),
-                                Reference.Type.NORMAL, false, false);
+                                Reference.Type.NORMAL, typeElement, false, false);
                     }
                 }
             }
@@ -458,18 +457,15 @@ public final class ReferencesGraph {
                 for (Declaration declaration : enumRef.getFields()) {
                     final Enumerator enumerator = (Enumerator) declaration;
                     ordinaryIds.get(enumerator.getUniqueName()).addReference(enumNode,
-                            Reference.Type.NORMAL, false, false);
+                            Reference.Type.NORMAL, enumerator, false, false);
                 }
             } else {
-                final ArrayList<EntityNode> constantsNodes = new ArrayList<>();
-                for (Declaration declaration : enumRef.getFields()) {
-                    constantsNodes.add(ordinaryIds.get(((Enumerator) declaration).getUniqueName()));
-                }
-
-                for (EntityNode referencing : constantsNodes) {
-                    for (EntityNode referred : constantsNodes) {
-                        if (referencing != referred) {
-                            referencing.addReference(referred, Reference.Type.NORMAL, false, false);
+                for (Declaration declReferencing : enumRef.getFields()) {
+                    for (Declaration declReferenced : enumRef.getFields()) {
+                        if (declReferencing != declReferenced) {
+                            final EntityNode referencing = ordinaryIds.get(((Enumerator) declReferencing).getUniqueName());
+                            final EntityNode referenced = ordinaryIds.get(((Enumerator) declReferenced).getUniqueName());
+                            referencing.addReference(referenced, Reference.Type.NORMAL, declReferencing, false, false);
                         }
                     }
                 }
@@ -565,7 +561,7 @@ public final class ReferencesGraph {
             }
 
             if (identifier.getUniqueName().isPresent()) {
-                addOrdinaryIdReference(identifier.getUniqueName().get(), oracle);
+                addOrdinaryIdReference(identifier.getUniqueName().get(), identifier, oracle);
             }
 
             return oracle;
@@ -579,7 +575,7 @@ public final class ReferencesGraph {
                 if (identifier.getUniqueName().isPresent()
                         && ordinaryIds.containsKey(identifier.getUniqueName().get())) {
                     this.referencingNode.addReference(ordinaryIds.get(identifier.getUniqueName().get()),
-                            Reference.Type.CALL, oracle.insideNotEvaluatedExpr, oracle.insideAtomic);
+                            Reference.Type.CALL, expr, oracle.insideNotEvaluatedExpr, oracle.insideAtomic);
                 }
 
                 ignoredIdentifiers.add(identifier);
@@ -590,13 +586,13 @@ public final class ReferencesGraph {
 
         @Override
         public Oracle visitTypename(Typename typename, Oracle oracle) {
-            addOrdinaryIdReference(typename.getUniqueName(), oracle);
+            addOrdinaryIdReference(typename.getUniqueName(), typename, oracle);
             return oracle;
         }
 
         @Override
         public Oracle visitComponentTyperef(ComponentTyperef typename, Oracle oracle) {
-            addOrdinaryIdReference(typename.getUniqueName(), oracle);
+            addOrdinaryIdReference(typename.getUniqueName(), typename, oracle);
             return oracle;
         }
 
@@ -632,26 +628,28 @@ public final class ReferencesGraph {
 
         private void tagReference(TagRef tagRef, Oracle oracle) {
             if (tagRef.getUniqueName().isPresent()) {
-                addTagReference(tagRef.getUniqueName().get(), oracle);
+                addTagReference(tagRef.getUniqueName().get(), tagRef, oracle);
             }
         }
 
-        private void addOrdinaryIdReference(String uniqueName, Oracle oracle) {
+        private void addOrdinaryIdReference(String uniqueName, Node astNode, Oracle oracle) {
             if (ordinaryIds.containsKey(uniqueName)) {
                 referencingNode.addReference(
                         ordinaryIds.get(uniqueName),
                         Reference.Type.NORMAL,
+                        astNode,
                         oracle.insideNotEvaluatedExpr,
                         oracle.insideAtomic
                 );
             }
         }
 
-        private void addTagReference(String uniqueName, Oracle oracle) {
+        private void addTagReference(String uniqueName, TagRef astNode, Oracle oracle) {
             if (tags.containsKey(uniqueName)) {
                 referencingNode.addReference(
                         tags.get(uniqueName),
                         Reference.Type.NORMAL,
+                        astNode,
                         oracle.insideNotEvaluatedExpr,
                         oracle.insideAtomic
                 );

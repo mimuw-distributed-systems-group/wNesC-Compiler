@@ -1,5 +1,8 @@
 package pl.edu.mimuw.nesc.refsgraph;
 
+import pl.edu.mimuw.nesc.ast.gen.FunctionCall;
+import pl.edu.mimuw.nesc.ast.gen.Node;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -26,6 +29,11 @@ public final class Reference {
     private final Type type;
 
     /**
+     * AST node that is the reference.
+     */
+    private final Node astNode;
+
+    /**
      * Value indicating if this reference occurs inside an expression that is
      * not evaluated, i.e. inside <code>sizeof</code> or <code>_Alignof</code>
      * operators.
@@ -43,22 +51,27 @@ public final class Reference {
      * member fields.
      *
      * @throws IllegalArgumentException The type is {@link Type#CALL} but the
-     *                                  referenced not is neither a function nor
+     *                                  referenced node is neither a function nor
      *                                  a variable (a variable can be called if
-     *                                  it is a pointer).
+     *                                  it is a pointer) or the AST node is not
+     *                                  a function call.
      */
     Reference(EntityNode referencingNode, EntityNode referencedNode, Type type,
-            boolean insideNotEvaluatedExpr, boolean insideAtomic) {
+            Node astNode, boolean insideNotEvaluatedExpr, boolean insideAtomic) {
         checkNotNull(referencingNode, "referencing node cannot be null");
         checkNotNull(referencedNode, "referenced node cannot be null");
         checkNotNull(type, "type cannot be null");
+        checkNotNull(astNode, "AST node cannot be null");
         checkArgument(type != Type.CALL || referencedNode.getKind() == EntityNode.Kind.FUNCTION
             || referencedNode.getKind() == EntityNode.Kind.VARIABLE,
             "the type of this reference is call but the referenced node is not a function and is not a variable");
+        checkArgument(type != Type.CALL || astNode instanceof FunctionCall,
+            "the type of this reference is call but the AST node is not a function call");
 
         this.referencingNode = referencingNode;
         this.referencedNode = referencedNode;
         this.type = type;
+        this.astNode = astNode;
         this.insideNotEvaluatedExpr = insideNotEvaluatedExpr;
         this.insideAtomic = insideAtomic;
     }
@@ -88,6 +101,17 @@ public final class Reference {
      */
     public Type getType() {
         return type;
+    }
+
+    /**
+     * Get the AST node that is the reference.
+     *
+     * @return AST node that is the reference. If this reference has type CALL,
+     *         it is guaranteed that the returned node is
+     *         <code>FunctionCall</code>.
+     */
+    public Node getASTNode() {
+        return astNode;
     }
 
     /**

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import pl.edu.mimuw.nesc.ast.gen.Node;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -115,9 +116,9 @@ public final class EntityNode {
      *                     a part of code that is executed atomically.
      */
     void addReference(EntityNode referencedEntity, Reference.Type referenceType,
-            boolean insideNotEvaluatedExpr, boolean insideAtomic) {
+            Node astNode, boolean insideNotEvaluatedExpr, boolean insideAtomic) {
         final Reference newReference = new Reference(this, referencedEntity,
-                referenceType, insideNotEvaluatedExpr, insideAtomic);
+                referenceType, astNode, insideNotEvaluatedExpr, insideAtomic);
 
         successors.add(newReference);
         referencedEntity.predecessors.add(newReference);
