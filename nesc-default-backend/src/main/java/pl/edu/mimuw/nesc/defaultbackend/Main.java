@@ -474,11 +474,10 @@ public final class Main {
                 ImmutableList<Declaration> declarations, ReferencesGraph refsGraph) {
         final ImmutableList<Declaration> afterCleaning = DeclarationsCleaner.builder(refsGraph)
                 .addDeclarations(declarations)
-                .addExternalVariables(projectData.getExternalVariables())
                 .build()
                 .clean();
         final ImmutableList<Declaration> afterLinkageOptimization =
-                new LinkageOptimizer(projectData.getExternalVariables(), projectData.getNameMangler())
+                new LinkageOptimizer(projectData.getNameMangler())
                 .optimize(afterCleaning);
         final ImmutableList<Declaration> afterTaskOptimization =
                 new TaskOptimizer(afterLinkageOptimization, wiresGraph,

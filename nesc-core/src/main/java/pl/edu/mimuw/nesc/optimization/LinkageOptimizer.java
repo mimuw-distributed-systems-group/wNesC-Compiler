@@ -23,6 +23,7 @@ import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.VariableDeclaration;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -35,11 +36,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public final class LinkageOptimizer {
     /**
-     * Set with names of variables whose external linkage must not be changed.
-     */
-    private final Set<String> externalVariables;
-
-    /**
      * Name mangler used to generate unique names if it is necessary.
      */
     private final NameMangler nameMangler;
@@ -48,15 +44,11 @@ public final class LinkageOptimizer {
      * Initialize this linkage optimizer to use given set of names of external
      * variables during optimization.
      *
-     * @param externalVariables Set with names of variables whose linkage will
-     *                          not be changed from external to internal.
      * @param nameMangler Name mangler for generation of unique names for
      *                    unnamed tags if it is necessary.
      */
-    public LinkageOptimizer(Set<String> externalVariables, NameMangler nameMangler) {
-        checkNotNull(externalVariables, "external variables cannot be null");
+    public LinkageOptimizer(NameMangler nameMangler) {
         checkNotNull(nameMangler, "name mangler cannot be null");
-        this.externalVariables = externalVariables;
         this.nameMangler = nameMangler;
     }
 
@@ -166,7 +158,10 @@ public final class LinkageOptimizer {
                 /* FIXME multiple declarations of the same global variable with
                    different storage-class specifiers (currently not accepted by
                    the compiler). */
-                if (!externalVariables.contains(name) && !specifiers.contains(RID.EXTERN)
+                final boolean isExternalVariable = variableDecl.getDeclaration() != null
+                        && ((VariableDeclaration) variableDecl.getDeclaration()).isExternalVariable();
+
+                if (!isExternalVariable && !specifiers.contains(RID.EXTERN)
                         && !specifiers.contains(RID.STATIC) && !specifiers.contains(RID.AUTO)
                         && !specifiers.contains(RID.REGISTER)) {
                     declaration.getModifiers().addFirst(AstUtils.newRid(RID.STATIC));

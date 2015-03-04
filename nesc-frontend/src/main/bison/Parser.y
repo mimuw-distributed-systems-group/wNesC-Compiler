@@ -532,6 +532,7 @@ interface:
     {
         pushLevel();
         environment.setScopeType(ScopeType.INTERFACE_PARAMETER);
+        environment.setNescEntityName($name.getName());
         environment.setStartLocation($name.getEndLocation());
         entityStarted($name.getName());
         parserListener.nescEntityRecognized(NesCFileType.INTERFACE);
@@ -657,6 +658,7 @@ module:
         pushLevel();
         environment.setEnclosedInGenericNescEntity($isGeneric.getValue());
         environment.setScopeType(ScopeType.COMPONENT_PARAMETER);
+        environment.setNescEntityName($name.getName());
         environment.setStartLocation($name.getEndLocation());
         entityStarted($name.getName());
         parserListener.nescEntityRecognized(NesCFileType.MODULE);
@@ -708,6 +710,7 @@ configuration:
         pushLevel();
         environment.setEnclosedInGenericNescEntity($isGeneric.getValue());
         environment.setScopeType(ScopeType.COMPONENT_PARAMETER);
+        environment.setNescEntityName($name.getName());
         environment.setStartLocation($name.getEndLocation());
         entityStarted($name.getName());
         parserListener.nescEntityRecognized(NesCFileType.CONFIGURATION);
@@ -4445,8 +4448,9 @@ string_chain:
         final AttributeAnalyzer attributeAnalyzer = new AttributeAnalyzer(context.getABI(),
                 semanticListener, errorHelper);
 
-        this.declarations = new Declarations(this.nescEnvironment, this.issuesMultimapBuilder,
-                this.tokensMultimapBuilder, semanticListener, attributeAnalyzer, context.getABI());
+        this.declarations = new Declarations(context.getExternalVariables(), this.nescEnvironment,
+                this.issuesMultimapBuilder, this.tokensMultimapBuilder, semanticListener,
+                attributeAnalyzer, context.getABI());
         this.initializers = new Initializers(this.nescEnvironment, this.issuesMultimapBuilder,
                 this.tokensMultimapBuilder, semanticListener, attributeAnalyzer, context.getABI());
         this.statements = new Statements(this.nescEnvironment, this.issuesMultimapBuilder,

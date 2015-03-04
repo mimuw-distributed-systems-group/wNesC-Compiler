@@ -5,6 +5,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.SetMultimap;
 import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.LabelAnalyzer;
@@ -91,6 +92,12 @@ public final class Declarations extends AstBuildingBase {
     };
 
     /**
+     * Multimap that contains external variables specified using the compiler
+     * option.
+     */
+    private final SetMultimap<Optional<String>, String> externalVariables;
+
+    /**
      * Object that is present after a module specification is parsed and
      * analyzed. Information about implementations of commands and events is
      * passed to it. It must be present when parsing and analysis of a module
@@ -98,13 +105,15 @@ public final class Declarations extends AstBuildingBase {
      */
     private Optional<ModuleTable> moduleTable = Optional.absent();
 
-    public Declarations(NescEntityEnvironment nescEnvironment,
+    public Declarations(SetMultimap<Optional<String>, String> externalVariables,
+                        NescEntityEnvironment nescEnvironment,
                         ImmutableListMultimap.Builder<Integer, NescIssue> issuesMultimapBuilder,
                         ImmutableListMultimap.Builder<Integer, Token> tokensMultimapBuilder,
                         SemanticListener semanticListener, AttributeAnalyzer attributeAnalyzer,
                         ABI abi) {
         super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder,
                 semanticListener, attributeAnalyzer, abi);
+        this.externalVariables = externalVariables;
     }
 
     public ErrorDecl makeErrorDecl() {
@@ -593,6 +602,28 @@ public final class Declarations extends AstBuildingBase {
         checkState(!this.moduleTable.isPresent(), "module table has been already set");
 
         this.moduleTable = Optional.of(moduleTable);
+    }
+
+    /**
+     * Check if a variable with given name is an external variable in given
+     * environment.
+     *
+     * @param environment Environment of the variable.
+     * @param name Name of the variable.
+     * @return Original external name if the variable with given name is an
+     *         external variable in given environment. Otherwise, the object
+     *         is absent.
+     */
+    private Optional<String> isExternalVariable(Environment environment, String name) {
+        if ((environment.getScopeType() == ScopeType.GLOBAL || environment.getScopeType() == ScopeType.MODULE_IMPLEMENTATION)
+                && externalVariables.get(environment.getNescEntityName()).contains(name)) {
+            final String originalExternalName = environment.getNescEntityName().isPresent()
+                    ? format("%s.%s", environment.getNescEntityName().get(), name)
+                    : name;
+            return Optional.of(originalExternalName);
+        } else {
+            return Optional.absent();
+        }
     }
 
     private class StartFunctionVisitor extends ExceptionVisitor<Void, Void> {
@@ -1358,10 +1389,17 @@ public final class Declarations extends AstBuildingBase {
                         .uniqueName(uniqueName)
                         .denotedType(declaratorType.orNull());
             } else {
-                builder = VariableDeclaration.builder()
-                        .uniqueName(uniqueName)
+                final VariableDeclaration.Builder variableBuilder = VariableDeclaration.builder();
+                variableBuilder.uniqueName(uniqueName)
                         .type(declaratorType.orNull())
                         .linkage(linkage.orNull());
+
+                final Optional<String> originalExternalName = isExternalVariable(environment, name);
+                if (originalExternalName.isPresent()) {
+                    variableBuilder.external(originalExternalName.get());
+                }
+
+                builder = variableBuilder;
             }
 
             final ObjectDeclaration declaration = builder.name(name)

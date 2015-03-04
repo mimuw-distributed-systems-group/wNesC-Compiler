@@ -15,6 +15,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * <p>Default implementation of an environment.</p>
@@ -30,6 +31,7 @@ public class DefaultEnvironment implements Environment {
     protected final Optional<? extends LabelSymbolTable<LabelDeclaration>> labels;
     protected final List<Environment> enclosedEnvironments;
 
+    protected Optional<String> nescEntityName;
     protected boolean isNestedInGenericEntity;
     protected ScopeType type;
     protected Optional<Location> startLocation;
@@ -77,6 +79,9 @@ public class DefaultEnvironment implements Environment {
         this.startLocation = startLocation;
         this.endLocation = endLocation;
         this.enclosedEnvironments = new ArrayList<>();
+        this.nescEntityName = parent.isPresent()
+                ? parent.get().getNescEntityName()
+                : Optional.<String>absent();
         this.isNestedInGenericEntity = parent.isPresent()
                 && parent.get().isEnclosedInGenericNescEntity();
         if (parent.isPresent()) {
@@ -146,17 +151,21 @@ public class DefaultEnvironment implements Environment {
 
     @Override
     public boolean isEnclosedInNescEntity() {
-        switch (getScopeType()) {
-            case INTERFACE_PARAMETER:
-            case INTERFACE:
-            case COMPONENT_PARAMETER:
-            case SPECIFICATION:
-            case MODULE_IMPLEMENTATION:
-            case CONFIGURATION_IMPLEMENTATION:
-                return true;
-            default:
-                return parent.isPresent() && parent.get().isEnclosedInNescEntity();
-        }
+        return this.nescEntityName.isPresent();
+    }
+
+    @Override
+    public Optional<String> getNescEntityName() {
+        return this.nescEntityName;
+    }
+
+    @Override
+    public void setNescEntityName(String name) {
+        checkNotNull(name, "name cannot be null");
+        checkArgument(!name.isEmpty(), "name cannot be an empty string");
+        checkState(!this.nescEntityName.isPresent(), "NesC entity name is already set");
+
+        this.nescEntityName = Optional.of(name);
     }
 
     @Override

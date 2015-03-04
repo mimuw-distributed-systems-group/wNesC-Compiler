@@ -4,6 +4,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.SetMultimap;
 import java.util.List;
 import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.common.SchedulerSpecification;
@@ -34,7 +35,7 @@ public final class ProjectData {
     private final Optional<SchedulerSpecification> schedulerSpecification;
     private final String outputFile;
     private final ABI abi;
-    private final ImmutableSet<String> externalVariables;
+    private final SetMultimap<Optional<String>, String> externalVariables;
 
     private ProjectData(Builder builder) {
         builder.buildMaps();
@@ -49,7 +50,7 @@ public final class ProjectData {
         this.schedulerSpecification = builder.schedulerSpecification;
         this.outputFile = builder.outputFile;
         this.abi = builder.abi;
-        this.externalVariables = builder.externalVariablesBuilder.build();
+        this.externalVariables = builder.externalVariables;
     }
 
     public ImmutableMap<String, FileData> getFileDatas() {
@@ -146,12 +147,16 @@ public final class ProjectData {
     }
 
     /**
-     * <p>Get a set with names of global variables whose external linkage must
-     * not be changed in the output C file.</p>
+     * <p>Get a multimap with names of external variables as values. Variables
+     * with a specific key can only appear inside the implementation scope of
+     * a module with the name from the key. If it is absent, the variable can
+     * appear in the global scope. The returned set multimap is unmodifiable and
+     * its entries are returned by the iterator in the same order as they were
+     * given in the compiler option.</p>
      *
-     * @return Set with names of external variables.
+     * @return Map with names of external variables.
      */
-    public ImmutableSet<String> getExternalVariables() {
+    public SetMultimap<Optional<String>, String> getExternalVariables() {
         return externalVariables;
     }
 
@@ -164,7 +169,6 @@ public final class ProjectData {
         private ImmutableMap.Builder<String, FileData> fileDataBuilder;
         private ImmutableList.Builder<String> defaultIncludedFilesBuilder;
         private ImmutableList.Builder<NescIssue> issueListBuilder;
-        private ImmutableSet.Builder<String> externalVariablesBuilder;
         private FileData rootFileData;
 
         private ImmutableMap<String, FileData> fileDatas;
@@ -173,6 +177,7 @@ public final class ProjectData {
 
         private NameMangler nameMangler;
         private Optional<SchedulerSpecification> schedulerSpecification = Optional.absent();
+        private SetMultimap<Optional<String>, String> externalVariables;
         private String outputFile;
         private ABI abi;
 
@@ -180,7 +185,6 @@ public final class ProjectData {
             this.fileDataBuilder = ImmutableMap.builder();
             this.defaultIncludedFilesBuilder = ImmutableList.builder();
             this.issueListBuilder = ImmutableList.builder();
-            this.externalVariablesBuilder = ImmutableSet.builder();
         }
 
         public Builder addRootFileData(FileData fileData) {
@@ -210,8 +214,8 @@ public final class ProjectData {
             return this;
         }
 
-        public Builder addExternalVariables(Collection<String> names) {
-            this.externalVariablesBuilder.addAll(names);
+        public Builder externalVariables(SetMultimap<Optional<String>, String> externalVariables) {
+            this.externalVariables = externalVariables;
             return this;
         }
 

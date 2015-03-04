@@ -2,7 +2,6 @@ package pl.edu.mimuw.nesc.optimization;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -17,6 +16,8 @@ import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
+import pl.edu.mimuw.nesc.declaration.object.ObjectKind;
+import pl.edu.mimuw.nesc.declaration.object.VariableDeclaration;
 import pl.edu.mimuw.nesc.refsgraph.EntityNode;
 import pl.edu.mimuw.nesc.refsgraph.Reference;
 import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
@@ -297,7 +298,6 @@ public final class DeclarationsCleaner {
          */
         private final ReferencesGraph refsGraph;
         private final ImmutableList.Builder<Declaration> declarationsBuilder = ImmutableList.builder();
-        private final ImmutableSet.Builder<String> externalVariablesBuilder = ImmutableSet.builder();
 
         /**
          * Private constructor to limit its accessibility.
@@ -319,20 +319,8 @@ public final class DeclarationsCleaner {
             return this;
         }
 
-        /**
-         * Add names from the given collection as names of external variables.
-         *
-         * @param names Names to add.
-         * @return <code>this</code>
-         */
-        public Builder addExternalVariables(Collection<String> names) {
-            this.externalVariablesBuilder.addAll(names);
-            return this;
-        }
-
         public DeclarationsCleaner build() {
-            return new DeclarationsCleaner(new RealBuilder(refsGraph,
-                    declarationsBuilder.build(), externalVariablesBuilder.build()));
+            return new DeclarationsCleaner(new RealBuilder(refsGraph, declarationsBuilder.build()));
         }
     }
 
@@ -347,7 +335,6 @@ public final class DeclarationsCleaner {
          */
         private final ReferencesGraph refsGraph;
         private final ImmutableList<Declaration> declarations;
-        private final ImmutableSet<String> externalVariables;
 
         /**
          * Objects for building the other elements.
@@ -355,11 +342,9 @@ public final class DeclarationsCleaner {
         private final Queue<EntityNode> entitiesQueue = new ArrayDeque<>();
         private boolean visited = false;
 
-        private RealBuilder(ReferencesGraph refsGraph, ImmutableList<Declaration> declarations,
-                    ImmutableSet<String> externalVariables) {
+        private RealBuilder(ReferencesGraph refsGraph, ImmutableList<Declaration> declarations) {
             this.refsGraph = refsGraph;
             this.declarations = declarations;
-            this.externalVariables = externalVariables;
         }
 
         @Override
@@ -431,8 +416,6 @@ public final class DeclarationsCleaner {
 
         @Override
         public Void visitDataDecl(DataDecl declaration, Void arg) {
-            final boolean isTypedef = TypeElementUtils.isTypedef(declaration.getModifiers());
-
             for (Declaration innerDecl : declaration.getDeclarations()) {
                 final VariableDecl variableDecl = (VariableDecl) innerDecl;
                 final String name = DeclaratorUtils.getUniqueName(variableDecl.getDeclarator()).get();
@@ -440,15 +423,13 @@ public final class DeclarationsCleaner {
                 /* Check if it is a declaration of external variable and if so
                    add it to the objects queue. */
 
-                if (!isTypedef && externalVariables.contains(name)) {
-                    final Optional<NestedDeclarator> deepestNestedDeclarator =
-                            DeclaratorUtils.getDeepestNestedDeclarator(variableDecl.getDeclarator());
+                if (variableDecl.getDeclaration() != null
+                        && variableDecl.getDeclaration().getKind() == ObjectKind.VARIABLE) {
 
-                    if (deepestNestedDeclarator.isPresent()
-                            && deepestNestedDeclarator.get() instanceof InterfaceRefDeclarator) {
-                        throw new RuntimeException("unexpected interface reference declarator");
-                    } else if (!deepestNestedDeclarator.isPresent()
-                            || !(deepestNestedDeclarator.get() instanceof FunctionDeclarator)) {
+                    final VariableDeclaration variableDeclaration =
+                            (VariableDeclaration) variableDecl.getDeclaration();
+
+                    if (variableDeclaration.isExternalVariable()) {
                         entitiesQueue.add(refsGraph.getOrdinaryIds().get(name));
                     }
                 }

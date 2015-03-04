@@ -3,6 +3,12 @@ package pl.edu.mimuw.nesc.option;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Multimaps;
+import com.google.common.collect.SetMultimap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.commons.cli.CommandLine;
 
 import java.util.ArrayList;
@@ -33,6 +39,9 @@ public class OptionsHolder {
     public static final String NESC_ABI_FILE = "abi-file";
     public static final String NESC_OUTPUT_FILE = "o";
     public static final String NESC_EXTERNAL_VARIABLES = "e";
+
+    private static final Pattern REGEXP_EXTERNAL_VARIABLE =
+            Pattern.compile("((?<componentName>[a-zA-Z_]\\w*)\\.)?(?<variableName>[a-zA-Z_]\\w*)");
 
     private final CommandLine cmd;
 
@@ -172,11 +181,32 @@ public class OptionsHolder {
         return Optional.fromNullable(getValue(NESC_OUTPUT_FILE));
     }
 
-    public ImmutableSet<String> getExternalVariables() {
+    /**
+     * Get names of external variables that are specified in these options. The
+     * returned multimap is unmodifiable. Its iterator returns entries in the
+     * same order they were specified in options.
+     *
+     * @return Unmodifiable set multimap with external variables.
+     */
+    public SetMultimap<Optional<String>, String> getExternalVariables() {
         final String externalVariables = getValue(NESC_EXTERNAL_VARIABLES);
-        return externalVariables == null
-                ? ImmutableSet.<String>of()
-                : ImmutableSet.copyOf(Arrays.asList(externalVariables.split(",")));
+        if (externalVariables == null) {
+            return ImmutableSetMultimap.of();
+        }
+
+        final SetMultimap<Optional<String>, String> externalVariablesMap = LinkedHashMultimap.create();
+
+        for (String name : externalVariables.split(",")) {
+            final Matcher matcher = REGEXP_EXTERNAL_VARIABLE.matcher(name);
+            if (!matcher.matches()) {
+                throw new IllegalStateException("external variable name '" + name + "' is invalid");
+            }
+
+            externalVariablesMap.put(Optional.fromNullable(matcher.group("componentName")),
+                    matcher.group("variableName"));
+        }
+
+        return Multimaps.unmodifiableSetMultimap(externalVariablesMap);
     }
 
     /**
@@ -257,14 +287,14 @@ public class OptionsHolder {
             return Optional.absent();
         }
 
-        // Check if all names are not empty
+        // Check if all names match the regular expression
 
         final String[] names = externalVariables.split(",", -1);
 
         for (int i = 0; i < names.length; ++i) {
-            if (names[i].isEmpty()) {
+            if (!REGEXP_EXTERNAL_VARIABLE.matcher(names[i]).matches()) {
                 return Optional.of("the " + getOrdinalForm(i + 1)
-                        + " name in external variables list is empty");
+                        + " name in external variables list is invalid");
             }
         }
 

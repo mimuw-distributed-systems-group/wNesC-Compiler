@@ -122,6 +122,22 @@ public interface Environment {
     boolean isEnclosedInNescEntity();
 
     /**
+     * Set the name of the NesC entity this environment is located inside.
+     *
+     * @param nescEntityName Name of the NesC entity to set.
+     * @throws IllegalStateException The NesC entity name is already set.
+     */
+    void setNescEntityName(String nescEntityName);
+
+    /**
+     * If this environment is located inside a NesC entity, the name is present
+     * and it is the name of the entity. Otherwise, it is absent.
+     *
+     * @return Name of the NesC entity this environment is located inside.
+     */
+    Optional<String> getNescEntityName();
+
+    /**
      * Check if this environment is an environment of a NesC generic component
      * or a generic interface.
      *

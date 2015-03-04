@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.SetMultimap;
 import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
 import pl.edu.mimuw.nesc.environment.TranslationUnitEnvironment;
@@ -31,6 +32,7 @@ public final class FrontendContext {
     private List<String> defaultIncludeFiles;
     private PathsResolver pathsResolver;
     private Optional<SchedulerSpecification> scheduler;
+    private SetMultimap<Optional<String>, String> externalVariables;
 
     private final boolean isStandalone;
     private final MacroManager macroManager;
@@ -97,6 +99,7 @@ public final class FrontendContext {
         this.filesGraph = new FilesGraph();
         this.cache = new HashMap<>();
         this.scheduler = options.getSchedulerSpecification();
+        this.externalVariables = options.getExternalVariables();
         this.nescEntityEnvironment = new NescEntityEnvironment();
         this.environments = new HashMap<>();
         this.environment = new TranslationUnitEnvironment();
@@ -144,6 +147,10 @@ public final class FrontendContext {
 
     public Optional<SchedulerSpecification> getSchedulerSpecification() {
         return scheduler;
+    }
+
+    public SetMultimap<Optional<String>, String> getExternalVariables() {
+        return externalVariables;
     }
 
     public Map<String, String> getPredefinedMacros() {
@@ -212,6 +219,7 @@ public final class FrontendContext {
         this.predefinedMacros = options.getPredefinedMacros();
         this.defaultIncludeFiles = options.getDefaultIncludeFiles();
         this.scheduler = options.getSchedulerSpecification();
+        this.externalVariables = options.getExternalVariables();
     }
 
     /**

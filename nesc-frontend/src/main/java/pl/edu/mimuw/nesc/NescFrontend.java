@@ -155,7 +155,7 @@ public final class NescFrontend implements Frontend {
                     .addDefaultIncludeFiles(context.getDefaultIncludeFiles())
                     .outputFile(context.getOptions().getOutputFile().or(DEFAULT_OUTPUT_FILE))
                     .abi(context.getABI())
-                    .addExternalVariables(context.getOptions().getExternalVariables())
+                    .externalVariables(context.getOptions().getExternalVariables())
                     .build();
         }
     }
@@ -179,7 +179,7 @@ public final class NescFrontend implements Frontend {
                     .addDefaultIncludeFiles(context.getDefaultIncludeFiles())
                     .outputFile(context.getOptions().getOutputFile().or(DEFAULT_OUTPUT_FILE))
                     .abi(context.getABI())
-                    .addExternalVariables(context.getOptions().getExternalVariables());
+                    .externalVariables(context.getOptions().getExternalVariables());
 
             if (context.getSchedulerSpecification().isPresent()) {
                 if (loadScheduler) {
