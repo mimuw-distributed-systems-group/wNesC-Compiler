@@ -3,7 +3,6 @@ package pl.edu.mimuw.nesc;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import java.util.List;
 import pl.edu.mimuw.nesc.abi.ABI;
@@ -36,6 +35,7 @@ public final class ProjectData {
     private final String outputFile;
     private final ABI abi;
     private final SetMultimap<Optional<String>, String> externalVariables;
+    private final Optional<String> externalVariablesFile;
 
     private ProjectData(Builder builder) {
         builder.buildMaps();
@@ -51,6 +51,7 @@ public final class ProjectData {
         this.outputFile = builder.outputFile;
         this.abi = builder.abi;
         this.externalVariables = builder.externalVariables;
+        this.externalVariablesFile = builder.externalVariablesFile;
     }
 
     public ImmutableMap<String, FileData> getFileDatas() {
@@ -161,6 +162,18 @@ public final class ProjectData {
     }
 
     /**
+     * <p>Get the name of the external variables file to create. The file
+     * contains unique names of external variables that appeared in the
+     * application in the same order as in the external variables option.</p>
+     *
+     * @return Name of the external variables file to create. If it is absent,
+     *         no external variables file should be created.
+     */
+    public Optional<String> getExternalVariablesFile() {
+        return externalVariablesFile;
+    }
+
+    /**
      * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
@@ -180,6 +193,7 @@ public final class ProjectData {
         private SetMultimap<Optional<String>, String> externalVariables;
         private String outputFile;
         private ABI abi;
+        private Optional<String> externalVariablesFile = Optional.absent();
 
         public Builder() {
             this.fileDataBuilder = ImmutableMap.builder();
@@ -236,6 +250,11 @@ public final class ProjectData {
 
         public Builder abi(ABI abi) {
             this.abi = abi;
+            return this;
+        }
+
+        public Builder externalVariablesFile(String externalVariablesFile) {
+            this.externalVariablesFile = Optional.fromNullable(externalVariablesFile);
             return this;
         }
 

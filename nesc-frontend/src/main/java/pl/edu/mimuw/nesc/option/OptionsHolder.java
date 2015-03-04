@@ -39,6 +39,7 @@ public class OptionsHolder {
     public static final String NESC_ABI_FILE = "abi-file";
     public static final String NESC_OUTPUT_FILE = "o";
     public static final String NESC_EXTERNAL_VARIABLES = "e";
+    public static final String NESC_EXTERNAL_VARIABLES_FILE = "x";
 
     private static final Pattern REGEXP_EXTERNAL_VARIABLE =
             Pattern.compile("((?<componentName>[a-zA-Z_]\\w*)\\.)?(?<variableName>[a-zA-Z_]\\w*)");
@@ -209,6 +210,10 @@ public class OptionsHolder {
         return Multimaps.unmodifiableSetMultimap(externalVariablesMap);
     }
 
+    public Optional<String> getExternalVariablesFile() {
+        return Optional.fromNullable(getValue(NESC_EXTERNAL_VARIABLES_FILE));
+    }
+
     /**
      * Check the correctness of the options that are present in this holder.
      *
@@ -237,6 +242,11 @@ public class OptionsHolder {
         }
 
         error = validateExternalVariablesOption();
+        if (error.isPresent()) {
+            return error;
+        }
+
+        error = validateExternalVariablesFileOption();
 
         return error;
     }
@@ -299,6 +309,17 @@ public class OptionsHolder {
         }
 
         return Optional.absent();
+    }
+
+    private Optional<String> validateExternalVariablesFileOption() {
+        final String externalVariablesFile = getValue(NESC_EXTERNAL_VARIABLES_FILE);
+        if (externalVariablesFile == null) {
+            return Optional.absent();
+        }
+
+        return externalVariablesFile.isEmpty()
+                ? Optional.of("name of the external variables file cannot be empty")
+                : Optional.<String>absent();
     }
 
     private String getOrdinalForm(int n) {

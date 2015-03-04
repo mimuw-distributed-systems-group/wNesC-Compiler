@@ -36,6 +36,7 @@ import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.connect.ConnectExecutor;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
+import pl.edu.mimuw.nesc.externalvar.ExternalVariablesWriter;
 import pl.edu.mimuw.nesc.finalanalysis.FinalAnalyzer;
 import pl.edu.mimuw.nesc.finalreduce.ExternalExprBlockData;
 import pl.edu.mimuw.nesc.finalreduce.ExternalExprTransformer;
@@ -136,6 +137,7 @@ public final class Main {
                 wiring, finalCode, refsGraph);
         reduceAtomic(projectData, cleanedCode);
         writeCode(projectData, cleanedCode);
+        writeExternalVariables(projectData, cleanedCode);
     }
 
     /**
@@ -515,6 +517,24 @@ public final class Main {
             writer.write(finalCode);
         } catch(IOException e) {
             System.err.println("Cannot write the code to the file: " + e.getMessage());
+            System.exit(STATUS_ERROR);
+        }
+    }
+
+    private void writeExternalVariables(ProjectData projectData, ImmutableList<Declaration> finalCode) {
+        if (!projectData.getExternalVariablesFile().isPresent()) {
+            return;
+        }
+
+        try {
+            new ExternalVariablesWriter(
+                    finalCode,
+                    projectData.getExternalVariablesFile().get(),
+                    "UTF-8",
+                    projectData.getExternalVariables()
+            ).write();
+        } catch (IOException e) {
+            System.err.println("Cannot write the external variables file: " + e.getMessage());
             System.exit(STATUS_ERROR);
         }
     }
