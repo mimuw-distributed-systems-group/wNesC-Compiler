@@ -97,6 +97,10 @@ public final class FieldTagTypeLayoutCalculator implements TypeLayoutCalculator 
             previousEndianness = dispatchVisitor.getCurrentEndianness();
         }
 
+        if (!this.type.isExternal()) {
+            alignmentInBits = VariousUtils.lcm(alignmentInBits,
+                    this.abi.getFieldTagType().getMinimumAlignment() * BITS_PER_BYTE);
+        }
         sizeInBits = VariousUtils.alignNumber(sizeInBits, alignmentInBits);
 
         checkState(alignmentInBits % BITS_PER_BYTE == 0,

@@ -96,7 +96,7 @@
         </ptrdiff_t>
 
         <struct-or-union>
-            <minimum-alignment>1</minimum-alignment>
+            <minimum-alignment>2</minimum-alignment>
             <bitfield-type-matters>false</bitfield-type-matters>
             <empty-bitfield-alignment-in-bits>16</empty-bitfield-alignment-in-bits>
         </struct-or-union>
