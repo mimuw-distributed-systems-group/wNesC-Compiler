@@ -36,6 +36,8 @@ public final class ProjectData {
     private final ABI abi;
     private final SetMultimap<Optional<String>, String> externalVariables;
     private final Optional<String> externalVariablesFile;
+    private final boolean optimizeAtomic;
+    private final boolean optimizeTasks;
 
     private ProjectData(Builder builder) {
         builder.buildMaps();
@@ -52,6 +54,8 @@ public final class ProjectData {
         this.abi = builder.abi;
         this.externalVariables = builder.externalVariables;
         this.externalVariablesFile = builder.externalVariablesFile;
+        this.optimizeAtomic = builder.optimizeAtomic;
+        this.optimizeTasks = builder.optimizeTasks;
     }
 
     public ImmutableMap<String, FileData> getFileDatas() {
@@ -174,6 +178,28 @@ public final class ProjectData {
     }
 
     /**
+     * <p>Check if the atomic optimization should be performed for this project.
+     * </p>
+     *
+     * @return <code>true</code> if and only if the atomic optimization should
+     *         be performed for this project.
+     */
+    public boolean getOptimizeAtomic() {
+        return optimizeAtomic;
+    }
+
+    /**
+     * <p>Check if the tasks optimization should be performed for this project.
+     * </p>
+     *
+     * @return <code>true</code> if and only if the tasks optimization should be
+     *         performed for this project.
+     */
+    public boolean getOptimizeTasks() {
+        return optimizeTasks;
+    }
+
+    /**
      * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
@@ -194,6 +220,9 @@ public final class ProjectData {
         private String outputFile;
         private ABI abi;
         private Optional<String> externalVariablesFile = Optional.absent();
+
+        private boolean optimizeAtomic;
+        private boolean optimizeTasks;
 
         public Builder() {
             this.fileDataBuilder = ImmutableMap.builder();
@@ -255,6 +284,16 @@ public final class ProjectData {
 
         public Builder externalVariablesFile(String externalVariablesFile) {
             this.externalVariablesFile = Optional.fromNullable(externalVariablesFile);
+            return this;
+        }
+
+        public Builder optimizeAtomic(boolean optimizeAtomic) {
+            this.optimizeAtomic = optimizeAtomic;
+            return this;
+        }
+
+        public Builder optimizeTasks(boolean optimizeTasks) {
+            this.optimizeTasks = optimizeTasks;
             return this;
         }
 

@@ -12,9 +12,9 @@ import com.google.common.base.Preconditions;
 
 /**
  * Loads compiler's options definitions from file.
- * 
+ *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
- * 
+ *
  */
 final class OptionsLoader {
 
@@ -119,7 +119,7 @@ final class OptionsLoader {
 	private List<String> loadStringList(Properties prop, String key) {
 		final String property = prop.getProperty(key);
 		if (property == null) {
-			return null;
+			return new ArrayList<>();
 		}
 		final String[] parts = property.split(",");
 		final List<String> result = new ArrayList<String>(parts.length);

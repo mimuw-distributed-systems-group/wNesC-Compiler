@@ -470,7 +470,7 @@ public final class Main {
 
     /**
      * Get a list of declarations after filtering it by removing unnecessary
-     * declarations.
+     * declarations and after performing other optimizations.
      */
     private ImmutableList<Declaration> optimize(ProjectData projectData, WiresGraph wiresGraph,
                 ImmutableList<Declaration> declarations, ReferencesGraph refsGraph) {
@@ -481,11 +481,21 @@ public final class Main {
         final ImmutableList<Declaration> afterLinkageOptimization =
                 new LinkageOptimizer(projectData.getNameMangler())
                 .optimize(afterCleaning);
-        final ImmutableList<Declaration> afterTaskOptimization =
-                new TaskOptimizer(afterLinkageOptimization, wiresGraph,
-                        refsGraph, projectData.getSchedulerSpecification().get())
-                .optimize();
-        new AtomicOptimizer(afterTaskOptimization, refsGraph).optimize();
+
+        final ImmutableList<Declaration> afterTaskOptimization;
+
+        if (projectData.getOptimizeTasks()) {
+            afterTaskOptimization =
+                    new TaskOptimizer(afterLinkageOptimization, wiresGraph,
+                            refsGraph, projectData.getSchedulerSpecification().get())
+                    .optimize();
+        } else {
+            afterTaskOptimization = afterLinkageOptimization;
+        }
+
+        if (projectData.getOptimizeAtomic()) {
+            new AtomicOptimizer(afterTaskOptimization, refsGraph).optimize();
+        }
 
         return afterTaskOptimization;
     }

@@ -40,6 +40,8 @@ public class OptionsHolder {
     public static final String NESC_OUTPUT_FILE = "o";
     public static final String NESC_EXTERNAL_VARIABLES = "e";
     public static final String NESC_EXTERNAL_VARIABLES_FILE = "x";
+    public static final String NESC_OPTIMIZE_ATOMIC = "optimize-atomic";
+    public static final String NESC_OPTIMIZE_TASKS = "optimize-tasks";
 
     private static final Pattern REGEXP_EXTERNAL_VARIABLE =
             Pattern.compile("((?<componentName>[a-zA-Z_]\\w*)\\.)?(?<variableName>[a-zA-Z_]\\w*)");
@@ -212,6 +214,14 @@ public class OptionsHolder {
 
     public Optional<String> getExternalVariablesFile() {
         return Optional.fromNullable(getValue(NESC_EXTERNAL_VARIABLES_FILE));
+    }
+
+    public boolean getOptimizeAtomic() {
+        return cmd.hasOption(NESC_OPTIMIZE_ATOMIC);
+    }
+
+    public boolean getOptimizeTasks() {
+        return cmd.hasOption(NESC_OPTIMIZE_TASKS);
     }
 
     /**

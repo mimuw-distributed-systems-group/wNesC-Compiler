@@ -146,6 +146,7 @@ public final class NescFrontend implements Frontend {
         } else {
             final ProjectData projectData = build(contextRef);
             context.setWasInitialBuild(true);
+            final OptionsHolder options = context.getOptions();
             return ProjectData.builder()
                     .addFileDatas(projectData.getFileDatas().values())
                     .addRootFileData(projectData.getFileDatas().get(filePath))
@@ -153,10 +154,12 @@ public final class NescFrontend implements Frontend {
                     .nameMangler(context.getNameMangler())
                     .schedulerSpecification(context.getSchedulerSpecification().orNull())
                     .addDefaultIncludeFiles(context.getDefaultIncludeFiles())
-                    .outputFile(context.getOptions().getOutputFile().or(DEFAULT_OUTPUT_FILE))
+                    .outputFile(options.getOutputFile().or(DEFAULT_OUTPUT_FILE))
                     .abi(context.getABI())
-                    .externalVariables(context.getOptions().getExternalVariables())
-                    .externalVariablesFile(context.getOptions().getExternalVariablesFile().orNull())
+                    .externalVariables(options.getExternalVariables())
+                    .externalVariablesFile(options.getExternalVariablesFile().orNull())
+                    .optimizeAtomic(options.getOptimizeAtomic())
+                    .optimizeTasks(options.getOptimizeTasks())
                     .build();
         }
     }
@@ -172,16 +175,19 @@ public final class NescFrontend implements Frontend {
             // FIXME: what if we would like to edit file included by default?
             List<FileCache> fileCacheList = new LoadExecutor(context).parse(filePath, false);
             final List<FileData> fileDatas = createRootFileDataList(fileCacheList);
+            final OptionsHolder options = context.getOptions();
             final ProjectData.Builder result  = ProjectData.builder()
                     .addFileDatas(fileDatas)
                     .addRootFileData(findRootFileData(fileDatas, filePath))
                     .nameMangler(context.getNameMangler())
                     .schedulerSpecification(context.getSchedulerSpecification().orNull())
                     .addDefaultIncludeFiles(context.getDefaultIncludeFiles())
-                    .outputFile(context.getOptions().getOutputFile().or(DEFAULT_OUTPUT_FILE))
+                    .outputFile(options.getOutputFile().or(DEFAULT_OUTPUT_FILE))
                     .abi(context.getABI())
-                    .externalVariables(context.getOptions().getExternalVariables())
-                    .externalVariablesFile(context.getOptions().getExternalVariablesFile().orNull());
+                    .externalVariables(options.getExternalVariables())
+                    .externalVariablesFile(options.getExternalVariablesFile().orNull())
+                    .optimizeAtomic(options.getOptimizeAtomic())
+                    .optimizeTasks(options.getOptimizeTasks());
 
             if (context.getSchedulerSpecification().isPresent()) {
                 if (loadScheduler) {
