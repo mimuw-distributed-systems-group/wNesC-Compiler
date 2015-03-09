@@ -105,10 +105,7 @@ public final class ConnectExecutor {
             }
 
             final ConfigurationImpl impl = (ConfigurationImpl) configuration.getImplementation();
-
-            final AliasesResolver aliasesResolver = AliasesResolver.builder()
-                    .addImplementationDeclarations(impl.getDeclarations())
-                    .build();
+            final AliasesResolver aliasesResolver = new AliasesResolver(impl);
 
             addConnections(impl, configuration.getName().getName(), aliasesResolver);
 

@@ -73,11 +73,21 @@ public final class TaskOptimizer {
         this.cleanedDeclarations = Optional.absent();
     }
 
-    public ImmutableList<Declaration> optimize() {
+    /**
+     * Performs the optimization.
+     *
+     * @return List of declarations after the optimization.
+     * @throws UnexpectedWiringException The optimization cannot be completed
+     *                                   due to unexpected wiring. If this
+     *                                   exception is thrown, the declarations
+     *                                   are unmodified.
+     */
+    public ImmutableList<Declaration> optimize() throws UnexpectedWiringException {
         if (cleanedDeclarations.isPresent()) {
             return cleanedDeclarations.get();
         }
 
+        checkTasksConnections();
         final SpecificationElementNode postSink = findPostSink();
         final ImmutableSet<BigInteger> usedTasksIds = determinePostedTasks(postSink);
         final ImmutableSet<String> tasksForRemoval = determineTasksForRemoval(usedTasksIds);
@@ -95,13 +105,38 @@ public final class TaskOptimizer {
     }
 
     /**
+     * Checks if there are no parameterised interfaces connected directly to
+     * the scheduler task interface.
+     *
+     * @throws UnexpectedWiringException There are parameterised interfaces
+     *                                   connected directly to the scheduler
+     *                                   task interface.
+     */
+    private void checkTasksConnections() throws UnexpectedWiringException {
+        final String runEventName = format("%s.%s.%s", schedulerSpec.getComponentName(),
+                schedulerSpec.getInterfaceNameInScheduler(), schedulerSpec.getTaskRunEventName());
+        final SpecificationElementNode node = wiresGraph.requireNode(runEventName);
+
+        // Iterate over tasks and check
+
+        for (Map.Entry<Optional<ImmutableList<BigInteger>>, IndexedNode> successor : node.getSuccessors().entries()) {
+            if (!successor.getKey().isPresent()) {
+                final SpecificationElementNode successorNode = successor.getValue().getNode();
+                throw new UnexpectedWiringException(format("parameterised interface '%s.%s' is directly connected to the task interface of scheduler '%s.%s'",
+                        successorNode.getComponentName(), successorNode.getInterfaceRefName().get(),
+                        schedulerSpec.getComponentName(), schedulerSpec.getInterfaceNameInScheduler()));
+            }
+        }
+    }
+
+    /**
      * Finds the implementation of the command of the scheduler that is
      * responsible for posting tasks.
      *
      * @return Specification element that represents the implementation of
      *         posting a task.
      */
-    private SpecificationElementNode findPostSink() {
+    private SpecificationElementNode findPostSink() throws UnexpectedWiringException {
         final String sourceName = format("%s.%s.%s", schedulerSpec.getComponentName(),
                 schedulerSpec.getInterfaceNameInScheduler(),
                 schedulerSpec.getTaskPostCommandName());
@@ -119,8 +154,12 @@ public final class TaskOptimizer {
             final ListMultimap<Optional<ImmutableList<BigInteger>>, IndexedNode> successors =
                     currentNode.getSuccessors();
 
-            if (successors.size() != 1 || successors.get(expectedKey).size() != 1) {
-                throw new RuntimeException("expecting only one endpoint, without parameters");
+            if (successors.size() != 1) {
+                throw new UnexpectedWiringException(format("specification element '%s' of scheduler component '%s' is connected more than once",
+                        schedulerSpec.getInterfaceNameInScheduler(), schedulerSpec.getComponentName()));
+            } else if (successors.get(expectedKey).size() != 1) {
+                throw new UnexpectedWiringException(format("a single element of the scheduler task interface '%s.%s' is connected",
+                        schedulerSpec.getComponentName(), schedulerSpec.getInterfaceNameInScheduler()));
             }
 
             final IndexedNode successor = successors.get(expectedKey).get(0);

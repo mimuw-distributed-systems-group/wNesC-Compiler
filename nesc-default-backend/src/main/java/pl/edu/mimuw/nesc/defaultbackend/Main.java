@@ -34,6 +34,7 @@ import pl.edu.mimuw.nesc.atomic.AtomicTransformer;
 import pl.edu.mimuw.nesc.basicreduce.BasicReduceExecutor;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
+import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.connect.ConnectExecutor;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 import pl.edu.mimuw.nesc.externalvar.ExternalVariablesWriter;
@@ -50,7 +51,9 @@ import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.optimization.AtomicOptimizer;
 import pl.edu.mimuw.nesc.optimization.LinkageOptimizer;
 import pl.edu.mimuw.nesc.optimization.DeclarationsCleaner;
+import pl.edu.mimuw.nesc.optimization.TaskOptimizationChecker;
 import pl.edu.mimuw.nesc.optimization.TaskOptimizer;
+import pl.edu.mimuw.nesc.optimization.UnexpectedWiringException;
 import pl.edu.mimuw.nesc.problem.NescError;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.problem.NescIssueComparator;
@@ -59,6 +62,8 @@ import pl.edu.mimuw.nesc.problem.issue.InstantiationCycleError;
 import pl.edu.mimuw.nesc.problem.issue.Issue;
 import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
 import pl.edu.mimuw.nesc.wiresgraph.WiresGraph;
+
+import static java.lang.String.format;
 
 /**
  * <p>Class with <code>main</code> method that allows usage of the compiler. It
@@ -291,6 +296,8 @@ public final class Main {
     private void performFinalAnalysis(ProjectData projectData, Optional<Configuration> taskWiringConf,
                 Set<Component> instantiatedComponents) {
         final FinalAnalyzer finalAnalyzer = new FinalAnalyzer(projectData.getABI());
+        final TaskOptimizationChecker.Builder taskOptCheckerBuilder =
+                TaskOptimizationChecker.builder(projectData.getSchedulerSpecification().get());
 
         // Analyze all declarations except interfaces and generic components
 
@@ -300,25 +307,39 @@ public final class Main {
                 final Component component = (Component) fileData.getEntityRoot().get();
                 if (!component.getIsAbstract()) {
                     finalAnalyzer.analyze(component);
+                    taskOptCheckerBuilder.addDeclaration(component);
                 }
             }
 
             for (Declaration extDeclaration : fileData.getExtdefs()) {
                 finalAnalyzer.analyze(extDeclaration);
             }
+            taskOptCheckerBuilder.addDeclarations(fileData.getExtdefs());
         }
 
         for (Component component : instantiatedComponents) {
             finalAnalyzer.analyze(component);
         }
+        taskOptCheckerBuilder.addDeclarations(instantiatedComponents);
 
         if (taskWiringConf.isPresent()) {
             finalAnalyzer.analyze(taskWiringConf.get());
+            taskOptCheckerBuilder.addDeclaration(taskWiringConf.get());
         }
 
-        // Handle the issues
+        // Perform the analysis and handle issues
 
         final List<NescIssue> issues = new ArrayList<>(finalAnalyzer.getIssues().values());
+
+        if (projectData.getOptimizeTasks()) {
+            final Optional<NescWarning> warning = taskOptCheckerBuilder.build().check();
+            if (warning.isPresent()) {
+                projectData.setOptimizeTasks(false);
+                issues.add(new NescWarning(warning.get().getStartLocation(), warning.get().getEndLocation(),
+                        format("tasks optimization disabled because %s", warning.get().getMessage())));
+            }
+        }
+
         handleIssues(issues);
     }
 
@@ -481,23 +502,32 @@ public final class Main {
         final ImmutableList<Declaration> afterLinkageOptimization =
                 new LinkageOptimizer(projectData.getNameMangler())
                 .optimize(afterCleaning);
-
-        final ImmutableList<Declaration> afterTaskOptimization;
-
-        if (projectData.getOptimizeTasks()) {
-            afterTaskOptimization =
-                    new TaskOptimizer(afterLinkageOptimization, wiresGraph,
-                            refsGraph, projectData.getSchedulerSpecification().get())
-                    .optimize();
-        } else {
-            afterTaskOptimization = afterLinkageOptimization;
-        }
+        final ImmutableList<Declaration> afterTaskOptimization = performTasksOptimization(
+                projectData, wiresGraph, afterLinkageOptimization, refsGraph);
 
         if (projectData.getOptimizeAtomic()) {
             new AtomicOptimizer(afterTaskOptimization, refsGraph).optimize();
         }
 
         return afterTaskOptimization;
+    }
+
+    private ImmutableList<Declaration> performTasksOptimization(ProjectData projectData,
+                WiresGraph wiresGraph, ImmutableList<Declaration> declarations,
+                ReferencesGraph refsGraph) {
+        if (projectData.getOptimizeTasks()) {
+            try {
+                return new TaskOptimizer(declarations, wiresGraph, refsGraph,
+                            projectData.getSchedulerSpecification().get())
+                        .optimize();
+            } catch (UnexpectedWiringException e) {
+                handleIssues(Lists.<NescIssue>newList(new NescWarning(Optional.<Location>absent(),
+                        Optional.<Location>absent(), "tasks optimization disabled because " + e.getMessage())));
+                return declarations;
+            }
+        } else {
+            return declarations;
+        }
     }
 
     private void reduceAtomic(ProjectData projectData, ImmutableList<Declaration> declarations) {

@@ -9,7 +9,9 @@ import java.util.List;
 import java.util.Set;
 import pl.edu.mimuw.nesc.ast.gen.ComponentRef;
 import pl.edu.mimuw.nesc.ast.gen.ComponentsUses;
+import pl.edu.mimuw.nesc.ast.gen.ConfigurationImpl;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
+import pl.edu.mimuw.nesc.astutil.AliasesCollector;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -27,22 +29,12 @@ final class AliasesResolver {
     private final ImmutableMap<String, String> namesMap;
 
     /**
-     * <p>Get a builder that will build an aliases resolver.</p>
-     *
-     * @return Newly created builder that will build an aliases resolver.
+     * <p>Initialize this aliases resolver with information about components
+     * from given configuration implementation.</p>
      */
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    /**
-     * <p>Initialize this aliases resolver with information from given builder.
-     * </p>
-     *
-     * @param builder Builder with necessary information.
-     */
-    private AliasesResolver(Builder builder) {
-        this.namesMap = builder.buildNamesMap();
+    AliasesResolver(ConfigurationImpl configurationImpl) {
+        checkNotNull(configurationImpl, "configuration implementation AST node cannot be null");
+        this.namesMap = new AliasesCollector(configurationImpl).collect();
     }
 
     /**
@@ -63,78 +55,5 @@ final class AliasesResolver {
         checkArgument(globalName.isPresent(), "a component with internal name '%s' does not exist", name);
 
         return globalName.get();
-    }
-
-    /**
-     * Builder for an aliases resolver.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    static final class Builder {
-        /**
-         * Data needed to build an aliases resolver.
-         */
-        private final List<ComponentRef> referredComponents = new ArrayList<>();
-
-        /**
-         * Private constructor to limits its accessibility.
-         */
-        private Builder() {
-        }
-
-        /**
-         * <p>Add all components references contained in the given list of
-         * declarations. All declarations other than <code>ComponentsUses</code>
-         * are ignored.</p>
-         *
-         * @param declarations Declarations (possibly with
-         *                     <code>ComponentsUses</code> to add).
-         * @return <code>this</code>
-         */
-        public Builder addImplementationDeclarations(List<? extends Declaration> declarations) {
-            final FluentIterable<ComponentsUses> componentsConstructs = FluentIterable.from(declarations)
-                    .filter(ComponentsUses.class);
-            for (ComponentsUses usedComponents : componentsConstructs) {
-                referredComponents.addAll(usedComponents.getComponents());
-            }
-
-            return this;
-        }
-
-        private void validate() {
-            // Check if the names of aliases are unique
-
-            final Set<String> usedNames = new HashSet<>();
-
-            for (ComponentRef componentRef : referredComponents) {
-                final String name = componentRef.getAlias().isPresent()
-                        ? componentRef.getAlias().get().getName()
-                        : componentRef.getName().getName();
-
-                if (!usedNames.add(name)) {
-                    throw new IllegalStateException("added component references do not have unique names");
-                }
-            }
-        }
-
-        public AliasesResolver build() {
-            validate();
-            return new AliasesResolver(this);
-        }
-
-        private ImmutableMap<String, String> buildNamesMap() {
-            final ImmutableMap.Builder<String, String> namesMapBuilder = ImmutableMap.builder();
-
-            for (ComponentRef componentRef : referredComponents) {
-                final String alias = componentRef.getAlias().isPresent()
-                        ? componentRef.getAlias().get().getName()
-                        : componentRef.getName().getName();
-                final String name = componentRef.getName().getName();
-
-                namesMapBuilder.put(alias, name);
-            }
-
-            return namesMapBuilder.build();
-        }
     }
 }

@@ -37,7 +37,7 @@ public final class ProjectData {
     private final SetMultimap<Optional<String>, String> externalVariables;
     private final Optional<String> externalVariablesFile;
     private final boolean optimizeAtomic;
-    private final boolean optimizeTasks;
+    private boolean optimizeTasks;
 
     private ProjectData(Builder builder) {
         builder.buildMaps();
@@ -197,6 +197,14 @@ public final class ProjectData {
      */
     public boolean getOptimizeTasks() {
         return optimizeTasks;
+    }
+
+    /**
+     * <p>Set the value indicating if the tasks optimization should be performed
+     * to the given value.</p>
+     */
+    public void setOptimizeTasks(boolean value) {
+        this.optimizeTasks = value;
     }
 
     /**
