@@ -98,6 +98,11 @@ public final class Tokens {
     public static final String GCC_ASM = "asm";
 
     /**
+     * SDCC-specific tokens.
+     */
+    public static final String SDCC_BANKED = "__banked";
+
+    /**
      * Other symbols.
      */
     public static final String APOSTROPHE = "'";

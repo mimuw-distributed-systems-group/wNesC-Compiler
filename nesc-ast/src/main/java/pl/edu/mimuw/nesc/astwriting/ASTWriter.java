@@ -16,6 +16,7 @@ import java.util.List;
 import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
+import pl.edu.mimuw.nesc.common.util.VariousUtils;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -572,6 +573,11 @@ public final class ASTWriter implements Closeable {
             output.write(LPAREN);
             writeCommaSeparated(declarator.getParameters());
             output.write(RPAREN);
+
+            if (VariousUtils.getBooleanValue(declarator.getIsBanked())) {
+                output.write(SPACE);
+                output.write(SDCC_BANKED);
+            }
 
             return null;
         }

@@ -3,7 +3,9 @@ package pl.edu.mimuw.nesc.astutil;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.common.util.VariousUtils;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
@@ -144,6 +146,46 @@ public final class DeclaratorUtils {
         return declarator.isPresent()
                 ? getDeepestNestedDeclarator(declarator.get())
                 : Optional.<NestedDeclarator>absent();
+    }
+
+    /**
+     * Set {@link FunctionDeclarator#isBanked isBanked} value of the function
+     * declarator of the function declared by the given declarator (e.g. in the
+     * deepest nested declarator of the given declarator) to the given value.
+     *
+     * @param declarator Declarator of a function.
+     * @param value Value of <code>isBanked</code> to set.
+     * @throws IllegalArgumentException Given declarator does not declare
+     *                                  a function.
+     */
+    public static void setIsBanked(Declarator declarator, boolean value) {
+        checkNotNull(declarator, "declarator cannot be null");
+        final Optional<NestedDeclarator> deepestNestedDeclarator =
+                getDeepestNestedDeclarator(declarator);
+        checkArgument(deepestNestedDeclarator.isPresent() && deepestNestedDeclarator.get() instanceof FunctionDeclarator,
+                "the declarator does not declare a function");
+        ((FunctionDeclarator) deepestNestedDeclarator.get()).setIsBanked(value);
+    }
+
+    /**
+     * Get the value of {@link FunctionDeclarator#isBanked isBanked} of the
+     * function declarator of the function declared by the given declarator.
+     *
+     * @param declarator Declarator of a function to retrieve the value from.
+     * @return Value of flag {@link FunctionDeclarator#isBanked isBanked} in
+     *         the function declarator of the function declared by the given
+     *         declarator.
+     * @throws IllegalArgumentException Given declarator does not declare
+     *                                  a function.
+     */
+    public static boolean getIsBanked(Declarator declarator) {
+        checkNotNull(declarator, "declarator cannot be null");
+        final Optional<NestedDeclarator> deepestNestedDeclarator =
+                getDeepestNestedDeclarator(declarator);
+        checkArgument(deepestNestedDeclarator.isPresent() && deepestNestedDeclarator.get() instanceof FunctionDeclarator,
+                "the declarator does not declare a function");
+        return VariousUtils.getBooleanValue(((FunctionDeclarator) deepestNestedDeclarator.get())
+                .getIsBanked());
     }
 
     private DeclaratorUtils() {

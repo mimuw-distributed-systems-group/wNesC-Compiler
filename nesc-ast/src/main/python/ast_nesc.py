@@ -463,7 +463,8 @@ class FunctionDeclarator(BasicASTNode):
     <li><code>parameters</code> - list of standard function parameters,</li>
     <li><code>genericParameters</code> - list of generic parameters, present only in NesC command/event,</li>
     <li><code>qualifiers</code> - list of qualifiers,</li>
-    <li><code>environment</code> - environment for both kind of function parameters.</li>
+    <li><code>environment</code> - environment for both kind of function parameters,</li>
+    <li><code>isBanked</code> - value indicating if the SDCC keyword <code>__banked</code> is present.</li>
     </ul>
     </p>
     """
@@ -473,6 +474,7 @@ class FunctionDeclarator(BasicASTNode):
     qualifiers = ReferenceListField("TypeElement")
     environment = ReferenceField("Environment", constructor_variable=False, visitable=False,
                                  deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL)
+    isBanked = BoolField(constructor_variable=False)
     #returnType = ReferenceField("AstType", constructor_variable=False, optional=True, visitable=False)
 
 
