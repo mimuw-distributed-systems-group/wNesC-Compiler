@@ -5,12 +5,12 @@ import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.io.Writer;
 import java.util.LinkedList;
 import java.util.List;
 import pl.edu.mimuw.nesc.ast.StructSemantics;
@@ -29,9 +29,13 @@ import static pl.edu.mimuw.nesc.astwriting.Tokens.UnaryOp.*;
  * <p>Class responsible for producing the code of a program (given in the form
  * of AST) as text.</p>
  *
+ * <p>All methods from {@link Writer} class are overridden. They are implemented
+ * by delegating operations to an internal writer created for the output
+ * stream or file given at construction.</p>
+ *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public final class ASTWriter implements Closeable {
+public final class ASTWriter extends Writer {
     /**
      * Check if the given statement is always written in multiple lines
      * by the writer. The predicate is fulfilled if and only if the given
@@ -182,6 +186,54 @@ public final class ASTWriter implements Closeable {
         codeWriter.write(node);
         codeWriter.close();
         return byteOutStream.toString();
+    }
+
+    @Override
+    public void write(int c) {
+        output.write(c);
+    }
+
+    @Override
+    public void write(char[] buffer) {
+        output.write(buffer);
+    }
+
+    @Override
+    public void write(char[] buffer, int offset, int length) {
+        output.write(buffer, offset, length);
+    }
+
+    @Override
+    public void write(String str) {
+        output.write(str);
+    }
+
+    @Override
+    public void write(String str, int offset, int length) {
+        output.write(str, offset, length);
+    }
+
+    @Override
+    public ASTWriter append(char c) {
+        output.append(c);
+        return this;
+    }
+
+    @Override
+    public ASTWriter append(CharSequence charSequence) {
+        output.append(charSequence);
+        return this;
+    }
+
+    @Override
+    public ASTWriter append(CharSequence charSequence, int start, int end) {
+        output.append(charSequence, start, end);
+        return this;
+    }
+
+    @Override
+    public void flush() {
+        output.flush();
     }
 
     @Override
