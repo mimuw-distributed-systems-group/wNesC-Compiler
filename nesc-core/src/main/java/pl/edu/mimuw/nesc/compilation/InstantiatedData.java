@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.defaultbackend;
+package pl.edu.mimuw.nesc.compilation;
 
 import pl.edu.mimuw.nesc.ast.gen.Component;
 import static com.google.common.base.Preconditions.checkArgument;

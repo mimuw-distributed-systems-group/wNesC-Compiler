@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.defaultbackend;
+package pl.edu.mimuw.nesc.compilation;
 
 import java.util.List;
 import pl.edu.mimuw.nesc.FileData;

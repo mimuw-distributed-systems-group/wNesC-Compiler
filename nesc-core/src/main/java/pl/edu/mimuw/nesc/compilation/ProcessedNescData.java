@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.defaultbackend;
+package pl.edu.mimuw.nesc.compilation;
 
 /**
  * <p>Class that represents a NesC file that has been processed by the compiler.

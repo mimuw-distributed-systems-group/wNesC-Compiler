@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.defaultbackend;
+package pl.edu.mimuw.nesc.compilation;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
@@ -35,7 +35,7 @@ import static com.google.common.base.Preconditions.checkState;
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public final class DefaultCodeGenerator {
+final class DefaultCodeGenerator {
     /**
      * Stack that is used for emitting the declarations in a proper order.
      */
