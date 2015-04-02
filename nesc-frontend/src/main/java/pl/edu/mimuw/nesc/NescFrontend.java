@@ -20,9 +20,11 @@ import pl.edu.mimuw.nesc.filesgraph.GraphFile;
 import pl.edu.mimuw.nesc.filesgraph.visitor.DefaultFileGraphVisitor;
 import pl.edu.mimuw.nesc.load.FileCache;
 import pl.edu.mimuw.nesc.load.LoadExecutor;
+import pl.edu.mimuw.nesc.option.OptionsHelpPrinter;
 import pl.edu.mimuw.nesc.option.OptionsHolder;
 import pl.edu.mimuw.nesc.option.OptionsParser;
 import pl.edu.mimuw.nesc.common.SchedulerSpecification;
+import pl.edu.mimuw.nesc.option.OptionsProvider;
 import pl.edu.mimuw.nesc.problem.NescError;
 
 import java.io.IOException;
@@ -68,9 +70,19 @@ public final class NescFrontend implements Frontend {
     public ContextRef createContext(String[] args) throws InvalidOptionsException {
         checkNotNull(args, "arguments cannot be null");
         LOG.info("Create context; " + Arrays.toString(args));
+        return _createContext(createContextFromOptions(args));
+    }
 
+    @Override
+    public ContextRef createContext(OptionsProvider provider) throws InvalidOptionsException {
+        checkNotNull(provider, "provider cannot be null");
+        LOG.info("Create context using provided options");
+        return _createContext(createContextFromOptions(provider.getOptions(), provider));
+    }
+
+    private ContextRef _createContext(FrontendContext context) {
+        checkNotNull(context, "frontend context cannot be null");
         final ContextRef contextRef = new ContextRef();
-        final FrontendContext context = createContextFromOptions(args);
         this.contextsMap.put(contextRef, context);
         return contextRef;
     }
@@ -87,9 +99,26 @@ public final class NescFrontend implements Frontend {
         checkNotNull(args, "arguments cannot be null");
         LOG.info("Update settings; " + Arrays.toString(args));
 
-        final OptionsParser optionsParser = new OptionsParser();
         try {
-            final OptionsHolder options = optionsParser.parse(args);
+            _updateSettings(contextRef, new OptionsParser().parse(args));
+        } catch (ParseException e) {
+            final String msg = e.getMessage();
+            throw new InvalidOptionsException(msg);
+        } catch (IOException e) {
+            // TODO
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void updateSettings(ContextRef contextRef, OptionsProvider provider) throws InvalidOptionsException {
+        checkNotNull(provider, "provider cannot be null");
+        LOG.info("Update settings with provided options");
+        _updateSettings(contextRef, provider.getOptions());
+    }
+
+    private void _updateSettings(ContextRef contextRef, OptionsHolder options) throws InvalidOptionsException {
+        try {
             final Optional<String> error = options.validate(this.isStandalone);
             if (error.isPresent()) {
                 throw new InvalidOptionsException(error.get());
@@ -97,12 +126,6 @@ public final class NescFrontend implements Frontend {
             final FrontendContext context = getContext(contextRef);
             context.updateOptions(options);
             context.setABI(loadABI(options));
-        } catch (ParseException e) {
-            final String msg = e.getMessage();
-            throw new InvalidOptionsException(msg);
-        } catch (IOException e) {
-            // TODO
-            e.printStackTrace();
         } catch (ABILoadFailureException e) {
             throw new RuntimeException("cannot load the ABI", e);
         }
@@ -231,15 +254,9 @@ public final class NescFrontend implements Frontend {
      */
     private FrontendContext createContextFromOptions(String[] args) throws InvalidOptionsException {
         final OptionsParser optionsParser = new OptionsParser();
-        final FrontendContext result;
         try {
-            final OptionsHolder options = optionsParser.parse(args);
-            final Optional<String> error = options.validate(this.isStandalone);
-            if (error.isPresent()) {
-                reactToOptionsErrors(error.get(), optionsParser);
-            }
-            result = new FrontendContext(options, this.isStandalone, loadABI(options));
-            return result;
+            return createContextFromOptions(optionsParser.parse(args),
+                    optionsParser);
         } catch (ParseException e) {
             reactToOptionsErrors(e.getMessage(), optionsParser);
             return null;
@@ -252,6 +269,17 @@ public final class NescFrontend implements Frontend {
                 final String msg = "Cannot find options.properties file.";
                 throw new IllegalStateException(msg);
             }
+        }
+    }
+
+    private FrontendContext createContextFromOptions(OptionsHolder options,
+                OptionsHelpPrinter helpPrinter) throws InvalidOptionsException {
+        try {
+            final Optional<String> error = options.validate(this.isStandalone);
+            if (error.isPresent()) {
+                reactToOptionsErrors(error.get(), helpPrinter);
+            }
+            return new FrontendContext(options, this.isStandalone, loadABI(options));
         } catch (ABILoadFailureException e) {
             if (this.isStandalone) {
                 System.out.println("error: " + e.getMessage());
@@ -263,10 +291,10 @@ public final class NescFrontend implements Frontend {
         }
     }
 
-    private void reactToOptionsErrors(String error, OptionsParser parser) throws InvalidOptionsException {
+    private void reactToOptionsErrors(String error, OptionsHelpPrinter helpPrinter)
+                throws InvalidOptionsException {
         if (this.isStandalone) {
-            System.out.println("error: " + error);
-            parser.printHelp();
+            helpPrinter.printHelpWithError(error);
             System.exit(1);
         } else {
             throw new InvalidOptionsException(error);

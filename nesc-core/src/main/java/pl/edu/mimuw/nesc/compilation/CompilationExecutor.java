@@ -10,7 +10,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import pl.edu.mimuw.nesc.ContextRef;
 import pl.edu.mimuw.nesc.FileData;
+import pl.edu.mimuw.nesc.Frontend;
 import pl.edu.mimuw.nesc.NescFrontend;
 import pl.edu.mimuw.nesc.ProjectData;
 import pl.edu.mimuw.nesc.ast.Location;
@@ -44,6 +46,7 @@ import pl.edu.mimuw.nesc.optimization.LinkageOptimizer;
 import pl.edu.mimuw.nesc.optimization.TaskOptimizationChecker;
 import pl.edu.mimuw.nesc.optimization.TaskOptimizer;
 import pl.edu.mimuw.nesc.optimization.UnexpectedWiringException;
+import pl.edu.mimuw.nesc.option.OptionsProvider;
 import pl.edu.mimuw.nesc.problem.NescError;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 import pl.edu.mimuw.nesc.problem.NescIssueComparator;
@@ -70,6 +73,13 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class CompilationExecutor {
+    /**
+     * The frontend instance that will be used by this executor.
+     */
+    private final Frontend frontend = NescFrontend.builder()
+            .standalone(true)
+            .build();
+
     /**
      * The listener that will be notified about events generated during the
      * compilation.
@@ -110,6 +120,20 @@ public final class CompilationExecutor {
     }
 
     /**
+     * Performs the compilation of the program specified by options that are
+     * provided by given options provider.
+     *
+     * @param provider Provider of the frontend options.
+     * @return Result of the compilation that contains the list of
+     *         C declarations and definitions.
+     * @throws ErroneousIssueException An error in the program is detected.
+     */
+    public CompilationResult compile(OptionsProvider provider)
+            throws ErroneousIssueException, InvalidOptionsException {
+        return compile(new ProvidedParamsContextCreator(provider));
+    }
+
+    /**
      * Performs the compilation of the program specified by given arguments to
      * the frontend.
      *
@@ -117,11 +141,17 @@ public final class CompilationExecutor {
      *                     program to compile.
      * @return Result of the compilation that contains the list of
      *         C declarations and definitions.
+     * @throws ErroneousIssueException An error in the program is detected.
      */
     public CompilationResult compile(String[] frontendArgs)
+            throws ErroneousIssueException, InvalidOptionsException {
+        return compile(new RawParamsContextCreator(frontendArgs));
+    }
+
+    private CompilationResult compile(ContextCreator contextCreator)
             throws InvalidOptionsException, ErroneousIssueException {
 
-        final ProjectData projectData = load(frontendArgs);
+        final ProjectData projectData = load(contextCreator);
         handleIssues(projectData);
         final Optional<Configuration> taskWiringConf = basicReduce(projectData);
         collectUniqueNames(projectData);
@@ -145,18 +175,14 @@ public final class CompilationExecutor {
                 projectData.getExternalVariables(), projectData.getExternalVariablesFile());
     }
 
-
     /**
      * Executes the load phase of the compilation. All files are parsed and
      * analyzed.
      *
      * @return Data about loaded project.
      */
-    private ProjectData load(String[] frontendArgs) throws InvalidOptionsException {
-        final NescFrontend frontend = NescFrontend.builder()
-                .standalone(true)
-                .build();
-        final ProjectData projectData = frontend.build(frontend.createContext(frontendArgs));
+    private ProjectData load(ContextCreator contextCreator) throws InvalidOptionsException{
+        final ProjectData projectData = frontend.build(contextCreator.createContext());
         if (projectData.getIssues().isEmpty()) {
             projectData.getNameMangler().addForbiddenNames(projectData.getGlobalNames().values());
         }
@@ -587,6 +613,67 @@ public final class CompilationExecutor {
 
         if (errorPresent) {
             throw new ErroneousIssueException();
+        }
+    }
+
+    /**
+     * Interface for creating the context for the frontend.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private interface ContextCreator {
+        /**
+         * Create the context for the frontend.
+         *
+         * @return Newly created frontend context.
+         * @throws InvalidOptionsException One of the options for the frontend
+         *                                 is invalid.
+         */
+        ContextRef createContext() throws InvalidOptionsException;
+    }
+
+    /**
+     * Object that supplies frontend context by using raw parameters that has
+     * not been yet parsed.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private final class RawParamsContextCreator implements ContextCreator {
+        /**
+         * The parameters for the frontend.
+         */
+        private final String[] parameters;
+
+        private RawParamsContextCreator(String[] args) {
+            checkNotNull(args, "parameters cannot be null");
+            this.parameters = args;
+        }
+
+        @Override
+        public ContextRef createContext() throws InvalidOptionsException {
+            return CompilationExecutor.this.frontend.createContext(parameters);
+        }
+    }
+
+    /**
+     * Object that will create a context using provided options.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private final class ProvidedParamsContextCreator implements ContextCreator {
+        /**
+         * Object that will provide the options for the frontend.
+         */
+        private final OptionsProvider provider;
+
+        private ProvidedParamsContextCreator(OptionsProvider provider) {
+            checkNotNull(provider, "options provider cannot be null");
+            this.provider = provider;
+        }
+
+        @Override
+        public ContextRef createContext() throws InvalidOptionsException {
+            return CompilationExecutor.this.frontend.createContext(provider);
         }
     }
 }

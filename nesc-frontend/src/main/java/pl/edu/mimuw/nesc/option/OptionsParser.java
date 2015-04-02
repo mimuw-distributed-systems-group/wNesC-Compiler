@@ -5,12 +5,16 @@ import org.apache.commons.cli.*;
 import java.io.IOException;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * Options parser.
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-public class OptionsParser {
+public class OptionsParser implements OptionsHelpPrinter {
 
     private final CommandLineParser parser;
     private final Options options;
@@ -36,8 +40,15 @@ public class OptionsParser {
      */
     public OptionsHolder parse(String[] args) throws ParseException, IOException {
         buildOptions();
-        final CommandLine commandLine = parser.parse(this.options, args);
+        final CommandLine commandLine = parser.parse(this.options, args, false);
         return new OptionsHolder(commandLine);
+    }
+
+    public void printHelpWithError(String errorMessage) {
+        checkNotNull(errorMessage, "error message cannot be null");
+        checkArgument(!errorMessage.isEmpty(), "error message cannot be an empty string");
+        System.out.println("error: " + errorMessage);
+        printHelp();
     }
 
     /**

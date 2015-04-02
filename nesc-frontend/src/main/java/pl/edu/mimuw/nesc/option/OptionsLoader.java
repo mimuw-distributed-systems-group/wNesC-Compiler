@@ -11,12 +11,14 @@ import org.apache.commons.cli.Option;
 import com.google.common.base.Preconditions;
 
 /**
- * Loads compiler's options definitions from file.
+ * Loads compiler's options definitions from file. This class is public to allow
+ * extending the description of frontend options by various backends of the
+ * compiler.
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
- *
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-final class OptionsLoader {
+public final class OptionsLoader {
 
 	private static final String OPTION_PROPERTIES_FILE = "option/options.properties";
 

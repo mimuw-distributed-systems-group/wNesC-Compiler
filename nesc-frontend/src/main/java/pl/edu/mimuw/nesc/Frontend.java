@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc;
 
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
+import pl.edu.mimuw.nesc.option.OptionsProvider;
 
 /**
  * <p> Compiler frontend interface. Provides methods for processing source
@@ -55,6 +56,16 @@ public interface Frontend {
     ContextRef createContext(String[] args) throws InvalidOptionsException;
 
     /**
+     * <p>Creates a new context and configures it using options from given
+     * provider.</p>
+     *
+     * @param provider object used to obtain options for the frontend and print
+     *                 help if they are erroneous
+     * @return context reference
+     */
+    ContextRef createContext(OptionsProvider provider) throws InvalidOptionsException;
+
+    /**
      * <p>Deletes context.</p>
      *
      * @param contextRef context reference
@@ -69,6 +80,15 @@ public interface Frontend {
      * @throws InvalidOptionsException
      */
     void updateSettings(ContextRef contextRef, String[] args) throws InvalidOptionsException;
+
+    /**
+     * Update the project's settings.
+     *
+     * @param contextRef context reference
+     * @param provider object used to obtain options for the frontend
+     * @throws InvalidOptionsException
+     */
+    void updateSettings(ContextRef contextRef, OptionsProvider provider) throws InvalidOptionsException;
 
     /**
      * (Re)builds the entire project.
