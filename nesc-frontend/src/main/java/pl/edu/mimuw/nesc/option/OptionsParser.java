@@ -44,16 +44,23 @@ public class OptionsParser implements OptionsHelpPrinter {
         return new OptionsHolder(commandLine);
     }
 
+    @Override
     public void printHelpWithError(String errorMessage) {
+        printError(errorMessage);
+        printHelp();
+    }
+
+    @Override
+    public void printError(String errorMessage) {
         checkNotNull(errorMessage, "error message cannot be null");
         checkArgument(!errorMessage.isEmpty(), "error message cannot be an empty string");
         System.out.println("error: " + errorMessage);
-        printHelp();
     }
 
     /**
      * Prints proper options usage to standard output.
      */
+    @Override
     public void printHelp() {
         helpFormatter.printHelp("nesc", this.options);
     }

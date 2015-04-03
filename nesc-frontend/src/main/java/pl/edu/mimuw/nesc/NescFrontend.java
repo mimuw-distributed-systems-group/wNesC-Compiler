@@ -77,7 +77,8 @@ public final class NescFrontend implements Frontend {
     public ContextRef createContext(OptionsProvider provider) throws InvalidOptionsException {
         checkNotNull(provider, "provider cannot be null");
         LOG.info("Create context using provided options");
-        return _createContext(createContextFromOptions(provider.getOptions(), provider));
+        return _createContext(createContextFromOptions(provider.getOptions(),
+                provider, provider.parametersCount()));
     }
 
     private ContextRef _createContext(FrontendContext context) {
@@ -256,9 +257,9 @@ public final class NescFrontend implements Frontend {
         final OptionsParser optionsParser = new OptionsParser();
         try {
             return createContextFromOptions(optionsParser.parse(args),
-                    optionsParser);
+                    optionsParser, args.length);
         } catch (ParseException e) {
-            reactToOptionsErrors(e.getMessage(), optionsParser);
+            reactToOptionsErrors(e.getMessage(), optionsParser, args.length);
             return null;
         } catch (IOException e) {
             if (this.isStandalone) {
@@ -273,11 +274,11 @@ public final class NescFrontend implements Frontend {
     }
 
     private FrontendContext createContextFromOptions(OptionsHolder options,
-                OptionsHelpPrinter helpPrinter) throws InvalidOptionsException {
+                OptionsHelpPrinter helpPrinter, int paramsCount) throws InvalidOptionsException {
         try {
             final Optional<String> error = options.validate(this.isStandalone);
             if (error.isPresent()) {
-                reactToOptionsErrors(error.get(), helpPrinter);
+                reactToOptionsErrors(error.get(), helpPrinter, paramsCount);
             }
             return new FrontendContext(options, this.isStandalone, loadABI(options));
         } catch (ABILoadFailureException e) {
@@ -291,10 +292,14 @@ public final class NescFrontend implements Frontend {
         }
     }
 
-    private void reactToOptionsErrors(String error, OptionsHelpPrinter helpPrinter)
-                throws InvalidOptionsException {
+    private void reactToOptionsErrors(String error, OptionsHelpPrinter helpPrinter,
+                int paramsCount) throws InvalidOptionsException {
         if (this.isStandalone) {
-            helpPrinter.printHelpWithError(error);
+            if (paramsCount == 0) {
+                helpPrinter.printHelpWithError(error);
+            } else {
+                helpPrinter.printError(error);
+            }
             System.exit(1);
         } else {
             throw new InvalidOptionsException(error);

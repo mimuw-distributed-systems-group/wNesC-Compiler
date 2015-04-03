@@ -21,4 +21,14 @@ public interface OptionsHelpPrinter {
      * @throws IllegalArgumentException Given message is an empty string.
      */
     void printHelpWithError(String errorMessage);
+
+    /**
+     * Print an error message related to the use of options. Only the error
+     * shall be printed (without the help for using options).
+     *
+     * @param errorMessage Error message to print on stdout.
+     * @throws NullPointerException Given message is <code>null</code>.
+     * @throws IllegalArgumentException Given message is an empty string.
+     */
+    void printError(String errorMessage);
 }

@@ -39,6 +39,7 @@
         <module>nesc-frontend</module>
         <module>nesc-core</module>
         <module>nesc-default-backend</module>
+        <module>nesc-8051-backend</module>
     </modules>
 
     <properties>

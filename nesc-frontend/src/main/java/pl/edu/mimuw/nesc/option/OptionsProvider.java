@@ -16,4 +16,14 @@ public interface OptionsProvider extends OptionsHelpPrinter {
      * @return The parsed options provided by this object.
      */
     OptionsHolder getOptions();
+
+    /**
+     * <p>Get the count of parameters specified in the command line that are
+     * represented by options provided by this object (the count shall take into
+     * account all parameters, including the invalid ones).</p>
+     *
+     * @return Count of command line parameters that are represented by
+     *         options provided by this object.
+     */
+    int parametersCount();
 }
