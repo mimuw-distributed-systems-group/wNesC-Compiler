@@ -4,13 +4,16 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.SetMultimap;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.common.SchedulerSpecification;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.problem.NescIssue;
 
-import java.util.Collection;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Contains the result of parsing process for entire project.
@@ -316,15 +319,24 @@ public final class ProjectData {
         private void buildMaps() {
             this.fileDatas = fileDataBuilder.build();
 
-            final ImmutableMap.Builder<String, String> globalNamesBuilder = ImmutableMap.builder();
+            final Map<String, String> globalNames = new HashMap<>();
             final ImmutableMap.Builder<String, String> combiningFunctionsBuilder = ImmutableMap.builder();
 
             for (FileData fileData : this.fileDatas.values()) {
-                globalNamesBuilder.putAll(fileData.getGlobalNames());
                 combiningFunctionsBuilder.putAll(fileData.getCombiningFunctions());
+
+                for (Map.Entry<String, String> globalNameEntry : fileData.getGlobalNames().entrySet()) {
+                    if (!globalNames.containsKey(globalNameEntry.getKey())) {
+                        globalNames.put(globalNameEntry.getKey(), globalNameEntry.getValue());
+                    } else {
+                        checkState(globalNames.get(globalNameEntry.getKey()).equals(globalNameEntry.getValue()),
+                                "different names have been mangled to the same unique name '%s'",
+                                globalNameEntry.getKey());
+                    }
+                }
             }
 
-            this.globalNames = globalNamesBuilder.build();
+            this.globalNames = ImmutableMap.copyOf(globalNames);
             this.combiningFunctions = combiningFunctionsBuilder.build();
         }
     }
