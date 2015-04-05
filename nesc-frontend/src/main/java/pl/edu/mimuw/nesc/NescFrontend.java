@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableSet;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import javax.xml.parsers.ParserConfigurationException;
@@ -59,10 +60,14 @@ public final class NescFrontend implements Frontend {
     }
 
     private final boolean isStandalone;
+    private final ImmutableSet<String> targetAttributes0;
+    private final ImmutableSet<String> targetAttributes1;
     private final Map<ContextRef, FrontendContext> contextsMap;
 
     private NescFrontend(Builder builder) {
         this.isStandalone = builder.isStandalone;
+        this.targetAttributes0 = builder.targetAttributes0Builder.build();
+        this.targetAttributes1 = builder.targetAttributes1Builder.build();
         this.contextsMap = new HashMap<>();
     }
 
@@ -280,7 +285,9 @@ public final class NescFrontend implements Frontend {
             if (error.isPresent()) {
                 reactToOptionsErrors(error.get(), helpPrinter, paramsCount);
             }
-            return new FrontendContext(options, this.isStandalone, loadABI(options));
+            return new FrontendContext(options, this.isStandalone,
+                    this.targetAttributes0, this.targetAttributes1,
+                    loadABI(options));
         } catch (ABILoadFailureException e) {
             if (this.isStandalone) {
                 System.out.println("error: " + e.getMessage());
@@ -559,9 +566,13 @@ public final class NescFrontend implements Frontend {
     public static final class Builder {
 
         private boolean isStandalone;
+        private final ImmutableSet.Builder<String> targetAttributes0Builder;
+        private final ImmutableSet.Builder<String> targetAttributes1Builder;
 
         public Builder() {
             this.isStandalone = false;
+            this.targetAttributes0Builder = ImmutableSet.builder();
+            this.targetAttributes1Builder = ImmutableSet.builder();
         }
 
         /**
@@ -573,6 +584,61 @@ public final class NescFrontend implements Frontend {
          */
         public Builder standalone(boolean standalone) {
             this.isStandalone = standalone;
+            return this;
+        }
+
+        /**
+         * <p>Adds a new target attribute recognized by the frontend. The given
+         * string is the name of the attribute. It will be a new language
+         * keyword that will be represented as
+         * a {@link pl.edu.mimuw.nesc.ast.gen.TargetAttribute} node. In a NesC
+         * program such keyword will be able to appear wherever an attribute
+         * can.</p>
+         * <p>This method adds a no arguments target attribute.</p>
+         *
+         * @param attributeKeyword Attribute keyword to add.
+         * @return <code>this</code>
+         */
+        public Builder addTargetAttribute0(String attributeKeyword) {
+            this.targetAttributes0Builder.add(attributeKeyword);
+            return this;
+        }
+
+        /**
+         * <p>Adds several target attributes that will be recognized by the
+         * frontend.</p>
+         * <p>This method adds no arguments target attributes.</p>
+         *
+         * @param attributesKeywords Iterable with names of target attributes
+         *                           to add.
+         * @return <code>this</code>
+         * @see Builder#addTargetAttribute0
+         */
+        public Builder addTargetAttributes0(Iterable<String> attributesKeywords) {
+            this.targetAttributes0Builder.addAll(attributesKeywords);
+            return this;
+        }
+
+        /**
+         * <p>Add a target attribute that will take exactly one parameter.</p>
+         *
+         * @param attributeKeyword Name of the target attribute to add.
+         * @return <code>this</code>
+         */
+        public Builder addTargetAttribute1(String attributeKeyword) {
+            this.targetAttributes1Builder.add(attributeKeyword);
+            return this;
+        }
+
+        /**
+         * <p>Add several target attributes that take exactly one parameter.</p>
+         *
+         * @param attributesKeywords Iterable with names of target attributes to
+         *                           add.
+         * @return <code>this</code>
+         */
+        public Builder addTargetAttributes1(Iterable<String> attributesKeywords) {
+            this.targetAttributes1Builder.addAll(attributesKeywords);
             return this;
         }
 

@@ -18,7 +18,6 @@ import java.util.*;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static pl.edu.mimuw.nesc.common.util.file.FileUtils.normalizePath;
-import static pl.edu.mimuw.nesc.lexer.SymbolFactory.getSymbolCode;
 import static pl.edu.mimuw.nesc.parser.Parser.Lexer.*;
 
 /**
@@ -57,6 +56,10 @@ public final class NescLexer extends AbstractLexer {
      * by default.
      */
     private final String startFile;
+    /**
+     * Factory of symbols used by this lexer.
+     */
+    private final SymbolFactory symbolFactory;
 
     /**
      * Creates lexer from builder.
@@ -72,6 +75,8 @@ public final class NescLexer extends AbstractLexer {
         this.tokenQueue = new LinkedList<>();
         this.symbolQueue = new LinkedList<>();
         this.sourceStack = new Stack<>();
+        this.symbolFactory = new SymbolFactory(builder.targetAttributes0,
+                builder.targetAttributes1);
 
         /*
          * Init preprocessor. When we want to include some additional header
@@ -330,7 +335,7 @@ public final class NescLexer extends AbstractLexer {
          * Split '@name' token into two tokens AT(@) and IDENTIFIER (name).
          */
         if (text.charAt(0) != '@') {
-            final int code = getSymbolCode(text);
+            final int code = symbolFactory.getSymbolCode(text);
             builder.symbolCode(code)
                     .value(text)
                     .endLine(token.getLine())
@@ -486,7 +491,7 @@ public final class NescLexer extends AbstractLexer {
     }
 
     private void lexOtherToken(Token token, Symbol.Builder builder) throws IOException, LexerException {
-        final int code = getSymbolCode(token.getType());
+        final int code = symbolFactory.getSymbolCode(token.getType());
         if (code == SymbolFactory.UNKNOWN_TOKEN) {
             throw new IllegalArgumentException("Unknown token " + code);
         }
@@ -495,7 +500,7 @@ public final class NescLexer extends AbstractLexer {
          */
         if (code == LT) {
             final Token next = popToken();
-            final int nextCode = getSymbolCode(next.getType());
+            final int nextCode = symbolFactory.getSymbolCode(next.getType());
 
             if (nextCode == MINUS) {
                 builder.symbolCode(LEFT_ARROW)
@@ -542,6 +547,8 @@ public final class NescLexer extends AbstractLexer {
         private List<String> includeFilePaths;
         private Collection<PreprocessorMacro> macros;
         private Map<String, String> unparsedMacros;
+        private ImmutableSet<String> targetAttributes0;
+        private ImmutableSet<String> targetAttributes1;
 
         public Builder() {
         }
@@ -577,6 +584,16 @@ public final class NescLexer extends AbstractLexer {
             return this;
         }
 
+        public Builder targetAttributes0(ImmutableSet<String> targetAttributes0) {
+            this.targetAttributes0 = targetAttributes0;
+            return this;
+        }
+
+        public Builder targetAttributes1(ImmutableSet<String> targetAttributes1) {
+            this.targetAttributes1 = targetAttributes1;
+            return this;
+        }
+
         public NescLexer build() throws IOException, pl.edu.mimuw.nesc.exception.LexerException {
             validate();
             return new NescLexer(this);
@@ -598,6 +615,12 @@ public final class NescLexer extends AbstractLexer {
             }
             if (unparsedMacros == null) {
                 unparsedMacros = new HashMap<>();
+            }
+            if (targetAttributes0 == null) {
+                targetAttributes0 = ImmutableSet.of();
+            }
+            if (targetAttributes1 == null) {
+                targetAttributes1 = ImmutableSet.of();
             }
         }
 

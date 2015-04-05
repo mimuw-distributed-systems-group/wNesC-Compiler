@@ -1690,6 +1690,20 @@ public final class ASTWriter extends Writer {
         }
 
         @Override
+        public Void visitTargetAttribute(TargetAttribute attribute, Void arg) {
+            output.write(attribute.getName().getName());
+
+            if (attribute.getArguments().isPresent()) {
+                output.write(SPACE);
+                output.write(LPAREN);
+                writeCommaSeparated(attribute.getArguments().get());
+                output.write(RPAREN);
+            }
+
+            return null;
+        }
+
+        @Override
         public Void visitDesignateField(DesignateField designator, Void arg) {
             output.write(DOT.toString());
             output.write(designator.getName());
@@ -1796,11 +1810,6 @@ public final class ASTWriter extends Writer {
         @Override
         public Void visitConnection(Connection impl, Void arg) {
             throw new RuntimeException("unexpected AST node of class 'Connection' visited");
-        }
-
-        @Override
-        public Void visitTargetAttribute(TargetAttribute attribute, Void arg) {
-            throw new RuntimeException("unexpected AST node of class 'TargetAttribute' visited");
         }
 
         @Override

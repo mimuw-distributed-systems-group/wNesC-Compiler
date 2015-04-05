@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.environment.NescEntityEnvironment;
@@ -35,6 +36,8 @@ public final class FrontendContext {
     private SetMultimap<Optional<String>, String> externalVariables;
 
     private final boolean isStandalone;
+    private final ImmutableSet<String> targetAttributes0;
+    private final ImmutableSet<String> targetAttributes1;
     private final MacroManager macroManager;
 
     private final FilesGraph filesGraph;
@@ -84,8 +87,12 @@ public final class FrontendContext {
      */
     private ABI abi;
 
-    public FrontendContext(OptionsHolder options, boolean isStandalone, ABI abi) {
+    public FrontendContext(OptionsHolder options, boolean isStandalone,
+            ImmutableSet<String> targetAttributes0, ImmutableSet<String> targetAttributes1,
+            ABI abi) {
         this.isStandalone = isStandalone;
+        this.targetAttributes0 = targetAttributes0;
+        this.targetAttributes1 = targetAttributes1;
         this.options = options;
         this.predefinedMacros = options.getPredefinedMacros();
         this.defaultIncludeFiles = options.getDefaultIncludeFiles();
@@ -115,6 +122,14 @@ public final class FrontendContext {
 
     public boolean isStandalone() {
         return isStandalone;
+    }
+
+    public ImmutableSet<String> getTargetAttributes0() {
+        return targetAttributes0;
+    }
+
+    public ImmutableSet<String> getTargetAttributes1() {
+        return targetAttributes1;
     }
 
     public OptionsHolder getOptions() {
@@ -228,7 +243,9 @@ public final class FrontendContext {
      * @return the new instance of {@link FrontendContext}
      */
     public FrontendContext basicCopy() {
-        return new FrontendContext(this.options, this.isStandalone, this.abi);
+        return new FrontendContext(this.options, this.isStandalone,
+                this.targetAttributes0, this.targetAttributes1,
+                this.abi);
     }
 
     private PathsResolver getPathsResolver(OptionsHolder options) {

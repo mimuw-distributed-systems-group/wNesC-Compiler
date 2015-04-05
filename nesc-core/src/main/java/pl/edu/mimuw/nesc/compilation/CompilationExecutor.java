@@ -64,6 +64,11 @@ import static java.lang.String.format;
  * a NesC program to an equivalent C program. The C program is represented by
  * C declarations and definitions in proper order.</p>
  *
+ * <p>A single compilation executor recognizes a fixed set of target attributes
+ * that is specified by arguments for the constructor. When the no-argument
+ * constructor is used, then the compilation executor will not recognize any
+ * target attributes.</p>
+ *
  * <p>If an error is detected in the code the compilation that is performed by
  * the executor is aborted by throwing {@link ErroneousIssueException}.
  * Moreover, currently, when an error happens the whole Java virtual machine
@@ -76,15 +81,13 @@ public final class CompilationExecutor {
     /**
      * The frontend instance that will be used by this executor.
      */
-    private final Frontend frontend = NescFrontend.builder()
-            .standalone(true)
-            .build();
+    private final Frontend frontend;
 
     /**
      * The listener that will be notified about events generated during the
      * compilation.
      */
-    private Optional<CompilationListener> listener = Optional.absent();
+    private Optional<CompilationListener> listener;
 
     /**
      * Visitor that notifies the listener about visited issues.
@@ -106,6 +109,33 @@ public final class CompilationExecutor {
             return null;
         }
     };
+
+    /**
+     * Initialize this compilation executor not to recognize any target
+     * attributes.
+     */
+    public CompilationExecutor() {
+        this(Collections.<String>emptyList(), Collections.<String>emptyList());
+    }
+
+    /**
+     * Initialize this compilation executor to recognize given target
+     * attributes.
+     *
+     * @param targetAttributes0 Iterable with no-parameter target attributes
+     *                          that will be recognized by the frontend used by
+     *                          this executor.
+     * @param targetAttributes1 Iterable with one-parameter target attributes
+     *                          that will be recognized by this executor.
+     */
+    public CompilationExecutor(Iterable<String> targetAttributes0, Iterable<String> targetAttributes1) {
+        this.frontend = NescFrontend.builder()
+                .standalone(true)
+                .addTargetAttributes0(targetAttributes0)
+                .addTargetAttributes1(targetAttributes1)
+                .build();
+        this.listener = Optional.absent();
+    }
 
     /**
      * Set the listener that will be notified about compilation events.

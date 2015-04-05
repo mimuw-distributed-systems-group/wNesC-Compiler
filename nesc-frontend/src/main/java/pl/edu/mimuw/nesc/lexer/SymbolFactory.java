@@ -1,7 +1,11 @@
 package pl.edu.mimuw.nesc.lexer;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static pl.edu.mimuw.nesc.parser.Parser.Lexer.*;
 
+import com.google.common.collect.ImmutableSet;
+import java.util.Collections;
 import org.anarres.cpp.Token;
 
 import com.google.common.collect.ImmutableMap;
@@ -11,11 +15,52 @@ import com.google.common.collect.ImmutableMap;
  * tokens' codes to parser tokens' codes.
  *
  * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
+ * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  *
  */
 final class SymbolFactory {
 
 	public static final int UNKNOWN_TOKEN = -1;
+
+	/**
+	 * Set that contains names of target attributes that are recognized by the
+	 * frontend. They are treated as keywords and are associated with parser
+	 * symbol code {@link pl.edu.mimuw.nesc.parser.Parser.Lexer#TARGET_ATTRIBUTE0
+	 * TARGET_ATTRIBUTE0}.
+	 */
+	private final ImmutableSet<String> targetAttributes0;
+
+	/**
+	 * Set with names of one-parameter target attributes that are recognized by
+	 * the frontend. They are treated as keywords and are associated with parser
+	 * symbol code {@link pl.edu.mimuw.nesc.parser.Parser.Lexer#TARGET_ATTRIBUTE1
+	 * TARGET_ATTRIBUTE1}.
+	 */
+	private final ImmutableSet<String> targetAttributes1;
+
+	/**
+	 * Create a symbol factory that recognizes target attributes specified by
+	 * the given set.
+	 *
+	 * @param targetAttributes0 Set of recognized zero-argument target
+	 *                          attributes.
+	 * @param targetAttributes1 Set of recognized one-argument target
+	 *                          attributes.
+	 * @throws IllegalArgumentException Sets of zero-argument target attributes,
+	 *                                  one-argument target attributes and
+	 *                                  builtin keywords are not disjoint.
+	 */
+	public SymbolFactory(ImmutableSet<String> targetAttributes0, ImmutableSet<String> targetAttributes1) {
+		checkNotNull(targetAttributes0, "zero-parameter target attributes cannot be null");
+		checkNotNull(targetAttributes1, "one-parameter target attributes cannot be null");
+		checkArgument(Collections.disjoint(targetAttributes0, KEYWORDS.keySet())
+				&& Collections.disjoint(targetAttributes0, targetAttributes1)
+				&& Collections.disjoint(targetAttributes1, KEYWORDS.keySet()),
+				"builtin keywords, zero-parameter target attributes and one-parameter target attributes collide");
+
+		this.targetAttributes0 = targetAttributes0;
+		this.targetAttributes1 = targetAttributes1;
+	}
 
 	/**
 	 * Translates preprocessor/lexer identifier to either parser's keyword or
@@ -25,9 +70,13 @@ final class SymbolFactory {
 	 *            keyword or identifier name
 	 * @return keyword code or identifier code
 	 */
-	public static int getSymbolCode(String keywordOrIdentifier) {
+	public int getSymbolCode(String keywordOrIdentifier) {
 		if (KEYWORDS.containsKey(keywordOrIdentifier)) {
 			return KEYWORDS.get(keywordOrIdentifier);
+		} else if (targetAttributes0.contains(keywordOrIdentifier)) {
+			return TARGET_ATTRIBUTE0;
+		} else if (targetAttributes1.contains(keywordOrIdentifier)) {
+			return TARGET_ATTRIBUTE1;
 		} else {
 			return IDENTIFIER;
 		}
@@ -42,7 +91,7 @@ final class SymbolFactory {
 	 *            token type
 	 * @return symbol code
 	 */
-	public static int getSymbolCode(int tokenType) {
+	public int getSymbolCode(int tokenType) {
 		final Integer result = DIRECT_EQUIVALENTS.get(tokenType);
 		if (result != null) {
 			return result;

@@ -173,6 +173,8 @@ public abstract class LoadFileExecutor implements LexerListener, ParserListener 
                 .systemIncludePaths(context.getPathsResolver().getSearchOrder())
                 .userIncludePaths(context.getPathsResolver().getSearchOrder())
                 .unparsedMacros(context.getPredefinedMacros())
+                .targetAttributes0(context.getTargetAttributes0())
+                .targetAttributes1(context.getTargetAttributes1())
                 .build();
 
         lexer.setListener(this);
