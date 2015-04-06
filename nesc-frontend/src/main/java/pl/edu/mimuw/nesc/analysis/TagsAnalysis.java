@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.analysis;
 
 import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
+import pl.edu.mimuw.nesc.analysis.entityconnection.TagLinker;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
@@ -290,6 +291,7 @@ public final class TagsAnalysis {
 
             if (tagDeclaration.isPresent()) {
                 emitGlobalNameEvent(tagRef);
+                checkGlobalLinkage(tagRef);
                 attributeAnalyzer.analyzeAttributes(tagRef.getAttributes(), tagDeclaration.get(), environment);
             }
 
@@ -364,6 +366,7 @@ public final class TagsAnalysis {
 
             if (tagDeclaration.isPresent() && tagRef.getSemantics() == StructSemantics.DEFINITION) {
                 emitGlobalNameEvent(tagRef);
+                checkGlobalLinkage(tagRef);
                 attributeAnalyzer.analyzeAttributes(tagRef.getAttributes(), tagDeclaration.get(), environment);
             }
         }
@@ -373,6 +376,21 @@ public final class TagsAnalysis {
                 if (tagRef.getName() != null) {
                     semanticListener.globalName(tagRef.getUniqueName().get(), tagRef.getName().getName());
                 }
+            }
+        }
+
+        private void checkGlobalLinkage(TagRef tagRef) {
+            if (tagRef.getName() == null || getStructKind(tagRef) == StructKind.ATTRIBUTE) {
+                return;
+            }
+
+            final String name = tagRef.getName().getName();
+            final Optional<? extends TagDeclaration> globalDeclaration =
+                    new TagLinker().link(name, tagRef.getAttributes(), environment);
+
+            if (globalDeclaration.isPresent()) {
+                errorHelper.error(tagRef.getLocation(), tagRef.getEndLocation(),
+                        InvalidCAttributeUsageError.conflictWithGlobalDeclaration(name));
             }
         }
 

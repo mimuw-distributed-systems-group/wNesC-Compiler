@@ -10,6 +10,7 @@ import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.LabelAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
+import pl.edu.mimuw.nesc.analysis.entityconnection.ObjectLinker;
 import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
@@ -510,8 +511,8 @@ public final class Declarations extends AstBuildingBase {
 
         // Resolve the type
         type.setType(resolveType(environment, elements, declarator, errorHelper,
-                                 startLocation, endLocation, semanticListener,
-                                 attributeAnalyzer, abi));
+                startLocation, endLocation, semanticListener,
+                attributeAnalyzer, abi));
 
         return type;
     }
@@ -623,6 +624,52 @@ public final class Declarations extends AstBuildingBase {
             return Optional.of(originalExternalName);
         } else {
             return Optional.absent();
+        }
+    }
+
+    private Optional<? extends ObjectDeclaration> lookForDeclaration(
+            String name,
+            Iterable<? extends Attribute> attributes,
+            Environment environment,
+            Optional<FunctionDeclaration.FunctionType> funKind,
+            Interval errorInterval
+    ) {
+        if (!checkFunKindForLookup(funKind)) {
+            return environment.getObjects().get(name, true);
+        } else {
+            final Optional<? extends ObjectDeclaration> globalDeclaration =
+                    new ObjectLinker().link(name, attributes, environment);
+            final Optional<? extends ObjectDeclaration> currentScopeDeclaration =
+                    environment.getObjects().get(name, true);
+
+            if (globalDeclaration.isPresent() && currentScopeDeclaration.isPresent()
+                    && globalDeclaration.get() != currentScopeDeclaration.get()) {
+                Declarations.this.errorHelper.error(errorInterval.getLocation(),
+                        errorInterval.getEndLocation(),
+                        InvalidCAttributeUsageError.overdueAnnotation(name));
+            } else if (globalDeclaration.isPresent() && !currentScopeDeclaration.isPresent()) {
+                environment.getObjects().add(name, globalDeclaration.get());
+            }
+
+            return currentScopeDeclaration.isPresent()
+                    ? currentScopeDeclaration
+                    : globalDeclaration;
+        }
+    }
+
+    private boolean checkFunKindForLookup(Optional<FunctionDeclaration.FunctionType> funKind) {
+        if (funKind.isPresent()) {
+            switch (funKind.get()) {
+                case COMMAND:
+                case EVENT:
+                case TASK:
+                case STATIC:
+                    return false;
+                default:
+                    return true;
+            }
+        } else {
+            return true;
         }
     }
 
@@ -1043,7 +1090,9 @@ public final class Declarations extends AstBuildingBase {
             final FunctionDeclaration functionDeclaration;
 
             /* Check previous declaration. */
-            final Optional<? extends ObjectDeclaration> previousDeclarationOpt = environment.getObjects().get(name, true);
+            final Optional<? extends ObjectDeclaration> previousDeclarationOpt =
+                    lookForDeclaration(name, attributes, environment, Optional.of(funKind),
+                            Interval.of(errorStartLocation, funDeclarator.getEndLocation()));
             if (!previousDeclarationOpt.isPresent()) {
                 final String uniqueName = uniqueNameSupplier.get();
                 functionDeclaration = funDeclBuilder.uniqueName(uniqueName).build();
@@ -1296,10 +1345,13 @@ public final class Declarations extends AstBuildingBase {
             /*
              * Check previous declarations.
              */
+            final FunctionDeclaration.FunctionType funKind =
+                    TypeElementUtils.getFunctionType(elements);
             final Optional<? extends ObjectDeclaration> previousDeclarationOpt =
-                    environment.getObjects().get(name.get(), true);
+                    lookForDeclaration(name.get(), attributes, environment, Optional.of(funKind),
+                            Interval.of(funDeclarator.getLocation(), funDeclarator.getEndLocation()));
             final FunctionDeclaration.Builder builder = FunctionDeclaration.builder();
-            builder.functionType(TypeElementUtils.getFunctionType(elements))
+            builder.functionType(funKind)
                     .instanceParameters(funDeclarator.getGenericParameters().orNull())
                     .type(variableDecl.getType().orNull())
                     .linkage(linkage.orNull())
@@ -1373,6 +1425,7 @@ public final class Declarations extends AstBuildingBase {
 
         @Override
         public Void visitIdentifierDeclarator(IdentifierDeclarator declarator, Void arg) {
+            // TODO link declarations of the same entity in the global scope
             final String name = declarator.getName();
             final Location startLocation = declarator.getLocation();
             final boolean isTypedef = TypeElementUtils.isTypedef(elements);
@@ -1382,6 +1435,11 @@ public final class Declarations extends AstBuildingBase {
             if (buildingUsesProvides) {
                 errorHelper.error(errorInterval.getLocation(), errorInterval.getEndLocation(),
                         InvalidSpecificationDeclarationError.expectedBareEntity());
+            }
+
+            if (new ObjectLinker().link(name, attributes, environment).isPresent()) {
+                errorHelper.error(errorInterval.getLocation(), errorInterval.getEndLocation(),
+                        InvalidCAttributeUsageError.conflictWithGlobalDeclaration(name));
             }
 
             if (isTypedef) {

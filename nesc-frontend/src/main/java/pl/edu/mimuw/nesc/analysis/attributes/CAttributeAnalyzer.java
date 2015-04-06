@@ -5,6 +5,9 @@ import java.util.List;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.Attribute;
+import pl.edu.mimuw.nesc.ast.gen.ErrorExpr;
+import pl.edu.mimuw.nesc.ast.gen.InitList;
+import pl.edu.mimuw.nesc.ast.gen.NescAttribute;
 import pl.edu.mimuw.nesc.astutil.PredicateTester;
 import pl.edu.mimuw.nesc.astutil.predicates.AttributePredicates;
 import pl.edu.mimuw.nesc.declaration.Declaration;
@@ -20,7 +23,6 @@ import pl.edu.mimuw.nesc.environment.ScopeType;
 import pl.edu.mimuw.nesc.problem.ErrorHelper;
 import pl.edu.mimuw.nesc.problem.issue.ErroneousIssue;
 import pl.edu.mimuw.nesc.problem.issue.InvalidCAttributeUsageError;
-import pl.edu.mimuw.nesc.symboltable.SymbolTable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration.FunctionType.COMMAND;
@@ -64,7 +66,7 @@ final class CAttributeAnalyzer implements AttributeSmallAnalyzer {
     @Override
     public void analyzeAttribute(List<Attribute> attributes, Declaration declaration, Environment environment) {
         final PredicateTester<Attribute> tester = new PredicateTester<>(AttributePredicates.getCPredicate());
-        if (!tester.test(attributes)) {
+        if (!tester.test(attributes) || !checkParameterless(tester.getFulfillingNodes())) {
             return;
         }
 
@@ -85,19 +87,35 @@ final class CAttributeAnalyzer implements AttributeSmallAnalyzer {
             error = Optional.of(InvalidCAttributeUsageError.appliedToInvalidEntity());
         }
 
-        final Optional<? extends ErroneousIssue> finalError;
-        if (!error.isPresent()) {
-            finalError = addToGlobalScope(environment, declaration);
+        if (error.isPresent()) {
+            this.errorHelper.error(tester.getFirstInterval().get().getLocation(),
+                    tester.getFirstInterval().get().getEndLocation(), error.get());
         } else {
-            finalError = error;
-        }
-
-        if (finalError.isPresent()) {
-            this.errorHelper.error(tester.getStartLocation().get(),
-                    tester.getEndLocation().get(), finalError.get());
-        } else {
+            addToGlobalScope(environment, declaration);
             this.semanticListener.globalName(this.uniqueName, this.name);
         }
+    }
+
+    private boolean checkParameterless(Iterable<Attribute> cAttributes) {
+        boolean validates = true;
+
+        for (Attribute attribute : cAttributes) {
+            final NescAttribute cAttribute = (NescAttribute) attribute;
+
+            if (cAttribute.getValue() instanceof ErrorExpr) {
+                validates = false;
+                continue;
+            }
+
+            final InitList argument = (InitList) cAttribute.getValue();
+            if (!argument.getArguments().isEmpty()) {
+                validates = false;
+                this.errorHelper.error(cAttribute.getLocation(), cAttribute.getEndLocation(),
+                        InvalidCAttributeUsageError.parametersPresent());
+            }
+        }
+
+        return validates;
     }
 
     private Optional<? extends ErroneousIssue> analyzeFunctionAttribute(FunctionDeclaration declaration) {
@@ -162,7 +180,7 @@ final class CAttributeAnalyzer implements AttributeSmallAnalyzer {
         }
     }
 
-    private Optional<? extends ErroneousIssue> addToGlobalScope(Environment environment, Declaration declaration) {
+    private void addToGlobalScope(Environment environment, Declaration declaration) {
         // Look for the global environment
         while (environment.getScopeType() != ScopeType.GLOBAL) {
             environment = environment.getParent().get();
@@ -171,22 +189,13 @@ final class CAttributeAnalyzer implements AttributeSmallAnalyzer {
         // Add the declaration to the global scope
         if (declaration instanceof ObjectDeclaration) {
             final ObjectDeclaration objectDeclaration = (ObjectDeclaration) declaration;
-            return addOrConflictError(environment.getObjects(), objectDeclaration.getName(),
-                    objectDeclaration);
+            environment.getObjects().add(objectDeclaration.getName(), objectDeclaration);
         } else if (declaration instanceof TagDeclaration) {
             final TagDeclaration tagDeclaration = (TagDeclaration) declaration;
-            return addOrConflictError(environment.getTags(), tagDeclaration.getName().get(),
-                    tagDeclaration);
+            environment.getTags().add(tagDeclaration.getName().get(), tagDeclaration);
         } else {
             throw new RuntimeException("unexpected kind of declaration "
                     + declaration.getClass().getCanonicalName());
         }
-    }
-
-    private <T extends Declaration> Optional<? extends ErroneousIssue> addOrConflictError(
-            SymbolTable<T> table, String name, T declaration) {
-        return !table.add(name, declaration)
-                ? Optional.of(InvalidCAttributeUsageError.conflictWithGlobalDeclaration(name))
-                : Optional.<ErroneousIssue>absent();
     }
 }

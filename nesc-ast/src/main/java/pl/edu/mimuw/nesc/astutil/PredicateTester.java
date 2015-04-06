@@ -2,15 +2,18 @@ package pl.edu.mimuw.nesc.astutil;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
- * <p>Class that tests if a node fulfills a predicate and saves its location.
- * </p>
+ * <p>Class that tests if a node fulfills a predicate and saves references to
+ * all nodes that fulfill it.</p>
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
@@ -21,60 +24,69 @@ public class PredicateTester<T extends Node> {
     private final Predicate<T> predicate;
 
     /**
-     * Locations of the node.
+     * List of nodes that fulfill the predicate.
      */
-    private Optional<Location> startLocation = Optional.absent();
-    private Optional<Location> endLocation = Optional.absent();
+    private final List<T> fulfillingNodes;
+
+    /**
+     * Unmodifiable view of the fulfilling nodes list.
+     */
+    private final List<T> unmodifiableFulfillingNodes;
 
     public PredicateTester(Predicate<T> predicate) {
         checkNotNull(predicate, "predicate cannot be null");
         this.predicate = predicate;
+        this.fulfillingNodes = new ArrayList<>();
+        this.unmodifiableFulfillingNodes = Collections.unmodifiableList(fulfillingNodes);
     }
 
     /**
      * Check if a node from the given collection fulfills the predicate and
      * store its location.
      *
-     * @param nodes Collection with nodes to test.
+     * @param nodes Iterable with nodes to test.
      * @return <code>true</code> if and only if a node from the collection
-     *         fulfills the predicate. In such case, its location is stored
-     *         in the object and available by getter methods. Otherwise,
-     *         locations are set to absent optional objects.
+     *         fulfills the predicate. During this call a list of nodes from
+     *         the iterable that fulfill the predicate is created.
      */
-    public boolean test(Collection<? extends T> nodes) {
+    public boolean test(Iterable<? extends T> nodes) {
         checkNotNull(nodes, "nodes cannot be null");
+
+        fulfillingNodes.clear();
 
         for (T node : nodes) {
             if (predicate.apply(node)) {
-                startLocation = Optional.of(node.getLocation());
-                endLocation = Optional.of(node.getEndLocation());
-                return true;
+                fulfillingNodes.add(node);
             }
         }
 
-        startLocation = endLocation = Optional.absent();
-        return false;
+        return !fulfillingNodes.isEmpty();
     }
 
     /**
-     * Get the start location of the node that fulfilled the predicate in the
-     * last test operation.
+     * Get the list of nodes that fulfilled the predicate in the last test
+     * operation. The returned list is unmodifiable.
      *
-     * @return Start location of the node that fulfilled the predicate in the
+     * @return Unmodifiable list with nodes that fulfilled the predicate in the
      *         last test operation.
      */
-    public Optional<Location> getStartLocation() {
-        return startLocation;
+    public List<T> getFulfillingNodes() {
+        return unmodifiableFulfillingNodes;
     }
 
     /**
-     * Get the end location of the node that fulfilled the predicate in the
+     * Get the interval of the first node that fulfilled the predicate in the
      * last test operation.
      *
-     * @return End location of the node that fulfilled the predicate in the
+     * @return Interval that specifies location of the node that fulfilled the
      *         last test operation.
      */
-    public Optional<Location> getEndLocation() {
-        return endLocation;
+    public Optional<Interval> getFirstInterval() {
+        if (!fulfillingNodes.isEmpty()) {
+            final T first = fulfillingNodes.get(0);
+            return Optional.of(Interval.of(first.getLocation(), first.getEndLocation()));
+        } else {
+            return Optional.absent();
+        }
     }
 }

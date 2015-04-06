@@ -1,7 +1,5 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
-import org.omg.CORBA.DynAnyPackage.Invalid;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -14,6 +12,11 @@ public final class InvalidCAttributeUsageError extends ErroneousIssue {
     public static final Code CODE = _CODE;
 
     private final String description;
+
+    public static InvalidCAttributeUsageError parametersPresent() {
+        final String description = "Attribute @C() takes an empty initializer list but an initializer is given";
+        return new InvalidCAttributeUsageError(description);
+    }
 
     public static InvalidCAttributeUsageError invalidScope() {
         final String description = "Attribute @C() cannot be used in this context; it must be specified in the implementation scope of a non-generic module";
@@ -52,6 +55,12 @@ public final class InvalidCAttributeUsageError extends ErroneousIssue {
 
     public static InvalidCAttributeUsageError conflictWithGlobalDeclaration(String name) {
         final String description = format("'%s' with @C() attribute clashes with declaration of the same name in the global scope",
+                name);
+        return new InvalidCAttributeUsageError(description);
+    }
+
+    public static InvalidCAttributeUsageError overdueAnnotation(String name) {
+        final String description = format("Overdue application of @C() attribute to '%s' linked with declaration of the same name in the global scope",
                 name);
         return new InvalidCAttributeUsageError(description);
     }
