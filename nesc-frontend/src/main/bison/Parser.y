@@ -10,6 +10,7 @@ import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.*;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
+import pl.edu.mimuw.nesc.analysis.expressions.AttributeExpressionAnalyzer;
 import pl.edu.mimuw.nesc.analysis.expressions.FullExpressionsAnalysis;
 import pl.edu.mimuw.nesc.ast.*;
 import pl.edu.mimuw.nesc.ast.gen.*;
@@ -2546,6 +2547,7 @@ target_attribute:
     {
         final Word w = new Word($1.getLocation(), $1.getValue());
         w.setEndLocation($1.getEndLocation());
+        attrExprAnalyzer.analyze($2, environment);
         final TargetAttribute attribute = new TargetAttribute($1.getLocation(), w, Optional.of(Lists.newList($2)));
         attribute.setEndLocation($2.getEndLocation());
         $$ = attribute;
@@ -2618,8 +2620,7 @@ attrib:
     {
         final Identifier id = new Identifier($3.getLocation(), $3.getValue());
         id.setEndLocation($3.getEndLocation());
-        id.setUniqueName(Optional.<String>absent());
-        id.setType(Optional.<Type>absent());
+        attrExprAnalyzer.analyze(id, environment);
         final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Optional.of(Lists.<Expression>newList(id)));
         attribute.setEndLocation($4.getEndLocation());
         $$ = attribute;
@@ -2629,16 +2630,14 @@ attrib:
         final Identifier id = new Identifier($3.getLocation(), $3.getValue());
         id.setEndLocation($3.getEndLocation());
         final LinkedList<Expression> arguments = Lists.<Expression>chain($5, id);
-        ExpressionUtils.setUniqueNameDeep(arguments, Optional.<String>absent());
-        ExpressionUtils.setTypeDeep(arguments, Optional.<Type>absent());
+        attrExprAnalyzer.analyze(arguments, environment);
         final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Optional.of(arguments));
         attribute.setEndLocation($6.getEndLocation());
         $$ = attribute;
     }
     | any_word LPAREN exprlist RPAREN
     {
-        ExpressionUtils.setUniqueNameDeep($3, Optional.<String>absent());
-        ExpressionUtils.setTypeDeep($3, Optional.<Type>absent());
+        attrExprAnalyzer.analyze($3, environment);
         final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Optional.of($3));
         attribute.setEndLocation($4.getEndLocation());
         $$ = attribute;
@@ -4381,6 +4380,8 @@ string_chain:
     private NescComponents nescComponents;
     private NescAttributes nescAttributes;
     
+    private final AttributeExpressionAnalyzer attrExprAnalyzer = new AttributeExpressionAnalyzer();
+
     private final SemanticListener semanticListener = new SemanticListener() {
         @Override
         public void globalName(String uniqueName, String name) {
