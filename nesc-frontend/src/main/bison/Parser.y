@@ -2629,7 +2629,7 @@ attrib:
     {
         final Identifier id = new Identifier($3.getLocation(), $3.getValue());
         id.setEndLocation($3.getEndLocation());
-        final LinkedList<Expression> arguments = Lists.<Expression>chain($5, id);
+        final LinkedList<Expression> arguments = Lists.<Expression>addFirst($5, id);
         attrExprAnalyzer.analyze(arguments, environment);
         final GccAttribute attribute = new GccAttribute($1.getLocation(), $1, Optional.of(arguments));
         attribute.setEndLocation($6.getEndLocation());
