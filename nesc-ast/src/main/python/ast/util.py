@@ -22,6 +22,20 @@ def language_dispatch(lang, java_fun, cpp_fun, *args, **kwargs):
         raise Exception("unexpected destination language '{0}'".format(lang))
 
 
+def is_subnode(classname, maybe_ancestor):
+    if classname not in ast_nodes:
+        return classname == maybe_ancestor
+
+    cls = ast_nodes[classname]
+
+    while hasattr(cls, "superclass"):
+        if cls.__name__ == maybe_ancestor:
+            return True
+        cls = cls.superclass
+
+    return cls.__name__ == maybe_ancestor
+
+
 #defines the width of the indentation in the generated code
 tab = " " * 4
 

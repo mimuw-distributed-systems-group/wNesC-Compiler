@@ -447,23 +447,27 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
 
         return code
 
-    def gen_transform_code(self, lang, class_name, method_name, arg_class_name):
+    def gen_transform_code(self, lang, class_name, method_name, arg_class_name,
+                           transform_ancestors=False):
         return language_dispatch(lang, self.gen_transform_code_java,
                     self.gen_transform_code_cpp, class_name,
-                    method_name, arg_class_name)
+                    method_name, arg_class_name, transform_ancestors)
 
-    def gen_transform_code_cpp(self, class_name, method_name, arg_class_name):
+    def gen_transform_code_cpp(self, class_name, method_name, arg_class_name,
+                               transform_ancestors):
         # FIXME
         raise NotImplementedError
 
-    def gen_transform_code_java(self, class_name, method_name, arg_class_name):
+    def gen_transform_code_java(self, class_name, method_name, arg_class_name,
+                                transform_ancestors):
         node_class = self.__class__.__name__
         fields = self.build_fields_dict()
         fields_code = []
 
         for name, fielddesc in fields.items():
             field_code = fielddesc.gen_transform_code(DST_LANGUAGE.JAVA,
-                            "node", name, class_name, method_name, "arg")
+                            "node", name, class_name, method_name, "arg",
+                            transform_ancestors)
             fields_code.extend(field_code)
 
         if not fields_code:
@@ -1029,6 +1033,111 @@ def gen_stmt_transformer_list_methods_java(f):
     f.write(tab + "}\n")
 
 
+def gen_attr_transformation(lang, directory):
+    language_dispatch(lang, gen_attr_transformation_java,
+                      gen_attr_transformation_cpp, directory)
+
+
+def gen_attr_transformation_cpp(directory):
+    # FIXME
+    raise NotImplementedError
+
+def gen_attr_transformation_java(directory):
+    with open(path.join(directory, "AttrTransformation.java"), "w") as f:
+        f.write("package pl.edu.mimuw.nesc.ast.gen;\n\n")
+        f.write("import java.util.LinkedList;\n\n")
+        f.write("public interface AttrTransformation<A> {\n")
+        f.write(tab + "LinkedList<Attribute> transform(GccAttribute attr, A arg);\n")
+        f.write(tab + "LinkedList<Attribute> transform(TargetAttribute attr, A arg);\n")
+        f.write(tab + "LinkedList<Attribute> transform(NescAttribute attr, A arg);\n")
+        f.write("}\n")
+
+
+def gen_attr_transformer(lang, directory):
+    language_dispatch(lang, gen_attr_transformer_java,
+                      gen_attr_transformer_cpp, directory)
+
+
+def gen_attr_transformer_cpp(directory):
+    # FIXME
+    raise NotImplementedError
+
+
+def gen_attr_transformer_java(directory):
+    with open(path.join(directory, "AttrTransformer.java"), "w") as f:
+        f.write("package pl.edu.mimuw.nesc.ast.gen;\n\n")
+        f.write("import com.google.common.base.Optional;\n")
+        f.write("import java.util.Iterator;\n")
+        f.write("import java.util.LinkedList;\n")
+        f.write("import java.util.ListIterator;\n\n")
+        f.write("import static com.google.common.base.Preconditions.checkNotNull;\n\n")
+        f.write("public class AttrTransformer<A> extends IdentityVisitor<A> {\n")
+        f.write(tab + "private final AttrTransformation<A> transformation;\n\n")
+        f.write(tab + "private final Visitor<LinkedList<Attribute>, A> dispatchingVisitor = new ExceptionVisitor<LinkedList<Attribute>, A>() {\n")
+        f.write(tab * 2 + "@Override\n")
+        f.write(tab * 2 + "public LinkedList<Attribute> visitGccAttribute(GccAttribute attr, A arg) {\n")
+        f.write(tab * 3 + "return transformation.transform(attr, arg);\n")
+        f.write(tab * 2 + "}\n")
+        f.write(tab * 2 + "@Override\n")
+        f.write(tab * 2 + "public LinkedList<Attribute> visitTargetAttribute(TargetAttribute attr, A arg) {\n")
+        f.write(tab * 3 + "return transformation.transform(attr, arg);\n")
+        f.write(tab * 2 + "}\n")
+        f.write(tab * 2 + "@Override\n")
+        f.write(tab * 2 + "public LinkedList<Attribute> visitNescAttribute(NescAttribute attr, A arg) {\n")
+        f.write(tab * 3 + "return transformation.transform(attr, arg);\n")
+        f.write(tab * 2 + "}\n")
+        f.write(tab + "};\n\n")
+        f.write(tab + "public AttrTransformer(AttrTransformation<A> transformation) {\n")
+        f.write(tab * 2 + 'checkNotNull(transformation, "transformation cannot be null");\n')
+        f.write(tab * 2 + "this.transformation = transformation;\n")
+        f.write(tab + "}\n\n")
+
+        for node_cls in ast_nodes.values():
+            f.write(node_cls().gen_transform_code(DST_LANGUAGE.JAVA,
+                "Attribute", "performTransformation", "A", True))
+
+        gen_attr_transformer_dispatch_java(f)
+        gen_attr_transformer_list_methods_java(f)
+        f.write("}\n")
+
+
+def gen_attr_transformer_dispatch_java(f):
+    f.write(tab + "private Optional<LinkedList<Attribute>> dispatchForTransformation(Object object, A arg) {\n")
+    f.write(tab * 2 + "return object instanceof Attribute\n")
+    f.write(tab * 3 + "? Optional.of(((Attribute) object).accept(dispatchingVisitor, arg))\n")
+    f.write(tab * 3 + ": Optional.<LinkedList<Attribute>>absent();\n")
+    f.write(tab + "}\n\n")
+
+
+def gen_attr_transformer_list_methods_java(f):
+    f.write(tab + "private void performTransformations(LinkedList<? super Attribute> attrs, A arg) {\n")
+    f.write(tab * 2 + "if (attrs == null) {\n")
+    f.write(tab * 3 + "return;\n")
+    f.write(tab * 2 + "}\n\n")
+    f.write(tab * 2 + "final ListIterator<? super Attribute> attrsIt = attrs.listIterator();\n\n")
+    f.write(tab * 2 + "while (attrsIt.hasNext()) {\n")
+    f.write(tab * 3 + "final Optional<LinkedList<Attribute>> newAttrs = dispatchForTransformation(attrsIt.next(), arg);\n\n")
+    f.write(tab * 3 + "if (!newAttrs.isPresent()) {\n")
+    f.write(tab * 4 + "continue;\n")
+    f.write(tab * 3 + "}\n\n")
+    f.write(tab * 3 + "if (newAttrs.get().isEmpty()) {\n")
+    f.write(tab * 4 + "attrsIt.remove();\n")
+    f.write(tab * 3 + "} else {\n")
+    f.write(tab * 4 + "final Iterator<Attribute> newAttrsIt = newAttrs.get().iterator();\n")
+    f.write(tab * 4 + "attrsIt.set(newAttrsIt.next());\n\n")
+    f.write(tab * 4 + "while (newAttrsIt.hasNext()) {\n")
+    f.write(tab * 5 + "attrsIt.add(newAttrsIt.next());\n")
+    f.write(tab * 4 + "}\n")
+    f.write(tab * 3 + "}\n")
+    f.write(tab * 2 + "}\n")
+    f.write(tab + "}\n\n")
+    f.write(tab + "private void performTransformations(Optional<? extends LinkedList<? super Attribute>> attrs, A arg) {\n")
+    f.write(tab * 2 + "if (attrs != null && attrs.isPresent()) {\n")
+    f.write(tab * 3 + "performTransformations(attrs.get(), arg);\n")
+    f.write(tab * 2 + "}\n")
+    f.write(tab + "}\n")
+
+
 def gen_remangling_visitor(lang, directory):
     if lang == DST_LANGUAGE.JAVA:
         gen_remangling_visitor_java(directory)
@@ -1142,4 +1251,8 @@ def generate_java_code(directory):
     gen_stmt_transformation(DST_LANGUAGE.JAVA, directory)
 
     gen_stmt_transformer(DST_LANGUAGE.JAVA, directory)
+
+    gen_attr_transformation(DST_LANGUAGE.JAVA, directory)
+
+    gen_attr_transformer(DST_LANGUAGE.JAVA, directory)
 

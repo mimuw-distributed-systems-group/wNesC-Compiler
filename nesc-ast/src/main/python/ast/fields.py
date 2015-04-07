@@ -1,4 +1,5 @@
-from ast.util import first_to_cap, DST_LANGUAGE, tab, ast_nodes, language_dispatch
+from ast.util import first_to_cap, DST_LANGUAGE, tab, ast_nodes, \
+    language_dispatch, is_subnode
 from ast.field_copy import DEEP_COPY_MODE
 
 #the basic class from which all field classes must derive.
@@ -50,7 +51,7 @@ class BasicASTNodeField:
         return []
 
     def gen_transform_code(self, lang, node_name, field_name, trans_class_name,
-                           trans_method_name, trans_arg_name):
+                           trans_method_name, trans_arg_name, transform_ancestors):
         return []
 
     #expected result for c++ and java is a string
@@ -533,18 +534,20 @@ class ReferenceField(BasicASTNodeField):
         return code
 
     def gen_transform_code(self, lang, node_name, field_name, trans_class_name, trans_method_name,
-                           trans_arg_name):
+                           trans_arg_name, transform_ancestors):
         return language_dispatch(lang, self.gen_transform_code_java, self.gen_transform_code_cpp,
-                    node_name, field_name, trans_class_name, trans_method_name, trans_arg_name)
+                    node_name, field_name, trans_class_name, trans_method_name, trans_arg_name,
+                    transform_ancestors)
 
     def gen_transform_code_cpp(self, node_name, field_name, trans_class_name, trans_method_name,
-                           trans_arg_name):
+                           trans_arg_name, transform_ancestors):
         # FIXME
         raise NotImplementedError
 
     def gen_transform_code_java(self, node_name, field_name, trans_class_name,
-                                trans_method_name, trans_arg_name):
-        if self.ref_type != trans_class_name:
+                                trans_method_name, trans_arg_name, transform_ancestors):
+        if not self.visitable or not transform_ancestors and self.ref_type != trans_class_name \
+                or transform_ancestors and not is_subnode(trans_class_name, self.ref_type):
             return []
 
         getter_name = "get" + first_to_cap(field_name)
@@ -1146,18 +1149,20 @@ class ReferenceListField(BasicASTNodeField):
         return code
 
     def gen_transform_code(self, lang, node_name, field_name, trans_class_name, trans_method_name,
-                           trans_arg_name):
+                           trans_arg_name, transform_ancestors):
         return language_dispatch(lang, self.gen_transform_code_java, self.gen_transform_code_cpp,
-                    node_name, field_name, trans_class_name, trans_method_name, trans_arg_name)
+                    node_name, field_name, trans_class_name, trans_method_name, trans_arg_name,
+                    transform_ancestors)
 
     def gen_transform_code_cpp(self, node_name, field_name, trans_class_name, trans_method_name,
-                           trans_arg_name):
+                               trans_arg_name, transform_ancestors):
         # FIXME
         raise NotImplementedError
 
     def gen_transform_code_java(self, node_name, field_name, trans_class_name,
-                                trans_method_name, trans_arg_name):
-        if self.ref_type != trans_class_name:
+                                trans_method_name, trans_arg_name, transform_ancestors):
+        if not self.visitable or not transform_ancestors and self.ref_type != trans_class_name \
+                or transform_ancestors and not is_subnode(trans_class_name, self.ref_type):
             return []
 
         return ["{}s({}.get{}(), {});".format(trans_method_name, node_name, first_to_cap(field_name), trans_arg_name)]
