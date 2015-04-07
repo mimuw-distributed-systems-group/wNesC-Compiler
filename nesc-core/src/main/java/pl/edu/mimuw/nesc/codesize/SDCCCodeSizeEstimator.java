@@ -257,8 +257,8 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
 
         private EstimatingRunnable(int id) {
             checkArgument(id > 0, "identifier must be positive");
-            this.funFileName = "fun" + id + ".c";
-            this.relFileName = "fun" + id + ".rel";
+            this.funFileName = Paths.get(tempDirectory, "fun" + id + ".c").toString();
+            this.relFileName = Paths.get(tempDirectory, "fun" + id + ".rel").toString();
         }
 
         @Override
