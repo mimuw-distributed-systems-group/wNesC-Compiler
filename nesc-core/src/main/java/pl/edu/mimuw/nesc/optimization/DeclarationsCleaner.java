@@ -389,22 +389,7 @@ public final class DeclarationsCleaner {
         public Void visitFunctionDecl(FunctionDecl declaration, Void arg) {
             final String funName = DeclaratorUtils.getUniqueName(declaration.getDeclarator()).get();
             final FunctionDeclaration functionDeclaration = declaration.getDeclaration();
-
-            if (functionDeclaration != null) {
-                switch (functionDeclaration.getCallAssumptions()) {
-                    case SPONTANEOUS:
-                    case HWEVENT:
-                    case ATOMIC_HWEVENT:
-                        entitiesQueue.add(refsGraph.getOrdinaryIds().get(funName));
-                        break;
-                    case NONE:
-                        break;
-                    default:
-                        throw new RuntimeException("unexpected call assumptions '"
-                                + functionDeclaration.getCallAssumptions() + "'");
-                }
-            }
-
+            enqueueSpontaneousFunction(funName, functionDeclaration);
             return null;
         }
 
@@ -432,10 +417,30 @@ public final class DeclarationsCleaner {
                     if (variableDeclaration.isExternalVariable()) {
                         entitiesQueue.add(refsGraph.getOrdinaryIds().get(name));
                     }
+                } else if (variableDecl.getDeclaration() != null
+                        && variableDecl.getDeclaration().getKind() == ObjectKind.FUNCTION) {
+                    enqueueSpontaneousFunction(name, (FunctionDeclaration) variableDecl.getDeclaration());
                 }
             }
 
             return null;
+        }
+
+        private void enqueueSpontaneousFunction(String funName, FunctionDeclaration functionDeclaration) {
+            if (functionDeclaration != null) {
+                switch (functionDeclaration.getCallAssumptions()) {
+                    case SPONTANEOUS:
+                    case HWEVENT:
+                    case ATOMIC_HWEVENT:
+                        entitiesQueue.add(refsGraph.getOrdinaryIds().get(funName));
+                        break;
+                    case NONE:
+                        break;
+                    default:
+                        throw new RuntimeException("unexpected call assumptions '"
+                                + functionDeclaration.getCallAssumptions() + "'");
+                }
+            }
         }
     }
 }
