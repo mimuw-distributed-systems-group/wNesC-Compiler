@@ -5,6 +5,7 @@ import com.google.common.collect.Multimap;
 import java.util.Map;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Node;
+import pl.edu.mimuw.nesc.common.FileType;
 import pl.edu.mimuw.nesc.environment.Environment;
 import pl.edu.mimuw.nesc.lexer.Comment;
 import pl.edu.mimuw.nesc.load.FileCache;
@@ -22,6 +23,7 @@ import java.util.List;
 public final class FileData {
 
     private final String filePath;
+    private final FileType fileType;
     private final Optional<Node> entityRoot;
     private final List<Declaration> extdefs;
     private final List<Comment> comments;
@@ -36,6 +38,7 @@ public final class FileData {
 
     public FileData(FileCache cache) {
         this.filePath = cache.getFilePath();
+        this.fileType = cache.getFileType();
         this.entityRoot = cache.getEntityRoot();
         this.extdefs = cache.getExtdefs();
         this.comments = cache.getComments();
@@ -49,6 +52,10 @@ public final class FileData {
 
     public String getFilePath() {
         return filePath;
+    }
+
+    public FileType getFileType() {
+        return fileType;
     }
 
     public Optional<Node> getEntityRoot() {

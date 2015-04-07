@@ -22,6 +22,7 @@ import pl.edu.mimuw.nesc.FileData;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
+import pl.edu.mimuw.nesc.common.FileType;
 import pl.edu.mimuw.nesc.preprocessor.directive.IncludeDirective;
 import pl.edu.mimuw.nesc.preprocessor.directive.PreprocessorDirective;
 
@@ -42,10 +43,10 @@ final class DefaultCodeGenerator {
     private final Deque<DeclarationsNode> declarationsStack = new ArrayDeque<>();
 
     /**
-     * Set with paths of header files whose declarations has been (or are
-     * currently) emitted.
+     * Set with paths of C files whose declarations has been (or are currently)
+     * emitted.
      */
-    private final Set<String> outputtedHeaderFiles = new HashSet<>();
+    private final Set<String> outputtedCFiles = new HashSet<>();
 
     /**
      * Builder of a list with declarations that constitute the while compiled
@@ -65,16 +66,16 @@ final class DefaultCodeGenerator {
     private final String mainConfigurationName;
 
     /**
-     * Map with paths of header files as keys and objects that represent their
+     * Map with paths of C files as keys and objects that represent their
      * contents as values.
      */
-    private final ImmutableMap<String, FileData> headerFiles;
+    private final ImmutableMap<String, FileData> cFiles;
 
     /**
-     * List with paths of files that have been included by default (in the same
-     * order).
+     * List with file datas of files that have been included by default (in the
+     * same order).
      */
-    private final ImmutableList<String> defaultIncludeFiles;
+    private final ImmutableList<FileData> defaultIncludeFiles;
 
     /**
      * Set with intermediate functions created for the application.
@@ -334,9 +335,9 @@ final class DefaultCodeGenerator {
     }
 
     private DefaultCodeGenerator(Builder builder) {
-        this.headerFiles = builder.buildHeaderFiles();
+        this.cFiles = builder.buildCFiles();
         this.nescDeclarations = builder.buildNescEntities();
-        this.defaultIncludeFiles = ImmutableList.copyOf(builder.defaultIncludeFiles);
+        this.defaultIncludeFiles = builder.buildDefaultIncludeFiles();
         this.mainConfigurationName = builder.mainConfigurationName;
         this.intermediateFunctions = builder.intermediateFunsBuilder.build();
     }
@@ -357,8 +358,21 @@ final class DefaultCodeGenerator {
     }
 
     private void outputFilesIncludedByDefault() {
-        for (String filePath : defaultIncludeFiles) {
-            pushHeaderFile(filePath);
+        for (FileData fileData : defaultIncludeFiles) {
+            switch (fileData.getFileType()) {
+                case HEADER:
+                case C:
+                    pushCFile(fileData.getFilePath());
+                    break;
+                case NESC:
+                    final NescDecl nescDecl = (NescDecl) fileData.getEntityRoot().get();
+                    pushNescEntity(nescDecl.getName().getName());
+                    break;
+                default:
+                    throw new RuntimeException("unexpected file type " + fileData.getFileType());
+
+            }
+
             output();
         }
     }
@@ -368,13 +382,13 @@ final class DefaultCodeGenerator {
         output();
     }
 
-    private void pushHeaderFile(String filePath) {
-        if (outputtedHeaderFiles.contains(filePath)) {
+    private void pushCFile(String filePath) {
+        if (outputtedCFiles.contains(filePath)) {
             return;
         }
 
-        outputtedHeaderFiles.add(filePath);
-        final Optional<FileData> optHeaderFileData = Optional.fromNullable(headerFiles.get(filePath));
+        outputtedCFiles.add(filePath);
+        final Optional<FileData> optHeaderFileData = Optional.fromNullable(cFiles.get(filePath));
         checkState(optHeaderFileData.isPresent(), "absent file '%s'", filePath);
         final FileData headerFileData = optHeaderFileData.get();
 
@@ -421,7 +435,7 @@ final class DefaultCodeGenerator {
                 switch (nextEntity.get()) {
                     case INCLUDE_DIRECTIVE:
                         final IncludeDirective include = node.nextIncludeDirective();
-                        pushHeaderFile(include.getFilePath().get());
+                        pushCFile(include.getFilePath().get());
                         break;
                     case DECLARATION:
                         node.nextDeclaration().accept(declarationsProcessor,
@@ -678,9 +692,13 @@ final class DefaultCodeGenerator {
                         final Configuration configuration = (Configuration) nescDecl;
                         mainConfigurationAdded = mainConfigurationName.equals(nescName) && !configuration.getIsAbstract();
                     }
-                } else {
-                    filesNames.add(fileData.getFilePath());
                 }
+
+                filesNames.add(fileData.getFilePath());
+                checkState(fileData.getEntityRoot().isPresent() && fileData.getFileType() == FileType.NESC
+                        || !fileData.getEntityRoot().isPresent()
+                            && (fileData.getFileType() == FileType.C || fileData.getFileType() == FileType.HEADER),
+                        "a NesC file without the entity root or a C file with the entity root is present");
             }
 
             for (Component component : instantiatedComponents) {
@@ -701,21 +719,21 @@ final class DefaultCodeGenerator {
             return new DefaultCodeGenerator(this);
         }
 
-        private ImmutableMap<String, FileData> buildHeaderFiles() {
-            final ImmutableMap.Builder<String, FileData> headerFilesBuilder = ImmutableMap.builder();
+        private ImmutableMap<String, FileData> buildCFiles() {
+            final ImmutableMap.Builder<String, FileData> cFilesBuilder = ImmutableMap.builder();
             for (FileData fileData : originalData) {
-                if (!fileData.getEntityRoot().isPresent()) {
-                    headerFilesBuilder.put(fileData.getFilePath(), fileData);
+                if (fileData.getFileType() == FileType.HEADER || fileData.getFileType() == FileType.C) {
+                    cFilesBuilder.put(fileData.getFilePath(), fileData);
                 }
             }
-            return headerFilesBuilder.build();
+            return cFilesBuilder.build();
         }
 
         private ImmutableMap<String, ProcessedNescData> buildNescEntities() {
             final ImmutableMap.Builder<String, ProcessedNescData> nescEntitiesBuilder = ImmutableMap.builder();
 
             for (FileData fileData : originalData) {
-                if (fileData.getEntityRoot().isPresent()) {
+                if (fileData.getFileType() == FileType.NESC) {
                     final String nescName = ((NescDecl) fileData.getEntityRoot().get()).getName().getName();
                     nescEntitiesBuilder.put(nescName, new PreservedData(fileData));
                 }
@@ -727,6 +745,23 @@ final class DefaultCodeGenerator {
             }
 
             return nescEntitiesBuilder.build();
+        }
+
+        private ImmutableList<FileData> buildDefaultIncludeFiles() {
+            // Build a helper map to reduce complexity
+            final ImmutableMap.Builder<String, FileData> fileDatasBuilder = ImmutableMap.builder();
+            for (FileData fileData : originalData) {
+                fileDatasBuilder.put(fileData.getFilePath(), fileData);
+            }
+            final ImmutableMap<String, FileData> fileDatas = fileDatasBuilder.build();
+
+            // Create a list of the default include files
+            final ImmutableList.Builder<FileData> defaultIncludeFilesBuilder = ImmutableList.builder();
+            for (String fileName : defaultIncludeFiles) {
+                defaultIncludeFilesBuilder.add(fileDatas.get(fileName));
+            }
+
+            return defaultIncludeFilesBuilder.build();
         }
     }
 }
