@@ -51,7 +51,8 @@ class BasicASTNodeField:
         return []
 
     def gen_transform_code(self, lang, node_name, field_name, trans_class_name,
-                           trans_method_name, trans_arg_name, transform_ancestors):
+                           trans_method_name, trans_arg_name, transform_ancestors,
+                           pass_source):
         return []
 
     #expected result for c++ and java is a string
@@ -534,26 +535,29 @@ class ReferenceField(BasicASTNodeField):
         return code
 
     def gen_transform_code(self, lang, node_name, field_name, trans_class_name, trans_method_name,
-                           trans_arg_name, transform_ancestors):
+                           trans_arg_name, transform_ancestors, pass_source):
         return language_dispatch(lang, self.gen_transform_code_java, self.gen_transform_code_cpp,
                     node_name, field_name, trans_class_name, trans_method_name, trans_arg_name,
-                    transform_ancestors)
+                    transform_ancestors, pass_source)
 
     def gen_transform_code_cpp(self, node_name, field_name, trans_class_name, trans_method_name,
-                           trans_arg_name, transform_ancestors):
+                           trans_arg_name, transform_ancestors, pass_source):
         # FIXME
         raise NotImplementedError
 
     def gen_transform_code_java(self, node_name, field_name, trans_class_name,
-                                trans_method_name, trans_arg_name, transform_ancestors):
+                                trans_method_name, trans_arg_name, transform_ancestors,
+                                pass_source):
         if not self.visitable or not transform_ancestors and self.ref_type != trans_class_name \
                 or transform_ancestors and not is_subnode(trans_class_name, self.ref_type):
             return []
 
         getter_name = "get" + first_to_cap(field_name)
         setter_name = "set" + first_to_cap(field_name)
+        transform_stmt_fmt = "{0}.{1}({2}({0}.{3}, {0}, {4}));" if pass_source \
+                             else "{0}.{1}({2}({0}.{3}(), {4}));"
 
-        return ["{0}.{1}({2}({0}.{3}(), {4}));".format(node_name, setter_name, trans_method_name, getter_name, trans_arg_name)]
+        return [transform_stmt_fmt.format(node_name, setter_name, trans_method_name, getter_name, trans_arg_name)]
 
     def generate_code(self, lang):
         res = None
@@ -1149,23 +1153,27 @@ class ReferenceListField(BasicASTNodeField):
         return code
 
     def gen_transform_code(self, lang, node_name, field_name, trans_class_name, trans_method_name,
-                           trans_arg_name, transform_ancestors):
+                           trans_arg_name, transform_ancestors, pass_source):
         return language_dispatch(lang, self.gen_transform_code_java, self.gen_transform_code_cpp,
                     node_name, field_name, trans_class_name, trans_method_name, trans_arg_name,
-                    transform_ancestors)
+                    transform_ancestors, pass_source)
 
     def gen_transform_code_cpp(self, node_name, field_name, trans_class_name, trans_method_name,
-                               trans_arg_name, transform_ancestors):
+                               trans_arg_name, transform_ancestors, pass_source):
         # FIXME
         raise NotImplementedError
 
     def gen_transform_code_java(self, node_name, field_name, trans_class_name,
-                                trans_method_name, trans_arg_name, transform_ancestors):
+                                trans_method_name, trans_arg_name, transform_ancestors,
+                                pass_source):
         if not self.visitable or not transform_ancestors and self.ref_type != trans_class_name \
                 or transform_ancestors and not is_subnode(trans_class_name, self.ref_type):
             return []
 
-        return ["{}s({}.get{}(), {});".format(trans_method_name, node_name, first_to_cap(field_name), trans_arg_name)]
+        transform_stmt_fmt = "{0}s({1}.get{2}(), {1}, {3});" if pass_source \
+                             else "{0}s({1}.get{2}(), {3});"
+
+        return [transform_stmt_fmt.format(trans_method_name, node_name, first_to_cap(field_name), trans_arg_name)]
 
     def generate_code(self, lang):
         res = None

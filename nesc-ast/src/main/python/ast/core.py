@@ -448,18 +448,19 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         return code
 
     def gen_transform_code(self, lang, class_name, method_name, arg_class_name,
-                           transform_ancestors=False):
+                           transform_ancestors=False, pass_source=False):
         return language_dispatch(lang, self.gen_transform_code_java,
                     self.gen_transform_code_cpp, class_name,
-                    method_name, arg_class_name, transform_ancestors)
+                    method_name, arg_class_name, transform_ancestors,
+                    pass_source)
 
     def gen_transform_code_cpp(self, class_name, method_name, arg_class_name,
-                               transform_ancestors):
+                               transform_ancestors, pass_source):
         # FIXME
         raise NotImplementedError
 
     def gen_transform_code_java(self, class_name, method_name, arg_class_name,
-                                transform_ancestors):
+                                transform_ancestors, pass_source):
         node_class = self.__class__.__name__
         fields = self.build_fields_dict()
         fields_code = []
@@ -467,7 +468,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
         for name, fielddesc in fields.items():
             field_code = fielddesc.gen_transform_code(DST_LANGUAGE.JAVA,
                             "node", name, class_name, method_name, "arg",
-                            transform_ancestors)
+                            transform_ancestors, pass_source)
             fields_code.extend(field_code)
 
         if not fields_code:
@@ -1047,9 +1048,9 @@ def gen_attr_transformation_java(directory):
         f.write("package pl.edu.mimuw.nesc.ast.gen;\n\n")
         f.write("import java.util.LinkedList;\n\n")
         f.write("public interface AttrTransformation<A> {\n")
-        f.write(tab + "LinkedList<Attribute> transform(GccAttribute attr, A arg);\n")
-        f.write(tab + "LinkedList<Attribute> transform(TargetAttribute attr, A arg);\n")
-        f.write(tab + "LinkedList<Attribute> transform(NescAttribute attr, A arg);\n")
+        f.write(tab + "LinkedList<Attribute> transform(GccAttribute attr, Node containingNode, A arg);\n")
+        f.write(tab + "LinkedList<Attribute> transform(TargetAttribute attr, Node containingNode, A arg);\n")
+        f.write(tab + "LinkedList<Attribute> transform(NescAttribute attr, Node containingNode, A arg);\n")
         f.write("}\n")
 
 
@@ -1073,18 +1074,18 @@ def gen_attr_transformer_java(directory):
         f.write("import static com.google.common.base.Preconditions.checkNotNull;\n\n")
         f.write("public class AttrTransformer<A> extends IdentityVisitor<A> {\n")
         f.write(tab + "private final AttrTransformation<A> transformation;\n\n")
-        f.write(tab + "private final Visitor<LinkedList<Attribute>, A> dispatchingVisitor = new ExceptionVisitor<LinkedList<Attribute>, A>() {\n")
+        f.write(tab + "private final Visitor<LinkedList<Attribute>, TransformData<A>> dispatchingVisitor = new ExceptionVisitor<LinkedList<Attribute>, TransformData<A>>() {\n")
         f.write(tab * 2 + "@Override\n")
-        f.write(tab * 2 + "public LinkedList<Attribute> visitGccAttribute(GccAttribute attr, A arg) {\n")
-        f.write(tab * 3 + "return transformation.transform(attr, arg);\n")
+        f.write(tab * 2 + "public LinkedList<Attribute> visitGccAttribute(GccAttribute attr, TransformData<A> data) {\n")
+        f.write(tab * 3 + "return transformation.transform(attr, data.containingNode, data.arg);\n")
         f.write(tab * 2 + "}\n")
         f.write(tab * 2 + "@Override\n")
-        f.write(tab * 2 + "public LinkedList<Attribute> visitTargetAttribute(TargetAttribute attr, A arg) {\n")
-        f.write(tab * 3 + "return transformation.transform(attr, arg);\n")
+        f.write(tab * 2 + "public LinkedList<Attribute> visitTargetAttribute(TargetAttribute attr, TransformData<A> data) {\n")
+        f.write(tab * 3 + "return transformation.transform(attr, data.containingNode, data.arg);\n")
         f.write(tab * 2 + "}\n")
         f.write(tab * 2 + "@Override\n")
-        f.write(tab * 2 + "public LinkedList<Attribute> visitNescAttribute(NescAttribute attr, A arg) {\n")
-        f.write(tab * 3 + "return transformation.transform(attr, arg);\n")
+        f.write(tab * 2 + "public LinkedList<Attribute> visitNescAttribute(NescAttribute attr, TransformData<A> data) {\n")
+        f.write(tab * 3 + "return transformation.transform(attr, data.containingNode, data.arg);\n")
         f.write(tab * 2 + "}\n")
         f.write(tab + "};\n\n")
         f.write(tab + "public AttrTransformer(AttrTransformation<A> transformation) {\n")
@@ -1094,29 +1095,31 @@ def gen_attr_transformer_java(directory):
 
         for node_cls in ast_nodes.values():
             f.write(node_cls().gen_transform_code(DST_LANGUAGE.JAVA,
-                "Attribute", "performTransformation", "A", True))
+                "Attribute", "performTransformation", "A", transform_ancestors=True,
+                pass_source=True))
 
         gen_attr_transformer_dispatch_java(f)
         gen_attr_transformer_list_methods_java(f)
+        gen_attr_transformer_container_java(f)
         f.write("}\n")
 
 
 def gen_attr_transformer_dispatch_java(f):
-    f.write(tab + "private Optional<LinkedList<Attribute>> dispatchForTransformation(Object object, A arg) {\n")
+    f.write(tab + "private Optional<LinkedList<Attribute>> dispatchForTransformation(Object object, Node containingNode, A arg) {\n")
     f.write(tab * 2 + "return object instanceof Attribute\n")
-    f.write(tab * 3 + "? Optional.of(((Attribute) object).accept(dispatchingVisitor, arg))\n")
+    f.write(tab * 3 + "? Optional.of(((Attribute) object).accept(dispatchingVisitor, new TransformData<>(containingNode, arg)))\n")
     f.write(tab * 3 + ": Optional.<LinkedList<Attribute>>absent();\n")
     f.write(tab + "}\n\n")
 
 
 def gen_attr_transformer_list_methods_java(f):
-    f.write(tab + "private void performTransformations(LinkedList<? super Attribute> attrs, A arg) {\n")
+    f.write(tab + "private void performTransformations(LinkedList<? super Attribute> attrs, Node containingNode, A arg) {\n")
     f.write(tab * 2 + "if (attrs == null) {\n")
     f.write(tab * 3 + "return;\n")
     f.write(tab * 2 + "}\n\n")
     f.write(tab * 2 + "final ListIterator<? super Attribute> attrsIt = attrs.listIterator();\n\n")
     f.write(tab * 2 + "while (attrsIt.hasNext()) {\n")
-    f.write(tab * 3 + "final Optional<LinkedList<Attribute>> newAttrs = dispatchForTransformation(attrsIt.next(), arg);\n\n")
+    f.write(tab * 3 + "final Optional<LinkedList<Attribute>> newAttrs = dispatchForTransformation(attrsIt.next(), containingNode, arg);\n\n")
     f.write(tab * 3 + "if (!newAttrs.isPresent()) {\n")
     f.write(tab * 4 + "continue;\n")
     f.write(tab * 3 + "}\n\n")
@@ -1131,9 +1134,21 @@ def gen_attr_transformer_list_methods_java(f):
     f.write(tab * 3 + "}\n")
     f.write(tab * 2 + "}\n")
     f.write(tab + "}\n\n")
-    f.write(tab + "private void performTransformations(Optional<? extends LinkedList<? super Attribute>> attrs, A arg) {\n")
+    f.write(tab + "private void performTransformations(Optional<? extends LinkedList<? super Attribute>> attrs, Node containingNode, A arg) {\n")
     f.write(tab * 2 + "if (attrs != null && attrs.isPresent()) {\n")
-    f.write(tab * 3 + "performTransformations(attrs.get(), arg);\n")
+    f.write(tab * 3 + "performTransformations(attrs.get(), containingNode, arg);\n")
+    f.write(tab * 2 + "}\n")
+    f.write(tab + "}\n\n")
+
+
+def gen_attr_transformer_container_java(f):
+    f.write(tab + "private static final class TransformData<A> {\n")
+    f.write(tab * 2 + "private final Node containingNode;\n")
+    f.write(tab * 2 + "private final A arg;\n\n")
+    f.write(tab * 2 + "private TransformData(Node containingNode, A arg) {\n")
+    f.write(tab * 3 + 'checkNotNull(containingNode, "containing node cannot be null");\n')
+    f.write(tab * 3 + "this.containingNode = containingNode;\n")
+    f.write(tab * 3 + "this.arg = arg;\n")
     f.write(tab * 2 + "}\n")
     f.write(tab + "}\n")
 
