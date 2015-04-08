@@ -20,6 +20,7 @@ import pl.edu.mimuw.nesc.ast.gen.NestedDeclarator;
 import pl.edu.mimuw.nesc.ast.gen.TypeElement;
 import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
+import pl.edu.mimuw.nesc.astutil.DeclarationsSeparator;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
@@ -61,8 +62,9 @@ public final class LinkageOptimizer {
     public ImmutableList<Declaration> optimize(List<Declaration> declarations) {
         checkNotNull(declarations, "declarations cannot be null");
 
-        final ImmutableList<Declaration> separatedDecls =
-                AstUtils.separateDeclarations(declarations, nameMangler);
+        final DeclarationsSeparator separator = new DeclarationsSeparator(nameMangler);
+        separator.configure(false, false);
+        final ImmutableList<Declaration> separatedDecls = separator.separate(declarations);
         final OptimizerVisitor visitor = new OptimizerVisitor();
 
         for (Declaration declaration : separatedDecls) {

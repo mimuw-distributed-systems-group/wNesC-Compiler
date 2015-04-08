@@ -15,7 +15,6 @@ import pl.edu.mimuw.nesc.ast.IntegerCstSuffix;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.RID;
-import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.attribute.Attributes;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
@@ -67,7 +66,6 @@ public final class AstUtils {
      * The only instance of the visitors used for operations.
      */
     private static final IncrementOperationCloningVisitor INCREMENT_OPERATION_CLONING_VISITOR = new IncrementOperationCloningVisitor();
-    private static final DeclarationsSeparationVisitor DECLARATIONS_SEPARATION_VISITOR = new DeclarationsSeparationVisitor();
 
     /**
      * Returns start location of nodes in the list.
@@ -1020,93 +1018,6 @@ public final class AstUtils {
     }
 
     /**
-     * Separates declarations in the given data declaration if there are more
-     * than one.
-     *
-     * @param dataDecl Data declaration with multiple declarations to separate.
-     * @param nameMangler Name mangler used to give names to unnamed tags found in
-     *                    type elements if it is necessary.
-     * @return If the given data declaration object contains less than 2 inner
-     *         declarations, then the object is absent. Otherwise, it is present
-     *         and a list of equivalent declarations is returned (each object on
-     *         the list is a data declaration object and each contains exactly
-     *         one nested declaration).
-     */
-    public static Optional<LinkedList<Declaration>> separateDeclarations(DataDecl dataDecl,
-            NameMangler nameMangler) {
-        checkNotNull(dataDecl, "data declaration cannot be null");
-        checkNotNull(nameMangler, "name mangler cannot be null");
-
-        if (dataDecl.getDeclarations().size() < 2) {
-            return Optional.absent();
-        }
-
-        // Prepare type elements
-
-        nameTags(dataDecl.getModifiers(), nameMangler);
-
-        final LinkedList<TypeElement> typeElements = deepCopyNodes(dataDecl.getModifiers(), true,
-                Optional.<Map<Node, Node>>absent());
-
-        for (TypeElement typeElement : typeElements) {
-            if (typeElement instanceof AttributeRef) {
-                throw new IllegalArgumentException("attribute definition used as type");
-            } else if (typeElement instanceof TagRef) {
-                final TagRef tagRef = (TagRef) typeElement;
-                tagRef.setFields(new LinkedList<Declaration>());
-                tagRef.setSemantics(StructSemantics.OTHER);
-            }
-        }
-
-        // Create list of declarations
-
-        final Iterator<Declaration> innerDeclIt = dataDecl.getDeclarations().iterator();
-        final LinkedList<Declaration> declarations = Lists.<Declaration>newList(dataDecl);
-        dataDecl.setDeclarations(Lists.newList(innerDeclIt.next()));
-
-        while (innerDeclIt.hasNext()) {
-            declarations.add(new DataDecl(
-                    Location.getDummyLocation(),
-                    deepCopyNodes(typeElements, true, Optional.<Map<Node, Node>>absent()),
-                    Lists.newList(innerDeclIt.next())
-            ));
-        }
-
-        return Optional.of(declarations);
-    }
-
-    /**
-     * Separates inner declarations of all data declarations found in the given
-     * collection. The order of declarations is preserved.
-     *
-     * @param declarations List of declarations to separate.
-     * @param nameMangler Name mangler used to give names to unnamed tags if it
-     *                    is necessary.
-     * @return Newly created list with all inner declarations in declarations
-     *         from the given collection separated.
-     */
-    public static ImmutableList<Declaration> separateDeclarations(Collection<? extends Declaration> declarations,
-            NameMangler nameMangler) {
-        checkNotNull(declarations, "declarations cannot be null");
-        checkNotNull(nameMangler, "name mangler cannot be null");
-
-        final ImmutableList.Builder<Declaration> declarationsBuilder = ImmutableList.builder();
-
-        for (Declaration declaration : declarations) {
-            final Optional<LinkedList<Declaration>> separatedDecls =
-                    declaration.accept(DECLARATIONS_SEPARATION_VISITOR, nameMangler);
-
-            if (separatedDecls.isPresent()) {
-                declarationsBuilder.addAll(separatedDecls.get());
-            } else {
-                declarationsBuilder.add(declaration);
-            }
-        }
-
-        return declarationsBuilder.build();
-    }
-
-    /**
      * Create a new instance of a target attribute that does not take any
      * parameters.
      *
@@ -1349,34 +1260,4 @@ public final class AstUtils {
         }
     }
 
-    /**
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    private static final class DeclarationsSeparationVisitor extends ExceptionVisitor<Optional<LinkedList<Declaration>>, NameMangler> {
-        @Override
-        public Optional<LinkedList<Declaration>> visitFunctionDecl(FunctionDecl declaration, NameMangler nameMangler) {
-            return Optional.absent();
-        }
-
-        @Override
-        public Optional<LinkedList<Declaration>> visitExtensionDecl(ExtensionDecl declaration, NameMangler nameMangler) {
-            final Optional<LinkedList<Declaration>> separatedDecl =
-                    declaration.getDeclaration().accept(this, nameMangler);
-
-            if (!separatedDecl.isPresent()) {
-                return Optional.absent();
-            } else {
-                final LinkedList<Declaration> result = new LinkedList<>();
-                for (Declaration sepDeclaration : separatedDecl.get()) {
-                    result.add(new ExtensionDecl(Location.getDummyLocation(), sepDeclaration));
-                }
-                return Optional.of(result);
-            }
-        }
-
-        @Override
-        public Optional<LinkedList<Declaration>> visitDataDecl(DataDecl declaration, NameMangler nameMangler) {
-            return separateDeclarations(declaration, nameMangler);
-        }
-    }
 }
