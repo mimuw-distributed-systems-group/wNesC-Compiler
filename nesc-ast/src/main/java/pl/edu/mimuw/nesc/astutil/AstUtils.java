@@ -1106,6 +1106,44 @@ public final class AstUtils {
         return declarationsBuilder.build();
     }
 
+    /**
+     * Create a new instance of a target attribute that does not take any
+     * parameters.
+     *
+     * @param name Name of the attribute (attribute keyword).
+     * @return Newly created target attribute with absent parameters and with
+     *         given name.
+     */
+    public static TargetAttribute newTargetAttribute0(String name) {
+        checkNotNull(name, "name cannot be null");
+        checkArgument(!name.isEmpty(), "name cannot be an empty string");
+
+        return new TargetAttribute(
+                Location.getDummyLocation(),
+                new Word(Location.getDummyLocation(), name),
+                Optional.<LinkedList<Expression>>absent()
+        );
+    }
+
+    /**
+     * Create a new instance of a target attribute that takes one parameter.
+     *
+     * @param name Name of the attribute to contain in the created object.
+     * @param parameter Parameter for the created attribute.
+     * @return Newly created target attribute with given name and parameter.
+     */
+    public static TargetAttribute newTargetAttribute1(String name, Expression parameter) {
+        checkNotNull(name, "name cannot be null");
+        checkNotNull(parameter, "parameter for the attribute cannot be null");
+        checkArgument(!name.isEmpty(), "name cannot be an empty string");
+
+        return new TargetAttribute(
+                Location.getDummyLocation(),
+                new Word(Location.getDummyLocation(), name),
+                Optional.of(Lists.newList(parameter))
+        );
+    }
+
     private AstUtils() {
     }
 
