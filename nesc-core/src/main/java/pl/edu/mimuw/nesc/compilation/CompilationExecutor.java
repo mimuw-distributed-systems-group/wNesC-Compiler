@@ -201,8 +201,9 @@ public final class CompilationExecutor {
                 wiring, finalCode, refsGraph);
         reduceAtomic(projectData, cleanedCode);
 
-        return new CompilationResult(cleanedCode, projectData.getOutputFile(),
-                projectData.getExternalVariables(), projectData.getExternalVariablesFile());
+        return new CompilationResult(cleanedCode, projectData.getNameMangler(),
+                projectData.getOutputFile(), projectData.getExternalVariables(),
+                projectData.getExternalVariablesFile());
     }
 
     /**

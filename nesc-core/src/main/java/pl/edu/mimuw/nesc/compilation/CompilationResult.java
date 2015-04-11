@@ -4,6 +4,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.SetMultimap;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
+import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -19,6 +20,12 @@ public final class CompilationResult {
      * The resulting C declarations.
      */
     private final ImmutableList<Declaration> declarations;
+
+    /**
+     * Name mangler used to for mangling names of entities in the list of
+     * declarations.
+     */
+    private final NameMangler nameMangler;
 
     /**
      * Name of the output file that is expected to contain the declarations.
@@ -39,11 +46,13 @@ public final class CompilationResult {
 
     CompilationResult(
             ImmutableList<Declaration> declarations,
+            NameMangler nameMangler,
             String outputFileName,
             SetMultimap<Optional<String>, String> externalVariables,
             Optional<String> externalVariablesFileName
     ) {
         checkNotNull(declarations, "declarations cannot be null");
+        checkNotNull(nameMangler, "name mangler cannot be null");
         checkNotNull(outputFileName, "output file name cannot be null");
         checkNotNull(externalVariables, "external variables cannot be null");
         checkNotNull(externalVariablesFileName, "name of the file with external variables cannot be null");
@@ -52,6 +61,7 @@ public final class CompilationResult {
                 "external variables file name cannot be an empty string");
 
         this.declarations = declarations;
+        this.nameMangler = nameMangler;
         this.outputFileName = outputFileName;
         this.externalVariables = externalVariables;
         this.externalVariablesFileName = externalVariablesFileName;
@@ -65,6 +75,16 @@ public final class CompilationResult {
      */
     public ImmutableList<Declaration> getDeclarations() {
         return declarations;
+    }
+
+    /**
+     * Get the name mangler that has been used to mangle names in the program and
+     * that can be used to generate unique names.
+     *
+     * @return The name mangler of the project.
+     */
+    public NameMangler getNameMangler() {
+        return nameMangler;
     }
 
     /**
