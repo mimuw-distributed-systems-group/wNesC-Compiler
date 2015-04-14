@@ -9,6 +9,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -81,6 +83,11 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
     private final String sdccExecutablePath;
 
     /**
+     * Parameters to pass to SDCC.
+     */
+    private final ImmutableList<String> sdccParameters;
+
+    /**
      * Directory used for saving temporary SDCC files.
      */
     private final String tempDirectory;
@@ -149,6 +156,7 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
     private SDCCCodeSizeEstimator(PrivateBuilder builder) {
         this.memoryModel = builder.buildMemoryModel();
         this.sdccExecutablePath = builder.buildSDCCExecutablePath();
+        this.sdccParameters = builder.buildSDCCParameters();
         this.tempDirectory = builder.buildTemporaryDirectory();
         this.threadsCount = builder.buildThreadsCount();
         this.declarations = builder.buildDeclarations();
@@ -255,10 +263,26 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
          */
         private final String relFileName;
 
+        /**
+         * The invocation of SDCC used by this runnable.
+         */
+        private final String[] sdccCmdArray;
+
         private EstimatingRunnable(int id) {
             checkArgument(id > 0, "identifier must be positive");
+
             this.funFileName = Paths.get(tempDirectory, "fun" + id + ".c").toString();
             this.relFileName = Paths.get(tempDirectory, "fun" + id + ".rel").toString();
+
+            final List<String> sdccCmdList = new LinkedList<>();
+            sdccCmdList.add(sdccExecutablePath);
+            if (memoryModel.isPresent()) {
+                sdccCmdList.add(memoryModel.get().getOption());
+            }
+            sdccCmdList.add("-c");
+            sdccCmdList.addAll(sdccParameters);
+            sdccCmdList.add(funFileName);
+            this.sdccCmdArray = sdccCmdList.toArray(new String[sdccCmdList.size()]);
         }
 
         @Override
@@ -288,10 +312,7 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
             writeFunctionFile(functionDecl, isBanked);
 
             // Run SDCC
-            final String[] cmdArray = memoryModel.isPresent()
-                    ? new String[] { sdccExecutablePath, memoryModel.get().getOption(), "-c", funFileName}
-                    : new String[] { sdccExecutablePath, "-c", funFileName };
-            final Process sdccProcess = Runtime.getRuntime().exec(cmdArray);
+            final Process sdccProcess = Runtime.getRuntime().exec(sdccCmdArray);
             final int sdccRetcode = sdccProcess.waitFor();
             if (sdccRetcode != 0) {
                 throw new RuntimeException("SDCC returned code " + sdccRetcode);
@@ -443,6 +464,7 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
     private interface PrivateBuilder {
         Optional<SDCCMemoryModel> buildMemoryModel();
         String buildSDCCExecutablePath();
+        ImmutableList<String> buildSDCCParameters();
         String buildTemporaryDirectory();
         int buildThreadsCount();
         ImmutableList<Declaration> buildDeclarations();
@@ -462,6 +484,7 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
          */
         private final ImmutableList<Declaration> declarations;
         private final WriteSettings writeSettings;
+        private final ImmutableList.Builder<String> sdccParametersBuilder;
         private Optional<SDCCMemoryModel> memoryModel;
         private Optional<String> sdccExecutablePath;
         private Optional<String> temporaryDirectory;
@@ -470,6 +493,7 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
         private Builder(ImmutableList<Declaration> declarations, WriteSettings writeSettings) {
             this.declarations = declarations;
             this.writeSettings = writeSettings;
+            this.sdccParametersBuilder = ImmutableList.builder();
             this.memoryModel = Optional.absent();
             this.sdccExecutablePath = Optional.absent();
             this.temporaryDirectory = Optional.absent();
@@ -499,6 +523,19 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
          */
         public Builder sdccExecutable(String executablePath) {
             this.sdccExecutablePath = Optional.fromNullable(executablePath);
+            return this;
+        }
+
+        /**
+         * Add parameters to pass to SDCC when invoking it. They will be added
+         * and passed to SDCC in the order returned by the iterator of the given
+         * collection.
+         *
+         * @param parameters Iterable with parameters to add.
+         * @return <code>this</code>
+         */
+        public Builder addSDCCParameters(Iterable<String> parameters) {
+            this.sdccParametersBuilder.addAll(parameters);
             return this;
         }
 
@@ -542,7 +579,7 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
             return this;
         }
 
-        private void validate() {
+        private void validate(ImmutableList<String> sdccParameters) {
             // Check if the temporary directory exists and is writable
             if (temporaryDirectory.isPresent()) {
                 final File tmpDir = new File(temporaryDirectory.get());
@@ -553,6 +590,14 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
                 checkState(tmpDir.canWrite(), "lack of write permission for '"
                         + temporaryDirectory.get() + "'");
             }
+
+            // Check if SDCC parameters are correct
+            for (String parameter : sdccParameters) {
+                checkState(!SDCCMemoryModel.getAllOptions().contains(parameter),
+                        "parameter that specifies a memory model is added");
+                checkState(!parameter.equals("-c"), "'-c' parameter is added");
+                checkState(parameter.startsWith("-"), "parameter that is not an option is added");
+            }
         }
 
         /**
@@ -561,10 +606,11 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
          * @return Newly created instance of an SDCC code size estimator.
          */
         public SDCCCodeSizeEstimator build() {
-            validate();
+            final ImmutableList<String> sdccParameters = sdccParametersBuilder.build();
+            validate(sdccParameters);
             return new SDCCCodeSizeEstimator(new RealBuilder(memoryModel,
-                    sdccExecutablePath, temporaryDirectory, threadsCount,
-                    declarations,writeSettings));
+                    sdccExecutablePath, sdccParameters, temporaryDirectory,
+                    threadsCount, declarations, writeSettings));
         }
     }
 
@@ -587,16 +633,19 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
          */
         private final Optional<SDCCMemoryModel> memoryModel;
         private final Optional<String> sdccExecutablePath;
+        private final ImmutableList<String> sdccParameters;
         private final Optional<String> temporaryDirectory;
         private final Optional<Integer> threadsCount;
         private final ImmutableList<Declaration> declarations;
         private final WriteSettings writeSettings;
 
         private RealBuilder(Optional<SDCCMemoryModel> memoryModel, Optional<String> sdccExecutablePath,
-                    Optional<String> temporaryDirectory, Optional<Integer> threadsCount,
-                    ImmutableList<Declaration> declarations, WriteSettings writeSettings) {
+                    ImmutableList<String> sdccParameters, Optional<String> temporaryDirectory,
+                    Optional<Integer> threadsCount, ImmutableList<Declaration> declarations,
+                    WriteSettings writeSettings) {
             this.memoryModel = memoryModel;
             this.sdccExecutablePath = sdccExecutablePath;
+            this.sdccParameters = sdccParameters;
             this.temporaryDirectory = temporaryDirectory;
             this.threadsCount = threadsCount;
             this.declarations = declarations;
@@ -611,6 +660,11 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
         @Override
         public String buildSDCCExecutablePath() {
             return sdccExecutablePath.or(DEFAULT_SDCC_EXEC);
+        }
+
+        @Override
+        public ImmutableList<String> buildSDCCParameters() {
+            return sdccParameters;
         }
 
         @Override

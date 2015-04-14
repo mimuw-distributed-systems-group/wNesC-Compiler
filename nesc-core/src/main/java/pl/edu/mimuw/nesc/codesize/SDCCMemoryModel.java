@@ -1,5 +1,7 @@
 package pl.edu.mimuw.nesc.codesize;
 
+import com.google.common.collect.ImmutableSet;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -32,9 +34,30 @@ public enum SDCCMemoryModel {
     ;
 
     /**
+     * Set that contains options that specify a SDCC memory model.
+     */
+    private static final ImmutableSet<String> SET_OPTIONS;
+    static {
+        final ImmutableSet.Builder<String> optionsSetBuilder = ImmutableSet.builder();
+        for (SDCCMemoryModel memoryModel : SDCCMemoryModel.values()) {
+            optionsSetBuilder.add(memoryModel.getOption());
+        }
+        SET_OPTIONS = optionsSetBuilder.build();
+    }
+
+    /**
      * Option for the SDCC compiler that activates the memory model.
      */
     private final String option;
+
+    /**
+     * Get a set that contains all SDCC options that specify a memory model.
+     *
+     * @return Set with SDCC options.
+     */
+    public static ImmutableSet<String> getAllOptions() {
+        return SET_OPTIONS;
+    }
 
     private SDCCMemoryModel(String option) {
         checkNotNull(option, "option cannot be null");
