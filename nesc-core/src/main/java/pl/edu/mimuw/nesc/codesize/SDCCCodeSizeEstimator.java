@@ -264,9 +264,9 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
         private final String relFileName;
 
         /**
-         * The invocation of SDCC used by this runnable.
+         * Builder for the SDCC process that will be reused.
          */
-        private final String[] sdccCmdArray;
+        private final ProcessBuilder sdccProcessBuilder;
 
         private EstimatingRunnable(int id) {
             checkArgument(id > 0, "identifier must be positive");
@@ -274,6 +274,7 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
             this.funFileName = Paths.get(tempDirectory, "fun" + id + ".c").toString();
             this.relFileName = Paths.get(tempDirectory, "fun" + id + ".rel").toString();
 
+            // Create command invocation for SDCC
             final List<String> sdccCmdList = new LinkedList<>();
             sdccCmdList.add(sdccExecutablePath);
             if (memoryModel.isPresent()) {
@@ -282,7 +283,10 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
             sdccCmdList.add("-c");
             sdccCmdList.addAll(sdccParameters);
             sdccCmdList.add(funFileName);
-            this.sdccCmdArray = sdccCmdList.toArray(new String[sdccCmdList.size()]);
+
+            // Configure the SDCC process builder
+            this.sdccProcessBuilder = new ProcessBuilder(sdccCmdList)
+                    .directory(new File(tempDirectory));
         }
 
         @Override
@@ -312,7 +316,7 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
             writeFunctionFile(functionDecl, isBanked);
 
             // Run SDCC
-            final Process sdccProcess = Runtime.getRuntime().exec(sdccCmdArray);
+            final Process sdccProcess = sdccProcessBuilder.start();
             final int sdccRetcode = sdccProcess.waitFor();
             if (sdccRetcode != 0) {
                 throw new RuntimeException("SDCC returned code " + sdccRetcode);
@@ -527,6 +531,18 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
         }
 
         /**
+         * Add a parameter to pass to SDCC when invoking it. The added
+         * parameters will appear in the order of adding them.
+         *
+         * @param parameter Parameter to add.
+         * @return <code>this</code>
+         */
+        public Builder addSDCCParameter(String parameter) {
+            this.sdccParametersBuilder.add(parameter);
+            return this;
+        }
+
+        /**
          * Add parameters to pass to SDCC when invoking it. They will be added
          * and passed to SDCC in the order returned by the iterator of the given
          * collection.
@@ -593,6 +609,8 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
 
             // Check if SDCC parameters are correct
             for (String parameter : sdccParameters) {
+                checkState(parameter != null, "a null SDCC parameter is added");
+                checkState(!parameter.isEmpty(), "an empty SDCC parameter is added");
                 checkState(!SDCCMemoryModel.getAllOptions().contains(parameter),
                         "parameter that specifies a memory model is added");
                 checkState(!parameter.equals("-c"), "'-c' parameter is added");
