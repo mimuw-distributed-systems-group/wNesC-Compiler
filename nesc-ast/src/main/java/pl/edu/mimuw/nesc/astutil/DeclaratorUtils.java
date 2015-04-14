@@ -2,6 +2,8 @@ package pl.edu.mimuw.nesc.astutil;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import java.util.List;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
 
@@ -23,6 +25,7 @@ public final class DeclaratorUtils {
     private static final SetUniqueNameVisitor SET_UNIQUE_NAME_VISITOR = new SetUniqueNameVisitor();
     private static final GetUniqueNameVisitor GET_UNIQUE_NAME_VISITOR = new GetUniqueNameVisitor();
     private static final DeepestNestedDeclaratorVisitor DEEPEST_NESTED_DECLARATOR_VISITOR = new DeepestNestedDeclaratorVisitor();
+    private static final DeclaratorListVisitor DECLARATOR_LIST_VISITOR = new DeclaratorListVisitor();
 
     /**
      * Gets declarator's name.
@@ -186,6 +189,29 @@ public final class DeclaratorUtils {
                 "the declarator does not declare a function");
         return VariousUtils.getBooleanValue(((FunctionDeclarator) deepestNestedDeclarator.get())
                 .getIsBanked());
+    }
+
+    /**
+     * <p>Create a list of declarators that shows their structure. Assume that
+     * the list <code>L</code> contains <code>n</code> elements and that the
+     * first element has index 0. Then, the following holds:</p>
+     * <ol>
+     *    <li>if  <code>0 <= i <= n - 2</code>, then <code>L[i]</code> is
+     *    a nested declarator and <code>L[i + 1]</code> is the declarator nested
+     *    in <code>L[i]</code></li>
+     *    <li>if the returned list contains an identifier declarator, then there
+     *    is only one such element and it is the last element of the list</li>
+     * </ol>
+     *
+     * @param declarator Declarator to build the structure list for.
+     * @return List that shows the structure of declarators path that starts in
+     *         the given declarator.
+     */
+    public static ImmutableList<Declarator> createDeclaratorsList(Declarator declarator) {
+        checkNotNull(declarator, "declarator cannot be null");
+        final ImmutableList.Builder<Declarator> declaratorsBuilder = ImmutableList.builder();
+        declarator.accept(DECLARATOR_LIST_VISITOR, declaratorsBuilder);
+        return declaratorsBuilder.build();
     }
 
     private DeclaratorUtils() {
@@ -552,6 +578,58 @@ public final class DeclaratorUtils {
             return nextDeclarator.isPresent()
                     ? nextDeclarator.get().accept(this, null)
                     : Optional.<NestedDeclarator>absent();
+        }
+    }
+
+    /**
+     * Visitor that adds visited declarators to the given list from the starting
+     * one to the most nested one (the order of declarators in the list shows
+     * their structure).
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class DeclaratorListVisitor extends ExceptionVisitor<Void, ImmutableList.Builder<Declarator>> {
+        @Override
+        public Void visitIdentifierDeclarator(IdentifierDeclarator declarator, ImmutableList.Builder<Declarator> builder) {
+            builder.add(declarator);
+            return null;
+        }
+
+        @Override
+        public Void visitInterfaceRefDeclarator(InterfaceRefDeclarator declarator, ImmutableList.Builder<Declarator> builder) {
+            jump(declarator, builder);
+            return null;
+        }
+
+        @Override
+        public Void visitArrayDeclarator(ArrayDeclarator declarator, ImmutableList.Builder<Declarator> builder) {
+            jump(declarator, builder);
+            return null;
+        }
+
+        @Override
+        public Void visitQualifiedDeclarator(QualifiedDeclarator declarator, ImmutableList.Builder<Declarator> builder) {
+            jump(declarator, builder);
+            return null;
+        }
+
+        @Override
+        public Void visitFunctionDeclarator(FunctionDeclarator declarator, ImmutableList.Builder<Declarator> builder) {
+            jump(declarator, builder);
+            return null;
+        }
+
+        @Override
+        public Void visitPointerDeclarator(PointerDeclarator declarator, ImmutableList.Builder<Declarator> builder) {
+            jump(declarator, builder);
+            return null;
+        }
+
+        private void jump(NestedDeclarator declarator, ImmutableList.Builder<Declarator> builder) {
+            builder.add(declarator);
+            if (declarator.getDeclarator().isPresent()) {
+                declarator.getDeclarator().get().accept(this, builder);
+            }
         }
     }
 
