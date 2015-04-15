@@ -224,6 +224,12 @@ final class DeclarationsAdjuster {
      */
     private final class AdjustingVisitor extends IdentityVisitor<Void> {
         @Override
+        public Void visitAstType(AstType astType, Void arg) {
+            handleTypedefsWithStorage(astType.getQualifiers());
+            return null;
+        }
+
+        @Override
         public Void visitDataDecl(DataDecl dataDecl, Void arg) {
             handleTypedefsWithStorage(dataDecl.getModifiers());
 

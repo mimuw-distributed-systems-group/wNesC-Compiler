@@ -67,18 +67,14 @@ public final class Options8051Parser implements OptionsProvider {
     /**
      * Parses the parameters given at construction of the parser.
      *
-     * @return Newly created object that allows extracting information about the
-     *         parsed options.
      * @throws ParseException The options specified by the user are invalid.
      */
-    public Options8051Holder parse() throws ParseException {
+    public void parse() throws ParseException {
         if (!parsedParameters.isPresent()) {
             final DefaultParser parser = new DefaultParser();
             final CommandLine afterParsing = parser.parse(optionsDefinition, parameters, false);
             this.parsedParameters = Optional.of(afterParsing);
         }
-
-        return new Options8051Holder(parsedParameters.get());
     }
 
     /**
@@ -92,6 +88,19 @@ public final class Options8051Parser implements OptionsProvider {
     public Options8051Validator getValidator() {
         checkState(parsedParameters.isPresent(), "options have not been parsed yet");
         return new Options8051Validator(parsedParameters.get());
+    }
+
+    /**
+     * Get object that allows extracting information about options for the 8051
+     * backend.
+     *
+     * @return Newly created holder for 8051 backend options.
+     * @throws IllegalStateException Options have not been parsed yet or the
+     *                               parsing process has failed.
+     */
+    public Options8051Holder getOptions8051() {
+        checkState(parsedParameters.isPresent(), "options have not been parsed yet");
+        return new Options8051Holder(parsedParameters.get());
     }
 
     @Override
