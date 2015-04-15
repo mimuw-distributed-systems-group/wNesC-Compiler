@@ -198,7 +198,7 @@ public final class CompilationExecutor {
                 intermediateFuns.values());
         final ReferencesGraph refsGraph = buildReferencesGraph(finalCode);
         final ImmutableList<Declaration> cleanedCode = optimize(projectData,
-                wiring, finalCode, refsGraph);
+                wiring, finalCode, refsGraph, AtomicSpecification.DEFAULT_SPECIFICATION);
         reduceAtomic(projectData, cleanedCode);
 
         return new CompilationResult(cleanedCode, projectData.getNameMangler(),
@@ -552,9 +552,13 @@ public final class CompilationExecutor {
      * declarations and after performing other optimizations.
      */
     private ImmutableList<Declaration> optimize(ProjectData projectData, WiresGraph wiresGraph,
-            ImmutableList<Declaration> declarations, ReferencesGraph refsGraph) {
+                ImmutableList<Declaration> declarations, ReferencesGraph refsGraph,
+                AtomicSpecification atomicSpecification) {
         final ImmutableList<Declaration> afterCleaning = DeclarationsCleaner.builder(refsGraph)
                 .addDeclarations(declarations)
+                .addPreservedObject(atomicSpecification.getTypename())
+                .addPreservedObject(atomicSpecification.getStartFunctionName())
+                .addPreservedObject(atomicSpecification.getEndFunctionName())
                 .build()
                 .clean();
         final ImmutableList<Declaration> afterLinkageOptimization =

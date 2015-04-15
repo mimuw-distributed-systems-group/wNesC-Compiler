@@ -2,9 +2,9 @@ package pl.edu.mimuw.nesc.optimization;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -298,6 +298,8 @@ public final class DeclarationsCleaner {
          */
         private final ReferencesGraph refsGraph;
         private final ImmutableList.Builder<Declaration> declarationsBuilder = ImmutableList.builder();
+        private final ImmutableSet.Builder<String> preservedObjectsBuilder = ImmutableSet.builder();
+        private final ImmutableSet.Builder<String> preservedTagsBuilder = ImmutableSet.builder();
 
         /**
          * Private constructor to limit its accessibility.
@@ -309,18 +311,43 @@ public final class DeclarationsCleaner {
         /**
          * Add declarations from the given collection for cleaning. The order of
          * declarations after cleaning is the same as adding them and returning
-         * by the iterator fo the given collection.
+         * by the iterator for the given iterable.
          *
          * @param declarations Declarations to add for cleaning.
          * @return <code>this</code>
          */
-        public Builder addDeclarations(Collection<? extends Declaration> declarations) {
+        public Builder addDeclarations(Iterable<? extends Declaration> declarations) {
             this.declarationsBuilder.addAll(declarations);
             return this;
         }
 
+        /**
+         * Add a preserved object. If an object (or typedef) with such name
+         * exists in the declarations, it will not be removed.
+         *
+         * @param name Name of an object or typedef to preserve.
+         * @return <code>this</code>
+         */
+        public Builder addPreservedObject(String name) {
+            this.preservedObjectsBuilder.add(name);
+            return this;
+        }
+
+        /**
+         * Add a preserved tag. If such tag exists in the declarations, it will
+         * not be removed.
+         *
+         * @param name Name of the tag to preserve.
+         * @return <code>this</code>
+         */
+        public Builder addPreservedTag(String name) {
+            this.preservedTagsBuilder.add(name);
+            return this;
+        }
+
         public DeclarationsCleaner build() {
-            return new DeclarationsCleaner(new RealBuilder(refsGraph, declarationsBuilder.build()));
+            return new DeclarationsCleaner(new RealBuilder(refsGraph, declarationsBuilder.build(),
+                    preservedObjectsBuilder.build(), preservedTagsBuilder.build()));
         }
     }
 
@@ -335,16 +362,22 @@ public final class DeclarationsCleaner {
          */
         private final ReferencesGraph refsGraph;
         private final ImmutableList<Declaration> declarations;
+        private final ImmutableSet<String> preservedObjects;
 
         /**
          * Objects for building the other elements.
          */
         private final Queue<EntityNode> entitiesQueue = new ArrayDeque<>();
+        private final TagPreservingVisitor tagPreservingVisitor;
         private boolean visited = false;
 
-        private RealBuilder(ReferencesGraph refsGraph, ImmutableList<Declaration> declarations) {
+        private RealBuilder(ReferencesGraph refsGraph, ImmutableList<Declaration> declarations,
+                    ImmutableSet<String> preservedObjects, ImmutableSet<String> preservedTags) {
             this.refsGraph = refsGraph;
             this.declarations = declarations;
+            this.preservedObjects = preservedObjects;
+            this.tagPreservingVisitor = new TagPreservingVisitor(refsGraph, entitiesQueue,
+                    preservedTags);
         }
 
         @Override
@@ -387,7 +420,18 @@ public final class DeclarationsCleaner {
 
         @Override
         public Void visitFunctionDecl(FunctionDecl declaration, Void arg) {
+            for (TypeElement typeElement : declaration.getModifiers()) {
+                if (typeElement instanceof TagRef) {
+                    typeElement.traverse(tagPreservingVisitor, null);
+                }
+            }
+
             final String funName = DeclaratorUtils.getUniqueName(declaration.getDeclarator()).get();
+
+            if (preserveObject(funName)) {
+                return null;
+            }
+
             final FunctionDeclaration functionDeclaration = declaration.getDeclaration();
             enqueueSpontaneousFunction(funName, functionDeclaration);
             return null;
@@ -401,12 +445,24 @@ public final class DeclarationsCleaner {
 
         @Override
         public Void visitDataDecl(DataDecl declaration, Void arg) {
+            for (TypeElement typeElement : declaration.getModifiers()) {
+                if (typeElement instanceof TagRef) {
+                   typeElement.traverse(tagPreservingVisitor, null);
+                }
+            }
+
             for (Declaration innerDecl : declaration.getDeclarations()) {
                 final VariableDecl variableDecl = (VariableDecl) innerDecl;
                 final String name = DeclaratorUtils.getUniqueName(variableDecl.getDeclarator()).get();
 
+                // Enqueue a preserved object
+
+                if (preserveObject(name)) {
+                    continue;
+                }
+
                 /* Check if it is a declaration of external variable and if so
-                   add it to the objects queue. */
+                   add it to the queue. */
 
                 if (variableDecl.getDeclaration() != null
                         && variableDecl.getDeclaration().getKind() == ObjectKind.VARIABLE) {
@@ -440,6 +496,76 @@ public final class DeclarationsCleaner {
                         throw new RuntimeException("unexpected call assumptions '"
                                 + functionDeclaration.getCallAssumptions() + "'");
                 }
+            }
+        }
+
+        private boolean preserveObject(String name) {
+            if (preservedObjects.contains(name)) {
+                entitiesQueue.add(refsGraph.getOrdinaryIds().get(name));
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    /**
+     * Visitor that is responsible for enqueuing preserved tags.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class TagPreservingVisitor extends IdentityVisitor<Void> {
+        private final ReferencesGraph refsGraph;
+        private final Queue<EntityNode> entitiesQueue;
+        private final ImmutableSet<String> preservedTags;
+
+        private TagPreservingVisitor(ReferencesGraph refsGraph, Queue<EntityNode> entitiesQueue,
+                    ImmutableSet<String> preservedTags) {
+            this.refsGraph = refsGraph;
+            this.entitiesQueue = entitiesQueue;
+            this.preservedTags = preservedTags;
+        }
+
+        @Override
+        public Void visitStructRef(StructRef node, Void arg) {
+            preserveTag(node);
+            return null;
+        }
+
+        @Override
+        public Void visitUnionRef(UnionRef node, Void arg) {
+            preserveTag(node);
+            return null;
+        }
+
+        @Override
+        public Void visitEnumRef(EnumRef node, Void arg) {
+            preserveTag(node);
+            return null;
+        }
+
+        @Override
+        public Void visitNxStructRef(NxStructRef node, Void arg) {
+            preserveTag(node);
+            return null;
+        }
+
+        @Override
+        public Void visitNxUnionRef(NxUnionRef node, Void arg) {
+            preserveTag(node);
+            return null;
+        }
+
+        @Override
+        public Void visitAttributeRef(AttributeRef node, Void arg) {
+            preserveTag(node);
+            return null;
+        }
+
+        private void preserveTag(TagRef tagRef) {
+            if (tagRef.getUniqueName().isPresent()
+                    && preservedTags.contains(tagRef.getUniqueName().get())) {
+                entitiesQueue.add(refsGraph.getTags().get(tagRef.getUniqueName().get()));
             }
         }
     }
