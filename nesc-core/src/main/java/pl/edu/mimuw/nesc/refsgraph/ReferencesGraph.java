@@ -2,6 +2,13 @@ package pl.edu.mimuw.nesc.refsgraph;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -104,6 +111,90 @@ public final class ReferencesGraph {
         checkNotNull(uniqueName, "unique name cannot be null");
         checkArgument(!uniqueName.isEmpty(), "unique name cannot be empty");
         removeNode(ordinaryIds, uniqueName);
+    }
+
+    /**
+     * Write the call graph implied by this references graph to the file with
+     * given name. If it already exists, it is overwritten.
+     *
+     * @param fileName Name of the file to write the call graph.
+     */
+    public void writeCallGraph(String fileName) throws IOException {
+        checkNotNull(fileName, "file name cannot be null");
+        checkArgument(!fileName.isEmpty(), "file name cannot be an empty string");
+
+        try (final FileOutputStream output = new FileOutputStream(fileName)) {
+            // Truncate the file
+            output.getChannel().truncate(0L);
+
+            // Write the call graph
+            writeCallGraph(output);
+        }
+    }
+
+    /**
+     * <p>Save the call graph that is implied by this references graph to the
+     * given stream. It is saved in textual form in the following format. The
+     * first line contains the number of vertices and number of edges (in this
+     * order) separated by a space. The following lines contain directed edges:
+     * <code>u v</code> means that <code>v</code> is called from <code>u</code>.
+     * </p>
+     *
+     * <p>The given output stream is not closed after the call.</p>
+     *
+     * @param output Output stream to save the graph to.
+     */
+    public void writeCallGraph(OutputStream output) throws IOException {
+        checkNotNull(output, "output cannot be null");
+
+        final ImmutableMap.Builder<String, Integer> funsMapBuilder = ImmutableMap.builder();
+        int nextNumber = 1;
+        int edgesCount = 0;
+
+        // Map functions to numbers and count edges
+        for (Map.Entry<String, EntityNode> nodeEntry : getOrdinaryIds().entrySet()) {
+            if (nodeEntry.getValue().getKind() == EntityNode.Kind.FUNCTION) {
+                funsMapBuilder.put(nodeEntry.getKey(), nextNumber++);
+
+                for (Reference successor : nodeEntry.getValue().getSuccessors()) {
+                    if (successor.getType() == Reference.Type.CALL) {
+                        ++edgesCount;
+                    }
+                }
+            }
+        }
+
+        final ImmutableMap<String, Integer> funsMap = funsMapBuilder.build();
+        final PrintWriter writer;
+
+        try {
+            writer = new PrintWriter(new OutputStreamWriter(output, "UTF-8"));
+        } catch (UnsupportedEncodingException e) {
+            /* The exception cannot be thrown because the support for UTF-8 is
+               obligatory for a Java platform. */
+            throw new RuntimeException("UTF-8 is unsupported", e);
+        }
+
+        // Write the graph
+        writer.print(funsMap.size());
+        writer.print(' ');
+        writer.println(edgesCount);
+        for (Map.Entry<String, Integer> funEntry : funsMap.entrySet()) {
+            for (Reference reference : getOrdinaryIds().get(funEntry.getKey()).getSuccessors()) {
+                if (reference.getType() == Reference.Type.CALL) {
+                    writer.print(funEntry.getValue());
+                    writer.print(' ');
+                    writer.println((int) funsMap.get(reference.getReferencedNode().getUniqueName()));
+                    --edgesCount;
+                }
+            }
+        }
+
+        if (writer.checkError()) {
+            throw new IOException("error while writing data");
+        } else if (edgesCount != 0) {
+            throw new RuntimeException("invalid count of edges written");
+        }
     }
 
     private void removeNode(Map<String, EntityNode> nodesMap, String key) {

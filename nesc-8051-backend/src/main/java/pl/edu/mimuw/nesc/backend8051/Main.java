@@ -23,6 +23,7 @@ import pl.edu.mimuw.nesc.compilation.ErroneousIssueException;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.option.OptionsProvider;
+import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
 
 /**
  * <p>Compilation for 8051 microcontrollers.</p>
@@ -150,6 +151,7 @@ public final class Main {
             final CompilationResult result = executor.compile(frontendOptions);
             final ImmutableList<Declaration> separatedDecls =
                     separateDeclarations(result.getDeclarations(), result.getNameMangler());
+            dumpCallGraph(result.getReferencesGraph());
             reduceAttributes(separatedDecls);
             adjustSpecifiers(separatedDecls);
             checkSDCC();
@@ -182,6 +184,25 @@ public final class Main {
         final DeclarationsSeparator separator = new DeclarationsSeparator(nameMangler);
         separator.configure(true, false);
         return separator.separate(declarations);
+    }
+
+    /**
+     * Saves the call graph to file if the user needs it.
+     *
+     * @param refsGraph References graph with the call graph to dump.
+     */
+    private void dumpCallGraph(ReferencesGraph refsGraph) {
+        if (!options.getCallGraphFile().isPresent()) {
+            return;
+        }
+
+        try {
+            refsGraph.writeCallGraph(options.getCallGraphFile().get());
+        } catch (IOException e) {
+            System.err.println("warning: cannot write the call graph to file '"
+                    + options.getCallGraphFile().get() + "' (" + e.getMessage()
+                    + ")");
+        }
     }
 
     /**

@@ -202,7 +202,7 @@ public final class CompilationExecutor {
         reduceAtomic(projectData, cleanedCode);
 
         return new CompilationResult(cleanedCode, projectData.getNameMangler(),
-                projectData.getOutputFile(), projectData.getExternalVariables(),
+                refsGraph, projectData.getOutputFile(), projectData.getExternalVariables(),
                 projectData.getExternalVariablesFile());
     }
 

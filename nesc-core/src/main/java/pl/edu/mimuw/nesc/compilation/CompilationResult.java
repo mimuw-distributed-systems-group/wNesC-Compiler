@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.SetMultimap;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
+import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -28,6 +29,11 @@ public final class CompilationResult {
     private final NameMangler nameMangler;
 
     /**
+     * Graph of references between entities.
+     */
+    private final ReferencesGraph refsGraph;
+
+    /**
      * Name of the output file that is expected to contain the declarations.
      */
     private final String outputFileName;
@@ -47,12 +53,14 @@ public final class CompilationResult {
     CompilationResult(
             ImmutableList<Declaration> declarations,
             NameMangler nameMangler,
+            ReferencesGraph refsGraph,
             String outputFileName,
             SetMultimap<Optional<String>, String> externalVariables,
             Optional<String> externalVariablesFileName
     ) {
         checkNotNull(declarations, "declarations cannot be null");
         checkNotNull(nameMangler, "name mangler cannot be null");
+        checkNotNull(refsGraph, "references graph cannot be null");
         checkNotNull(outputFileName, "output file name cannot be null");
         checkNotNull(externalVariables, "external variables cannot be null");
         checkNotNull(externalVariablesFileName, "name of the file with external variables cannot be null");
@@ -62,6 +70,7 @@ public final class CompilationResult {
 
         this.declarations = declarations;
         this.nameMangler = nameMangler;
+        this.refsGraph = refsGraph;
         this.outputFileName = outputFileName;
         this.externalVariables = externalVariables;
         this.externalVariablesFileName = externalVariablesFileName;
@@ -85,6 +94,15 @@ public final class CompilationResult {
      */
     public NameMangler getNameMangler() {
         return nameMangler;
+    }
+
+    /**
+     * Get the graph of references between entities in the program.
+     *
+     * @return The references graph.
+     */
+    public ReferencesGraph getReferencesGraph() {
+        return refsGraph;
     }
 
     /**
