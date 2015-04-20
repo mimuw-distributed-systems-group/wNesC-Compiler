@@ -1,21 +1,29 @@
 package pl.edu.mimuw.nesc.backend8051;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import java.io.IOException;
+import java.util.Iterator;
+import java.util.List;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Level;
 import pl.edu.mimuw.nesc.ast.gen.AttrTransformer;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
+import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.astutil.DeclarationsSeparator;
+import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
 import pl.edu.mimuw.nesc.backend8051.option.Options8051Holder;
 import pl.edu.mimuw.nesc.backend8051.option.Options8051Parser;
+import pl.edu.mimuw.nesc.codepartition.PartitionImpossibleException;
+import pl.edu.mimuw.nesc.codepartition.SimpleCodePartitioner;
 import pl.edu.mimuw.nesc.codesize.SDCCCodeSizeEstimator;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
+import pl.edu.mimuw.nesc.common.util.file.FileUtils;
 import pl.edu.mimuw.nesc.compilation.CompilationExecutor;
 import pl.edu.mimuw.nesc.compilation.CompilationResult;
 import pl.edu.mimuw.nesc.compilation.DefaultCompilationListener;
@@ -157,6 +165,11 @@ public final class Main {
             checkSDCC();
             final ImmutableMap<String, Range<Integer>> funsSizesEstimation =
                     estimateFunctionsSizes(separatedDecls);
+            final ImmutableList<ImmutableSet<FunctionDecl>> funsPartition =
+                    partitionFunctions(separatedDecls, funsSizesEstimation);
+            final DeclarationsPartitioner.Partition declsPartition =
+                    partitionDeclarations(separatedDecls, funsPartition, result.getReferencesGraph());
+            writeDeclarations(declsPartition, result.getOutputFileName());
         } catch (ErroneousIssueException e) {
             System.exit(STATUS_ERROR);
         } catch (InterruptedException e) {
@@ -164,6 +177,10 @@ public final class Main {
             System.exit(STATUS_ERROR);
         } catch (IOException e) {
             System.err.println("I/O error: " + e.getMessage());
+            System.exit(STATUS_ERROR);
+        } catch (PartitionImpossibleException e) {
+            System.err.println("error: cannot partition functions into the code banks - "
+                    + e.getMessage());
             System.exit(STATUS_ERROR);
         }
     }
@@ -268,5 +285,86 @@ public final class Main {
         }
 
         return estimatorBuilder.build().estimate();
+    }
+
+    /**
+     * Run heuristics that partition functions into banks.
+     *
+     * @param declarations Declarations that constitute the whole program.
+     * @param estimation Estimation of functions sizes.
+     * @return Partition of functions into the banks.
+     * @throws PartitionImpossibleException It is impossible to assign functions
+     *                                      to banks.
+     */
+    private ImmutableList<ImmutableSet<FunctionDecl>> partitionFunctions(
+                ImmutableList<Declaration> declarations,
+                ImmutableMap<String, Range<Integer>> estimation
+    ) throws PartitionImpossibleException {
+        final List<FunctionDecl> functions = FluentIterable.from(declarations)
+                .filter(FunctionDecl.class)
+                .toList();
+        return new SimpleCodePartitioner(options.getBankSize().or(32768),
+                        options.getBanksCount().or(8))
+                .partition(functions, estimation);
+    }
+
+    /**
+     * Partition declarations after assignment of functions to banks to files.
+     *
+     * @param allDeclarations All declarations that constitute the program in
+     *                        proper order (they shall be separated).
+     * @param partition Partition of functions to banks.
+     * @param refsGraph Graph of references between entities in the program.
+     * @return Partition of declarations to files.
+     */
+    private DeclarationsPartitioner.Partition partitionDeclarations(
+            ImmutableList<Declaration> allDeclarations,
+            ImmutableList<ImmutableSet<FunctionDecl>> partition,
+            ReferencesGraph refsGraph
+    ) {
+        return new DeclarationsPartitioner(allDeclarations, partition, refsGraph)
+                .partition();
+    }
+
+    /**
+     * Write all declarations into proper files.
+     *
+     * @param declsPartition Partition of all declarations of the program.
+     * @param outputFile Name of the output file specified by options (or the
+     *                   default one).
+     */
+    private void writeDeclarations(DeclarationsPartitioner.Partition declsPartition,
+            String outputFile) throws IOException {
+        final String baseName = FileUtils.getFileNameWithoutExtension(outputFile);
+        final String headerName = baseName + ".h";
+
+        // Write the header file
+        try (final ASTWriter headerWriter = new ASTWriter(headerName, writeSettings)) {
+            headerWriter.write(declsPartition.getHeaderFile());
+        }
+
+        // Write declarations inside banks
+        final Iterator<ImmutableList<Declaration>> banksIt =
+                declsPartition.getCodeFiles().iterator();
+        if (banksIt.hasNext()) {
+            // Common area
+            try (final ASTWriter commonBankWriter = new ASTWriter(outputFile, writeSettings)) {
+                commonBankWriter.write("#include \"" + headerName + "\"\n");
+                commonBankWriter.write("#pragma codeseg HOME\n\n");
+                commonBankWriter.write(banksIt.next());
+            }
+
+            // Other banks
+            int bankNumber = 1;
+            while (banksIt.hasNext()) {
+                final String fileName = baseName + "-" + bankNumber + ".c";
+                try (final ASTWriter bankFileWriter = new ASTWriter(fileName, writeSettings)) {
+                    bankFileWriter.write("#include \"" + headerName + "\"\n");
+                    bankFileWriter.write("#pragma codeseg BANK" + bankNumber + "\n\n");
+                    bankFileWriter.write(banksIt.next());
+                }
+                ++bankNumber;
+            }
+        }
     }
 }
