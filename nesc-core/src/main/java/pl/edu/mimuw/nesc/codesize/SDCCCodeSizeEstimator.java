@@ -30,6 +30,7 @@ import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
+import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -429,7 +430,12 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
 
             if (deepestNestedDeclarator.isPresent()
                     && deepestNestedDeclarator.get() instanceof FunctionDeclarator) {
-                DeclaratorUtils.setIsBanked(declaration.getDeclarator().get(), isBankedValue);
+
+                final FunctionDeclaration declarationObj =
+                        (FunctionDeclaration) declaration.getDeclaration();
+                if (declarationObj == null || declarationObj.isDefined()) {
+                    DeclaratorUtils.setIsBanked(declaration.getDeclarator().get(), isBankedValue);
+                }
             } else if (deepestNestedDeclarator.isPresent()
                     && deepestNestedDeclarator.get() instanceof InterfaceRefDeclarator) {
                 throw new RuntimeException("unexpected interface reference declarator");
