@@ -6,16 +6,23 @@ import java.util.List;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.AttrTransformation;
 import pl.edu.mimuw.nesc.ast.gen.Attribute;
+import pl.edu.mimuw.nesc.ast.gen.DataDecl;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
+import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
+import pl.edu.mimuw.nesc.ast.gen.FunctionDeclarator;
 import pl.edu.mimuw.nesc.ast.gen.GccAttribute;
 import pl.edu.mimuw.nesc.ast.gen.Identifier;
 import pl.edu.mimuw.nesc.ast.gen.NescAttribute;
+import pl.edu.mimuw.nesc.ast.gen.NestedDeclarator;
 import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.ast.gen.Plus;
 import pl.edu.mimuw.nesc.ast.gen.TargetAttribute;
+import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
+import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.common.util.list.Lists;
 import pl.edu.mimuw.nesc.compilation.CompilationListener;
+import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.problem.NescWarning;
 import pl.edu.mimuw.nesc.problem.issue.Issue;
 
@@ -53,6 +60,8 @@ final class ReduceAttrTransformation implements AttrTransformation<Void> {
                 return transformSfr(attr);
             case "sfrx":
                 return transformSfrx(attr);
+            case "banked":
+                return transformBanked(attr, containingNode);
             default:
                 listener.warning(makeWarning("ignoring GCC attribute '"
                         + attr.getName().getName() + "'", attr));
@@ -144,6 +153,59 @@ final class ReduceAttrTransformation implements AttrTransformation<Void> {
         replacement.add(AstUtils.newTargetAttribute1("__at", attr.getArguments().get().get(1)));
 
         return replacement;
+    }
+
+    private LinkedList<Attribute> transformBanked(GccAttribute gccAttr, Node containingNode) {
+        if (gccAttr.getArguments().isPresent()) {
+            listener.warning(makeWarningInvalidUsage(gccAttr));
+            return Lists.newList();
+        }
+
+        if (containingNode instanceof FunctionDecl) {
+            final FunctionDecl funDecl = (FunctionDecl) containingNode;
+            DeclaratorUtils.setIsBanked(funDecl.getDeclarator(), true);
+            return Lists.newList();
+        } else if (containingNode instanceof DataDecl
+                || containingNode instanceof VariableDecl) {
+            final VariableDecl variableDecl;
+            if (containingNode instanceof DataDecl) {
+                final DataDecl dataDecl = (DataDecl) containingNode;
+
+                if (dataDecl.getDeclarations().isEmpty()) {
+                    listener.warning(makeWarningInvalidUsage(gccAttr));
+                    return Lists.newList();
+                } else if (!(dataDecl.getDeclarations().getFirst() instanceof VariableDecl)) {
+                    listener.warning(makeWarningInvalidUsage(gccAttr));
+                    return Lists.newList();
+                } else if (dataDecl.getDeclarations().size() != 1) {
+                    throw new IllegalStateException("unseparated declarations encountered");
+                } else {
+                    variableDecl = (VariableDecl) dataDecl.getDeclarations().getFirst();
+                }
+            } else {
+                variableDecl = (VariableDecl) containingNode;
+            }
+
+            if (!variableDecl.getDeclarator().isPresent()) {
+                listener.warning(makeWarningInvalidUsage(gccAttr));
+                return Lists.newList();
+            }
+
+            final Optional<NestedDeclarator> deepestDeclarator =
+                    DeclaratorUtils.getDeepestNestedDeclarator(variableDecl.getDeclarator().get());
+            if (!deepestDeclarator.isPresent() || !(deepestDeclarator.get() instanceof FunctionDeclarator)) {
+                listener.warning(makeWarningInvalidUsage(gccAttr));
+                return Lists.newList();
+            }
+            final FunctionDeclaration declarationObj = (FunctionDeclaration) variableDecl.getDeclaration();
+            if (declarationObj != null && !declarationObj.isDefined()) {
+                ((FunctionDeclarator) deepestDeclarator.get()).setIsBanked(true);
+            }
+            return Lists.newList();
+        } else {
+            listener.warning(makeWarningInvalidUsage(gccAttr));
+            return Lists.newList();
+        }
     }
 
     private NescWarning makeWarning(String msg, Node location) {
