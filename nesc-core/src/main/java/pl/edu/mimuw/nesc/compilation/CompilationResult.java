@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.compilation;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.SetMultimap;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
@@ -50,13 +51,19 @@ public final class CompilationResult {
      */
     private final Optional<String> externalVariablesFileName;
 
+    /**
+     * ABI for the project.
+     */
+    private final ABI abi;
+
     CompilationResult(
             ImmutableList<Declaration> declarations,
             NameMangler nameMangler,
             ReferencesGraph refsGraph,
             String outputFileName,
             SetMultimap<Optional<String>, String> externalVariables,
-            Optional<String> externalVariablesFileName
+            Optional<String> externalVariablesFileName,
+            ABI abi
     ) {
         checkNotNull(declarations, "declarations cannot be null");
         checkNotNull(nameMangler, "name mangler cannot be null");
@@ -67,6 +74,7 @@ public final class CompilationResult {
         checkArgument(!outputFileName.isEmpty(), "output file name cannot be an empty string");
         checkArgument(!externalVariablesFileName.isPresent() || !externalVariablesFileName.get().isEmpty(),
                 "external variables file name cannot be an empty string");
+        checkNotNull(abi, "ABI cannot be null");
 
         this.declarations = declarations;
         this.nameMangler = nameMangler;
@@ -74,6 +82,7 @@ public final class CompilationResult {
         this.outputFileName = outputFileName;
         this.externalVariables = externalVariables;
         this.externalVariablesFileName = externalVariablesFileName;
+        this.abi = abi;
     }
 
     /**
@@ -137,5 +146,14 @@ public final class CompilationResult {
      */
     public Optional<String> getExternalVariablesFileName() {
         return externalVariablesFileName;
+    }
+
+    /**
+     * Get ABI of the target platform of the project.
+     *
+     * @return ABI of the project.
+     */
+    public ABI getABI() {
+        return abi;
     }
 }

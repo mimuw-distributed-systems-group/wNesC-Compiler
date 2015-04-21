@@ -52,6 +52,12 @@ final class Options8051Factory {
                 .hasArg()
                 .desc("save the call graph of functions in the output C program to file")
                 .argName("file")
+                .build(),
+            Option.builder()
+                .longOpt(OPTION_LONG_INTERRUPTS)
+                .hasArg()
+                .desc("comma-separated list of assignments of functions to interrupts numbers; each element of the list consists of the name of the function, '=' and the interrupt number; declarations of functions in the program will be annotated by SDCC attribute '__interrupt' according to value for this option; example interrupts map: sig_timer=1,serial_interrupt=0,external_interrupt=2")
+                .argName("interrupts-map")
                 .build()
         };
 

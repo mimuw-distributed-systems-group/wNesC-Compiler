@@ -6,11 +6,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
+import com.google.common.collect.SetMultimap;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Level;
+import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.ast.gen.AttrTransformer;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
@@ -153,6 +155,7 @@ public final class Main {
      */
     private void compile() throws InvalidOptionsException {
         try {
+            checkSDCC();
             final CompilationExecutor executor = new CompilationExecutor(
                     TARGET_ATTRIBUTES0, TARGET_ATTRIBUTES1);
             executor.setListener(new DefaultCompilationListener());
@@ -162,7 +165,7 @@ public final class Main {
             dumpCallGraph(result.getReferencesGraph());
             reduceAttributes(separatedDecls);
             adjustSpecifiers(separatedDecls);
-            checkSDCC();
+            assignInterrupts(separatedDecls, options.getInterrupts(), result.getABI());
             final ImmutableMap<String, Range<Integer>> funsSizesEstimation =
                     estimateFunctionsSizes(separatedDecls);
             final ImmutableList<ImmutableSet<FunctionDecl>> funsPartition =
@@ -257,6 +260,20 @@ public final class Main {
         for (String issue : issues) {
             System.err.println("warning: " + issue);
         }
+    }
+
+    /**
+     * Add '__interrupt' attributes where they are missing according to
+     * '--interrupts' option of the compiler.
+     *
+     * @param declarations Declarations that will be modified.
+     * @param interrupts Multimap from unique names of functions to numbers of
+     *                   interrupts handled by them.
+     * @param abi ABI of the project.
+     */
+    private void assignInterrupts(ImmutableList<Declaration> declarations,
+                SetMultimap<String, Integer> interrupts, ABI abi) {
+        new InterruptHandlerAssigner(interrupts, abi).assign(declarations);
     }
 
     /**

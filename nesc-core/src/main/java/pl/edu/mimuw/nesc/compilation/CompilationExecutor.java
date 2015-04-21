@@ -203,7 +203,7 @@ public final class CompilationExecutor {
 
         return new CompilationResult(cleanedCode, projectData.getNameMangler(),
                 refsGraph, projectData.getOutputFile(), projectData.getExternalVariables(),
-                projectData.getExternalVariablesFile());
+                projectData.getExternalVariablesFile(), projectData.getABI());
     }
 
     /**

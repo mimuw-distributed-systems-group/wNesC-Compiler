@@ -25,6 +25,13 @@ final class Options8051 {
     public static final String OPTION_LONG_MODEL_LARGE = "model-large";
     public static final String OPTION_LONG_MODEL_HUGE = "model-huge";
     public static final String OPTION_LONG_DUMP_CALL_GRAPH = "dump-call-graph";
+    public static final String OPTION_LONG_INTERRUPTS = "interrupts";
+
+    /**
+     * Separators used for options values.
+     */
+    public static final String SEPARATOR_INTERRUPT_ASSIGNMENT_OUTER = ",";
+    public static final String SEPARATOR_INTERRUPT_ASSIGNMENT_INNER = "=";
 
     /**
      * Private constructor to prevent instantiating this class.

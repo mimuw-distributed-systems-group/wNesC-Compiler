@@ -1,6 +1,11 @@
 package pl.edu.mimuw.nesc.backend8051.option;
 
 import com.google.common.base.Optional;
+import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.commons.cli.CommandLine;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -11,6 +16,15 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class Options8051Validator {
+    /**
+     * Regular expression that defines the language for a single element in the
+     * interrupts map.
+     */
+    private static final Pattern REGEXP_INTERRUPT_ASSIGNMENT =
+            Pattern.compile("(?<functionName>[a-zA-Z_]\\w*)"
+                    + Options8051.SEPARATOR_INTERRUPT_ASSIGNMENT_INNER
+                    + "(?<interruptNumber>\\d+)");
+
     /**
      * Object that represents parsed options.
      */
@@ -48,7 +62,12 @@ public final class Options8051Validator {
             return error;
         }
 
-        return validateDumpCallGraph();
+        error = validateDumpCallGraph();
+        if (error.isPresent()) {
+            return error;
+        }
+
+        return validateInterrupts();
     }
 
     private Optional<String> validateBankSize() {
@@ -74,6 +93,47 @@ public final class Options8051Validator {
     private Optional<String> validateDumpCallGraph() {
         return checkNonEmptyString(getOptionValue(Options8051.OPTION_LONG_DUMP_CALL_GRAPH),
                 "name of file for the call graph");
+    }
+
+    private Optional<String> validateInterrupts() {
+        final Optional<String> interrupts = getOptionValue(Options8051.OPTION_LONG_INTERRUPTS);
+        if (!interrupts.isPresent()) {
+            return Optional.absent();
+        }
+
+        final BigInteger maxInt = BigInteger.valueOf(Integer.MAX_VALUE);
+        final Map<Integer, String> usedNumbers = new HashMap<>();
+        final String[] assignments = interrupts.get()
+                .split(Options8051.SEPARATOR_INTERRUPT_ASSIGNMENT_OUTER, -1);
+
+        for (String assignment : assignments) {
+            final Matcher matcher = REGEXP_INTERRUPT_ASSIGNMENT.matcher(assignment);
+
+            if (matcher.matches()) {
+                final BigInteger value = new BigInteger(matcher.group("interruptNumber"));
+                final String functionName = matcher.group("functionName");
+
+                if (value.compareTo(maxInt) > 0) {
+                    return Optional.of("invalid value for option '--" + Options8051.OPTION_LONG_INTERRUPTS
+                            + "': number " + matcher.group("interruptNumber") + " exceeds " + maxInt);
+                }
+
+                if (usedNumbers.containsKey(value.intValue())
+                        && !usedNumbers.get(value.intValue()).equals(functionName)) {
+                    return Optional.of("invalid value for option '--" + Options8051.OPTION_LONG_INTERRUPTS
+                            + "': multiple functions ('" + usedNumbers.get(value.intValue())
+                            + "', '" + functionName + "') assigned to interrupt "
+                            + matcher.group("interruptNumber"));
+                }
+
+                usedNumbers.put(value.intValue(), functionName);
+            } else {
+                return Optional.of("invalid value for option '--" + Options8051.OPTION_LONG_INTERRUPTS
+                        + "': '" + assignment + "' is an invalid assignment of function to interrupt");
+            }
+        }
+
+        return Optional.absent();
     }
 
     private Optional<String> getOptionValue(String optionName) {

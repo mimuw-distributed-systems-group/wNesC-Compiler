@@ -2,7 +2,6 @@ package pl.edu.mimuw.nesc.option;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimaps;
@@ -12,11 +11,11 @@ import java.util.regex.Pattern;
 import org.apache.commons.cli.CommandLine;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import pl.edu.mimuw.nesc.common.SchedulerSpecification;
+import pl.edu.mimuw.nesc.common.util.VariousUtils;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -332,6 +331,13 @@ public class OptionsHolder {
                 : Optional.<String>absent();
     }
 
+
+    /**
+     * Get the ordinal form of the given number.
+     *
+     * @param n Number whose ordinal form will be returned.
+     * @return The ordinal form of the given number.
+     */
     private String getOrdinalForm(int n) {
         switch (n) {
             case 1:  return "1st";

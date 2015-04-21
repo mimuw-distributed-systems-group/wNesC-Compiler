@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.backend8051.option;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableSetMultimap;
 import org.apache.commons.cli.CommandLine;
 import pl.edu.mimuw.nesc.codesize.SDCCMemoryModel;
 
@@ -73,6 +74,37 @@ public final class Options8051Holder {
 
     public Optional<String> getCallGraphFile() {
         return Optional.fromNullable(cmdLine.getOptionValue(OPTION_LONG_DUMP_CALL_GRAPH));
+    }
+
+    /**
+     * Get mapping from unique names of functions to numbers of interrupts they
+     * handle.
+     *
+     * @return Multimap that specifies interrupts handled by functions.
+     */
+    public ImmutableSetMultimap<String, Integer> getInterrupts() {
+        final Optional<String> interruptsMap = Optional.fromNullable(
+                cmdLine.getOptionValue(OPTION_LONG_INTERRUPTS));
+        if (!interruptsMap.isPresent()) {
+            return ImmutableSetMultimap.of();
+        }
+
+        final ImmutableSetMultimap.Builder<String, Integer> interruptsBuilder =
+                ImmutableSetMultimap.builder();
+        final String[] assignments = interruptsMap.get().split(SEPARATOR_INTERRUPT_ASSIGNMENT_OUTER);
+
+        for (String assignment : assignments) {
+            final int equalitySignIndex = assignment.indexOf(SEPARATOR_INTERRUPT_ASSIGNMENT_INNER);
+            if (equalitySignIndex == -1) {
+                throw new IllegalStateException("invalid assignment of a function to an interrupt");
+            }
+
+            interruptsBuilder.put(assignment.substring(0, equalitySignIndex),
+                    Integer.valueOf(assignment.substring(equalitySignIndex
+                            + SEPARATOR_INTERRUPT_ASSIGNMENT_INNER.length())));
+        }
+
+        return interruptsBuilder.build();
     }
 
     private Optional<Integer> getIntegerOptionValue(String optionName) {
