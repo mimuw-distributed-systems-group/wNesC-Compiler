@@ -1,6 +1,7 @@
 package pl.edu.mimuw.nesc.common.util.file;
 
 import com.google.common.io.Files;
+import java.io.File;
 import pl.edu.mimuw.nesc.common.FileType;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -52,6 +53,28 @@ public final class FileUtils {
         checkNotNull(filePath, "file path should not be null");
 
         return Files.getNameWithoutExtension(filePath);
+    }
+
+    /**
+     * Returns the prefix of the given path without the extension of the target
+     * file.
+     *
+     * @param fullPath Path of a file.
+     * @return The given path but without the extension of the target file.
+     */
+    public static String getPathPrefixWithoutExtension(String fullPath) {
+        checkNotNull(fullPath, "path should not be null");
+
+        final int lastDotIndex = fullPath.lastIndexOf('.');
+        final int lastSlashIndex = fullPath.lastIndexOf(File.separatorChar);
+
+        if (lastDotIndex == -1 || lastDotIndex == lastSlashIndex + 1
+                || lastDotIndex == fullPath.length() - 1
+                || lastDotIndex < lastSlashIndex) {
+            return fullPath;
+        } else {
+            return fullPath.substring(0, lastDotIndex);
+        }
     }
 
     /**

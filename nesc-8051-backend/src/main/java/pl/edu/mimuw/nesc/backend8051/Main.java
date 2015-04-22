@@ -352,11 +352,12 @@ public final class Main {
      */
     private void writeDeclarations(DeclarationsPartitioner.Partition declsPartition,
             String outputFile) throws IOException {
-        final String baseName = FileUtils.getFileNameWithoutExtension(outputFile);
-        final String headerName = baseName + ".h";
+        final String pathPrefix = FileUtils.getPathPrefixWithoutExtension(outputFile);
+        final String headerName = FileUtils.getFileNameWithoutExtension(outputFile) + ".h";
+        final String headerPath = pathPrefix + ".h";
 
         // Write the header file
-        try (final ASTWriter headerWriter = new ASTWriter(headerName, writeSettings)) {
+        try (final ASTWriter headerWriter = new ASTWriter(headerPath, writeSettings)) {
             headerWriter.write(declsPartition.getHeaderFile());
         }
 
@@ -374,7 +375,7 @@ public final class Main {
             // Other banks
             int bankNumber = 1;
             while (banksIt.hasNext()) {
-                final String fileName = baseName + "-" + bankNumber + ".c";
+                final String fileName = pathPrefix + "-" + bankNumber + ".c";
                 try (final ASTWriter bankFileWriter = new ASTWriter(fileName, writeSettings)) {
                     bankFileWriter.write("#include \"" + headerName + "\"\n");
                     bankFileWriter.write("#pragma codeseg BANK" + bankNumber + "\n\n");
