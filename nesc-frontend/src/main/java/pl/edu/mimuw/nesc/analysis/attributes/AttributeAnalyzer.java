@@ -32,7 +32,8 @@ public final class AttributeAnalyzer {
                 new CombineAttributeAnalyzer(errorHelper, semanticListener),
                 new CAttributeAnalyzer(errorHelper, semanticListener),
                 new ExternalBaseAttributeAnalyzer(errorHelper),
-                new CallInfoAttributesAnalyzer(errorHelper),
+                new CallInfoAttributesAnalyzer(new NescCallInfoAttributes(), errorHelper),
+                new CallInfoAttributesAnalyzer(new GccCallInfoAttributes(), errorHelper),
                 new GccInterruptAttributesAnalyzer(abi)
         );
     }

@@ -13,18 +13,25 @@ public class InvalidCallInfoAttributeUsageError extends ErroneousIssue {
 
     private final String description;
 
-    public static InvalidCallInfoAttributeUsageError appliedNotToFunction(String attributeName) {
+    public static InvalidCallInfoAttributeUsageError nescAppliedNotToFunction(String attributeName) {
         final String description = format("Attribute @%s() can only be applied to functions", attributeName);
         return new InvalidCallInfoAttributeUsageError(description);
     }
 
-    public static InvalidCallInfoAttributeUsageError parametersPresent(String attributeName,
-            int initializersCount) {
-        final String initializerText = initializersCount == 1
-                ? "an initializer is"
-                : "initializers are";
-        final String description = format("Attribute @%s() takes an empty initializer list but %s given",
-                attributeName, initializerText);
+    public static InvalidCallInfoAttributeUsageError nescParametersPresent(String attributeName) {
+        final String description = format("Attribute @%s() takes an empty initializer list but an initializer is given",
+                attributeName);
+        return new InvalidCallInfoAttributeUsageError(description);
+    }
+
+    public static InvalidCallInfoAttributeUsageError gccAppliedNotToFunction(String attributeName) {
+        final String description = format("GCC attribute '%s' can only be applied to functions", attributeName);
+        return new InvalidCallInfoAttributeUsageError(description);
+    }
+
+    public static InvalidCallInfoAttributeUsageError gccParametersPresent(String attributeName) {
+        final String description = format("GCC attribute '%s' takes no parameters but a parameter present",
+                attributeName);
         return new InvalidCallInfoAttributeUsageError(description);
     }
 
