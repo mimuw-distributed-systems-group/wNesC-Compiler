@@ -16,21 +16,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.DataDecl;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.ExceptionVisitor;
 import pl.edu.mimuw.nesc.ast.gen.ExtensionDecl;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
-import pl.edu.mimuw.nesc.ast.gen.FunctionDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.InterfaceRefDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.NestedDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
-import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astwriting.ASTWriter;
+import pl.edu.mimuw.nesc.astwriting.CustomDeclarationsWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
-import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -176,9 +170,7 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
         }
 
         // Prepare the header files
-        final ImmutableList<Declaration> headerDeclarations =
-                createHeaderDeclarations();
-        createHeaderFiles(headerDeclarations);
+        createHeaderFiles();
 
         // Create and start threads
         final Thread[] threads = new Thread[this.threadsCount - 1];
@@ -204,34 +196,20 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
         return sizesEstimation.get();
     }
 
-    private ImmutableList<Declaration> createHeaderDeclarations() {
-        final ImmutableList.Builder<Declaration> headerDeclsBuilder = ImmutableList.builder();
-        final HeaderDeclsCreatingVisitor headerDeclsVisitor = new HeaderDeclsCreatingVisitor();
+    private void createHeaderFiles() throws IOException {
+        // Write non-banked declarations
+        final CustomDeclarationsWriter declsWriter = new CustomDeclarationsWriter(
+                Paths.get(tempDirectory, NAME_NONBANKED_HEADER).toString(),
+                true,
+                CustomDeclarationsWriter.Banking.DEFINED_NOT_BANKED,
+                writeSettings
+        );
+        declsWriter.write(declarations);
 
-        for (Declaration declaration : declarations) {
-            headerDeclsBuilder.add(declaration.accept(headerDeclsVisitor, null));
-        }
-
-        return headerDeclsBuilder.build();
-    }
-
-    private void createHeaderFiles(ImmutableList<Declaration> headerDecls) throws IOException {
-        createHeaderFile(Paths.get(tempDirectory, NAME_NONBANKED_HEADER).toString(), headerDecls, false);
-        createHeaderFile(Paths.get(tempDirectory, NAME_BANKED_HEADER).toString(), headerDecls, true);
-    }
-
-    private void createHeaderFile(String fileName, ImmutableList<Declaration> headerDecls,
-                boolean bankedFuns) throws IOException {
-        // Set the flag in declarations
-        final BankedFlagSettingVisitor bankedFlagVisitor = new BankedFlagSettingVisitor(bankedFuns);
-        for (Declaration headerDecl : headerDecls) {
-            headerDecl.accept(bankedFlagVisitor, null);
-        }
-
-        // Write the file
-        try (final ASTWriter writer  = new ASTWriter(fileName, writeSettings)) {
-            writer.write(headerDecls);
-        }
+        // Write banked declarations
+        declsWriter.setOutputFile(Paths.get(tempDirectory, NAME_BANKED_HEADER).toString());
+        declsWriter.setBanking(CustomDeclarationsWriter.Banking.DEFINED_BANKED);
+        declsWriter.write(declarations);
     }
 
     private ImmutableMap<String, Range<Integer>> createResultMap() {
@@ -358,90 +336,6 @@ public final class SDCCCodeSizeEstimator implements CodeSizeEstimator {
                 writer.write(functionDecl);
                 writer.write('\n');
             }
-        }
-    }
-
-    /**
-     * Class that prepares declarations for header files. The returned
-     * declaration is the declaration to include in the header file.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    private static final class HeaderDeclsCreatingVisitor extends ExceptionVisitor<Declaration, Void> {
-        @Override
-        public Declaration visitDataDecl(DataDecl declaration, Void arg) {
-            return declaration;
-        }
-
-        @Override
-        public Declaration visitExtensionDecl(ExtensionDecl declaration, Void arg) {
-            final Declaration newDeclaration = declaration.getDeclaration().accept(this, null);
-            return newDeclaration != declaration.getDeclaration()
-                    ? new ExtensionDecl(Location.getDummyLocation(), newDeclaration)
-                    : declaration;
-        }
-
-        @Override
-        public Declaration visitFunctionDecl(FunctionDecl declaration, Void arg) {
-            return AstUtils.createForwardDeclaration(declaration);
-        }
-    }
-
-    /**
-     * Visitor that sets {@link FunctionDeclarator#isBanked isBanked} flag of
-     * functions declared by visited declarations.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    private static final class BankedFlagSettingVisitor extends ExceptionVisitor<Void, Void> {
-        /**
-         * Value of the flag to set.
-         */
-        private final boolean isBankedValue;
-
-        private BankedFlagSettingVisitor(boolean isBankedValue) {
-            this.isBankedValue = isBankedValue;
-        }
-
-        @Override
-        public Void visitFunctionDecl(FunctionDecl declaration, Void arg) {
-            DeclaratorUtils.setIsBanked(declaration.getDeclarator(), isBankedValue);
-            return null;
-        }
-
-        @Override
-        public Void visitExtensionDecl(ExtensionDecl declaration, Void arg) {
-            declaration.getDeclaration().accept(this, null);
-            return null;
-        }
-
-        @Override
-        public Void visitDataDecl(DataDecl declaration, Void arg) {
-            for (Declaration innerDeclaration : declaration.getDeclarations()) {
-                innerDeclaration.accept(this, null);
-            }
-            return null;
-        }
-
-        @Override
-        public Void visitVariableDecl(VariableDecl declaration, Void arg) {
-            final Optional<NestedDeclarator> deepestNestedDeclarator =
-                    DeclaratorUtils.getDeepestNestedDeclarator(declaration.getDeclarator());
-
-            if (deepestNestedDeclarator.isPresent()
-                    && deepestNestedDeclarator.get() instanceof FunctionDeclarator) {
-
-                final FunctionDeclaration declarationObj =
-                        (FunctionDeclaration) declaration.getDeclaration();
-                if (declarationObj == null || declarationObj.isDefined()) {
-                    DeclaratorUtils.setIsBanked(declaration.getDeclarator().get(), isBankedValue);
-                }
-            } else if (deepestNestedDeclarator.isPresent()
-                    && deepestNestedDeclarator.get() instanceof InterfaceRefDeclarator) {
-                throw new RuntimeException("unexpected interface reference declarator");
-            }
-
-            return null;
         }
     }
 
