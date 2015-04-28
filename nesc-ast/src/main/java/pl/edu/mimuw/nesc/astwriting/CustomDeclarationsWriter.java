@@ -103,11 +103,11 @@ public final class CustomDeclarationsWriter {
      *
      * @param declarations Declarations that will be written.
      */
-    public void write(List<Declaration> declarations) throws IOException {
+    public void write(List<? extends Declaration> declarations) throws IOException {
         checkNotNull(declarations, "declarations cannot be null");
 
         final Optional<Boolean> isBanked = prepareIsBankedValue();
-        final List<Declaration> forWriting;
+        final List<? extends Declaration> forWriting;
         final ImmutableMap<Node, Boolean> originalIsBanked;
 
         // Prepare declarations

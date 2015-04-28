@@ -23,7 +23,7 @@ import pl.edu.mimuw.nesc.backend8051.option.Options8051Holder;
 import pl.edu.mimuw.nesc.backend8051.option.Options8051Parser;
 import pl.edu.mimuw.nesc.codepartition.PartitionImpossibleException;
 import pl.edu.mimuw.nesc.codepartition.SimpleCodePartitioner;
-import pl.edu.mimuw.nesc.codesize.SDCCCodeSizeEstimator;
+import pl.edu.mimuw.nesc.codesize.SDCCCodeSizeEstimatorFactory;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.common.util.file.FileUtils;
 import pl.edu.mimuw.nesc.compilation.CompilationExecutor;
@@ -287,21 +287,15 @@ public final class Main {
     private ImmutableMap<String, Range<Integer>> estimateFunctionsSizes(
                 ImmutableList<Declaration> declarations) throws InterruptedException, IOException {
 
-        final SDCCCodeSizeEstimator.Builder estimatorBuilder =
-                SDCCCodeSizeEstimator.builder(declarations, writeSettings);
+        final SDCCCodeSizeEstimatorFactory estimatorFactory =
+                new SDCCCodeSizeEstimatorFactory(declarations, writeSettings);
 
         // Memory model and SDCC executable
-        estimatorBuilder.memoryModel(options.getMemoryModel().orNull())
-                .sdccExecutable(options.getSDCCExecutable().orNull())
+        estimatorFactory.setMemoryModel(options.getMemoryModel().orNull())
+                .setSDCCExecutable(options.getSDCCExecutable().orNull())
                 .addSDCCParameter("--std-c99");
 
-        // Threads count
-        final Optional<Integer> threadsCount = options.getEstimateThreadsCount();
-        if (threadsCount.isPresent()) {
-            estimatorBuilder.threadsCount(threadsCount.get());
-        }
-
-        return estimatorBuilder.build().estimate();
+        return estimatorFactory.newFastEstimator().estimate();
     }
 
     /**
