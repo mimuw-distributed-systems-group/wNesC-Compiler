@@ -171,7 +171,8 @@ public final class Main {
             final ImmutableList<ImmutableSet<FunctionDecl>> funsPartition =
                     partitionFunctions(separatedDecls, funsSizesEstimation);
             final DeclarationsPartitioner.Partition declsPartition =
-                    partitionDeclarations(separatedDecls, funsPartition, result.getReferencesGraph());
+                    partitionDeclarations(separatedDecls, funsPartition,
+                            result.getReferencesGraph(), options.getRigidFunctions());
             writeDeclarations(declsPartition, result.getOutputFileName());
         } catch (ErroneousIssueException e) {
             System.exit(STATUS_ERROR);
@@ -326,14 +327,17 @@ public final class Main {
      *                        proper order (they shall be separated).
      * @param partition Partition of functions to banks.
      * @param refsGraph Graph of references between entities in the program.
+     * @param rigidFunctions Set with unique names of rigid functions.
      * @return Partition of declarations to files.
      */
     private DeclarationsPartitioner.Partition partitionDeclarations(
             ImmutableList<Declaration> allDeclarations,
             ImmutableList<ImmutableSet<FunctionDecl>> partition,
-            ReferencesGraph refsGraph
+            ReferencesGraph refsGraph,
+            ImmutableSet<String> rigidFunctions
     ) {
-        return new DeclarationsPartitioner(allDeclarations, partition, refsGraph)
+        return new DeclarationsPartitioner(allDeclarations, partition,
+                    refsGraph, rigidFunctions)
                 .partition();
     }
 

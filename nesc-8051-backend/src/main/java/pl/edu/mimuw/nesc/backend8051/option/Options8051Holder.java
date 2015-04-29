@@ -2,7 +2,9 @@ package pl.edu.mimuw.nesc.backend8051.option;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import java.util.Arrays;
 import org.apache.commons.cli.CommandLine;
 import pl.edu.mimuw.nesc.codesize.SDCCMemoryModel;
 
@@ -105,6 +107,25 @@ public final class Options8051Holder {
         }
 
         return interruptsBuilder.build();
+    }
+
+    /**
+     * Get the set with unique names of functions whose unique characteristic
+     * will not be changed by the compiler.
+     *
+     * @return Set with unique names of rigid functions.
+     */
+    public ImmutableSet<String> getRigidFunctions() {
+        final Optional<String> rigidFunctionsOpt = Optional.fromNullable(
+                cmdLine.getOptionValue(OPTION_LONG_RIGID_FUNCTIONS));
+
+        if (!rigidFunctionsOpt.isPresent()) {
+            return ImmutableSet.of();
+        } else {
+            final String[] rigidFunctionsArray = rigidFunctionsOpt.get()
+                    .split(SEPARATOR_RIGID_FUNCTIONS, -1);
+            return ImmutableSet.copyOf(Arrays.asList(rigidFunctionsArray));
+        }
     }
 
     private Optional<Integer> getIntegerOptionValue(String optionName) {

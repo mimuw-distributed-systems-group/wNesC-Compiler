@@ -255,8 +255,11 @@ final class DeclarationsAdjuster {
 
             final ImmutableList<Declarator> declarators =
                     DeclaratorUtils.createDeclaratorsList(variableDecl.getDeclarator().get());
-            checkState(!declarators.isEmpty() && declarators.get(declarators.size() - 1) instanceof IdentifierDeclarator,
-                    "unexpected structure of declarators of a variable");
+            checkState(!declarators.isEmpty(), "unexpected empty list of declarators");
+            if (!(declarators.get(declarators.size() - 1) instanceof IdentifierDeclarator)) {
+                // Declaration of a parameter of a function
+                return null;
+            }
 
             final AttributesPartition partition = moveAttributesFrom(variableDecl.getAttributes());
             moveTypeToSpecifiers(partition.typeAttributes, dataDecl, declarators);

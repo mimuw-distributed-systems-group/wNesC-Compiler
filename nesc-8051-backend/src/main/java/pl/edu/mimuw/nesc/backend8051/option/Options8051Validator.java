@@ -26,6 +26,11 @@ public final class Options8051Validator {
                     + "(?<interruptNumber>\\d+)");
 
     /**
+     * Regular expression whose language are valid identifiers in C.
+     */
+    private static final Pattern REGEXP_IDENTIFIER = Pattern.compile("[a-zA-Z_]\\w*");
+
+    /**
      * Object that represents parsed options.
      */
     private final CommandLine cmdLine;
@@ -67,7 +72,12 @@ public final class Options8051Validator {
             return error;
         }
 
-        return validateInterrupts();
+        error = validateInterrupts();
+        if (error.isPresent()) {
+            return error;
+        }
+
+        return validateRigidFunctions();
     }
 
     private Optional<String> validateBankSize() {
@@ -130,6 +140,26 @@ public final class Options8051Validator {
             } else {
                 return Optional.of("invalid value for option '--" + Options8051.OPTION_LONG_INTERRUPTS
                         + "': '" + assignment + "' is an invalid assignment of function to interrupt");
+            }
+        }
+
+        return Optional.absent();
+    }
+
+    private Optional<String> validateRigidFunctions() {
+        final Optional<String> rigidFunctions = getOptionValue(Options8051.OPTION_LONG_RIGID_FUNCTIONS);
+        if (!rigidFunctions.isPresent()) {
+            return Optional.absent();
+        }
+
+        final String[] rigidFunctionsArray = rigidFunctions.get()
+                .split(Options8051.SEPARATOR_RIGID_FUNCTIONS, -1);
+
+        for (String funName : rigidFunctionsArray) {
+            if (!REGEXP_IDENTIFIER.matcher(funName).matches()) {
+                return Optional.of("invalid value for option '--"
+                        + Options8051.OPTION_LONG_RIGID_FUNCTIONS + "': '" + funName
+                        + "' is an invalid function name");
             }
         }
 

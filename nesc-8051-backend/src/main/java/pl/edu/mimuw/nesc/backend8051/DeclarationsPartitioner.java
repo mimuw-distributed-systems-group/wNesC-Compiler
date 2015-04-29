@@ -63,21 +63,32 @@ final class DeclarationsPartitioner {
     private final ReferencesGraph refsGraph;
 
     /**
+     * Set with unique names of rigid functions - functions whose banking
+     * characteristic will not be changed by the compiler. It means that
+     * functions declared as banked remain banked and functions not declared
+     * ad banked remain not banked.
+     */
+    private final ImmutableSet<String> rigidFunctions;
+
+    /**
      * The partition of the declarations that has been computed.
      */
     private Optional<Partition> partition;
 
     DeclarationsPartitioner(ImmutableList<Declaration> allDeclarations,
-            ImmutableList<ImmutableSet<FunctionDecl>> banks, ReferencesGraph refsGraph) {
+            ImmutableList<ImmutableSet<FunctionDecl>> banks, ReferencesGraph refsGraph,
+            ImmutableSet<String> rigidFunctions) {
         checkNotNull(allDeclarations, "all declarations list cannot be null");
         checkNotNull(banks, "assignment to banks cannot be null");
         checkNotNull(refsGraph, "references graph cannot be null");
+        checkNotNull(rigidFunctions, "rigid functions cannot be null");
 
         final PrivateBuilder builder = new RealBuilder(allDeclarations, banks, refsGraph);
         this.allDeclarations = builder.buildAllDeclarations();
         this.banks = builder.buildBanks();
         this.funsAssignment = builder.buildFunsAssignment();
         this.refsGraph = builder.buildRefsGraph();
+        this.rigidFunctions = rigidFunctions;
         this.partition = Optional.absent();
     }
 
@@ -168,7 +179,9 @@ final class DeclarationsPartitioner {
                 (IdentifierDeclarator) deepestDeclarator.getDeclarator().get();
         final String uniqueName = identDeclarator.getUniqueName().get();
 
-        funDeclarator.setIsBanked(!nonbankedFuns.contains(uniqueName));
+        if (!rigidFunctions.contains(uniqueName)) {
+            funDeclarator.setIsBanked(!nonbankedFuns.contains(uniqueName));
+        }
     }
 
     private void prepareFunctionSpecifiers(LinkedList<TypeElement> specifiers,
