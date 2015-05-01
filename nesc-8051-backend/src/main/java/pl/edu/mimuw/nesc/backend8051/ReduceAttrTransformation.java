@@ -197,10 +197,7 @@ final class ReduceAttrTransformation implements AttrTransformation<Void> {
                 listener.warning(makeWarningInvalidUsage(gccAttr));
                 return Lists.newList();
             }
-            final FunctionDeclaration declarationObj = (FunctionDeclaration) variableDecl.getDeclaration();
-            if (declarationObj != null && !declarationObj.isDefined()) {
-                ((FunctionDeclarator) deepestDeclarator.get()).setIsBanked(true);
-            }
+            ((FunctionDeclarator) deepestDeclarator.get()).setIsBanked(true);
             return Lists.newList();
         } else {
             listener.warning(makeWarningInvalidUsage(gccAttr));

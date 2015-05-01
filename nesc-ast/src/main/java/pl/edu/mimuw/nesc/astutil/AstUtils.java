@@ -899,10 +899,11 @@ public final class AstUtils {
         final VariableDecl variableDecl = new VariableDecl(
                 Location.getDummyLocation(),
                 Optional.of(functionDecl.getDeclarator().deepCopy(true)),
-                Lists.<Attribute>newList(),
+                deepCopyNodes(functionDecl.getAttributes(), true, Optional.<Map<Node, Node>>absent()),
                 Optional.<AsmStmt>absent()
         );
         variableDecl.setInitializer(Optional.<Expression>absent());
+        variableDecl.setDeclaration(functionDecl.getDeclaration());
 
         return new DataDecl(
                 Location.getDummyLocation(),

@@ -59,11 +59,9 @@ final class Options8051Factory {
                 .desc("comma-separated list of assignments of functions to interrupts numbers; each element of the list consists of the name of the function, '=' and the interrupt number; declarations of functions in the program will be annotated by SDCC attribute '__interrupt' according to value for this option; example interrupts map: sig_timer=1,serial_interrupt=0,external_interrupt=2")
                 .argName("interrupts-map")
                 .build(),
-            Option.builder(OPTION_SHORT_RIGID_FUNCTIONS)
-                .longOpt(OPTION_LONG_RIGID_FUNCTIONS)
-                .hasArg()
-                .desc("comma-separated list of functions names whose banking characteristic is guaranteed not to change in the output C files, i.e. a function from the list declared as banked remains banked and a function that isn't declared as banked remains not banked")
-                .argName("names")
+            Option.builder(OPTION_SHORT_RELAX_BANKED)
+                .longOpt(OPTION_LONG_RELAX_BANKED)
+                .desc("allow changing a function declared as banked that is defined in the NesC program and not annotated as spontaneous to be not banked for optimization")
                 .build()
         };
 

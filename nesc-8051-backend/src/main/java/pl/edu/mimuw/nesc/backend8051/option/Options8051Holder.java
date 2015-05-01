@@ -2,9 +2,7 @@ package pl.edu.mimuw.nesc.backend8051.option;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import java.util.Arrays;
 import org.apache.commons.cli.CommandLine;
 import pl.edu.mimuw.nesc.codesize.SDCCMemoryModel;
 
@@ -110,22 +108,14 @@ public final class Options8051Holder {
     }
 
     /**
-     * Get the set with unique names of functions whose unique characteristic
-     * will not be changed by the compiler.
+     * Check if the option that allows changing banked, defined and not
+     * spontaneous functions to not banked is specified.
      *
-     * @return Set with unique names of rigid functions.
+     * @return <code>true</code> if and only if the option that allows
+     *         relaxation of banked characteristics is given.
      */
-    public ImmutableSet<String> getRigidFunctions() {
-        final Optional<String> rigidFunctionsOpt = Optional.fromNullable(
-                cmdLine.getOptionValue(OPTION_LONG_RIGID_FUNCTIONS));
-
-        if (!rigidFunctionsOpt.isPresent()) {
-            return ImmutableSet.of();
-        } else {
-            final String[] rigidFunctionsArray = rigidFunctionsOpt.get()
-                    .split(SEPARATOR_RIGID_FUNCTIONS, -1);
-            return ImmutableSet.copyOf(Arrays.asList(rigidFunctionsArray));
-        }
+    public boolean getRelaxBanked() {
+        return cmdLine.hasOption(OPTION_LONG_RELAX_BANKED);
     }
 
     private Optional<Integer> getIntegerOptionValue(String optionName) {

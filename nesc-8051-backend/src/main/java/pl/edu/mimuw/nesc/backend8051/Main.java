@@ -170,9 +170,10 @@ public final class Main {
                     estimateFunctionsSizes(separatedDecls);
             final ImmutableList<ImmutableSet<FunctionDecl>> funsPartition =
                     partitionFunctions(separatedDecls, funsSizesEstimation);
+            performPostPartitionAdjustment(separatedDecls, funsPartition,
+                    result.getReferencesGraph());
             final DeclarationsPartitioner.Partition declsPartition =
-                    partitionDeclarations(separatedDecls, funsPartition,
-                            result.getReferencesGraph(), options.getRigidFunctions());
+                    partitionDeclarations(separatedDecls, funsPartition);
             writeDeclarations(declsPartition, result.getOutputFileName());
         } catch (ErroneousIssueException e) {
             System.exit(STATUS_ERROR);
@@ -326,19 +327,31 @@ public final class Main {
      * @param allDeclarations All declarations that constitute the program in
      *                        proper order (they shall be separated).
      * @param partition Partition of functions to banks.
-     * @param refsGraph Graph of references between entities in the program.
-     * @param rigidFunctions Set with unique names of rigid functions.
      * @return Partition of declarations to files.
      */
     private DeclarationsPartitioner.Partition partitionDeclarations(
             ImmutableList<Declaration> allDeclarations,
-            ImmutableList<ImmutableSet<FunctionDecl>> partition,
-            ReferencesGraph refsGraph,
-            ImmutableSet<String> rigidFunctions
+            ImmutableList<ImmutableSet<FunctionDecl>> partition
     ) {
-        return new DeclarationsPartitioner(allDeclarations, partition,
-                    refsGraph, rigidFunctions)
+        return new DeclarationsPartitioner(allDeclarations, partition)
                 .partition();
+    }
+
+    /**
+     * Performs the final adjustment of declarations. It includes adding or
+     * removing <code>__banked</code> keyword to declarations of functions and
+     * adjusting specifiers of functions declarations.
+     *
+     * @param declarations List with all declarations of the NesC program in
+     *                     proper order.
+     * @param banks Partition of functions to banks.
+     * @param refsGraph Graph of references between entities in the NesC
+     *                  program.
+     */
+    private void performPostPartitionAdjustment(ImmutableList<Declaration> declarations,
+            ImmutableList<ImmutableSet<FunctionDecl>> banks, ReferencesGraph refsGraph) {
+        new FinalDeclarationsAdjuster(declarations, banks, options.getRelaxBanked(), refsGraph)
+                .adjust();
     }
 
     /**

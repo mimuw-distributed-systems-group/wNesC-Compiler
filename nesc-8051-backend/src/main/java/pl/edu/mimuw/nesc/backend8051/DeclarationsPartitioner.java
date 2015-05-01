@@ -2,34 +2,24 @@ package pl.edu.mimuw.nesc.backend8051;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.util.EnumSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.DataDecl;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
-import pl.edu.mimuw.nesc.ast.gen.Declarator;
 import pl.edu.mimuw.nesc.ast.gen.ExceptionVisitor;
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.ExtensionDecl;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.IdentifierDeclarator;
 import pl.edu.mimuw.nesc.ast.gen.InterfaceRefDeclarator;
 import pl.edu.mimuw.nesc.ast.gen.NestedDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.TypeElement;
 import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
-import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
-import pl.edu.mimuw.nesc.refsgraph.EntityNode;
-import pl.edu.mimuw.nesc.refsgraph.Reference;
-import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -51,44 +41,16 @@ final class DeclarationsPartitioner {
     private final ImmutableList<ImmutableSet<FunctionDecl>> banks;
 
     /**
-     * Assignment of functions to banks. Keys are unique names of functions and
-     * values are indices of banks. The indices correspond to indices of list
-     * <code>banks</code>.
-     */
-    private final ImmutableMap<String, Integer> funsAssignment;
-
-    /**
-     * Graph of references between entities.
-     */
-    private final ReferencesGraph refsGraph;
-
-    /**
-     * Set with unique names of rigid functions - functions whose banking
-     * characteristic will not be changed by the compiler. It means that
-     * functions declared as banked remain banked and functions not declared
-     * ad banked remain not banked.
-     */
-    private final ImmutableSet<String> rigidFunctions;
-
-    /**
      * The partition of the declarations that has been computed.
      */
     private Optional<Partition> partition;
 
     DeclarationsPartitioner(ImmutableList<Declaration> allDeclarations,
-            ImmutableList<ImmutableSet<FunctionDecl>> banks, ReferencesGraph refsGraph,
-            ImmutableSet<String> rigidFunctions) {
+            ImmutableList<ImmutableSet<FunctionDecl>> banks) {
         checkNotNull(allDeclarations, "all declarations list cannot be null");
         checkNotNull(banks, "assignment to banks cannot be null");
-        checkNotNull(refsGraph, "references graph cannot be null");
-        checkNotNull(rigidFunctions, "rigid functions cannot be null");
-
-        final PrivateBuilder builder = new RealBuilder(allDeclarations, banks, refsGraph);
-        this.allDeclarations = builder.buildAllDeclarations();
-        this.banks = builder.buildBanks();
-        this.funsAssignment = builder.buildFunsAssignment();
-        this.refsGraph = builder.buildRefsGraph();
-        this.rigidFunctions = rigidFunctions;
+        this.allDeclarations = allDeclarations;
+        this.banks = banks;
         this.partition = Optional.absent();
     }
 
@@ -102,60 +64,17 @@ final class DeclarationsPartitioner {
             return partition.get();
         }
 
-        final ImmutableSet<String> nonbankedFuns = determineNonbankedFuns();
-        final ImmutableList<Declaration> headerDecls = collectHeaderDeclarations(nonbankedFuns);
+        final ImmutableList<Declaration> headerDecls = collectHeaderDeclarations();
         final ImmutableList<ImmutableList<Declaration>> codeFiles =
-                collectBanksDefinitions(nonbankedFuns);
+                collectBanksDefinitions();
 
         partition = Optional.of(new Partition(headerDecls, codeFiles));
         return partition.get();
     }
 
-    /**
-     * Compute the set of functions that are not banked. A function will not be
-     * banked if all its references are calls and all these calls are made by
-     * functions from the same bank.
-     *
-     * @return Set of functions that don't need banking.
-     */
-    private ImmutableSet<String> determineNonbankedFuns() {
-        final ImmutableSet.Builder<String> nonbankedFunsBuilder = ImmutableSet.builder();
-
-        for (int i = 0; i < banks.size(); ++i) {
-            for (FunctionDecl functionDecl : banks.get(i)) {
-                final String uniqueName = DeclaratorUtils.getUniqueName(functionDecl.getDeclarator()).get();
-                boolean banked = false;
-
-                // Check entities that refer to the function
-                for (Reference reference : refsGraph.getOrdinaryIds().get(uniqueName).getPredecessors()) {
-                    final EntityNode referencingNode = reference.getReferencingNode();
-
-                    if (!reference.isInsideNotEvaluatedExpr()) {
-                        if (reference.getType() != Reference.Type.CALL) {
-                            banked = true;
-                            break;
-                        } else if (referencingNode.getKind() != EntityNode.Kind.FUNCTION) {
-                            banked = true;
-                            break;
-                        } else if (funsAssignment.get(referencingNode.getUniqueName()) != i) {
-                            banked = true; // call from a function from a different bank
-                            break;
-                        }
-                    }
-                }
-
-                if (!banked) {
-                    nonbankedFunsBuilder.add(uniqueName);
-                }
-            }
-        }
-
-        return nonbankedFunsBuilder.build();
-    }
-
-    private ImmutableList<Declaration> collectHeaderDeclarations(ImmutableSet<String> nonbankedFuns) {
+    private ImmutableList<Declaration> collectHeaderDeclarations() {
         final ImmutableList.Builder<Declaration> headerDeclsBuilder = ImmutableList.builder();
-        final HeaderDeclarationsCollector collector = new HeaderDeclarationsCollector(nonbankedFuns);
+        final HeaderDeclarationsCollector collector = new HeaderDeclarationsCollector();
 
         for (Declaration declaration : allDeclarations) {
             headerDeclsBuilder.add(declaration.accept(collector, null));
@@ -164,66 +83,31 @@ final class DeclarationsPartitioner {
         return headerDeclsBuilder.build();
     }
 
-    private void setIsBanked(Declarator declarator, FunctionDeclaration declaration,
-                ImmutableSet<String> nonbankedFuns) {
-        if (declaration != null && !declaration.isDefined()) {
-            return;
-        }
-
-        final NestedDeclarator deepestDeclarator =
-                DeclaratorUtils.getDeepestNestedDeclarator(declarator).get();
-        checkArgument(deepestDeclarator instanceof FunctionDeclarator,
-                "expected declarator of a function");
-        final FunctionDeclarator funDeclarator = (FunctionDeclarator) deepestDeclarator;
-        final IdentifierDeclarator identDeclarator =
-                (IdentifierDeclarator) deepestDeclarator.getDeclarator().get();
-        final String uniqueName = identDeclarator.getUniqueName().get();
-
-        if (!rigidFunctions.contains(uniqueName)) {
-            funDeclarator.setIsBanked(!nonbankedFuns.contains(uniqueName));
-        }
-    }
-
-    private void prepareFunctionSpecifiers(LinkedList<TypeElement> specifiers,
-                FunctionDeclaration declaration, boolean bankedFunction) {
-        if (declaration != null && !declaration.isDefined()) {
-            return;
-        }
-
-        TypeElementUtils.removeRID(specifiers, RID.STATIC, RID.EXTERN, RID.INLINE);
-
-        if (bankedFunction) {
-            specifiers.add(0, AstUtils.newRid(RID.STATIC));
-        }
-    }
-
-    private ImmutableList<ImmutableList<Declaration>> collectBanksDefinitions(ImmutableSet<String> nonbankedFuns) {
+    private ImmutableList<ImmutableList<Declaration>> collectBanksDefinitions() {
         final ImmutableList.Builder<ImmutableList<Declaration>> codeFiles = ImmutableList.builder();
         final Iterator<ImmutableSet<FunctionDecl>> banksIt = banks.iterator();
 
         if (banksIt.hasNext()) {
-            codeFiles.add(collectCommonBankDefinitions(banksIt.next(), nonbankedFuns));
+            codeFiles.add(collectCommonBankDefinitions(banksIt.next()));
 
             while (banksIt.hasNext()) {
-                codeFiles.add(collectOrdinaryBankDefinitions(banksIt.next(), nonbankedFuns));
+                codeFiles.add(collectOrdinaryBankDefinitions(banksIt.next()));
             }
         }
 
         return codeFiles.build();
     }
 
-    private ImmutableList<Declaration> collectCommonBankDefinitions(ImmutableSet<FunctionDecl> functions,
-                ImmutableSet<String> nonbankedDecls) {
+    private ImmutableList<Declaration> collectCommonBankDefinitions(ImmutableSet<FunctionDecl> functions) {
         final ImmutableList.Builder<Declaration> declarationsBuilder = ImmutableList.builder();
         collectVariablesDefinitions(declarationsBuilder);
-        collectFunctionsDefinitions(declarationsBuilder, functions, nonbankedDecls);
+        collectFunctionsDefinitions(declarationsBuilder, functions);
         return declarationsBuilder.build();
     }
 
-    private ImmutableList<Declaration> collectOrdinaryBankDefinitions(ImmutableSet<FunctionDecl> bank,
-                ImmutableSet<String> nonbankedFuns) {
+    private ImmutableList<Declaration> collectOrdinaryBankDefinitions(ImmutableSet<FunctionDecl> bank) {
         final ImmutableList.Builder<Declaration> declarationsBuilder = ImmutableList.builder();
-        collectFunctionsDefinitions(declarationsBuilder, bank, nonbankedFuns);
+        collectFunctionsDefinitions(declarationsBuilder, bank);
         return declarationsBuilder.build();
     }
 
@@ -257,12 +141,8 @@ final class DeclarationsPartitioner {
     }
 
     private void collectFunctionsDefinitions(ImmutableList.Builder<Declaration> declarationsBuilder,
-                ImmutableSet<FunctionDecl> bank, ImmutableSet<String> nonbankedFuns) {
+                ImmutableSet<FunctionDecl> bank) {
         for (FunctionDecl function : bank) {
-            final String uniqueName = DeclaratorUtils.getUniqueName(function.getDeclarator()).get();
-            setIsBanked(function.getDeclarator(), function.getDeclaration(), nonbankedFuns);
-            prepareFunctionSpecifiers(function.getModifiers(), function.getDeclaration(),
-                    !nonbankedFuns.contains(uniqueName));
             declarationsBuilder.add(function);
         }
     }
@@ -274,20 +154,8 @@ final class DeclarationsPartitioner {
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     private final class HeaderDeclarationsCollector extends ExceptionVisitor<Declaration, Void> {
-        private final ImmutableSet<String> nonbankedFuns;
-
-        private HeaderDeclarationsCollector(ImmutableSet<String> nonbankedFuns) {
-            checkNotNull(nonbankedFuns, "non-banked functions cannot be null");
-            this.nonbankedFuns = nonbankedFuns;
-        }
-
         @Override
         public Declaration visitFunctionDecl(FunctionDecl functionDecl, Void arg) {
-            setIsBanked(functionDecl.getDeclarator(), functionDecl.getDeclaration(),
-                    nonbankedFuns);
-            final String uniqueName = DeclaratorUtils.getUniqueName(functionDecl.getDeclarator()).get();
-            prepareFunctionSpecifiers(functionDecl.getModifiers(), functionDecl.getDeclaration(),
-                    !nonbankedFuns.contains(uniqueName));
             return AstUtils.createForwardDeclaration(functionDecl);
         }
 
@@ -307,7 +175,6 @@ final class DeclarationsPartitioner {
 
             final VariableDecl variableDecl =
                     (VariableDecl) declaration.getDeclarations().getFirst();
-            final String uniqueName = DeclaratorUtils.getUniqueName(variableDecl.getDeclarator().get()).get();
             final Optional<NestedDeclarator> deepestDeclarator =
                     DeclaratorUtils.getDeepestNestedDeclarator(variableDecl.getDeclarator().get());
             final EnumSet<RID> rids = TypeElementUtils.collectRID(declaration.getModifiers());
@@ -318,10 +185,6 @@ final class DeclarationsPartitioner {
             } else if (deepestDeclarator.isPresent()
                     && deepestDeclarator.get() instanceof FunctionDeclarator) {
                 // Function forward declaration
-                final FunctionDeclaration declarationObj = (FunctionDeclaration) variableDecl.getDeclaration();
-                setIsBanked(variableDecl.getDeclarator().get(), declarationObj, nonbankedFuns);
-                prepareFunctionSpecifiers(declaration.getModifiers(), declarationObj,
-                        !nonbankedFuns.contains(uniqueName));
                 return declaration;
             } else if (deepestDeclarator.isPresent() &&
                     deepestDeclarator.get() instanceof InterfaceRefDeclarator) {
@@ -378,66 +241,6 @@ final class DeclarationsPartitioner {
          */
         public ImmutableList<ImmutableList<Declaration>> getCodeFiles() {
             return codeFiles;
-        }
-    }
-
-    /**
-     * Interface for building particular elements of the partitioner.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    private interface PrivateBuilder {
-        ImmutableList<Declaration> buildAllDeclarations();
-        ImmutableList<ImmutableSet<FunctionDecl>> buildBanks();
-        ReferencesGraph buildRefsGraph();
-        ImmutableMap<String, Integer> buildFunsAssignment();
-    }
-
-    /**
-     * Implementation of the private builder interface for the partitioner.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    private static final class RealBuilder implements PrivateBuilder {
-        /**
-         * Data necessary for building a partitioner.
-         */
-        private final ImmutableList<Declaration> allDeclarations;
-        private final ImmutableList<ImmutableSet<FunctionDecl>> banks;
-        private final ReferencesGraph refsGraph;
-
-        private RealBuilder(ImmutableList<Declaration> allDeclarations,
-                ImmutableList<ImmutableSet<FunctionDecl>> banks, ReferencesGraph refsGraph) {
-            this.allDeclarations = allDeclarations;
-            this.banks = banks;
-            this.refsGraph = refsGraph;
-        }
-
-        @Override
-        public ImmutableList<Declaration> buildAllDeclarations() {
-            return allDeclarations;
-        }
-
-        @Override
-        public ImmutableList<ImmutableSet<FunctionDecl>> buildBanks() {
-            return banks;
-        }
-
-        @Override
-        public ReferencesGraph buildRefsGraph() {
-            return refsGraph;
-        }
-
-        @Override
-        public ImmutableMap<String, Integer> buildFunsAssignment() {
-            final ImmutableMap.Builder<String, Integer> funsAssignmentBuilder = ImmutableMap.builder();
-            for (int i = 0; i < banks.size(); ++i) {
-                for (FunctionDecl functionDecl : banks.get(i)) {
-                    funsAssignmentBuilder.put(DeclaratorUtils.getUniqueName(
-                            functionDecl.getDeclarator()).get(), i);
-                }
-            }
-            return funsAssignmentBuilder.build();
         }
     }
 }
