@@ -1,12 +1,8 @@
 package pl.edu.mimuw.nesc.codepartition;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
@@ -21,40 +17,33 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * <p>Code partitioner that uses the following algorithm:</p>
  * <ol>
- *     <li>all spontaneous functions are assigned to the bank with index 0 (the
- *     common bank)</li>
+ *     <li>all spontaneous functions are assigned to the common bank</li>
  *     <li>functions are sequenced from the biggest one to the smallest one and
  *     assigned in that order</li>
  *     <li>each function is assigned to the bank with the smallest amount of
  *     remaining free space that can hold it</li>
  * </ol>
  *
- * <p>Banks model that is assumed by this partitioner is as follows. Every bank
- * has the same size. There is one common bank (it is considered the bank with
- * index 0).</p>
- *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class SimpleCodePartitioner implements CodePartitioner {
     /**
-     * Size of a single bank (in bytes).
+     * Bank schema assumed by this partitioner.
      */
-    private final int bankSize;
+    private final BankSchema bankSchema;
 
-    /**
-     * Count of banks.
-     */
-    private final int banksCount;
-
-    public SimpleCodePartitioner(int bankSize, int banksCount) {
-        checkArgument(bankSize > 0, "size of a bank must be positive");
-        checkArgument(banksCount > 0, "count of banks must be positive");
-        this.bankSize = bankSize;
-        this.banksCount = banksCount;
+    public SimpleCodePartitioner(BankSchema bankSchema) {
+        checkNotNull(bankSchema, "bank schema cannot be null");
+        this.bankSchema = bankSchema;
     }
 
     @Override
-    public ImmutableList<ImmutableSet<FunctionDecl>> partition(List<FunctionDecl> functions,
+    public BankSchema getBankSchema() {
+        return bankSchema;
+    }
+
+    @Override
+    public BankTable partition(Iterable<FunctionDecl> functions,
             Map<String, Range<Integer>> functionsSizes) throws PartitionImpossibleException {
         checkNotNull(functions, "functions cannot be null");
         checkNotNull(functionsSizes, "sizes of functions cannot be null");
@@ -63,20 +52,20 @@ public final class SimpleCodePartitioner implements CodePartitioner {
         final PriorityQueue<BankedFunction> sortedFuns = assignSpontaneousFunctions(context, functions);
         assignRemainingFunctions(context, sortedFuns);
 
-        return context.createResult();
+        return context.getBankTable();
     }
 
     private PriorityQueue<BankedFunction> assignSpontaneousFunctions(PartitionContext context,
-                List<FunctionDecl> functions) throws PartitionImpossibleException {
-        final PriorityQueue<BankedFunction> sortedFunctions = new PriorityQueue<>(functions.size());
+                Iterable<FunctionDecl> functions) throws PartitionImpossibleException {
+        final PriorityQueue<BankedFunction> sortedFunctions = new PriorityQueue<>();
 
         for (FunctionDecl functionDecl : functions) {
             final int funSize = context.getFunctionSize(functionDecl);
 
             if (functionDecl.getDeclaration() != null
                     && functionDecl.getDeclaration().getCallAssumptions().compareTo(FunctionDeclaration.CallAssumptions.SPONTANEOUS) >= 0) {
-                if (context.banksFreeSpace[INDEX_COMMON_BANK] >= funSize) {
-                    context.assign(functionDecl, INDEX_COMMON_BANK);
+                if (context.bankTable.getFreeSpace(bankSchema.getCommonBankName()) >= funSize) {
+                    context.assign(functionDecl, bankSchema.getCommonBankName());
                 } else {
                     throw new PartitionImpossibleException("not enough space in the common bank for a spontaneous function");
                 }
@@ -96,13 +85,14 @@ public final class SimpleCodePartitioner implements CodePartitioner {
                     context.banksFreeSpaceMap.ceilingKey(unassignedFun.size));
 
             if (!targetBankSize.isPresent()) {
-                throw new PartitionImpossibleException("not enough space for function "
-                        + DeclaratorUtils.getUniqueName(unassignedFun.functionDecl.getDeclarator()).get());
+                throw new PartitionImpossibleException("not enough space for function '"
+                        + DeclaratorUtils.getUniqueName(unassignedFun.functionDecl.getDeclarator()).get()
+                        + "'");
             }
 
-            final int targetBankIndex = context.banksFreeSpaceMap.get(targetBankSize.get())
+            final String targetBankName = context.banksFreeSpaceMap.get(targetBankSize.get())
                     .iterator().next();
-            context.assign(unassignedFun.functionDecl, targetBankIndex);
+            context.assign(unassignedFun.functionDecl, targetBankName);
         }
     }
 
@@ -136,19 +126,17 @@ public final class SimpleCodePartitioner implements CodePartitioner {
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     private final class PartitionContext {
-        private final List<Set<FunctionDecl>> assignment;
-        private final TreeMap<Integer, Set<Integer>> banksFreeSpaceMap;
+        private final BankTable bankTable;
+        private final TreeMap<Integer, Set<String>> banksFreeSpaceMap;
         private final Map<String, Range<Integer>> functionsSizes;
-        private final int[] banksFreeSpace;
 
         private PartitionContext(Map<String, Range<Integer>> functionsSizes) {
             checkNotNull(functionsSizes, "sizes of functions cannot be null");
 
             final PrivateBuilder builder = new PrivateBuilder();
-            this.assignment = builder.buildAssignment();
+            this.bankTable = new BankTable(bankSchema);
             this.banksFreeSpaceMap = builder.buildBanksFreeSpaceMap();
             this.functionsSizes = functionsSizes;
-            this.banksFreeSpace = builder.buildBanksFreeSpace();
         }
 
         private int getFunctionSize(FunctionDecl functionDecl) {
@@ -156,39 +144,34 @@ public final class SimpleCodePartitioner implements CodePartitioner {
             return functionsSizes.get(uniqueName).upperEndpoint();
         }
 
-        private void assign(FunctionDecl function, int bankIndex) {
+        private void assign(FunctionDecl function, String bankName) {
             final int funSize = getFunctionSize(function);
-            if (funSize > banksFreeSpace[bankIndex]) {
+            final int oldTargetBankFreeSpace = bankTable.getFreeSpace(bankName);
+            if (funSize > oldTargetBankFreeSpace) {
                 throw new IllegalStateException("assigning a function to a bank without sufficient space");
             }
 
-            assignment.get(bankIndex).add(function);
+            bankTable.allocate(bankName, function, funSize);
+            final int newTargetBankFreeSpace = bankTable.getFreeSpace(bankName);
 
             if (funSize > 0) {
-                final Set<Integer> banksMapSet = banksFreeSpaceMap.get(banksFreeSpace[bankIndex]);
-                if (!banksMapSet.remove(bankIndex)) {
-                    throw new IllegalStateException("inconsistent information about free space in bank " + bankIndex);
+                final Set<String> banksMapSet = banksFreeSpaceMap.get(oldTargetBankFreeSpace);
+                if (!banksMapSet.remove(bankName)) {
+                    throw new IllegalStateException("inconsistent information about free space in bank " + bankName);
                 }
                 if (banksMapSet.isEmpty()) {
-                    banksFreeSpaceMap.remove(banksFreeSpace[bankIndex]);
+                    banksFreeSpaceMap.remove(oldTargetBankFreeSpace);
                 }
 
-                banksFreeSpace[bankIndex] -= funSize;
-
-                if (!banksFreeSpaceMap.containsKey(banksFreeSpace[bankIndex])) {
-                    banksFreeSpaceMap.put(banksFreeSpace[bankIndex], new HashSet<Integer>());
+                if (!banksFreeSpaceMap.containsKey(newTargetBankFreeSpace)) {
+                    banksFreeSpaceMap.put(newTargetBankFreeSpace, new HashSet<String>());
                 }
-                banksFreeSpaceMap.get(banksFreeSpace[bankIndex]).add(bankIndex);
+                banksFreeSpaceMap.get(newTargetBankFreeSpace).add(bankName);
             }
         }
 
-        private ImmutableList<ImmutableSet<FunctionDecl>> createResult() {
-            final ImmutableList.Builder<ImmutableSet<FunctionDecl>> banksBuilder =
-                    ImmutableList.builder();
-            for (Set<FunctionDecl> bank : assignment) {
-                banksBuilder.add(ImmutableSet.copyOf(bank));
-            }
-            return banksBuilder.build();
+        private BankTable getBankTable() {
+            return bankTable;
         }
 
         /**
@@ -197,30 +180,16 @@ public final class SimpleCodePartitioner implements CodePartitioner {
          * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
          */
         private final class PrivateBuilder {
-            private List<Set<FunctionDecl>> buildAssignment() {
-                final List<Set<FunctionDecl>> emptyAssignment = new ArrayList<>();
-                for (int i = 0; i < SimpleCodePartitioner.this.banksCount; ++i) {
-                    emptyAssignment.add(new HashSet<FunctionDecl>());
+            private TreeMap<Integer, Set<String>> buildBanksFreeSpaceMap() {
+                final TreeMap<Integer, Set<String>> result = new TreeMap<>();
+                for (String bankName : bankSchema.getBanksNames()) {
+                    final int capacity = bankSchema.getBankCapacity(bankName);
+                    if (!result.containsKey(capacity)) {
+                        result.put(capacity, new HashSet<String>());
+                    }
+                    result.get(capacity).add(bankName);
                 }
-                return emptyAssignment;
-            }
-
-            private TreeMap<Integer, Set<Integer>> buildBanksFreeSpaceMap() {
-                final Set<Integer> banksIndices = new HashSet<>();
-                for (int i = 0; i < banksCount; ++i) {
-                    banksIndices.add(i);
-                }
-                final TreeMap<Integer, Set<Integer>> result = new TreeMap<>();
-                result.put(bankSize, banksIndices);
                 return result;
-            }
-
-            private int[] buildBanksFreeSpace() {
-                final int[] freeSpace = new int[banksCount];
-                for (int i = 0; i < banksCount; ++i) {
-                    freeSpace[i] = bankSize;
-                }
-                return freeSpace;
             }
         }
     }

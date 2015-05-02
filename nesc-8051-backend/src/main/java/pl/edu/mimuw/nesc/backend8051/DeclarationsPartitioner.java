@@ -1,10 +1,11 @@
 package pl.edu.mimuw.nesc.backend8051;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableListMultimap;
 import java.util.EnumSet;
-import java.util.Iterator;
+import java.util.List;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.DataDecl;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
@@ -19,6 +20,7 @@ import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
+import pl.edu.mimuw.nesc.codepartition.BankTable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -38,19 +40,18 @@ final class DeclarationsPartitioner {
     /**
      * Contents of each bank.
      */
-    private final ImmutableList<ImmutableSet<FunctionDecl>> banks;
+    private final BankTable bankTable;
 
     /**
      * The partition of the declarations that has been computed.
      */
     private Optional<Partition> partition;
 
-    DeclarationsPartitioner(ImmutableList<Declaration> allDeclarations,
-            ImmutableList<ImmutableSet<FunctionDecl>> banks) {
+    DeclarationsPartitioner(ImmutableList<Declaration> allDeclarations, BankTable bankTable) {
         checkNotNull(allDeclarations, "all declarations list cannot be null");
-        checkNotNull(banks, "assignment to banks cannot be null");
+        checkNotNull(bankTable, "bank table cannot be null");
         this.allDeclarations = allDeclarations;
-        this.banks = banks;
+        this.bankTable =  bankTable;
         this.partition = Optional.absent();
     }
 
@@ -65,8 +66,7 @@ final class DeclarationsPartitioner {
         }
 
         final ImmutableList<Declaration> headerDecls = collectHeaderDeclarations();
-        final ImmutableList<ImmutableList<Declaration>> codeFiles =
-                collectBanksDefinitions();
+        final ImmutableListMultimap<String, Declaration> codeFiles = collectBanksDefinitions();
 
         partition = Optional.of(new Partition(headerDecls, codeFiles));
         return partition.get();
@@ -83,35 +83,33 @@ final class DeclarationsPartitioner {
         return headerDeclsBuilder.build();
     }
 
-    private ImmutableList<ImmutableList<Declaration>> collectBanksDefinitions() {
-        final ImmutableList.Builder<ImmutableList<Declaration>> codeFiles = ImmutableList.builder();
-        final Iterator<ImmutableSet<FunctionDecl>> banksIt = banks.iterator();
+    private ImmutableListMultimap<String, Declaration> collectBanksDefinitions() {
+        final ArrayListMultimap<String, Declaration> codeFiles = ArrayListMultimap.create();
 
-        if (banksIt.hasNext()) {
-            codeFiles.add(collectCommonBankDefinitions(banksIt.next()));
-
-            while (banksIt.hasNext()) {
-                codeFiles.add(collectOrdinaryBankDefinitions(banksIt.next()));
+        for (String bankName : bankTable.getBanksNames()) {
+            final List<Declaration> bankDeclarations = codeFiles.get(bankName);
+            if (bankName.equals(bankTable.getCommonBankName())) {
+                collectCommonBankDefinitions(bankDeclarations, bankTable.getBankContents(bankName));
+            } else {
+                collectOrdinaryBankDefinitions(bankDeclarations, bankTable.getBankContents(bankName));
             }
         }
 
-        return codeFiles.build();
+        return ImmutableListMultimap.copyOf(codeFiles);
     }
 
-    private ImmutableList<Declaration> collectCommonBankDefinitions(ImmutableSet<FunctionDecl> functions) {
-        final ImmutableList.Builder<Declaration> declarationsBuilder = ImmutableList.builder();
-        collectVariablesDefinitions(declarationsBuilder);
-        collectFunctionsDefinitions(declarationsBuilder, functions);
-        return declarationsBuilder.build();
+    private void collectCommonBankDefinitions(List<Declaration> bankDeclarations,
+            List<FunctionDecl> functions) {
+        collectVariablesDefinitions(bankDeclarations);
+        collectFunctionsDefinitions(bankDeclarations, functions);
     }
 
-    private ImmutableList<Declaration> collectOrdinaryBankDefinitions(ImmutableSet<FunctionDecl> bank) {
-        final ImmutableList.Builder<Declaration> declarationsBuilder = ImmutableList.builder();
-        collectFunctionsDefinitions(declarationsBuilder, bank);
-        return declarationsBuilder.build();
+    private void collectOrdinaryBankDefinitions(List<Declaration> bankDeclarations,
+            List<FunctionDecl> bank) {
+        collectFunctionsDefinitions(bankDeclarations, bank);
     }
 
-    private void collectVariablesDefinitions(ImmutableList.Builder<Declaration> declarationsBuilder) {
+    private void collectVariablesDefinitions(List<Declaration> bankDeclarations) {
         for (Declaration declaration : allDeclarations) {
             if (declaration instanceof ExtensionDecl) {
                 declaration = ((ExtensionDecl) declaration).getDeclaration();
@@ -133,18 +131,16 @@ final class DeclarationsPartitioner {
                         if (rids.contains(RID.STATIC)) {
                             TypeElementUtils.removeRID(dataDecl.getModifiers(), RID.STATIC);
                         }
-                        declarationsBuilder.add(declaration);
+                        bankDeclarations.add(declaration);
                     }
                 }
             }
         }
     }
 
-    private void collectFunctionsDefinitions(ImmutableList.Builder<Declaration> declarationsBuilder,
-                ImmutableSet<FunctionDecl> bank) {
-        for (FunctionDecl function : bank) {
-            declarationsBuilder.add(function);
-        }
+    private void collectFunctionsDefinitions(List<Declaration> bankDeclarations,
+                List<FunctionDecl> bank) {
+        bankDeclarations.addAll(bank);
     }
 
     /**
@@ -206,16 +202,17 @@ final class DeclarationsPartitioner {
     }
 
     /**
-     * Class that represents a partition of declarations of a single program.
+     * Class that represents a partition of declarations of a single program to
+     * files.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     public static final class Partition {
         private final ImmutableList<Declaration> headerFile;
-        private final ImmutableList<ImmutableList<Declaration>> codeFiles;
+        private final ImmutableListMultimap<String, Declaration> codeFiles;
 
         private Partition(ImmutableList<Declaration> headerFile,
-                    ImmutableList<ImmutableList<Declaration>> codeFiles) {
+                    ImmutableListMultimap<String, Declaration> codeFiles) {
             checkNotNull(headerFile, "header file cannot be null");
             checkNotNull(codeFiles, "files with code cannot be null");
             this.headerFile = headerFile;
@@ -233,13 +230,15 @@ final class DeclarationsPartitioner {
 
         /**
          * Get declarations for each of the code banks. There may be less
-         * elements on the list than count of all banks. Order of elements
-         * of the least nested list corresponds to order of functions in
+         * keys of the returned map than count of all banks. Order of elements
+         * associated with each key corresponds to the order of functions in
          * banks from the list given at construction.
          *
-         * @return Declarations for each of the C files.
+         * @return List multimap with declarations for each of the C files. Keys
+         *         are names of banks and values are declarations to be put in
+         *         the file for the bank.
          */
-        public ImmutableList<ImmutableList<Declaration>> getCodeFiles() {
+        public ImmutableListMultimap<String, Declaration> getCodeFiles() {
             return codeFiles;
         }
     }

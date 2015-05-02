@@ -4,7 +4,9 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import java.math.BigInteger;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.cli.CommandLine;
@@ -33,6 +35,14 @@ public final class Options8051Validator {
                     + "(?<interruptNumber>\\d+)");
 
     /**
+     * Regular expression for an entry in the bank schema.
+     */
+    private static final Pattern REGEXP_BANK_SCHEMA_ENTRY =
+            Pattern.compile("(?<bankName>" + REGEXP_IDENTIFIER + ")"
+                    + Options8051.SEPARATOR_BANKS_SCHEMA_INNER
+                    + "(?<bankCapacity>\\d+)");
+
+    /**
      * Object that represents parsed options.
      */
     private final CommandLine cmdLine;
@@ -46,8 +56,7 @@ public final class Options8051Validator {
         checkNotNull(cmdLine, "command line cannot be null");
         this.cmdLine = cmdLine;
         this.validationChain = ImmutableList.of(
-                new BankSizeValidator(),
-                new BanksCountValidator(),
+                new BankSchemaValidator(),
                 new EstimateThreadsCountValidator(),
                 new SDCCExecutableValidator(),
                 new DumpCallGraphValidator(),
@@ -114,19 +123,50 @@ public final class Options8051Validator {
         Optional<String> validate();
     }
 
-    private final class BankSizeValidator implements SingleValidator {
+    private final class BankSchemaValidator implements SingleValidator {
         @Override
         public Optional<String> validate() {
-            return checkPositiveInteger(getOptionValue(Options8051.OPTION_LONG_BANK_SIZE),
-                    "the bank size");
-        }
-    }
+            final Optional<String> bankSchemaOpt = getOptionValue(Options8051.OPTION_LONG_BANKS);
+            if (!bankSchemaOpt.isPresent()) {
+                return Optional.absent();
+            }
 
-    private final class BanksCountValidator implements SingleValidator {
-        @Override
-        public Optional<String> validate() {
-            return checkPositiveInteger(getOptionValue(Options8051.OPTION_LONG_BANKS_COUNT),
-                    "banks count");
+            final String msgPrefix = "invalid value for option '--"
+                    + Options8051.OPTION_LONG_BANKS + "': ";
+            final String[] elements = bankSchemaOpt.get()
+                    .split(Options8051.SEPARATOR_BANKS_SCHEMA_OUTER, -1);
+            final Set<String> definedBanks = new HashSet<>();
+
+            // Name of the common bank
+            if (!REGEXP_IDENTIFIER.matcher(elements[0]).matches()) {
+                return Optional.of(msgPrefix + "name of common bank '" + elements[0] + "' is invalid");
+            }
+
+            // Other entries
+            for (int i = 1; i < elements.length; ++i) {
+                final Matcher entryMatcher = REGEXP_BANK_SCHEMA_ENTRY.matcher(elements[i]);
+                if (entryMatcher.matches()) {
+                    final String bankName = entryMatcher.group("bankName");
+                    if (!definedBanks.add(bankName)) {
+                        return Optional.of(msgPrefix + "bank '" + bankName + "' specified more than once");
+                    }
+                    final BigInteger capacity = new BigInteger(entryMatcher.group("bankCapacity"));
+                    if (capacity.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) > 0) {
+                        return Optional.of(msgPrefix + "size of area available in bank '" + bankName
+                                + "' exceeds " + Integer.MAX_VALUE);
+                    }
+                } else {
+                    return Optional.of(msgPrefix + "'" + elements[i] + "' is invalid specification of a bank");
+                }
+            }
+
+            // Check if the common bank has been specified
+            if (!definedBanks.contains(elements[0])) {
+                return Optional.of(msgPrefix + "size of area available in common bank '"
+                        + elements[0] + "' is not specified");
+            }
+
+            return Optional.absent();
         }
     }
 

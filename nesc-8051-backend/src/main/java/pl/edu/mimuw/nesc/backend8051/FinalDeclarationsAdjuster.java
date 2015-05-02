@@ -23,6 +23,7 @@ import pl.edu.mimuw.nesc.ast.gen.TypeElement;
 import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
+import pl.edu.mimuw.nesc.codepartition.BankTable;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.refsgraph.EntityNode;
@@ -52,16 +53,15 @@ final class FinalDeclarationsAdjuster {
     private final boolean isBankedRelaxed;
 
     /**
-     * Contents of each bank.
+     * Table with contents of each bank.
      */
-    private final ImmutableList<ImmutableSet<FunctionDecl>> banks;
+    private final BankTable bankTable;
 
     /**
      * Assignment of functions to banks. Keys are unique names of functions and
-     * values are indices of banks. The indices correspond to indices of list
-     * <code>banks</code>.
+     * values are names of banks.
      */
-    private final ImmutableMap<String, Integer> funsAssignment;
+    private final ImmutableMap<String, String> funsAssignment;
 
     /**
      * Graph of references between entities.
@@ -70,17 +70,17 @@ final class FinalDeclarationsAdjuster {
 
     FinalDeclarationsAdjuster(
             ImmutableList<Declaration> allDeclarations,
-            ImmutableList<ImmutableSet<FunctionDecl>> banks,
+            BankTable bankTable,
             boolean isBankedRelaxed,
             ReferencesGraph refsGraph
     ) {
         checkNotNull(allDeclarations, "declaration cannot be null");
-        checkNotNull(banks, "banks cannot be null");
+        checkNotNull(bankTable, "bank table cannot be null");
         checkNotNull(refsGraph, "references graph cannot be null");
 
-        final PrivateBuilder builder = new RealBuilder(banks);
+        final PrivateBuilder builder = new RealBuilder(bankTable);
         this.allDeclarations = allDeclarations;
-        this.banks = banks;
+        this.bankTable = bankTable;
         this.isBankedRelaxed = isBankedRelaxed;
         this.funsAssignment = builder.buildFunsAssignment();
         this.refsGraph = refsGraph;
@@ -97,17 +97,24 @@ final class FinalDeclarationsAdjuster {
     }
 
     /**
-     * Compute the set of functions that are not banked. A function will not be
-     * banked if all its references are calls and all these calls are made by
-     * functions from the same bank.
+     * Compute the set of candidates of functions that are not banked.
+     * A function will be a candidate if all its references are calls and all
+     * these calls are made by functions from the same bank and the function is
+     * not spontaneous.
      *
      * @return Set of functions that don't need banking.
      */
     private ImmutableSet<String> determineNonbankedFuns() {
         final ImmutableSet.Builder<String> nonbankedFunsBuilder = ImmutableSet.builder();
 
-        for (int i = 0; i < banks.size(); ++i) {
-            for (FunctionDecl functionDecl : banks.get(i)) {
+        for (String bankName : bankTable.getBanksNames()) {
+            for (FunctionDecl functionDecl : bankTable.getBankContents(bankName)) {
+                // Skip spontaneous functions
+                if (functionDecl.getDeclaration() != null && functionDecl.getDeclaration()
+                        .getCallAssumptions().compareTo(FunctionDeclaration.CallAssumptions.SPONTANEOUS) >= 0) {
+                    continue;
+                }
+
                 final String uniqueName = DeclaratorUtils.getUniqueName(functionDecl.getDeclarator()).get();
                 boolean banked = false;
 
@@ -122,7 +129,7 @@ final class FinalDeclarationsAdjuster {
                         } else if (referencingNode.getKind() != EntityNode.Kind.FUNCTION) {
                             banked = true;
                             break;
-                        } else if (funsAssignment.get(referencingNode.getUniqueName()) != i) {
+                        } else if (!funsAssignment.get(referencingNode.getUniqueName()).equals(bankName)) {
                             banked = true; // call from a function from a different bank
                             break;
                         }
@@ -247,7 +254,7 @@ final class FinalDeclarationsAdjuster {
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     private interface PrivateBuilder {
-        ImmutableMap<String, Integer> buildFunsAssignment();
+        ImmutableMap<String, String> buildFunsAssignment();
     }
 
     /**
@@ -259,19 +266,19 @@ final class FinalDeclarationsAdjuster {
         /**
          * Data necessary for building some elements of the adjuster.
          */
-        private final ImmutableList<ImmutableSet<FunctionDecl>> banks;
+        private final BankTable bankTable;
 
-        private RealBuilder(ImmutableList<ImmutableSet<FunctionDecl>> banks) {
-            this.banks = banks;
+        private RealBuilder(BankTable bankTable) {
+            this.bankTable = bankTable;
         }
 
         @Override
-        public ImmutableMap<String, Integer> buildFunsAssignment() {
-            final ImmutableMap.Builder<String, Integer> funsAssignmentBuilder = ImmutableMap.builder();
-            for (int i = 0; i < banks.size(); ++i) {
-                for (FunctionDecl functionDecl : banks.get(i)) {
+        public ImmutableMap<String, String> buildFunsAssignment() {
+            final ImmutableMap.Builder<String, String> funsAssignmentBuilder = ImmutableMap.builder();
+            for (String bankName : bankTable.getBanksNames()) {
+                for (FunctionDecl functionDecl : bankTable.getBankContents(bankName)) {
                     funsAssignmentBuilder.put(DeclaratorUtils.getUniqueName(
-                            functionDecl.getDeclarator()).get(), i);
+                            functionDecl.getDeclarator()).get(), bankName);
                 }
             }
             return funsAssignmentBuilder.build();

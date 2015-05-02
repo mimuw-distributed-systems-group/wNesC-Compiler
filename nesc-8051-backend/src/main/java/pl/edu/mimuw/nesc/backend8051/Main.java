@@ -8,8 +8,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.common.collect.SetMultimap;
 import java.io.IOException;
-import java.util.Iterator;
-import java.util.List;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Level;
 import pl.edu.mimuw.nesc.abi.ABI;
@@ -21,6 +19,8 @@ import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
 import pl.edu.mimuw.nesc.backend8051.option.Options8051Holder;
 import pl.edu.mimuw.nesc.backend8051.option.Options8051Parser;
+import pl.edu.mimuw.nesc.codepartition.BankSchema;
+import pl.edu.mimuw.nesc.codepartition.BankTable;
 import pl.edu.mimuw.nesc.codepartition.PartitionImpossibleException;
 import pl.edu.mimuw.nesc.codepartition.SimpleCodePartitioner;
 import pl.edu.mimuw.nesc.codesize.SDCCCodeSizeEstimatorFactory;
@@ -64,6 +64,20 @@ public final class Main {
         "__interrupt",
         "__using"
     );
+
+    /**
+     * Bank schema that is used if it is not specified by the user with the
+     * compiler option.
+     */
+    private static final BankSchema DEFAULT_BANK_SCHEMA = BankSchema.builder("HOME", 32768)
+            .addBank("BANK1", 32768)
+            .addBank("BANK2", 32768)
+            .addBank("BANK3", 32768)
+            .addBank("BANK4", 32768)
+            .addBank("BANK5", 32768)
+            .addBank("BANK6", 32768)
+            .addBank("BANK7", 32768)
+            .build();
 
     /**
      * Code returned by the compiler to the system when the compilation fails.
@@ -168,12 +182,10 @@ public final class Main {
             assignInterrupts(separatedDecls, options.getInterrupts(), result.getABI());
             final ImmutableMap<String, Range<Integer>> funsSizesEstimation =
                     estimateFunctionsSizes(separatedDecls);
-            final ImmutableList<ImmutableSet<FunctionDecl>> funsPartition =
-                    partitionFunctions(separatedDecls, funsSizesEstimation);
-            performPostPartitionAdjustment(separatedDecls, funsPartition,
-                    result.getReferencesGraph());
+            final BankTable bankTable = partitionFunctions(separatedDecls, funsSizesEstimation);
+            performPostPartitionAdjustment(separatedDecls, bankTable, result.getReferencesGraph());
             final DeclarationsPartitioner.Partition declsPartition =
-                    partitionDeclarations(separatedDecls, funsPartition);
+                    partitionDeclarations(separatedDecls, bankTable);
             writeDeclarations(declsPartition, result.getOutputFileName());
         } catch (ErroneousIssueException e) {
             System.exit(STATUS_ERROR);
@@ -184,7 +196,7 @@ public final class Main {
             System.err.println("I/O error: " + e.getMessage());
             System.exit(STATUS_ERROR);
         } catch (PartitionImpossibleException e) {
-            System.err.println("error: cannot partition functions into the code banks - "
+            System.err.println("error: cannot partition functions into the code banks: "
                     + e.getMessage());
             System.exit(STATUS_ERROR);
         }
@@ -309,15 +321,13 @@ public final class Main {
      * @throws PartitionImpossibleException It is impossible to assign functions
      *                                      to banks.
      */
-    private ImmutableList<ImmutableSet<FunctionDecl>> partitionFunctions(
+    private BankTable partitionFunctions(
                 ImmutableList<Declaration> declarations,
                 ImmutableMap<String, Range<Integer>> estimation
     ) throws PartitionImpossibleException {
-        final List<FunctionDecl> functions = FluentIterable.from(declarations)
-                .filter(FunctionDecl.class)
-                .toList();
-        return new SimpleCodePartitioner(options.getBankSize().or(32768),
-                        options.getBanksCount().or(8))
+        final Iterable<FunctionDecl> functions = FluentIterable.from(declarations)
+                .filter(FunctionDecl.class);
+        return new SimpleCodePartitioner(options.getBankSchema().or(DEFAULT_BANK_SCHEMA))
                 .partition(functions, estimation);
     }
 
@@ -326,14 +336,14 @@ public final class Main {
      *
      * @param allDeclarations All declarations that constitute the program in
      *                        proper order (they shall be separated).
-     * @param partition Partition of functions to banks.
+     * @param bankTable Bank table with allocation of functions to banks.
      * @return Partition of declarations to files.
      */
     private DeclarationsPartitioner.Partition partitionDeclarations(
             ImmutableList<Declaration> allDeclarations,
-            ImmutableList<ImmutableSet<FunctionDecl>> partition
+            BankTable bankTable
     ) {
-        return new DeclarationsPartitioner(allDeclarations, partition)
+        return new DeclarationsPartitioner(allDeclarations, bankTable)
                 .partition();
     }
 
@@ -344,13 +354,14 @@ public final class Main {
      *
      * @param declarations List with all declarations of the NesC program in
      *                     proper order.
-     * @param banks Partition of functions to banks.
+     * @param bankTable Bank table that contains allocation of functions to
+     *                  banks.
      * @param refsGraph Graph of references between entities in the NesC
      *                  program.
      */
     private void performPostPartitionAdjustment(ImmutableList<Declaration> declarations,
-            ImmutableList<ImmutableSet<FunctionDecl>> banks, ReferencesGraph refsGraph) {
-        new FinalDeclarationsAdjuster(declarations, banks, options.getRelaxBanked(), refsGraph)
+            BankTable bankTable, ReferencesGraph refsGraph) {
+        new FinalDeclarationsAdjuster(declarations, bankTable, options.getRelaxBanked(), refsGraph)
                 .adjust();
     }
 
@@ -373,26 +384,12 @@ public final class Main {
         }
 
         // Write declarations inside banks
-        final Iterator<ImmutableList<Declaration>> banksIt =
-                declsPartition.getCodeFiles().iterator();
-        if (banksIt.hasNext()) {
-            // Common area
-            try (final ASTWriter commonBankWriter = new ASTWriter(outputFile, writeSettings)) {
-                commonBankWriter.write("#include \"" + headerName + "\"\n");
-                commonBankWriter.write("#pragma codeseg HOME\n\n");
-                commonBankWriter.write(banksIt.next());
-            }
-
-            // Other banks
-            int bankNumber = 1;
-            while (banksIt.hasNext()) {
-                final String fileName = pathPrefix + "-" + bankNumber + ".c";
-                try (final ASTWriter bankFileWriter = new ASTWriter(fileName, writeSettings)) {
-                    bankFileWriter.write("#include \"" + headerName + "\"\n");
-                    bankFileWriter.write("#pragma codeseg BANK" + bankNumber + "\n\n");
-                    bankFileWriter.write(banksIt.next());
-                }
-                ++bankNumber;
+        for (String bankName : declsPartition.getCodeFiles().keySet()) {
+            final String fileName = pathPrefix + "-" + bankName + ".c";
+            try (final ASTWriter bankFileWriter = new ASTWriter(fileName, writeSettings)) {
+                bankFileWriter.write("#include \"" + headerName + "\"\n");
+                bankFileWriter.write("#pragma codeseg " + bankName + "\n\n");
+                bankFileWriter.write(declsPartition.getCodeFiles().get(bankName));
             }
         }
     }

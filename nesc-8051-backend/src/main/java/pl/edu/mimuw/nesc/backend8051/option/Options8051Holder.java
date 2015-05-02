@@ -4,9 +4,11 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSetMultimap;
 import org.apache.commons.cli.CommandLine;
+import pl.edu.mimuw.nesc.codepartition.BankSchema;
 import pl.edu.mimuw.nesc.codesize.SDCCMemoryModel;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static pl.edu.mimuw.nesc.backend8051.option.Options8051.*;
 
 /**
@@ -56,12 +58,42 @@ public final class Options8051Holder {
         }
     }
 
-    public Optional<Integer> getBankSize() {
-        return getIntegerOptionValue(OPTION_LONG_BANK_SIZE);
-    }
+    public Optional<BankSchema> getBankSchema() {
+        final Optional<String> bankSchemaOpt = Optional.fromNullable(
+                cmdLine.getOptionValue(OPTION_LONG_BANKS));
+        if (!bankSchemaOpt.isPresent()) {
+            return Optional.absent();
+        }
 
-    public Optional<Integer> getBanksCount() {
-        return getIntegerOptionValue(OPTION_LONG_BANKS_COUNT);
+        final String[] elements = bankSchemaOpt.get().split(SEPARATOR_BANKS_SCHEMA_OUTER, -1);
+        Optional<Integer> commonBankSize = Optional.absent();
+        final String commonBankPrefix = elements[0] + SEPARATOR_BANKS_SCHEMA_INNER;
+
+        // Get the size of the common bank
+        for (int i = 1; i < elements.length; ++i) {
+            if (elements[i].startsWith(commonBankPrefix)) {
+                checkState(!commonBankSize.isPresent(), "size of the common bank occurs more than once");
+                commonBankSize = Optional.of(Integer.parseInt(elements[i].substring(
+                        commonBankPrefix.length())));
+            }
+        }
+
+        checkState(commonBankSize.isPresent(), "size of the common bank is not specified");
+        final BankSchema.Builder bankSchemaBuilder = BankSchema.builder(
+                elements[0], commonBankSize.get());
+
+        // Add remaining banks
+        for (int i = 1; i < elements.length; ++i) {
+            if (!elements[i].startsWith(commonBankPrefix)) {
+                final int indexOfSep = elements[i].indexOf(SEPARATOR_BANKS_SCHEMA_INNER);
+                checkState(indexOfSep != -1, "invalid entry of bank schema");
+                final String bankName = elements[i].substring(0, indexOfSep);
+                final String bankCapacity = elements[i].substring(indexOfSep + SEPARATOR_BANKS_SCHEMA_INNER.length());
+                bankSchemaBuilder.addBank(bankName, Integer.parseInt(bankCapacity));
+            }
+        }
+
+        return Optional.of(bankSchemaBuilder.build());
     }
 
     public Optional<Integer> getEstimateThreadsCount() {

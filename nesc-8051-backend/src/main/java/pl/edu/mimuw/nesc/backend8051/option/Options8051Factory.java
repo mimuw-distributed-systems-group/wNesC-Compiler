@@ -23,17 +23,11 @@ final class Options8051Factory {
      */
     public Options newOptions() throws IOException {
         final Option[] options8051 = {
-            Option.builder()
-                .longOpt(OPTION_LONG_BANK_SIZE)
+            Option.builder(OPTION_SHORT_BANKS)
+                .longOpt(OPTION_LONG_BANKS)
                 .hasArg()
-                .desc("size of a single bank (in bytes)")
-                .argName("size")
-                .build(),
-            Option.builder(OPTION_SHORT_BANKS_COUNT)
-                .longOpt(OPTION_LONG_BANKS_COUNT)
-                .hasArg()
-                .desc("count of banks on the target 8051 microcontroller; if not specified, it is assumed that 8 banks are available (including the common area bank)")
-                .argName("number")
+                .desc("description of available areas of banks in form of a comma-separated list; the first element of the list should be the name of the common bank and all remaining elements should consist of the name of the bank, '=' and the amount of space available in the bank in bytes; if this option is not specified, the following bank schema is used: HOME,HOME=32768,BANK1=32768,BANK2=32768,BANK3=32768,BANK4=32768,BANK5=32768,BANK6=32768,BANK7=32768; this schema specifies that the name of the common bank is 'HOME' and there are 8 banks of 32 kB each")
+                .argName("bank-schema")
                 .build(),
             Option.builder(OPTION_SHORT_THREADS_COUNT)
                 .longOpt(OPTION_LONG_THREADS_COUNT)
@@ -61,7 +55,7 @@ final class Options8051Factory {
                 .build(),
             Option.builder(OPTION_SHORT_RELAX_BANKED)
                 .longOpt(OPTION_LONG_RELAX_BANKED)
-                .desc("allow changing a function declared as banked that is defined in the NesC program and not annotated as spontaneous to be not banked for optimization")
+                    .desc("allow changing a function declared as banked that is defined in the NesC program and not annotated as spontaneous to be not banked for optimization")
                 .build()
         };
 

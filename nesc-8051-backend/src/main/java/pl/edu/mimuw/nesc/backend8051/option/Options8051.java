@@ -10,15 +10,14 @@ final class Options8051 {
     /**
      * Short names of options for the 8051 backend.
      */
-    public static final String OPTION_SHORT_BANKS_COUNT = "n";
+    public static final String OPTION_SHORT_BANKS = "n";
     public static final String OPTION_SHORT_THREADS_COUNT = "z";
     public static final String OPTION_SHORT_RELAX_BANKED = "r";
 
     /**
      * Long names of options for the 8051 backend.
      */
-    public static final String OPTION_LONG_BANK_SIZE = "bank-size";
-    public static final String OPTION_LONG_BANKS_COUNT = "banks-count";
+    public static final String OPTION_LONG_BANKS = "banks";
     public static final String OPTION_LONG_THREADS_COUNT = "estimate-threads";
     public static final String OPTION_LONG_SDCC_EXEC = "sdcc-exec";
     public static final String OPTION_LONG_MODEL_SMALL = "model-small";
@@ -34,6 +33,8 @@ final class Options8051 {
      */
     public static final String SEPARATOR_INTERRUPT_ASSIGNMENT_OUTER = ",";
     public static final String SEPARATOR_INTERRUPT_ASSIGNMENT_INNER = "=";
+    public static final String SEPARATOR_BANKS_SCHEMA_OUTER = ",";
+    public static final String SEPARATOR_BANKS_SCHEMA_INNER = "=";
 
     /**
      * Private constructor to prevent instantiating this class.
