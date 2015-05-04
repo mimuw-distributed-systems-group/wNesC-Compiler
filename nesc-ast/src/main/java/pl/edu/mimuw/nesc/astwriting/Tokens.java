@@ -95,7 +95,7 @@ public final class Tokens {
     public static final String GCC_EXTENSION = "__extension__";
     public static final String GCC_ATTRIBUTE = "__attribute__";
     public static final String GCC_BUILTIN_VA_ARG = "__builtin_va_arg";
-    public static final String GCC_ASM = "asm";
+    public static final String GCC_ASM = "__asm__";
 
     /**
      * SDCC-specific tokens.

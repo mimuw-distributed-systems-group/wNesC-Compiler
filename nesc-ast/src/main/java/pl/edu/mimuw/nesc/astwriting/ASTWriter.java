@@ -889,40 +889,12 @@ public final class ASTWriter extends Writer {
 
         @Override
         public Void visitAsmStmt(AsmStmt stmt, Void arg) {
-            output.write(GCC_ASM);
-            if (!stmt.getQualifiers().isEmpty()) {
-                output.write(SPACE);
-                writeSpaceSeparated(stmt.getQualifiers());
+            if (stmt.getAsmOperands1().isEmpty() && stmt.getAsmOperands2().isEmpty()
+                    && stmt.getAsmClobbers().isEmpty() && stmt.getQualifiers().isEmpty()) {
+                writeBasicInlineAssembly(stmt.getArg1());
+            } else {
+                writeExtendedAssembly(stmt);
             }
-            output.write(SPACE);
-            output.write(LPAREN);
-
-            stmt.getArg1().accept(this, null);
-            output.write(SPACE);
-            output.write(COLON);
-
-            if (!stmt.getAsmOperands1().isEmpty()) {
-                output.write(SPACE);
-                writeCommaSeparated(stmt.getAsmOperands1());
-                output.write(SPACE);
-            }
-
-            output.write(COLON);
-
-            if (!stmt.getAsmOperands2().isEmpty()) {
-                output.write(SPACE);
-                writeCommaSeparated(stmt.getAsmOperands2());
-            }
-
-            if (!stmt.getAsmClobbers().isEmpty()) {
-                output.write(SPACE);
-                output.write(COLON);
-                output.write(SPACE);
-                writeCommaSeparated(stmt.getAsmClobbers());
-            }
-
-            output.write(RPAREN);
-            output.write(SEMICOLON);
             return null;
         }
 
@@ -2378,6 +2350,52 @@ public final class ASTWriter extends Writer {
             if (inParentheses) {
                 output.write(RPAREN);
             }
+        }
+
+        private void writeBasicInlineAssembly(Expression expr) {
+            output.write(GCC_ASM);
+            output.write(SPACE);
+            output.write(LPAREN);
+            expr.accept(this, null);
+            output.write(RPAREN);
+            output.write(SEMICOLON);
+        }
+
+        private void writeExtendedAssembly(AsmStmt stmt) {
+            output.write(GCC_ASM);
+            if (!stmt.getQualifiers().isEmpty()) {
+                output.write(SPACE);
+                writeSpaceSeparated(stmt.getQualifiers());
+            }
+            output.write(SPACE);
+            output.write(LPAREN);
+
+            stmt.getArg1().accept(this, null);
+            output.write(SPACE);
+            output.write(COLON);
+
+            if (!stmt.getAsmOperands1().isEmpty()) {
+                output.write(SPACE);
+                writeCommaSeparated(stmt.getAsmOperands1());
+                output.write(SPACE);
+            }
+
+            output.write(COLON);
+
+            if (!stmt.getAsmOperands2().isEmpty()) {
+                output.write(SPACE);
+                writeCommaSeparated(stmt.getAsmOperands2());
+            }
+
+            if (!stmt.getAsmClobbers().isEmpty()) {
+                output.write(SPACE);
+                output.write(COLON);
+                output.write(SPACE);
+                writeCommaSeparated(stmt.getAsmClobbers());
+            }
+
+            output.write(RPAREN);
+            output.write(SEMICOLON);
         }
     }
 
