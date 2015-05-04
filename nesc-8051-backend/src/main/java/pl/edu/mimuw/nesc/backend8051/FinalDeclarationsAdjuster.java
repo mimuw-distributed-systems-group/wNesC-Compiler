@@ -212,7 +212,10 @@ final class FinalDeclarationsAdjuster {
             }
 
             for (Declaration paramDecl : paramsDecls) {
-                parametersDecls.add((DataDecl) paramDecl);
+                // The parameter can be also an ellipsis declaration
+                if (paramDecl instanceof DataDecl) {
+                    parametersDecls.add((DataDecl) paramDecl);
+                }
             }
 
             return null;
