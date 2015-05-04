@@ -799,9 +799,9 @@ public abstract class ExpressionsAnalysis extends ExceptionVisitor<Optional<Expr
                 final Type newRefType = trueRefType.addQualifiers(falseRefType);
                 return Optional.of(new PointerType(newRefType));
             } else if (trueRefType.isVoid() && falseRefType.isObjectType()) {
-                return Optional.of(trueRefType.addQualifiers(falseRefType));
+                return Optional.of(new PointerType(trueRefType.addQualifiers(falseRefType)));
             } else if (trueRefType.isObjectType() && falseRefType.isVoid()) {
-                return Optional.of(falseRefType.addQualifiers(trueRefType));
+                return Optional.of(new PointerType(falseRefType.addQualifiers(trueRefType)));
             }
         } else if (trueType.isPointerType() && falseType.isGeneralizedIntegerType()) {
             return Optional.of(trueType);
