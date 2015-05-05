@@ -22,6 +22,7 @@ import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.astwriting.CustomDeclarationsWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
+import pl.edu.mimuw.nesc.external.ExternalConstants;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -200,6 +201,7 @@ final class UnitarySDCCCodeSizeEstimator implements CodeSizeEstimator {
                 CustomDeclarationsWriter.Banking.DEFINED_NOT_BANKED,
                 writeSettings
         );
+        declsWriter.setPrependedText(Optional.of(ExternalConstants.getExternalDefines()));
         declsWriter.write(declarations);
 
         // Write banked declarations

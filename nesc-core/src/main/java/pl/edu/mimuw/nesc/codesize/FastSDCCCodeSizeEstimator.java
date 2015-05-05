@@ -38,6 +38,7 @@ import pl.edu.mimuw.nesc.astutil.NodesCopier;
 import pl.edu.mimuw.nesc.astwriting.CustomDeclarationsWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
+import pl.edu.mimuw.nesc.external.ExternalConstants;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -238,6 +239,7 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
                 CustomDeclarationsWriter.Banking.DEFINED_NOT_BANKED,
                 writeSettings
         );
+        declsWriter.setPrependedText(Optional.of(ExternalConstants.getExternalDefines()));
         declsWriter.write(allDeclarations);
 
         // Header file with banked declarations

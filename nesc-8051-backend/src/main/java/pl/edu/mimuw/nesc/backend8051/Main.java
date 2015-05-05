@@ -31,6 +31,7 @@ import pl.edu.mimuw.nesc.compilation.CompilationResult;
 import pl.edu.mimuw.nesc.compilation.DefaultCompilationListener;
 import pl.edu.mimuw.nesc.compilation.ErroneousIssueException;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
+import pl.edu.mimuw.nesc.external.ExternalConstants;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.option.OptionsProvider;
 import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
@@ -380,6 +381,7 @@ public final class Main {
 
         // Write the header file
         try (final ASTWriter headerWriter = new ASTWriter(headerPath, writeSettings)) {
+            headerWriter.write(ExternalConstants.getExternalDefines());
             headerWriter.write(declsPartition.getHeaderFile());
         }
 
