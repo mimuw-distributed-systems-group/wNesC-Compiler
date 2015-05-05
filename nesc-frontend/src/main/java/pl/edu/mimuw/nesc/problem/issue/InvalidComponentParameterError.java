@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.problem.issue;
 
 import pl.edu.mimuw.nesc.ast.gen.Expression;
 import pl.edu.mimuw.nesc.ast.gen.TypeArgument;
+import pl.edu.mimuw.nesc.type.ArrayType;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 
@@ -103,18 +104,21 @@ public final class InvalidComponentParameterError extends ErroneousIssue {
     }
 
     public static InvalidComponentParameterError expectedCharArrayType(String componentName,
-            int paramNum, Expression providedExpression, Type providedType) {
+            int paramNum, Expression providedExpression, Type providedType,
+            Iterable<ArrayType> allowedCharArrayTypes) {
 
-        final String description = format("'%s' used for the %s parameter of component '%s' has type '%s' but expecting type 'char[]'",
-                ASTWriter.writeToString(providedExpression), getOrdinalForm(paramNum), componentName, providedType);
+        final String description = format("'%s' used for the %s parameter of component '%s' has type '%s' but expecting one of the following types: %s",
+                ASTWriter.writeToString(providedExpression), getOrdinalForm(paramNum), componentName,
+                providedType, IssuesUtils.getTypesText(allowedCharArrayTypes));
         return new InvalidComponentParameterError(description);
     }
 
     public static InvalidComponentParameterError invalidDeclaredParameterType(String componentName,
-            int paramNum, Type expectedType) {
+            int paramNum, Type expectedType, Iterable<ArrayType> allowedCharArrayTypes) {
 
-        final String description = format("The %s parameter of component '%s' has declared type '%s' but only arithmetic types and 'char[]' (with indeterminate size) are allowed; correct the definition of '%s'",
-                getOrdinalForm(paramNum), componentName, expectedType, componentName);
+        final String description = format("The %s parameter of component '%s' has declared type '%s' but only arithmetic types and %s (with indeterminate sizes) are allowed; correct the definition of '%s'",
+                getOrdinalForm(paramNum), componentName, expectedType, IssuesUtils.getTypesText(allowedCharArrayTypes),
+                componentName);
         return new InvalidComponentParameterError(description);
     }
 

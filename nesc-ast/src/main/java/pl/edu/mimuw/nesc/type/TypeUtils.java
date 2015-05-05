@@ -118,6 +118,26 @@ public final class TypeUtils {
     }
 
     /**
+     * Check if the given type is compatible with one of types from the given
+     * iterable.
+     *
+     * @param type A type whose compatibility is to be checked.
+     * @param types Iterable with expected types.
+     * @return <code>true</code> if and only if the given type is compatible
+     *         with one of types from the iterable.
+     */
+    public static boolean isCompatibleWith(Type type, Iterable<? extends Type> types) {
+        checkNotNull(type, "type cannot be null");
+        checkNotNull(types, "types cannot be null");
+        for (Type otherType : types) {
+            if (type.isCompatibleWith(otherType)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Private constructor to prevent this class from being instantiated.
      */
     private TypeUtils() {

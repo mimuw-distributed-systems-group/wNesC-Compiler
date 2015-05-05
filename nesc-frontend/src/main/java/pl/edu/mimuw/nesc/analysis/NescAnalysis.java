@@ -12,11 +12,13 @@ import pl.edu.mimuw.nesc.ast.CallDirection;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.predicates.TagDefinitionPredicate;
+import pl.edu.mimuw.nesc.external.ExternalScheme;
 import pl.edu.mimuw.nesc.type.ArrayType;
 import pl.edu.mimuw.nesc.type.CharType;
 import pl.edu.mimuw.nesc.type.FunctionType;
 import pl.edu.mimuw.nesc.type.InterfaceType;
 import pl.edu.mimuw.nesc.type.Type;
+import pl.edu.mimuw.nesc.type.TypeUtils;
 import pl.edu.mimuw.nesc.type.UnknownType;
 import pl.edu.mimuw.nesc.declaration.nesc.ComponentDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
@@ -61,9 +63,13 @@ import static java.lang.String.format;
  */
 public final class NescAnalysis {
     /**
-     * Type that is allowed for a non-type generic parameter of a component.
+     * Char array types allowed for a non-type generic parameter of a component.
      */
-    private static final ArrayType TYPE_CHAR_ARRAY = new ArrayType(new CharType(), Optional.<Expression>absent());
+    private static final ImmutableList<ArrayType> TYPES_CHAR_ARRAY = ImmutableList.of(
+            new ArrayType(new CharType(), Optional.<Expression>absent()),
+            new ArrayType(new CharType(true, false, Optional.<ExternalScheme>absent()),
+                    Optional.<Expression>absent())
+    );
 
     /**
      * Check the correctness of an interface instantiation. The given error
@@ -373,14 +379,15 @@ public final class NescAnalysis {
                     ? Optional.of(InvalidComponentParameterError.expectedFloatingExpression(componentName,
                                   paramNum, expr, providedType))
                     : Optional.<ErroneousIssue>absent();
-        } else if (expectedType.isCompatibleWith(TYPE_CHAR_ARRAY) && !((ArrayType) expectedType).isOfKnownSize()) {
-            error = !providedType.isCompatibleWith(TYPE_CHAR_ARRAY)
+        } else if (TypeUtils.isCompatibleWith(expectedType, TYPES_CHAR_ARRAY)
+                && !((ArrayType) expectedType).isOfKnownSize()) {
+            error = !TypeUtils.isCompatibleWith(providedType, TYPES_CHAR_ARRAY)
                     ? Optional.of(InvalidComponentParameterError.expectedCharArrayType(componentName,
-                                  paramNum, expr, providedType))
+                                  paramNum, expr, providedType, TYPES_CHAR_ARRAY))
                     : Optional.<ErroneousIssue>absent();
         } else {
             error = Optional.of(InvalidComponentParameterError.invalidDeclaredParameterType(componentName,
-                                paramNum, expectedType));
+                                paramNum, expectedType, TYPES_CHAR_ARRAY));
         }
 
         if (error.isPresent()) {

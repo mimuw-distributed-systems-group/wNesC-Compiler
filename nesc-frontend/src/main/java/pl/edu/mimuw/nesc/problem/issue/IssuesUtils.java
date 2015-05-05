@@ -1,5 +1,6 @@
 package pl.edu.mimuw.nesc.problem.issue;
 
+import java.util.Iterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import pl.edu.mimuw.nesc.ast.StructKind;
@@ -160,6 +161,37 @@ final class IssuesUtils {
                     : "the unnamed ";
             return prefix + getStructKindText(declaration.getKind(), false);
         }
+    }
+
+    /**
+     * Get a text that mentions all types from the given iterable.
+     *
+     * @param types Types that will appear in the returned string.
+     * @return String with all types from the given iterable written out.
+     */
+    static String getTypesText(Iterable<? extends Type> types) {
+        final StringBuilder builder = new StringBuilder();
+        final Iterator<? extends Type> typesIt = types.iterator();
+
+        if (typesIt.hasNext()) {
+            builder.append('\'');
+            builder.append(typesIt.next());
+            builder.append('\'');
+
+            while (typesIt.hasNext()) {
+                final Type nextType = typesIt.next();
+                final String separator = typesIt.hasNext()
+                        ? ", "
+                        : " and ";
+
+                builder.append(separator);
+                builder.append('\'');
+                builder.append(nextType);
+                builder.append('\'');
+            }
+        }
+
+        return builder.toString();
     }
 
     /**
