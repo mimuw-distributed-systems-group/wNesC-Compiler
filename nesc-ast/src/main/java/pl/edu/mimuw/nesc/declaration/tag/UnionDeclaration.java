@@ -2,7 +2,6 @@ package pl.edu.mimuw.nesc.declaration.tag;
 
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.UnionRef;
-import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.ExternalUnionType;
 import pl.edu.mimuw.nesc.type.FieldTagType;
 import pl.edu.mimuw.nesc.type.UnionType;
@@ -20,7 +19,18 @@ public class UnionDeclaration extends FieldTagDeclaration<UnionRef> {
      *         declaration that is not simultaneously a definition.
      */
     public static Builder declarationBuilder() {
-        return new Builder(false);
+        return new Builder(FieldTagDeclaration.Builder.Kind.DECLARATION);
+    }
+
+    /**
+     * Get a builder for an union declaration that corresponds to an union
+     * definition but without the requirement of specifying its fields that
+     * is present in the definition builder.
+     *
+     * @return Newly created pre-definition builder.
+     */
+    public static Builder preDefinitionBuilder() {
+        return new Builder(FieldTagDeclaration.Builder.Kind.PREDEFINITION);
     }
 
     /**
@@ -31,7 +41,7 @@ public class UnionDeclaration extends FieldTagDeclaration<UnionRef> {
      *         union definition.
      */
     public static Builder definitionBuilder() {
-        return new Builder(true);
+        return new Builder(FieldTagDeclaration.Builder.Kind.DEFINITION);
     }
 
     /**
@@ -55,15 +65,6 @@ public class UnionDeclaration extends FieldTagDeclaration<UnionRef> {
         return visitor.visit(this, arg);
     }
 
-    @Override
-    public UnionDeclaration deepCopy(CopyController controller) {
-        final Builder builder = isDefined()
-                ? definitionBuilder()
-                : declarationBuilder();
-        builder.isExternal(this.isExternal());
-        return copyHelp(builder, controller);
-    }
-
     /**
      * Builder for an union declaration.
      *
@@ -71,8 +72,8 @@ public class UnionDeclaration extends FieldTagDeclaration<UnionRef> {
      */
     public static final class Builder extends FieldTagDeclaration.ExtendedBuilder<UnionRef, UnionDeclaration> {
 
-        private Builder(boolean definitionBuilder) {
-            super(definitionBuilder);
+        private Builder(Kind builderKind) {
+            super(builderKind);
         }
 
         @Override

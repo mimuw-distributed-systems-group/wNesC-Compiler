@@ -2,7 +2,6 @@ package pl.edu.mimuw.nesc.declaration.tag;
 
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.gen.AttributeRef;
-import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.type.FieldTagType;
 
 /**
@@ -16,7 +15,7 @@ public final class AttributeDeclaration extends FieldTagDeclaration<AttributeRef
      * @return Newly created builder.
      */
     public static Builder preDefinitionBuilder() {
-        return new Builder(false);
+        return new Builder(FieldTagDeclaration.Builder.Kind.DECLARATION);
     }
 
     /**
@@ -26,7 +25,7 @@ public final class AttributeDeclaration extends FieldTagDeclaration<AttributeRef
      *         a definition of an attribute.
      */
     public static Builder definitionBuilder() {
-        return new Builder(true);
+        return new Builder(FieldTagDeclaration.Builder.Kind.DEFINITION);
     }
 
     /**
@@ -49,11 +48,6 @@ public final class AttributeDeclaration extends FieldTagDeclaration<AttributeRef
         return visitor.visit(this, arg);
     }
 
-    @Override
-    public AttributeDeclaration deepCopy(CopyController controller) {
-        return copyHelp(definitionBuilder(), controller);
-    }
-
     /**
      * Builder for an attribute declaration.
      *
@@ -61,8 +55,8 @@ public final class AttributeDeclaration extends FieldTagDeclaration<AttributeRef
      */
     public static final class Builder extends FieldTagDeclaration.Builder<AttributeRef, AttributeDeclaration> {
 
-        private Builder(boolean definitionBuilder) {
-            super(definitionBuilder);
+        private Builder(Kind builderKind) {
+            super(builderKind);
         }
 
         @Override

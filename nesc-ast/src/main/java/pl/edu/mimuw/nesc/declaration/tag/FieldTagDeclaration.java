@@ -3,13 +3,11 @@ package pl.edu.mimuw.nesc.declaration.tag;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.TagRef;
-import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.declaration.tag.fieldtree.TreeElement;
 import pl.edu.mimuw.nesc.type.FieldTagType;
 
@@ -160,40 +158,6 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
     }
 
     @Override
-    public abstract FieldTagDeclaration<T> deepCopy(CopyController controller);
-
-    protected <D extends FieldTagDeclaration<T>> D copyHelp(Builder<T, D> builder,
-            CopyController controller) {
-
-        if (this.structure.isPresent()) {
-            final List<TreeElement> newStructure = new ArrayList<>();
-            for (TreeElement element : this.structure.get()) {
-                newStructure.add(element.deepCopy(controller));
-            }
-            builder.structure(newStructure);
-        }
-
-        final D result = builder.astNode(controller.mapNode(this.astTagRef))
-                .name(getName().orNull(), controller.mapUniqueName(getUniqueName()).orNull())
-                .startLocation(this.location)
-                .build();
-
-        if (hasLayout()) {
-            result.setLayout(getSize(), getAlignment());
-        }
-
-        if (isCorrect().isPresent()) {
-            result.setIsCorrect(isCorrect().get());
-        }
-
-        if (isTransformed()) {
-            result.transformed();
-        }
-
-        return result;
-    }
-
-    @Override
     public void ownContents() {
         if (allFields.isPresent()) {
             for (FieldDeclaration field : allFields.get()) {
@@ -211,7 +175,7 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
         /**
          * Data needed to control the building process.
          */
-        private final boolean definitionBuilder;
+        private final Kind builderKind;
 
         /**
          * Data needed to build a field tag type declaration.
@@ -219,8 +183,8 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
         private T astTagRef;
         private Optional<List<TreeElement>> structure = Optional.absent();
 
-        protected Builder(boolean definitionBuilder) {
-            this.definitionBuilder = definitionBuilder;
+        protected Builder(Kind builderKind) {
+            this.builderKind = builderKind;
         }
 
         /**
@@ -253,12 +217,32 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
             checkNotNull(astTagRef, "AST node cannot be null");
             checkNotNull(structure, "structure cannot be null");
 
-            if (definitionBuilder) {
-                checkState(structure.isPresent(), "the structure must be present in a definition builder");
-            } else {
-                checkState(!structure.isPresent(), "the structure must be absent in a declaration builder");
-                checkState(getName().isPresent(), "the name must be present in a declaration builder");
+            switch (builderKind) {
+                case DECLARATION:
+                    checkState(!structure.isPresent(), "the structure must be absent in a declaration builder");
+                    checkState(getName().isPresent(), "the name must be present in a declaration builder");
+                    break;
+                case PREDEFINITION:
+                    checkState(!structure.isPresent(), "the structure must be absent in a pre-definition builder");
+                    break;
+                case DEFINITION:
+                    checkState(structure.isPresent(), "the structure must be present in a definition builder");
+                    break;
+                default:
+                    throw new RuntimeException("unexpected kind of a field tag declaration builder '"
+                            + builderKind + "'");
             }
+        }
+
+        /**
+         * Kind of a field tag declaration builder.
+         *
+         * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+         */
+        protected enum Kind {
+            DECLARATION,
+            PREDEFINITION,
+            DEFINITION,
         }
     }
 
@@ -270,8 +254,8 @@ public abstract class FieldTagDeclaration<T extends TagRef> extends TagDeclarati
     public static abstract class ExtendedBuilder<T extends TagRef, D extends FieldTagDeclaration<T>> extends Builder<T, D> {
         protected boolean isExternal;
 
-        protected ExtendedBuilder(boolean definitionBuilder) {
-            super(definitionBuilder);
+        protected ExtendedBuilder(Kind builderKind) {
+            super(builderKind);
         }
 
         /**

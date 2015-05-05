@@ -29,11 +29,12 @@ public class FieldDeclaration extends Declaration {
     private final Location endLocation;
 
     /**
-     * Type of the value in this field. Never null. The value shall be absent
-     * if and only if the type of this fields that has been specified is
-     * invalid.
+     * Type of the value in this field. Never null. The inner value shall be
+     * absent if and only if the type of this fields that has been specified is
+     * invalid. The outer value is absent if the type is not known yet or it is
+     * not known if it is correct.
      */
-    private final Optional<Type> type;
+    private Optional<Optional<Type>> type;
 
     /**
      * <code>true</code> if and only if this object represents a bit-field.
@@ -66,6 +67,22 @@ public class FieldDeclaration extends Declaration {
     private Optional<FieldTagDeclaration<?>> owner;
 
     public FieldDeclaration(Optional<String> name, Location startLocation, Location endLocation,
+            boolean isBitField, FieldDecl astField) {
+        super(startLocation);
+        checkNotNull(endLocation, "end location cannot be null");
+        checkNotNull(astField, "AST node of the field cannot be null");
+        this.name = name;
+        this.endLocation = endLocation;
+        this.type = Optional.absent();
+        this.isBitField = isBitField;
+        this.astField = astField;
+        this.offsetInBits = Optional.absent();
+        this.sizeInBits = Optional.absent();
+        this.alignmentInBits = Optional.absent();
+        this.owner = Optional.absent();
+    }
+
+    public FieldDeclaration(Optional<String> name, Location startLocation, Location endLocation,
                             Optional<Type> type, boolean isBitField, FieldDecl astField) {
         super(startLocation);
         checkNotNull(endLocation, "end location of a field cannot be null");
@@ -74,7 +91,7 @@ public class FieldDeclaration extends Declaration {
 
         this.name = name;
         this.endLocation = endLocation;
-        this.type = type;
+        this.type = Optional.of(type);
         this.isBitField = isBitField;
         this.astField = astField;
         this.offsetInBits = Optional.absent();
@@ -96,7 +113,14 @@ public class FieldDeclaration extends Declaration {
     }
 
     public Optional<Type> getType() {
-        return type;
+        checkState(type.isPresent(), "the type has not been set yet");
+        return type.get();
+    }
+
+    public void setType(Optional<Type> type) {
+        checkNotNull(type, "type cannot be null");
+        checkState(!this.type.isPresent(), "type has been already set");
+        this.type = Optional.of(type);
     }
 
     public boolean isBitField() {
@@ -175,15 +199,7 @@ public class FieldDeclaration extends Declaration {
 
     @Override
     public FieldDeclaration deepCopy(CopyController controller) {
-        final FieldDeclaration result = new FieldDeclaration(this.name,
-                this.location, this.endLocation,
-                controller.mapType(this.type), this.isBitField,
-                controller.mapNode(astField));
-        if (hasLayout()) {
-            result.setLayout(getOffsetInBits(), getSizeInBits(), getAlignmentInBits());
-        }
-
-        return result;
+        throw new UnsupportedOperationException("use the copy controller directly to copy a field declaration");
     }
 
     @Override

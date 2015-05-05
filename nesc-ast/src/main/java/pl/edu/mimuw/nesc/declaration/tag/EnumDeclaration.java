@@ -1,13 +1,11 @@
 package pl.edu.mimuw.nesc.declaration.tag;
 
 import com.google.common.base.Optional;
-import java.util.List;
-
 import com.google.common.collect.ImmutableList;
+import java.util.List;
 import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.EnumRef;
-import pl.edu.mimuw.nesc.declaration.CopyController;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
 import pl.edu.mimuw.nesc.type.EnumeratedType;
 import pl.edu.mimuw.nesc.type.IntegerType;
@@ -147,6 +145,16 @@ public final class EnumDeclaration extends TagDeclaration {
         this.compatibleType = Optional.of(type);
     }
 
+    /**
+     * Check if the compatible type has been already set.
+     *
+     * @return <code>true</code> if and only if the compatible type has been
+     *         already set.
+     */
+    public boolean hasCompatibleType() {
+        return this.compatibleType.isPresent();
+    }
+
     @Override
     public EnumRef getAstNode() {
         return astEnumRef;
@@ -165,47 +173,6 @@ public final class EnumDeclaration extends TagDeclaration {
     @Override
     public <R, A> R accept(Visitor<R, A> visitor, A arg) {
         return visitor.visit(this, arg);
-    }
-
-    @Override
-    public EnumDeclaration deepCopy(CopyController controller) {
-        final EnumDeclaration.Builder builder;
-
-        if (isDefined()) {
-            final EnumDeclaration.DefinitionBuilder definitionBuilder =
-                    EnumDeclaration.definitionBuilder();
-
-            for (ConstantDeclaration constant : this.constants.get()) {
-                definitionBuilder.addConstant(controller.copy(constant));
-            }
-
-            builder = definitionBuilder;
-        } else {
-            builder = EnumDeclaration.declarationBuilder();
-        }
-
-        final EnumDeclaration result = builder.astNode(controller.mapNode(this.astEnumRef))
-                .name(this.getName().orNull(), controller.mapUniqueName(this.getUniqueName()).orNull())
-                .startLocation(this.location)
-                .build();
-
-        if (hasLayout()) {
-            result.setLayout(getSize(), getAlignment());
-        }
-
-        if (this.compatibleType.isPresent()) {
-            result.compatibleType = this.compatibleType;
-        }
-
-        if (isCorrect().isPresent()) {
-            result.setIsCorrect(isCorrect().get());
-        }
-
-        if (isTransformed()) {
-            result.transformed();
-        }
-
-        return result;
     }
 
     @Override

@@ -256,7 +256,9 @@ public abstract class TagDeclaration extends Declaration {
     }
 
     @Override
-    public abstract TagDeclaration deepCopy(CopyController controller);
+    public final TagDeclaration deepCopy(CopyController controller) {
+        throw new UnsupportedOperationException("use the copy controller directly to copy a tag declaration");
+    }
 
     /**
      * Builder for a tag declaration.

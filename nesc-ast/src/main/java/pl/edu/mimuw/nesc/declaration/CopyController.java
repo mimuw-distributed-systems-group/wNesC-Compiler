@@ -6,7 +6,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import pl.edu.mimuw.nesc.ast.gen.AttributeRef;
 import pl.edu.mimuw.nesc.ast.gen.Node;
+import pl.edu.mimuw.nesc.ast.gen.StructRef;
+import pl.edu.mimuw.nesc.ast.gen.TagRef;
+import pl.edu.mimuw.nesc.ast.gen.UnionRef;
 import pl.edu.mimuw.nesc.declaration.label.LabelDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ComponentRefDeclaration;
 import pl.edu.mimuw.nesc.declaration.object.ConstantDeclaration;
@@ -119,39 +123,125 @@ public final class CopyController {
             return specimen.deepCopy(CopyController.this);
         }
     };
-    private final Function<FieldDeclaration, FieldDeclaration> factoryField = new Function<FieldDeclaration, FieldDeclaration>() {
+
+    /**
+     * Safe copy maker for declaration objects of enumerated types.
+     */
+    private final SafeCopyMaker<EnumDeclaration> safeCopyMakerEnum = new SafeCopyMaker<EnumDeclaration>() {
         @Override
-        public FieldDeclaration apply(FieldDeclaration specimen) {
+        public EnumDeclaration makeCopySafely(EnumDeclaration specimen) {
             checkNotNull(specimen, "specimen cannot be null");
-            return specimen.deepCopy(CopyController.this);
+
+            final EnumDeclaration copy = EnumDeclaration.declarationBuilder()
+                    .astNode(mapNode(specimen.getAstNode()))
+                    .name(specimen.getName().orNull(), mapUniqueName(specimen.getUniqueName()).orNull())
+                    .startLocation(specimen.getLocation())
+                    .build();
+
+            if (specimen.hasLayout()) {
+                copy.setLayout(specimen.getSize(), specimen.getAlignment());
+            }
+
+            if (specimen.hasCompatibleType()) {
+                copy.setCompatibleType(specimen.getCompatibleType());
+            }
+
+            if (specimen.isCorrect().isPresent()) {
+                copy.setIsCorrect(specimen.isCorrect().get());
+            }
+
+            if (specimen.isTransformed()) {
+                copy.transformed();
+            }
+
+            return copy;
+        }
+
+        @Override
+        public void correctCopy(EnumDeclaration copy, EnumDeclaration specimen) {
+            checkNotNull(copy, "copy cannot be null");
+            checkNotNull(specimen, "specimen cannot be null");
+
+            if (specimen.isDefined()) {
+                final List<ConstantDeclaration> constantsCopies =
+                        new ArrayList<>(specimen.getConstants().get().size());
+
+                for (ConstantDeclaration constant : specimen.getConstants().get()) {
+                    constantsCopies.add(copy(constant));
+                }
+
+                copy.define(constantsCopies);
+            }
         }
     };
-    private final Function<StructDeclaration, StructDeclaration> factoryStruct = new Function<StructDeclaration, StructDeclaration>() {
+
+    /**
+     * Safe copy maker for declaration objects of field declarations.
+     */
+    private final SafeCopyMaker<FieldDeclaration> safeCopyMakerField = new SafeCopyMaker<FieldDeclaration>() {
         @Override
-        public StructDeclaration apply(StructDeclaration specimen) {
+        public FieldDeclaration makeCopySafely(FieldDeclaration specimen) {
             checkNotNull(specimen, "specimen cannot be null");
-            return specimen.deepCopy(CopyController.this);
+
+            final FieldDeclaration copy = new FieldDeclaration(specimen.getName(),
+                    specimen.getLocation(), specimen.getEndLocation(), specimen.isBitField(),
+                    mapNode(specimen.getAstField()));
+
+            if (specimen.hasLayout()) {
+                copy.setLayout(specimen.getOffsetInBits(), specimen.getSizeInBits(),
+                        specimen.getAlignmentInBits());
+            }
+
+            return copy;
+        }
+
+        @Override
+        public void correctCopy(FieldDeclaration copy, FieldDeclaration specimen) {
+            checkNotNull(copy, "copy cannot be null");
+            checkNotNull(specimen, "specimen cannot be null");
+
+            copy.setType(mapType(specimen.getType()));
         }
     };
-    private final Function<UnionDeclaration, UnionDeclaration> factoryUnion = new Function<UnionDeclaration, UnionDeclaration>() {
+
+    /**
+     * Safe copy maker for a declaration object of a structure.
+     */
+    private final SafeCopyMaker<StructDeclaration> safeCopyMakerStruct = new FieldTagDeclarationSafeCopyMaker<StructRef, StructDeclaration>() {
         @Override
-        public UnionDeclaration apply(UnionDeclaration specimen) {
+        public StructDeclaration makeCopySafely(StructDeclaration specimen) {
             checkNotNull(specimen, "specimen cannot be null");
-            return specimen.deepCopy(CopyController.this);
+            final StructDeclaration.Builder builder = specimen.isDefined()
+                    ? StructDeclaration.preDefinitionBuilder()
+                    : StructDeclaration.declarationBuilder();
+            builder.isExternal(specimen.isExternal());
+            return createBasicCopy(builder, specimen);
         }
     };
-    private final Function<EnumDeclaration, EnumDeclaration> factoryEnum = new Function<EnumDeclaration, EnumDeclaration>() {
+
+    /**
+     * Safe copy maker for a declaration object of an union.
+     */
+    private final SafeCopyMaker<UnionDeclaration> safeCopyMakerUnion = new FieldTagDeclarationSafeCopyMaker<UnionRef, UnionDeclaration>() {
         @Override
-        public EnumDeclaration apply(EnumDeclaration specimen) {
+        public UnionDeclaration makeCopySafely(UnionDeclaration specimen) {
             checkNotNull(specimen, "specimen cannot be null");
-            return specimen.deepCopy(CopyController.this);
+            final UnionDeclaration.Builder builder = specimen.isDefined()
+                    ? UnionDeclaration.preDefinitionBuilder()
+                    : UnionDeclaration.declarationBuilder();
+            builder.isExternal(specimen.isExternal());
+            return createBasicCopy(builder, specimen);
         }
     };
-    private final Function<AttributeDeclaration, AttributeDeclaration> factoryAttribute = new Function<AttributeDeclaration, AttributeDeclaration>() {
+
+    /**
+     * Safe copy maker for a declaration object of an attribute definition.
+     */
+    private final SafeCopyMaker<AttributeDeclaration> safeCopyMakerAttribute = new FieldTagDeclarationSafeCopyMaker<AttributeRef, AttributeDeclaration>() {
         @Override
-        public AttributeDeclaration apply(AttributeDeclaration specimen) {
+        public AttributeDeclaration makeCopySafely(AttributeDeclaration specimen) {
             checkNotNull(specimen, "specimen cannot be null");
-            return specimen.deepCopy(CopyController.this);
+            return createBasicCopy(AttributeDeclaration.preDefinitionBuilder(), specimen);
         }
     };
 
@@ -304,23 +394,23 @@ public final class CopyController {
     }
 
     public FieldDeclaration copy(FieldDeclaration declaration) {
-        return copy(declaration, fields, factoryField);
+        return copySafely(declaration, fields, safeCopyMakerField);
     }
 
     public StructDeclaration copy(StructDeclaration declaration) {
-        return copy(declaration, structures, factoryStruct);
+        return copySafely(declaration, structures, safeCopyMakerStruct);
     }
 
     public UnionDeclaration copy(UnionDeclaration declaration) {
-        return copy(declaration, unions, factoryUnion);
+        return copySafely(declaration, unions, safeCopyMakerUnion);
     }
 
     public EnumDeclaration copy(EnumDeclaration declaration) {
-        return copy(declaration, enumerations, factoryEnum);
+        return copySafely(declaration, enumerations, safeCopyMakerEnum);
     }
 
     public AttributeDeclaration copy(AttributeDeclaration declaration) {
-        return copy(declaration, attributes, factoryAttribute);
+        return copySafely(declaration, attributes, safeCopyMakerAttribute);
     }
 
     public ObjectDeclaration copy(ObjectDeclaration declaration) {
@@ -482,6 +572,19 @@ public final class CopyController {
         }
     }
 
+    private <T> T copySafely(T toCopy, Map<T, T> map, SafeCopyMaker<T> safeCopyMaker) {
+        if (toCopy == null) {
+            return null;
+        } else if (map.containsKey(toCopy)) {
+            return map.get(toCopy);
+        } else {
+            final T copy = safeCopyMaker.makeCopySafely(toCopy);
+            map.put(toCopy, copy);
+            safeCopyMaker.correctCopy(copy, toCopy);
+            return copy;
+        }
+    }
+
     private <T> T map(T key, Map<T, T> map) {
         checkNotNull(key, "key cannot be null");
 
@@ -489,5 +592,77 @@ public final class CopyController {
         checkState(value.isPresent(), "the given declaration object is not contained in the map");
 
         return value.get();
+    }
+
+    /**
+     * Interface for making copies without falling into dangerous infinite copy
+     * loops.
+     *
+     * @param <T> Type of copied objects.
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private interface SafeCopyMaker<T> {
+        /**
+         * Make copy of the given object without copying other elements with
+         * methods of the controller or <code>deepCopy</code> methods.
+         *
+         * @param specimen Object to copy.
+         * @return Newly created instance that is the copy of the given
+         *         specimen. The copy does not need to be accurate.
+         * @throws NullPointerException Given specimen is <code>null</code>.
+         */
+        T makeCopySafely(T specimen);
+
+        /**
+         * Make the object that is the first parameter to be an accurate copy
+         * of the given specimen. Copies of elements using this copy controller
+         * or <code>deepCopy</code> methods can be safely made.
+         *
+         * @param copy The object to be corrected.
+         * @param specimen The desired state of the copy.
+         * @throws NullPointerException <code>copy</code> or
+         *                              <code>specimen</code> is
+         *                              <code>null</code>/
+         */
+        void correctCopy(T copy, T specimen);
+    }
+
+    /**
+     * Safe copy maker for declaration objects of field tags.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private abstract class FieldTagDeclarationSafeCopyMaker<D extends TagRef, T extends FieldTagDeclaration<D>>
+                implements SafeCopyMaker<T> {
+        @Override
+        public void correctCopy(T copy, T specimen) {
+            checkNotNull(copy, "copy cannot be null");
+            checkNotNull(specimen, "specimen cannot be null");
+
+            if (specimen.isDefined()) {
+                copy.define(specimen.getStructure().get());
+            }
+        }
+
+        protected T createBasicCopy(FieldTagDeclaration.Builder<D, T> builder, T specimen) {
+            final T basicCopy = builder.astNode(mapNode(specimen.getAstNode()))
+                    .name(specimen.getName().orNull(), mapUniqueName(specimen.getUniqueName()).orNull())
+                    .startLocation(specimen.getLocation())
+                    .build();
+
+            if (specimen.hasLayout()) {
+                basicCopy.setLayout(specimen.getSize(), specimen.getAlignment());
+            }
+
+            if (specimen.isCorrect().isPresent()) {
+                basicCopy.setIsCorrect(specimen.isCorrect().get());
+            }
+
+            if (specimen.isTransformed()) {
+                basicCopy.transformed();
+            }
+
+            return basicCopy;
+        }
     }
 }
