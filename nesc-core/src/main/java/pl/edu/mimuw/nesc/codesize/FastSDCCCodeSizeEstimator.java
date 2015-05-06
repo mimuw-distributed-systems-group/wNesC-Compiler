@@ -377,10 +377,12 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
         if (lowerBounds.size() != upperBounds.size()) {
             throw new RuntimeException("size of lower bounds map " + lowerBounds.size() +
                     "differs from the size of the upper bounds map " + upperBounds.size());
-        } else if (lowerBounds.size() != estimationUnit) {
+        } else if (lowerBounds.size() != estimationUnit
+                && lowerBounds.size() != functions.size() - nextFunIndex) {
             throw new RuntimeException("actual size of maps with lower and upper bounds "
                     + lowerBounds.size() + " differs from the estimation unit "
-                    + estimationUnit);
+                    + estimationUnit + " and from the count of all remaining functions "
+                    + (functions.size() - nextFunIndex));
         }
 
         for (Map.Entry<String, Integer> lowerBoundEntry : lowerBounds.entrySet()) {
