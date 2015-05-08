@@ -129,6 +129,7 @@ final class AtomicTransformation implements StmtTransformation<AtomicBlockData> 
         atomicVarTypename.setIsGenericReference(false);
         atomicVarTypename.setUniqueName(atomicSpecification.getTypename());
         atomicVarTypename.setIsDeclaredInThisNescEntity(false);
+        atomicVarTypename.setHasAtomicOrigin(true);
 
         // Call to the atomic start function
 
@@ -147,6 +148,7 @@ final class AtomicTransformation implements StmtTransformation<AtomicBlockData> 
                 NescCallKind.NORMAL_CALL
         );
         atomicStartCall.setType(Optional.<Type>absent());
+        atomicStartCall.setHasAtomicOrigin(true);
 
         // Variable declaration
 
@@ -204,6 +206,7 @@ final class AtomicTransformation implements StmtTransformation<AtomicBlockData> 
                 NescCallKind.NORMAL_CALL
         );
         finalCall.setType(Optional.<Type>of(new VoidType()));
+        finalCall.setHasAtomicOrigin(true);
 
         return new ExpressionStmt(
                 Location.getDummyLocation(),

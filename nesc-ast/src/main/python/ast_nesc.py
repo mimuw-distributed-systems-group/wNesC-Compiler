@@ -329,11 +329,14 @@ class Typename(BasicASTNode):
     <p><code>isGenericReference</code> is set to <code>true</code> after the semantic analysis if and only
     if this typename occurs inside a generic component definition and refers to one of its generic type
     parameters.</p>
+    <p>If <code>hasAtomicOrigin</code> is set to <code>true</code>, this AST node has been created as the
+    result of atomic unfolding.</p>
     """
     superclass = TypeElement
     mangleIndicator = MangleIndicator("uniqueName", "isDeclaredInThisNescEntity")
     name = StringField()
     isGenericReference = BoolField(constructor_variable=False)
+    hasAtomicOrigin = BoolField(constructor_variable=False)
     declaration = ReferenceField("TypenameDeclaration", constructor_variable=False, visitable=False,
                                  deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
 
@@ -808,12 +811,15 @@ class FunctionCall(BasicASTNode):
     <p>Function call.</p>
     <p>If vaArgCall is present, this is actually a call to the pseudo-function __builtin_va_arg(arguments, vaArgCall)
     where vaArgCall is a type. In this case function is a dummy identifier.</p>
+    <p>If <code>hasAtomicOrigin</code> is set to <code>true</code>, this AST node has been created as the result of
+    atomic unfolding.</p>
     """
     superclass = Expression
     function = ReferenceField("Expression")
     arguments = ReferenceListField("Expression")
     vaArgCall = ReferenceField("AstType", constructor_variable=False)
     callKind = ReferenceField("NescCallKind", deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
+    hasAtomicOrigin = BoolField(constructor_variable=False)
 
 
 class ConstantFunctionCall(BasicASTNode):

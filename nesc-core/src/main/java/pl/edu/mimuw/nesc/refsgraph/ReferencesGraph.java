@@ -113,6 +113,133 @@ public final class ReferencesGraph {
         removeNode(ordinaryIds, uniqueName);
     }
 
+    private void removeNode(Map<String, EntityNode> nodesMap, String key) {
+        if (nodesMap.containsKey(key)) {
+            nodesMap.get(key).removeAllEdges();
+            nodesMap.remove(key);
+        }
+    }
+
+    /**
+     * A convenience method that adds a reference from an ordinary identifier to
+     * an ordinary identifier. It calls {@link ReferencesGraph#addReference}.
+     */
+    public void addReferenceOrdinaryToOrdinary(String referencingEntity, String referencedEntity,
+            Reference.Type referenceType, Node astNode, boolean insideNotEvaluatedExpr,
+            boolean insideAtomic) {
+        addReference(ReferenceDirection.FROM_ORDINARY_ID_TO_ORDINARY_ID, referencingEntity,
+                referencedEntity, referenceType, astNode, insideNotEvaluatedExpr, insideAtomic);
+    }
+
+    /**
+     * A convenience method that adds a reference from an ordinary identifier to
+     * a tag. It calls {@link ReferencesGraph#addReference}.
+     */
+    public void addReferenceOrdinaryToTag(String referencingEntity, String referencedEntity,
+            Reference.Type referenceType, Node astNode, boolean insideNotEvaluatedExpr,
+            boolean insideAtomic) {
+        addReference(ReferenceDirection.FROM_ORDINARY_ID_TO_TAG, referencingEntity,
+                referencedEntity, referenceType, astNode, insideNotEvaluatedExpr,
+                insideAtomic);
+    }
+
+    /**
+     * A convenience method that adds a reference from a tag to an ordinary
+     * identifier. It calls {@link ReferencesGraph#addReference}.
+     */
+    public void addReferenceTagToOrdinary(String referencingEntity, String referencedEntity,
+            Reference.Type referenceType, Node astNode, boolean insideNotEvaluatedExpr,
+            boolean insideAtomic) {
+        addReference(ReferenceDirection.FROM_TAG_TO_ORDINARY_ID, referencingEntity,
+                referencedEntity, referenceType, astNode, insideNotEvaluatedExpr,
+                insideAtomic);
+    }
+
+    /**
+     * A convenience method that adds a reference from a tag to a tag. It calls
+     * {@link ReferencesGraph#addReference}.
+     */
+    public void addReferenceTagToTag(String referencingEntity, String referencedEntity,
+            Reference.Type referenceType, Node astNode, boolean insideNotEvaluatedExpr,
+            boolean insideAtomic) {
+        addReference(ReferenceDirection.FROM_TAG_TO_TAG, referencingEntity,
+                referencedEntity, referenceType, astNode, insideNotEvaluatedExpr,
+                insideAtomic);
+    }
+
+    /**
+     * Add a reference defined by given parameters. It is determined from the
+     * reference direction whether the referencing entity is an ordinary
+     * identifier or a tag. The same applies to the referenced entity.
+     *
+     * @throws IllegalStateException There are no entities with names
+     *                               <code>referencingEntity</code> or
+     *                               <code>referencedEntity</code> of
+     *                               kinds specified by the reference direction.
+     */
+    public void addReference(ReferenceDirection direction, String referencingEntity,
+            String referencedEntity, Reference.Type referenceType, Node astNode,
+            boolean insideNotEvaluatedExpr, boolean insideAtomic) {
+        checkNotNull(direction, "direction cannot be null");
+        checkNotNull(referencingEntity, "referencing entity cannot be null");
+        checkNotNull(referencedEntity, "referenced entity cannot be null");
+        checkNotNull(referenceType, "reference type cannot be null");
+        checkNotNull(astNode, "AST node cannot be null");
+        checkArgument(!referencingEntity.isEmpty(), "referencing entity cannot be an empty string");
+        checkArgument(!referencedEntity.isEmpty(), "referenced entity cannot be an empty string");
+
+        final Namespace namespaceReferencing, namespaceReferenced;
+
+        // Determine the source and target namespaces
+        switch (direction) {
+            case FROM_ORDINARY_ID_TO_ORDINARY_ID:
+                namespaceReferencing = namespaceReferenced = Namespace.ORDINARY;
+                break;
+            case FROM_ORDINARY_ID_TO_TAG:
+                namespaceReferencing = Namespace.ORDINARY;
+                namespaceReferenced = Namespace.TAG;
+                break;
+            case FROM_TAG_TO_TAG:
+                namespaceReferencing = namespaceReferenced = Namespace.TAG;
+                break;
+            case FROM_TAG_TO_ORDINARY_ID:
+                namespaceReferencing = Namespace.TAG;
+                namespaceReferenced = Namespace.ORDINARY;
+                break;
+            default:
+                throw new RuntimeException("unexpected reference direction '"
+                        + direction + "'");
+        }
+
+        // Get the nodes in the graph
+        final EntityNode referencingNode = requireNode(namespaceReferencing, referencingEntity);
+        final EntityNode referencedNode = requireNode(namespaceReferenced, referencedEntity);
+
+        // Add the reference
+        referencingNode.addReference(referencedNode, referenceType, astNode,
+                insideNotEvaluatedExpr, insideAtomic);
+    }
+
+    private EntityNode requireNode(Namespace namespace, String key) {
+        final Optional<EntityNode> result;
+
+        switch (namespace) {
+            case ORDINARY:
+                result = Optional.fromNullable(ordinaryIds.get(key));
+                break;
+            case TAG:
+                result = Optional.fromNullable(tags.get(key));
+                break;
+            default:
+                throw new RuntimeException("unexpected namespace '"
+                        + namespace + "'");
+        }
+
+        checkState(result.isPresent(), "no entity of the requested kind with name '%s'", key);
+
+        return result.get();
+    }
+
     /**
      * Write the call graph implied by this references graph to the file with
      * given name. If it already exists, it is overwritten.
@@ -194,13 +321,6 @@ public final class ReferencesGraph {
             throw new IOException("error while writing data");
         } else if (edgesCount != 0) {
             throw new RuntimeException("invalid count of edges written");
-        }
-    }
-
-    private void removeNode(Map<String, EntityNode> nodesMap, String key) {
-        if (nodesMap.containsKey(key)) {
-            nodesMap.get(key).removeAllEdges();
-            nodesMap.remove(key);
         }
     }
 
@@ -774,5 +894,15 @@ public final class ReferencesGraph {
         private Oracle modifyInsideAtomic(boolean insideAtomic) {
             return new Oracle(this.insideNotEvaluatedExpr, insideAtomic);
         }
+    }
+
+    /**
+     * Helper enum type that represents a namespace in C.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private enum Namespace {
+        ORDINARY,
+        TAG,
     }
 }

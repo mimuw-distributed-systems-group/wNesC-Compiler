@@ -25,6 +25,7 @@ import pl.edu.mimuw.nesc.ast.gen.Module;
 import pl.edu.mimuw.nesc.ast.gen.ModuleImpl;
 import pl.edu.mimuw.nesc.ast.gen.NescDecl;
 import pl.edu.mimuw.nesc.atomic.AtomicBlockData;
+import pl.edu.mimuw.nesc.atomic.AtomicDeclarationsCleaner;
 import pl.edu.mimuw.nesc.atomic.AtomicTransformer;
 import pl.edu.mimuw.nesc.basicreduce.BasicReduceExecutor;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
@@ -200,8 +201,9 @@ public final class CompilationExecutor {
         final ImmutableList<Declaration> cleanedCode = optimize(projectData,
                 wiring, finalCode, refsGraph, AtomicSpecification.DEFAULT_SPECIFICATION);
         reduceAtomic(projectData, cleanedCode);
+        final ImmutableList<Declaration> finalCleanedCode = cleanAtomic(cleanedCode, refsGraph);
 
-        return new CompilationResult(cleanedCode, projectData.getNameMangler(),
+        return new CompilationResult(finalCleanedCode, projectData.getNameMangler(),
                 refsGraph, projectData.getOutputFile(), projectData.getExternalVariables(),
                 projectData.getExternalVariablesFile(), projectData.getABI());
     }
@@ -601,6 +603,13 @@ public final class CompilationExecutor {
         for (Declaration declaration : declarations) {
             declaration.traverse(atomicTransformer, initialData);
         }
+    }
+
+    private ImmutableList<Declaration> cleanAtomic(ImmutableList<Declaration> declarations,
+                ReferencesGraph refsGraph) {
+        return new AtomicDeclarationsCleaner(declarations, refsGraph,
+                        AtomicSpecification.DEFAULT_SPECIFICATION)
+                .clean();
     }
 
     /**
