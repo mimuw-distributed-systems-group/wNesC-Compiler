@@ -81,6 +81,12 @@ public final class Main {
             .build();
 
     /**
+     * Default parameters for SDCC used when the user does not specify any.
+     */
+    private static final ImmutableList<String> DEFAULT_SDCC_PARAMS =
+            ImmutableList.of("--std-c99");
+
+    /**
      * Code returned by the compiler to the system when the compilation fails.
      */
     private static final int STATUS_ERROR = 1;
@@ -308,7 +314,7 @@ public final class Main {
         // Memory model and SDCC executable
         estimatorFactory.setMemoryModel(options.getMemoryModel().orNull())
                 .setSDCCExecutable(options.getSDCCExecutable().orNull())
-                .addSDCCParameter("--std-c99");
+                .addSDCCParameters(options.getSDCCParameters().or(DEFAULT_SDCC_PARAMS));
 
         return estimatorFactory.newFastEstimator().estimate();
     }

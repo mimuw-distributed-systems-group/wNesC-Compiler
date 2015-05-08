@@ -204,7 +204,8 @@ public final class SDCCCodeSizeEstimatorFactory {
             checkState(!SDCCMemoryModel.getAllOptions().contains(parameter),
                     "parameter that specifies a memory model is added");
             checkState(!parameter.equals("-c"), "'-c' parameter is added");
-            checkState(parameter.startsWith("-"), "parameter that is not an option is added");
+            checkState(!parameter.equals("--compile-only"), "'--compile-only' parameter is added");
+            checkState(!parameter.equals("-S"), "'-S' parameter is added");
         }
     }
 

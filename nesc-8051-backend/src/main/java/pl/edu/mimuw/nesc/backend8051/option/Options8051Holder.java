@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.backend8051.option;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 import org.apache.commons.cli.CommandLine;
 import pl.edu.mimuw.nesc.codepartition.BankSchema;
@@ -148,6 +149,25 @@ public final class Options8051Holder {
      */
     public boolean getRelaxBanked() {
         return cmdLine.hasOption(OPTION_LONG_RELAX_BANKED);
+    }
+
+    /**
+     * Get parameters for SDCC specified by the option. The object is absent if
+     * the option has not been used by the user.
+     *
+     * @return List with parameters for SDCC as specified by the user.
+     */
+    public Optional<ImmutableList<String>> getSDCCParameters() {
+        final Optional<String> sdccParams = Optional.fromNullable(
+                cmdLine.getOptionValue(OPTION_LONG_SDCC_PARAMS));
+
+        try {
+            return sdccParams.isPresent()
+                    ? Optional.of(new SDCCParametersParser().parse(sdccParams.get()))
+                    : Optional.<ImmutableList<String>>absent();
+        } catch (SDCCParametersParser.InvalidParametersException e) {
+            throw new RuntimeException("invalid SDCC parameters", e);
+        }
     }
 
     private Optional<Integer> getIntegerOptionValue(String optionName) {

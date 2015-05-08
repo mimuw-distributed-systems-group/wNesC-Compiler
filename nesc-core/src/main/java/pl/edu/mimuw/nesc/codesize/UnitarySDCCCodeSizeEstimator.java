@@ -258,6 +258,7 @@ final class UnitarySDCCCodeSizeEstimator implements CodeSizeEstimator {
                 sdccCmdList.add(memoryModel.get().getOption());
             }
             sdccCmdList.add("-c");
+            sdccCmdList.add("-mmcs51");
             sdccCmdList.addAll(sdccParameters);
             sdccCmdList.add(funFileName);
 

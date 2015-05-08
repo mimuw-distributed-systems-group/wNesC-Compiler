@@ -13,6 +13,7 @@ final class Options8051 {
     public static final String OPTION_SHORT_BANKS = "n";
     public static final String OPTION_SHORT_THREADS_COUNT = "z";
     public static final String OPTION_SHORT_RELAX_BANKED = "r";
+    public static final String OPTION_SHORT_SDCC_PARAMS = "w";
 
     /**
      * Long names of options for the 8051 backend.
@@ -27,6 +28,7 @@ final class Options8051 {
     public static final String OPTION_LONG_DUMP_CALL_GRAPH = "dump-call-graph";
     public static final String OPTION_LONG_INTERRUPTS = "interrupts";
     public static final String OPTION_LONG_RELAX_BANKED = "relax-banked";
+    public static final String OPTION_LONG_SDCC_PARAMS = "sdcc-parameters";
 
     /**
      * Separators used for options values.
@@ -35,6 +37,11 @@ final class Options8051 {
     public static final String SEPARATOR_INTERRUPT_ASSIGNMENT_INNER = "=";
     public static final String SEPARATOR_BANKS_SCHEMA_OUTER = ",";
     public static final String SEPARATOR_BANKS_SCHEMA_INNER = "=";
+
+    /**
+     * Separators of parameter names and their values.
+     */
+    public static final char PARAMETER_SEPARATOR_SDCC_PARAMS = '=';
 
     /**
      * Private constructor to prevent instantiating this class.

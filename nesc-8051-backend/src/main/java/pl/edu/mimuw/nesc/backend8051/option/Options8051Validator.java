@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.backend8051.option;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -10,6 +11,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.cli.CommandLine;
+import pl.edu.mimuw.nesc.codesize.SDCCMemoryModel;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -43,6 +45,37 @@ public final class Options8051Validator {
                     + "(?<bankCapacity>\\d+)");
 
     /**
+     * Set with SDCC parameters that cannot be specified by the option.
+     */
+    private static final ImmutableSet<String> FORBIDDEN_SDCC_PARAMS;
+    static {
+        final ImmutableSet.Builder<String> forbiddenParamsBuilder = ImmutableSet.builder();
+        // basic options
+        forbiddenParamsBuilder.add("-c", "--compile-only", "-S", "-o");
+        // processor target
+        forbiddenParamsBuilder.add(
+                "-mmcs51",
+                "-mds390",
+                "-mds400",
+                "-mhc08",
+                "-ms08",
+                "-mz80",
+                "-mz180",
+                "-mr2k",
+                "-mr3ka",
+                "-mgbz80",
+                "-mstm8",
+                "-mpic14",
+                "-mpic16"
+        );
+        // memory model options
+        for (SDCCMemoryModel memoryModel : SDCCMemoryModel.values()) {
+            forbiddenParamsBuilder.add(memoryModel.getOption());
+        }
+        FORBIDDEN_SDCC_PARAMS = forbiddenParamsBuilder.build();
+    }
+
+    /**
      * Object that represents parsed options.
      */
     private final CommandLine cmdLine;
@@ -60,7 +93,8 @@ public final class Options8051Validator {
                 new EstimateThreadsCountValidator(),
                 new SDCCExecutableValidator(),
                 new DumpCallGraphValidator(),
-                new InterruptsValidator()
+                new InterruptsValidator(),
+                new SDCCParametersValidator()
         );
     }
 
@@ -235,6 +269,42 @@ public final class Options8051Validator {
             }
 
             return Optional.absent();
+        }
+    }
+
+    private final class SDCCParametersValidator implements SingleValidator {
+        @Override
+        public Optional<String> validate() {
+            final Optional<String> sdccParams = getOptionValue(Options8051.OPTION_LONG_SDCC_PARAMS);
+            if (!sdccParams.isPresent()) {
+                return Optional.absent();
+            }
+
+            final String msgPrefix = "invalid value for option '--"
+                    + Options8051.OPTION_LONG_SDCC_PARAMS + "': ";
+            final ImmutableList<String> parsedParams;
+
+            try {
+                parsedParams = new SDCCParametersParser().parse(sdccParams.get());
+            } catch (SDCCParametersParser.InvalidParametersException e) {
+                return Optional.of(msgPrefix + e.getMessage());
+            }
+
+            final StringBuilder forbiddenMsgBuilder = new StringBuilder();
+            for (String param : parsedParams) {
+                if (FORBIDDEN_SDCC_PARAMS.contains(param)) {
+                    if (forbiddenMsgBuilder.length() != 0) {
+                        forbiddenMsgBuilder.append(", ");
+                    }
+                    forbiddenMsgBuilder.append('\'');
+                    forbiddenMsgBuilder.append(param);
+                    forbiddenMsgBuilder.append('\'');
+                }
+            }
+
+            return forbiddenMsgBuilder.length() != 0
+                    ? Optional.of(msgPrefix + "forbidden parameters specified: " + forbiddenMsgBuilder.toString())
+                    : Optional.<String>absent();
         }
     }
 }

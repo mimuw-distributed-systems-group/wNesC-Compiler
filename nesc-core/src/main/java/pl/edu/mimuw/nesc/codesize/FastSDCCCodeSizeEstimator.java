@@ -256,6 +256,7 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
             sdccCmdList.add(memoryModel.get().getOption());
         }
         sdccCmdList.add("-c");
+        sdccCmdList.add("-mmcs51");
         sdccCmdList.addAll(sdccParameters);
         sdccCmdList.add(Paths.get(tempDirectory, NAME_CODE_FILE).toString());
 

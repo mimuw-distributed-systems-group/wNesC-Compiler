@@ -55,7 +55,15 @@ final class Options8051Factory {
                 .build(),
             Option.builder(OPTION_SHORT_RELAX_BANKED)
                 .longOpt(OPTION_LONG_RELAX_BANKED)
-                    .desc("allow changing a function declared as banked that is defined in the NesC program and not annotated as spontaneous to be not banked for optimization")
+                .desc("allow changing a function declared as banked that is defined in the NesC program and not annotated as spontaneous not to be banked for optimization")
+                .build(),
+            Option.builder(OPTION_SHORT_SDCC_PARAMS)
+                .longOpt(OPTION_LONG_SDCC_PARAMS)
+                .hasArg()
+                .desc("comma-separated list of parameters to pass to SDCC during estimation of functions sizes; every character can be escaped by preceding it with backslash, the comma looses its special meaning when escaped; parameters list and the name of the option can be separated by equality sign; example usage of this option: -"
+                        + OPTION_SHORT_SDCC_PARAMS + "=--stack-auto,--opt-code-size,--std-c99")
+                .argName("params-list")
+                .valueSeparator(PARAMETER_SEPARATOR_SDCC_PARAMS)
                 .build()
         };
 
