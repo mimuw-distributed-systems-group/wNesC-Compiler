@@ -1,0 +1,113 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<abi xmlns='http://mimuw.edu.pl/nesc/abi'>
+    <endianness>little-endian</endianness>
+    <types>
+
+        <char>
+            <is-signed>true</is-signed>
+            <signed>
+                <minimum-value>-128</minimum-value>
+                <maximum-value>127</maximum-value>
+            </signed>
+            <unsigned>
+                <minimum-value>0</minimum-value>
+                <maximum-value>255</maximum-value>
+            </unsigned>
+        </char>
+
+        <short>
+            <size>2</size>
+            <alignment>1</alignment>
+            <signed>
+                <minimum-value>-32768</minimum-value>
+                <maximum-value>32767</maximum-value>
+            </signed>
+            <unsigned>
+                <minimum-value>0</minimum-value>
+                <maximum-value>65535</maximum-value>
+            </unsigned>
+        </short>
+
+        <int>
+            <size>2</size>
+            <alignment>1</alignment>
+            <signed>
+                <minimum-value>-32768</minimum-value>
+                <maximum-value>32767</maximum-value>
+            </signed>
+            <unsigned>
+                <minimum-value>0</minimum-value>
+                <maximum-value>65535</maximum-value>
+            </unsigned>
+        </int>
+
+        <long>
+            <size>4</size>
+            <alignment>1</alignment>
+            <signed>
+                <minimum-value>-2147483648</minimum-value>
+                <maximum-value>2147483647</maximum-value>
+            </signed>
+            <unsigned>
+                <minimum-value>0</minimum-value>
+                <maximum-value>4294967295</maximum-value>
+            </unsigned>
+        </long>
+
+        <long-long>
+            <size>8</size>
+            <alignment>1</alignment>
+            <signed>
+                <minimum-value>-9223372036854775808</minimum-value>
+                <maximum-value>9223372036854775807</maximum-value>
+            </signed>
+            <unsigned>
+                <minimum-value>0</minimum-value>
+                <maximum-value>18446744073709551615</maximum-value>
+            </unsigned>
+        </long-long>
+
+        <float>
+            <size>4</size>
+            <alignment>1</alignment>
+        </float>
+
+        <double>
+            <size>4</size>
+            <alignment>1</alignment>
+        </double>
+
+        <long-double>
+            <size>4</size>
+            <alignment>1</alignment>
+        </long-double>
+
+        <pointer-type>
+            <!-- Assuming pointer to XDATA area -->
+            <size>2</size>
+            <alignment>1</alignment>
+        </pointer-type>
+
+        <size_t>
+            <alias-of>unsigned int</alias-of>
+        </size_t>
+
+        <ptrdiff_t>
+            <alias-of>long</alias-of>
+        </ptrdiff_t>
+
+        <struct-or-union>
+            <minimum-alignment>1</minimum-alignment>
+            <bitfield-type-matters>false</bitfield-type-matters>
+            <empty-bitfield-alignment-in-bits>8</empty-bitfield-alignment-in-bits>
+        </struct-or-union>
+
+    </types>
+
+    <call-assumptions>
+        <for-interrupt-attribute>atomic-hwevent</for-interrupt-attribute>
+        <for-signal-attribute>hwevent</for-signal-attribute>
+        <preferential-attribute>signal</preferential-attribute>
+    </call-assumptions>
+
+</abi>

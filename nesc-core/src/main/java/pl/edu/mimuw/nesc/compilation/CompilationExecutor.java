@@ -113,27 +113,34 @@ public final class CompilationExecutor {
 
     /**
      * Initialize this compilation executor not to recognize any target
-     * attributes.
+     * attributes and to use the implicit default ABI platform.
      */
     public CompilationExecutor() {
-        this(Collections.<String>emptyList(), Collections.<String>emptyList());
+        this.frontend = NescFrontend.builder()
+                .standalone(true)
+                .build();
+        this.listener = Optional.absent();
     }
 
     /**
      * Initialize this compilation executor to recognize given target
-     * attributes.
+     * attributes and use the given ABI platform as the default one.
      *
+     * @param defaultABIPlatform ABI platform that will be used if it is not
+     *                           specified by parameters for the frontend.
      * @param targetAttributes0 Iterable with no-parameter target attributes
      *                          that will be recognized by the frontend used by
      *                          this executor.
      * @param targetAttributes1 Iterable with one-parameter target attributes
      *                          that will be recognized by this executor.
      */
-    public CompilationExecutor(Iterable<String> targetAttributes0, Iterable<String> targetAttributes1) {
+    public CompilationExecutor(String defaultABIPlatform, Iterable<String> targetAttributes0,
+            Iterable<String> targetAttributes1) {
         this.frontend = NescFrontend.builder()
                 .standalone(true)
                 .addTargetAttributes0(targetAttributes0)
                 .addTargetAttributes1(targetAttributes1)
+                .defaultABIPlatform(defaultABIPlatform)
                 .build();
         this.listener = Optional.absent();
     }

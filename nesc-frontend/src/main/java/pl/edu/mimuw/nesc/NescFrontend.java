@@ -52,7 +52,6 @@ import static java.lang.String.format;
 public final class NescFrontend implements Frontend {
 
     private static final String DEFAULT_OUTPUT_FILE = "app.c";
-    private static final String DEFAULT_ABI_PLATFORM = "msp430";
     private static final String DIR_PREDEFINED_ABI = "abi";
     private static final Logger LOG = Logger.getLogger(NescFrontend.class);
 
@@ -63,12 +62,14 @@ public final class NescFrontend implements Frontend {
     private final boolean isStandalone;
     private final ImmutableSet<String> targetAttributes0;
     private final ImmutableSet<String> targetAttributes1;
+    private final String defaultABIPlatform;
     private final Map<ContextRef, FrontendContext> contextsMap;
 
     private NescFrontend(Builder builder) {
         this.isStandalone = builder.isStandalone;
         this.targetAttributes0 = builder.targetAttributes0Builder.build();
         this.targetAttributes1 = builder.targetAttributes1Builder.build();
+        this.defaultABIPlatform = builder.defaultABIPlatform;
         this.contextsMap = new HashMap<>();
     }
 
@@ -505,7 +506,7 @@ public final class NescFrontend implements Frontend {
             } else if (options.getABIFilename() != null) {
                 return loadABIFile(options.getABIFilename());
             } else {
-                return loadABIPlatform(DEFAULT_ABI_PLATFORM);
+                return loadABIPlatform(defaultABIPlatform);
             }
         } catch (SAXException e) {
             throw new ABILoadFailureException("invalid ABI XML data: " + e.getMessage(), e);
@@ -571,11 +572,13 @@ public final class NescFrontend implements Frontend {
         private boolean isStandalone;
         private final ImmutableSet.Builder<String> targetAttributes0Builder;
         private final ImmutableSet.Builder<String> targetAttributes1Builder;
+        private String defaultABIPlatform;
 
         public Builder() {
             this.isStandalone = false;
             this.targetAttributes0Builder = ImmutableSet.builder();
             this.targetAttributes1Builder = ImmutableSet.builder();
+            this.defaultABIPlatform = "msp430";
         }
 
         /**
@@ -642,6 +645,20 @@ public final class NescFrontend implements Frontend {
          */
         public Builder addTargetAttributes1(Iterable<String> attributesKeywords) {
             this.targetAttributes1Builder.addAll(attributesKeywords);
+            return this;
+        }
+
+        /**
+         * <p>Set the ABI platform to assume during compilation if no ABI file
+         * or ABI platform is specified by parameters.</p>
+         *
+         * @param platformName Name of the ABI platform to set.
+         * @return <code>this</code>
+         */
+        public Builder defaultABIPlatform(String platformName) {
+            checkNotNull(platformName, "name of the platform cannot be null");
+            checkArgument(!platformName.isEmpty(), "name of the platform cannot be an empty string");
+            this.defaultABIPlatform = platformName;
             return this;
         }
 

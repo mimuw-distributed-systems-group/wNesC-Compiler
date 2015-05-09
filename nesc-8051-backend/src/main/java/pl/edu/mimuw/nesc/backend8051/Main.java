@@ -44,6 +44,11 @@ import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
  */
 public final class Main {
     /**
+     * Name of the default ABI platform for the 8051 version of the compiler.
+     */
+    private static final String DEFAULT_ABI_PLATFORM = "8051sdcc";
+
+    /**
      * Set of no-parameter target attributes recognized by the 8051 version of
      * the compiler. It is the set of keywords used to specify storage-class
      * extensions and "__reentrant" and "__banked" keywords.
@@ -179,7 +184,8 @@ public final class Main {
         try {
             checkSDCC();
             final CompilationExecutor executor = new CompilationExecutor(
-                    TARGET_ATTRIBUTES0, TARGET_ATTRIBUTES1);
+                    DEFAULT_ABI_PLATFORM, TARGET_ATTRIBUTES0,
+                    TARGET_ATTRIBUTES1);
             executor.setListener(new DefaultCompilationListener());
             final CompilationResult result = executor.compile(frontendOptions);
             final ImmutableList<Declaration> separatedDecls =
