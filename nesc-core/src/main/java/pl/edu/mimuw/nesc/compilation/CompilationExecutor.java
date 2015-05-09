@@ -199,13 +199,15 @@ public final class CompilationExecutor {
                 intermediateFuns.values());
         final ReferencesGraph refsGraph = buildReferencesGraph(finalCode);
         final ImmutableList<Declaration> cleanedCode = optimize(projectData,
-                wiring, finalCode, refsGraph, AtomicSpecification.DEFAULT_SPECIFICATION);
+                wiring, finalCode, refsGraph);
         reduceAtomic(projectData, cleanedCode);
-        final ImmutableList<Declaration> finalCleanedCode = cleanAtomic(cleanedCode, refsGraph);
+        final ImmutableList<Declaration> finalCleanedCode = cleanAtomic(projectData,
+                cleanedCode, refsGraph);
 
         return new CompilationResult(finalCleanedCode, projectData.getNameMangler(),
                 refsGraph, projectData.getOutputFile(), projectData.getExternalVariables(),
-                projectData.getExternalVariablesFile(), projectData.getABI());
+                projectData.getExternalVariablesFile(), projectData.getABI(),
+                projectData.getAtomicSpecification());
     }
 
     /**
@@ -554,8 +556,8 @@ public final class CompilationExecutor {
      * declarations and after performing other optimizations.
      */
     private ImmutableList<Declaration> optimize(ProjectData projectData, WiresGraph wiresGraph,
-                ImmutableList<Declaration> declarations, ReferencesGraph refsGraph,
-                AtomicSpecification atomicSpecification) {
+                ImmutableList<Declaration> declarations, ReferencesGraph refsGraph) {
+        final AtomicSpecification atomicSpecification = projectData.getAtomicSpecification();
         final ImmutableList<Declaration> afterCleaning = DeclarationsCleaner.builder(refsGraph)
                 .addDeclarations(declarations)
                 .addPreservedObject(atomicSpecification.getTypename())
@@ -605,10 +607,10 @@ public final class CompilationExecutor {
         }
     }
 
-    private ImmutableList<Declaration> cleanAtomic(ImmutableList<Declaration> declarations,
-                ReferencesGraph refsGraph) {
+    private ImmutableList<Declaration> cleanAtomic(ProjectData projectData,
+                ImmutableList<Declaration> declarations, ReferencesGraph refsGraph) {
         return new AtomicDeclarationsCleaner(declarations, refsGraph,
-                        AtomicSpecification.DEFAULT_SPECIFICATION)
+                        projectData.getAtomicSpecification())
                 .clean();
     }
 

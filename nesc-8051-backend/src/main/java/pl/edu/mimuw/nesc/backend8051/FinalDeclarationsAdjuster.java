@@ -108,41 +108,61 @@ final class FinalDeclarationsAdjuster {
         final ImmutableSet.Builder<String> nonbankedFunsBuilder = ImmutableSet.builder();
 
         for (String bankName : bankTable.getBanksNames()) {
-            for (FunctionDecl functionDecl : bankTable.getBankContents(bankName)) {
-                // Skip spontaneous functions
-                if (functionDecl.getDeclaration() != null && functionDecl.getDeclaration()
-                        .getCallAssumptions().compareTo(FunctionDeclaration.CallAssumptions.SPONTANEOUS) >= 0) {
-                    continue;
-                }
+            final Iterable<FunctionDecl> bankContents = bankTable.getBankContents(bankName);
 
-                final String uniqueName = DeclaratorUtils.getUniqueName(functionDecl.getDeclarator()).get();
-                boolean banked = false;
-
-                // Check entities that refer to the function
-                for (Reference reference : refsGraph.getOrdinaryIds().get(uniqueName).getPredecessors()) {
-                    final EntityNode referencingNode = reference.getReferencingNode();
-
-                    if (!reference.isInsideNotEvaluatedExpr()) {
-                        if (reference.getType() != Reference.Type.CALL) {
-                            banked = true;
-                            break;
-                        } else if (referencingNode.getKind() != EntityNode.Kind.FUNCTION) {
-                            banked = true;
-                            break;
-                        } else if (!funsAssignment.get(referencingNode.getUniqueName()).equals(bankName)) {
-                            banked = true; // call from a function from a different bank
-                            break;
-                        }
-                    }
-                }
-
-                if (!banked) {
-                    nonbankedFunsBuilder.add(uniqueName);
-                }
+            if (bankName.equals(bankTable.getCommonBankName())) {
+                addNonbankedFunsFromCommonBank(nonbankedFunsBuilder, bankContents);
+            } else {
+                addNonbankedFunsFromNormalBank(nonbankedFunsBuilder, bankName, bankContents);
             }
         }
 
         return nonbankedFunsBuilder.build();
+    }
+
+    private void addNonbankedFunsFromCommonBank(ImmutableSet.Builder<String> nonbankedFunsBuilder,
+                Iterable<FunctionDecl> commonBank) {
+        /* All functions from the common bank are candidates for non-banked
+           functions. */
+        for (FunctionDecl functionDecl : commonBank) {
+            nonbankedFunsBuilder.add(DeclaratorUtils.getUniqueName(functionDecl.getDeclarator()).get());
+        }
+    }
+
+    private void addNonbankedFunsFromNormalBank(ImmutableSet.Builder<String> nonbankedFunsBuilder,
+                String bankName, Iterable<FunctionDecl> bankContents) {
+        for (FunctionDecl functionDecl : bankContents) {
+            // Skip spontaneous functions
+            if (functionDecl.getDeclaration() != null && functionDecl.getDeclaration()
+                    .getCallAssumptions().compareTo(FunctionDeclaration.CallAssumptions.SPONTANEOUS) >= 0) {
+                continue;
+            }
+
+            final String uniqueName = DeclaratorUtils.getUniqueName(functionDecl.getDeclarator()).get();
+            boolean banked = false;
+
+            // Check entities that refer to the function
+            for (Reference reference : refsGraph.getOrdinaryIds().get(uniqueName).getPredecessors()) {
+                final EntityNode referencingNode = reference.getReferencingNode();
+
+                if (!reference.isInsideNotEvaluatedExpr()) {
+                    if (reference.getType() != Reference.Type.CALL) {
+                        banked = true;
+                        break;
+                    } else if (referencingNode.getKind() != EntityNode.Kind.FUNCTION) {
+                        banked = true;
+                        break;
+                    } else if (!funsAssignment.get(referencingNode.getUniqueName()).equals(bankName)) {
+                        banked = true; // call from a function from a different bank
+                        break;
+                    }
+                }
+            }
+
+            if (!banked) {
+                nonbankedFunsBuilder.add(uniqueName);
+            }
+        }
     }
 
     private void setIsBanked(Declarator declarator, FunctionDeclaration declaration,

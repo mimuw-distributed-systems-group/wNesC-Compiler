@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
+import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -17,7 +18,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * <p>Code partitioner that uses the following algorithm:</p>
  * <ol>
- *     <li>all spontaneous functions are assigned to the common bank</li>
+ *     <li>all spontaneous functions not marked as banked are assigned to the
+ *     common bank</li>
+ *     <li>functions from set {<code>main</code>,
+ *     <code>__nesc_atomic_start</code>, <code>__nesc_atomic_end</code>}
+ *     not marked as banked are assigned to the common bank</li>
  *     <li>functions are sequenced from the biggest one to the smallest one and
  *     assigned in that order</li>
  *     <li>each function is assigned to the bank with the smallest amount of
@@ -32,9 +37,17 @@ public final class SimpleCodePartitioner implements CodePartitioner {
      */
     private final BankSchema bankSchema;
 
-    public SimpleCodePartitioner(BankSchema bankSchema) {
+    /**
+     * Atomic specification with names of start and end functions necessary for
+     * the partition.
+     */
+    private final AtomicSpecification atomicSpecification;
+
+    public SimpleCodePartitioner(BankSchema bankSchema, AtomicSpecification atomicSpec) {
         checkNotNull(bankSchema, "bank schema cannot be null");
+        checkNotNull(atomicSpec, "atomic specification cannot be null");
         this.bankSchema = bankSchema;
+        this.atomicSpecification = atomicSpec;
     }
 
     @Override
@@ -61,9 +74,16 @@ public final class SimpleCodePartitioner implements CodePartitioner {
 
         for (FunctionDecl functionDecl : functions) {
             final int funSize = context.getFunctionSize(functionDecl);
+            final String uniqueName = DeclaratorUtils.getUniqueName(functionDecl.getDeclarator()).get();
+            final boolean isSpontaneous = functionDecl.getDeclaration() != null
+                    && functionDecl.getDeclaration().getCallAssumptions().compareTo(
+                        FunctionDeclaration.CallAssumptions.SPONTANEOUS) >= 0;
+            final boolean fitsCommonBank = uniqueName.equals("main")
+                    || uniqueName.equals(atomicSpecification.getStartFunctionName())
+                    || uniqueName.equals(atomicSpecification.getEndFunctionName());
+            final boolean isMarkedAsBanked = DeclaratorUtils.getIsBanked(functionDecl.getDeclarator());
 
-            if (functionDecl.getDeclaration() != null
-                    && functionDecl.getDeclaration().getCallAssumptions().compareTo(FunctionDeclaration.CallAssumptions.SPONTANEOUS) >= 0) {
+            if ((isSpontaneous || fitsCommonBank) && !isMarkedAsBanked) {
                 if (context.bankTable.getFreeSpace(bankSchema.getCommonBankName()) >= funSize) {
                     context.assign(functionDecl, bankSchema.getCommonBankName());
                 } else {

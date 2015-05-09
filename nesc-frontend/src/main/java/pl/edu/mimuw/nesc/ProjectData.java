@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import pl.edu.mimuw.nesc.abi.ABI;
+import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.SchedulerSpecification;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.problem.NescIssue;
@@ -35,6 +36,7 @@ public final class ProjectData {
     private final ImmutableList<NescIssue> issues;
     private final NameMangler nameMangler;
     private final Optional<SchedulerSpecification> schedulerSpecification;
+    private final AtomicSpecification atomicSpecification;
     private final String outputFile;
     private final ABI abi;
     private final SetMultimap<Optional<String>, String> externalVariables;
@@ -53,6 +55,7 @@ public final class ProjectData {
         this.issues = builder.issueListBuilder.build();
         this.nameMangler = builder.nameMangler;
         this.schedulerSpecification = builder.schedulerSpecification;
+        this.atomicSpecification = builder.atomicSpecification;
         this.outputFile = builder.outputFile;
         this.abi = builder.abi;
         this.externalVariables = builder.externalVariables;
@@ -211,6 +214,15 @@ public final class ProjectData {
     }
 
     /**
+     * <p>Get the atomic specification for this project.</p>
+     *
+     * @return The atomic specification.
+     */
+    public AtomicSpecification getAtomicSpecification() {
+        return atomicSpecification;
+    }
+
+    /**
      * @author Grzegorz Kołakowski <gk291583@students.mimuw.edu.pl>
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
@@ -227,6 +239,7 @@ public final class ProjectData {
 
         private NameMangler nameMangler;
         private Optional<SchedulerSpecification> schedulerSpecification = Optional.absent();
+        private AtomicSpecification atomicSpecification;
         private SetMultimap<Optional<String>, String> externalVariables;
         private String outputFile;
         private ABI abi;
@@ -280,6 +293,11 @@ public final class ProjectData {
 
         public Builder schedulerSpecification(SchedulerSpecification schedulerSpec) {
             this.schedulerSpecification = Optional.fromNullable(schedulerSpec);
+            return this;
+        }
+
+        public Builder atomicSpecification(AtomicSpecification atomicSpec) {
+            this.atomicSpecification = atomicSpec;
             return this;
         }
 

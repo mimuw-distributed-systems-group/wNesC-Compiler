@@ -13,6 +13,7 @@ import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.analysis.SchedulerAnalyzer;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Interface;
+import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.NesCFileType;
 import pl.edu.mimuw.nesc.exception.ABILoadFailureException;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
@@ -189,6 +190,7 @@ public final class NescFrontend implements Frontend {
                     .externalVariablesFile(options.getExternalVariablesFile().orNull())
                     .optimizeAtomic(options.getOptimizeAtomic())
                     .optimizeTasks(options.getOptimizeTasks())
+                    .atomicSpecification(AtomicSpecification.DEFAULT_SPECIFICATION)
                     .build();
         }
     }
@@ -216,7 +218,8 @@ public final class NescFrontend implements Frontend {
                     .externalVariables(options.getExternalVariables())
                     .externalVariablesFile(options.getExternalVariablesFile().orNull())
                     .optimizeAtomic(options.getOptimizeAtomic())
-                    .optimizeTasks(options.getOptimizeTasks());
+                    .optimizeTasks(options.getOptimizeTasks())
+                    .atomicSpecification(AtomicSpecification.DEFAULT_SPECIFICATION);
 
             if (context.getSchedulerSpecification().isPresent()) {
                 if (loadScheduler) {

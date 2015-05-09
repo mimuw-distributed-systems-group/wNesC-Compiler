@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.SetMultimap;
 import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
+import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
 
@@ -56,6 +57,11 @@ public final class CompilationResult {
      */
     private final ABI abi;
 
+    /**
+     * Atomic specification for the project.
+     */
+    private final AtomicSpecification atomicSpecification;
+
     CompilationResult(
             ImmutableList<Declaration> declarations,
             NameMangler nameMangler,
@@ -63,7 +69,8 @@ public final class CompilationResult {
             String outputFileName,
             SetMultimap<Optional<String>, String> externalVariables,
             Optional<String> externalVariablesFileName,
-            ABI abi
+            ABI abi,
+            AtomicSpecification atomicSpecification
     ) {
         checkNotNull(declarations, "declarations cannot be null");
         checkNotNull(nameMangler, "name mangler cannot be null");
@@ -75,6 +82,7 @@ public final class CompilationResult {
         checkArgument(!externalVariablesFileName.isPresent() || !externalVariablesFileName.get().isEmpty(),
                 "external variables file name cannot be an empty string");
         checkNotNull(abi, "ABI cannot be null");
+        checkNotNull(atomicSpecification, "atomic specification cannot be null");
 
         this.declarations = declarations;
         this.nameMangler = nameMangler;
@@ -83,6 +91,7 @@ public final class CompilationResult {
         this.externalVariables = externalVariables;
         this.externalVariablesFileName = externalVariablesFileName;
         this.abi = abi;
+        this.atomicSpecification = atomicSpecification;
     }
 
     /**
@@ -155,5 +164,14 @@ public final class CompilationResult {
      */
     public ABI getABI() {
         return abi;
+    }
+
+    /**
+     * Get the atomic specification of the project.
+     *
+     * @return Atomic specification of the project.
+     */
+    public AtomicSpecification getAtomicSpecification() {
+        return atomicSpecification;
     }
 }

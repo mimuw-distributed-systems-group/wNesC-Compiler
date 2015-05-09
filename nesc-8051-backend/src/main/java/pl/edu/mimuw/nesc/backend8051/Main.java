@@ -24,6 +24,7 @@ import pl.edu.mimuw.nesc.codepartition.BankTable;
 import pl.edu.mimuw.nesc.codepartition.PartitionImpossibleException;
 import pl.edu.mimuw.nesc.codepartition.SimpleCodePartitioner;
 import pl.edu.mimuw.nesc.codesize.SDCCCodeSizeEstimatorFactory;
+import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.common.util.file.FileUtils;
 import pl.edu.mimuw.nesc.compilation.CompilationExecutor;
@@ -189,7 +190,8 @@ public final class Main {
             assignInterrupts(separatedDecls, options.getInterrupts(), result.getABI());
             final ImmutableMap<String, Range<Integer>> funsSizesEstimation =
                     estimateFunctionsSizes(separatedDecls);
-            final BankTable bankTable = partitionFunctions(separatedDecls, funsSizesEstimation);
+            final BankTable bankTable = partitionFunctions(separatedDecls, funsSizesEstimation,
+                    result.getAtomicSpecification());
             performPostPartitionAdjustment(separatedDecls, bankTable, result.getReferencesGraph());
             final DeclarationsPartitioner.Partition declsPartition =
                     partitionDeclarations(separatedDecls, bankTable);
@@ -330,11 +332,13 @@ public final class Main {
      */
     private BankTable partitionFunctions(
                 ImmutableList<Declaration> declarations,
-                ImmutableMap<String, Range<Integer>> estimation
+                ImmutableMap<String, Range<Integer>> estimation,
+                AtomicSpecification atomicSpecification
     ) throws PartitionImpossibleException {
         final Iterable<FunctionDecl> functions = FluentIterable.from(declarations)
                 .filter(FunctionDecl.class);
-        return new SimpleCodePartitioner(options.getBankSchema().or(DEFAULT_BANK_SCHEMA))
+        return new SimpleCodePartitioner(options.getBankSchema().or(DEFAULT_BANK_SCHEMA),
+                        atomicSpecification)
                 .partition(functions, estimation);
     }
 
