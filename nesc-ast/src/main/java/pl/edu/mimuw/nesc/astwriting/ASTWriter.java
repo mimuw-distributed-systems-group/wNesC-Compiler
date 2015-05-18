@@ -160,7 +160,25 @@ public final class ASTWriter extends Writer {
      *                     fails.
      */
     public ASTWriter(String fileName, WriteSettings settings) throws IOException {
-        this(new FilePrivateBuilder(fileName, settings));
+        this(fileName, false, settings);
+    }
+
+    /**
+     * Initializes this writer to write to the file with given name. If
+     * <code>append</code> is <code>false</code>, then the file is truncated by
+     * the constructor. Otherwise, it is not truncated and all data is written
+     * at the end of the file.
+     *
+     * @param fileName Name of the file to write the code to.
+     * @param append If <code>true</code> the file will not be truncated and all
+     *               written data will be appended at the end of the file.
+     *               Otherwise, the file will be truncated.
+     * @param settings Settings that depict the way of writing code.
+     * @throws IOException The operation of opening the file or optional
+     *                     truncating it fails.
+     */
+    public ASTWriter(String fileName, boolean append, WriteSettings settings) throws IOException {
+        this(new FilePrivateBuilder(fileName, append, settings));
     }
 
     /**
@@ -2480,17 +2498,21 @@ public final class ASTWriter extends Writer {
      */
     private static final class FilePrivateBuilder extends AbstractPrivateBuilder {
         private final String fileName;
+        private final boolean append;
 
-        private FilePrivateBuilder(String fileName, WriteSettings settings) {
+        private FilePrivateBuilder(String fileName, boolean append, WriteSettings settings) {
             super(settings);
             checkNotNull(fileName, "name of the file cannot be null");
             this.fileName = fileName;
+            this.append = append;
         }
 
         @Override
         public PrintWriter buildWriter() throws IOException {
-            final FileOutputStream fileOutStream = new FileOutputStream(fileName);
-            fileOutStream.getChannel().truncate(0);
+            final FileOutputStream fileOutStream = new FileOutputStream(fileName, append);
+            if (!append) {
+                fileOutStream.getChannel().truncate(0);
+            }
             return createPrintWriter(fileOutStream);
         }
     }
