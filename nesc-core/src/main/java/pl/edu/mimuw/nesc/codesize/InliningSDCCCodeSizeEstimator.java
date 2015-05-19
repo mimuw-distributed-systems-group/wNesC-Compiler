@@ -10,11 +10,14 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -45,6 +48,7 @@ import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Code size estimator that estimates sizes of functions determining
@@ -125,9 +129,14 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
     private final ReferencesGraph refsGraph;
 
     /**
+     * Map that allows easy lookup of a function with given name.
+     */
+    private final ImmutableMap<String, FunctionDecl> allFunctions;
+
+    /**
      * Definitions of functions that are currently inline.
      */
-    private ImmutableList<FunctionDecl> inlineFunctions;
+    private final List<FunctionDecl> inlineFunctions;
 
     /**
      * Definitions of functions that are not inline currently.
@@ -193,6 +202,7 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
         checkArgument(threadsCount > 0, "count of threads cannot be not positive");
         checkArgument(maximumInlineFunSize >= 0, "maximum size of an inline function cannot be negative");
 
+        final PrivateBuilder builder = new RealBuilder(functions);
         this.memoryModel = memoryModel;
         this.sdccExecutablePath = sdccExecutablePath;
         this.sdccParameters = sdccParameters;
@@ -204,7 +214,8 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
         this.maximumInlineFunSize = maximumInlineFunSize;
         this.allDeclarations = declarations;
         this.refsGraph = refsGraph;
-        this.inlineFunctions = ImmutableList.of();
+        this.allFunctions = builder.buildFunctionsMap();
+        this.inlineFunctions = new ArrayList<>();
         this.normalFunctions = functions;
         this.inlineFunctionsNames = new HashSet<>();
         this.astStatePreserver = new TypeElementsPreserver(new FunctionSpecifiersAdjuster());
@@ -222,19 +233,22 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
 
         createThreads();
         addInitialInlineFunctionsNames();
-        updateFunctionsLists();
+        createFunctionsLists();
 
         int initialInlineFunctionsCount;
-        ImmutableMap<String, Range<Integer>> currentEstimation;
+        final Map<String, Range<Integer>> currentEstimation = new HashMap<>();
 
         do {
             initialInlineFunctionsCount = inlineFunctionsNames.size();
 
             prepareDeclarations();
             createHeaderFiles();
-            currentEstimation = performEstimation();
-            updateInlineFunctions(currentEstimation);
-            updateFunctionsLists();
+            final ImmutableMap<String, Range<Integer>> estimationDelta =
+                    performEstimation();
+            currentEstimation.putAll(estimationDelta);
+            final ImmutableList<String> newInlineFunctions =
+                    updateInlineFunctions(currentEstimation);
+            updateFunctionsLists(newInlineFunctions);
         } while (initialInlineFunctionsCount != inlineFunctionsNames.size());
 
         restoreDeclarations();
@@ -304,23 +318,59 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
         return true;
     }
 
-    private void updateFunctionsLists() {
-        final ImmutableList.Builder<FunctionDecl> inlineFunctionsBuilder = ImmutableList.builder();
+    private void createFunctionsLists() {
         final ImmutableList.Builder<FunctionDecl> normalFunctionsBuilder = ImmutableList.builder();
 
-        inlineFunctionsBuilder.addAll(inlineFunctions);
-
-        for (FunctionDecl funDecl : normalFunctions) {
+        for (FunctionDecl funDecl : allFunctions.values()) {
             final String uniqueName = DeclaratorUtils.getUniqueName(
                     funDecl.getDeclarator()).get();
             if (inlineFunctionsNames.contains(uniqueName)) {
-                inlineFunctionsBuilder.add(funDecl);
+                inlineFunctions.add(funDecl);
             } else {
                 normalFunctionsBuilder.add(funDecl);
             }
         }
 
-        inlineFunctions = inlineFunctionsBuilder.build();
+        normalFunctions = normalFunctionsBuilder.build();
+    }
+
+    private void updateFunctionsLists(ImmutableList<String> newInlineFunctions) {
+        // Update inline functions
+        for (String inlineFunUniqueName : newInlineFunctions) {
+            checkState(allFunctions.containsKey(inlineFunUniqueName), "unknown inline function '"
+                    + inlineFunUniqueName + "'");
+            inlineFunctions.add(allFunctions.get(inlineFunUniqueName));
+        }
+
+        final ImmutableList.Builder<FunctionDecl> normalFunctionsBuilder = ImmutableList.builder();
+        final Set<EntityNode> visited = new HashSet<>();
+        final Queue<EntityNode> queue = new ArrayDeque<>();
+        for (String inlineFunUniqueName : newInlineFunctions) {
+            queue.add(refsGraph.getOrdinaryIds().get(inlineFunUniqueName));
+        }
+        visited.addAll(queue);
+
+        // Look for functions whose sizes must be recomputed
+        while (!queue.isEmpty()) {
+            final EntityNode entityNode = queue.remove();
+
+            for (Reference reference : entityNode.getPredecessors()) {
+                final EntityNode referencingNode = reference.getReferencingNode();
+
+                if (!reference.isInsideNotEvaluatedExpr() && !visited.contains(referencingNode)
+                        && referencingNode.getKind() == EntityNode.Kind.FUNCTION
+                        && reference.getType() == Reference.Type.CALL) {
+                    visited.add(referencingNode);
+
+                    if (inlineFunctionsNames.contains(referencingNode.getUniqueName())) {
+                        queue.add(referencingNode);
+                    } else {
+                        normalFunctionsBuilder.add(allFunctions.get(referencingNode.getUniqueName()));
+                    }
+                }
+            }
+        }
+
         normalFunctions = normalFunctionsBuilder.build();
     }
 
@@ -420,7 +470,9 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
         return collectingVisitor.getEstimation();
     }
 
-    private void updateInlineFunctions(ImmutableMap<String, Range<Integer>> currentEstimation) {
+    private ImmutableList<String> updateInlineFunctions(Map<String, Range<Integer>> currentEstimation) {
+        final ImmutableList.Builder<String> newInlineFunctions = ImmutableList.builder();
+
         for (FunctionDecl inlineCandidate : normalFunctions) {
             final String uniqueName = DeclaratorUtils.getUniqueName(
                     inlineCandidate.getDeclarator()).get();
@@ -429,8 +481,11 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
             if (maximumSize <= maximumInlineFunSize
                     && canBeInline(uniqueName, inlineCandidate.getDeclaration())) {
                 inlineFunctionsNames.add(uniqueName);
+                newInlineFunctions.add(uniqueName);
             }
         }
+
+        return newInlineFunctions.build();
     }
 
     private void restoreDeclarations() {
@@ -920,6 +975,41 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
         @Override
         public Void visit(ExceptionResponse response, Void arg) {
             throw new RuntimeException("estimation operation failed", response.getException());
+        }
+    }
+
+    /**
+     * Private builder for creating certain objects.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private interface PrivateBuilder {
+        ImmutableMap<String, FunctionDecl> buildFunctionsMap();
+    }
+
+    /**
+     * Implementation of the private builder interface.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class RealBuilder implements PrivateBuilder {
+        private final ImmutableList<FunctionDecl> allFunctions;
+
+        private RealBuilder(ImmutableList<FunctionDecl> allFunctions) {
+            checkNotNull(allFunctions, "all functions cannot be null");
+            this.allFunctions = allFunctions;
+        }
+
+        @Override
+        public ImmutableMap<String, FunctionDecl> buildFunctionsMap() {
+            final ImmutableMap.Builder<String, FunctionDecl> functionsMapBuilder =
+                    ImmutableMap.builder();
+            for (FunctionDecl function : allFunctions) {
+                final String funUniqueName = DeclaratorUtils.getUniqueName(
+                        function.getDeclarator()).get();
+                functionsMapBuilder.put(funUniqueName, function);
+            }
+            return functionsMapBuilder.build();
         }
     }
 }
