@@ -81,6 +81,12 @@ final class Options8051Factory {
                 .longOpt(OPTION_LONG_RELAX_INLINE)
                 .desc("allow the compiler to decide if a function declared as inline will remain such; if this option is not specified, then every inline function will remain inline unless it is considered unsafe by the compiler")
                 .build(),
+            Option.builder()
+                .longOpt(OPTION_LONG_DUMP_INLINE_FUNCTIONS)
+                .hasArg()
+                .desc("save names of inline functions in the output C program to file; each name constitutes a single line in the written file")
+                .argName("file")
+                .build()
         };
 
         final Iterable<Option> optionsSource = FluentIterable.from(new OptionsLoader().load())

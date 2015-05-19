@@ -96,7 +96,8 @@ public final class Options8051Validator {
                 new InterruptsValidator(),
                 new SDCCParametersValidator(),
                 new SDASExecutableValidator(),
-                new MaximumInlineSizeValidator()
+                new MaximumInlineSizeValidator(),
+                new DumpInlineFunctionsValidator()
         );
     }
 
@@ -336,6 +337,14 @@ public final class Options8051Validator {
         public Optional<String> validate() {
             return checkGreaterOrEqual(getOptionValue(Options8051.OPTION_LONG_MAXIMUM_INLINE_SIZE),
                     "maximum size of an inline function", 0);
+        }
+    }
+
+    private final class DumpInlineFunctionsValidator implements SingleValidator {
+        @Override
+        public Optional<String> validate() {
+            return checkNonEmptyString(getOptionValue(Options8051.OPTION_LONG_DUMP_INLINE_FUNCTIONS),
+                    "name of the file for names of inline functions");
         }
     }
 }

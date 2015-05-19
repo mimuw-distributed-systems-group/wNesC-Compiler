@@ -6,6 +6,7 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
+import java.io.FileWriter;
 import java.io.IOException;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Level;
@@ -197,6 +198,7 @@ public final class Main {
             assignInterrupts(separatedDecls, options.getInterrupts(), result.getABI());
             final CodeSizeEstimation funsSizesEstimation = estimateFunctionsSizes(
                     separatedDecls, result.getReferencesGraph());
+            dumpInlineFunctions(funsSizesEstimation.getInlineFunctions());
             final BankTable bankTable = partitionFunctions(separatedDecls, funsSizesEstimation,
                     result.getAtomicSpecification());
             performPostPartitionAdjustment(separatedDecls, bankTable,
@@ -331,6 +333,30 @@ public final class Main {
                         options.getSDASExecutable(), refsGraph, options.getMaximumInlineSize(),
                         options.getRelaxInline())
                 .estimate();
+    }
+
+    /**
+     * Writes names of all inline functions in the final program to file if the
+     * user requested it.
+     *
+     * @param inlineFunctions Names of all inline functions in the final
+     *                        program.
+     */
+    private void dumpInlineFunctions(ImmutableSet<String> inlineFunctions) {
+        if (!options.getInlineFunctionsFile().isPresent()) {
+            return;
+        }
+
+        final String lineSeparator = System.getProperty("line.separator");
+
+        try (final FileWriter writer = new FileWriter(options.getInlineFunctionsFile().get())) {
+            for (String inlineFunName : inlineFunctions) {
+                writer.write(inlineFunName);
+                writer.write(lineSeparator);
+            }
+        } catch (IOException e) {
+            System.err.println("warning: an error occurred while creating the file with names of inline functions");
+        }
     }
 
     /**
