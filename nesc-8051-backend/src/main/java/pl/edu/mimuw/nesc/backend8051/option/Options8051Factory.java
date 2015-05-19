@@ -64,7 +64,23 @@ final class Options8051Factory {
                         + OPTION_SHORT_SDCC_PARAMS + "=--stack-auto,--opt-code-size,--std-c99")
                 .argName("params-list")
                 .valueSeparator(PARAMETER_SEPARATOR_SDCC_PARAMS)
-                .build()
+                .build(),
+            Option.builder()
+                .longOpt(OPTION_LONG_SDAS_EXEC)
+                .hasArg()
+                .desc("path to 8051 assembler executable to use for functions size estimation")
+                .argName("sdas-exec")
+                .build(),
+            Option.builder(OPTION_SHORT_MAXIMUM_INLINE_SIZE)
+                .longOpt(OPTION_LONG_MAXIMUM_INLINE_SIZE)
+                .hasArg()
+                .desc("maximum size (in bytes) of a function that will become inline during compilation; all functions whose maximum size is less than or equal to the given value are made inline; if this option is not specified, then the size of 20 bytes is used")
+                .argName("function-size")
+                .build(),
+            Option.builder()
+                .longOpt(OPTION_LONG_RELAX_INLINE)
+                .desc("allow the compiler to decide if a function declared as inline will remain such; if this option is not specified, then every inline function will remain inline unless it is considered unsafe by the compiler")
+                .build(),
         };
 
         final Iterable<Option> optionsSource = FluentIterable.from(new OptionsLoader().load())

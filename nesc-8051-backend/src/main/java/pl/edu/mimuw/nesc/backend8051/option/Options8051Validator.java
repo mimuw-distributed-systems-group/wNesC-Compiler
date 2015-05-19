@@ -94,7 +94,9 @@ public final class Options8051Validator {
                 new SDCCExecutableValidator(),
                 new DumpCallGraphValidator(),
                 new InterruptsValidator(),
-                new SDCCParametersValidator()
+                new SDCCParametersValidator(),
+                new SDASExecutableValidator(),
+                new MaximumInlineSizeValidator()
         );
     }
 
@@ -118,7 +120,8 @@ public final class Options8051Validator {
         return Optional.fromNullable(cmdLine.getOptionValue(optionName));
     }
 
-    private Optional<String> checkPositiveInteger(Optional<String> value, String optionText) {
+    private Optional<String> checkGreaterOrEqual(Optional<String> value, String optionText,
+                int lowerBound) {
         if (!value.isPresent()) {
             return Optional.absent();
         }
@@ -130,9 +133,21 @@ public final class Options8051Validator {
             return Optional.of("'" + value.get() + "' is not a valid integer");
         }
 
-        return intValue <= 0
-                ? Optional.of(optionText + " must be positive")
-                : Optional.<String>absent();
+        final Optional<String> message;
+        if (intValue < lowerBound) {
+            if (lowerBound == 1) {
+                message = Optional.of(optionText + " must be positive");
+            } else if (lowerBound == 0) {
+                message = Optional.of(optionText + " cannot be negative");
+            } else {
+                message = Optional.of(optionText + " must be greater than or equal to "
+                        + lowerBound);
+            }
+        } else {
+            message = Optional.absent();
+        }
+
+        return message;
     }
 
     private Optional<String> checkNonEmptyString(Optional<String> value, String optionText) {
@@ -215,8 +230,8 @@ public final class Options8051Validator {
     private final class EstimateThreadsCountValidator implements SingleValidator {
         @Override
         public Optional<String> validate() {
-            return checkPositiveInteger(getOptionValue(Options8051.OPTION_LONG_THREADS_COUNT),
-                    "count of estimate threads");
+            return checkGreaterOrEqual(getOptionValue(Options8051.OPTION_LONG_THREADS_COUNT),
+                    "count of estimate threads", 1);
         }
     }
 
@@ -305,6 +320,22 @@ public final class Options8051Validator {
             return forbiddenMsgBuilder.length() != 0
                     ? Optional.of(msgPrefix + "forbidden parameters specified: " + forbiddenMsgBuilder.toString())
                     : Optional.<String>absent();
+        }
+    }
+
+    private final class SDASExecutableValidator implements SingleValidator {
+        @Override
+        public Optional<String> validate() {
+            return checkNonEmptyString(getOptionValue(Options8051.OPTION_LONG_SDAS_EXEC),
+                    "8051 assembler executable");
+        }
+    }
+
+    private final class MaximumInlineSizeValidator implements SingleValidator {
+        @Override
+        public Optional<String> validate() {
+            return checkGreaterOrEqual(getOptionValue(Options8051.OPTION_LONG_MAXIMUM_INLINE_SIZE),
+                    "maximum size of an inline function", 0);
         }
     }
 }

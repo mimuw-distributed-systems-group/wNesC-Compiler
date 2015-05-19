@@ -9,6 +9,7 @@ import pl.edu.mimuw.nesc.ast.gen.ExceptionVisitor;
 import pl.edu.mimuw.nesc.ast.gen.ExtensionDecl;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
+import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -24,8 +25,10 @@ public final class SDCCCodeSizeEstimatorFactory {
      * Default values of options for the estimator.
      */
     private static final String DEFAULT_SDCC_EXEC = "sdcc";
+    private static final String DEFAULT_SDAS_EXEC = "sdas8051";
     private static final String DEFAULT_TMP_DIR = System.getProperty("java.io.tmpdir");
     private static final int DEFAULT_THREADS_COUNT = Runtime.getRuntime().availableProcessors();
+    private static final int DEFAULT_MAXIMUM_INLINE_SIZE = 20;
 
     /**
      * Data necessary for an SDCC code size estimator.
@@ -183,6 +186,40 @@ public final class SDCCCodeSizeEstimatorFactory {
                 sdccExecutablePath.or(DEFAULT_SDCC_EXEC), sdccParameters,
                 memoryModel, temporaryDirectory.or(DEFAULT_TMP_DIR),
                 writeSettings);
+    }
+
+    /**
+     * Create a new inlining SDCC code size estimator according to configuration
+     * of the factory and parameters given to this method.
+     *
+     * @param threadsCount Count of threads created and used by the estimator.
+     * @param sdasExecutablePath Path to the executable of the assembler
+     *                           included with SDCC to use.
+     * @param refsGraph Graph of references between global entities in the
+     *                  program.
+     * @param maximumInlineFunSize Maximum size of a function to make it inline.
+     * @param isInlineRelaxed Value indicating if functions that are already
+     *                        marked as inline may became not inline if they
+     *                        don't qualify for an inline function.
+     * @return Newly created inlining SDCC code size estimator.
+     */
+    public CodeSizeEstimator newInliningEstimator(Optional<Integer> threadsCount,
+            Optional<String> sdasExecutablePath, ReferencesGraph refsGraph,
+            Optional<Integer> maximumInlineFunSize, boolean isInlineRelaxed) {
+        checkNotNull(sdasExecutablePath, "sdas executable path cannot be null");
+        checkNotNull(refsGraph, "references graph cannot be null");
+        checkArgument(!threadsCount.isPresent() || threadsCount.get() > 0,
+                "threads count must be positive");
+        checkArgument(!maximumInlineFunSize.isPresent() || maximumInlineFunSize.get() >= 0,
+                "maximum inline function size cannot be negative");
+
+        final ImmutableList<String> sdccParameters = sdccParametersBuilder.build();
+        validate(sdccParameters);
+        return new InliningSDCCCodeSizeEstimator(declarations, extractFunctions(),
+                refsGraph, sdccExecutablePath.or(DEFAULT_SDCC_EXEC), sdccParameters,
+                sdasExecutablePath.or(DEFAULT_SDAS_EXEC), memoryModel,
+                temporaryDirectory.or(DEFAULT_TMP_DIR), threadsCount.or(DEFAULT_THREADS_COUNT),
+                writeSettings, isInlineRelaxed, maximumInlineFunSize.or(DEFAULT_MAXIMUM_INLINE_SIZE));
     }
 
     private void validate(ImmutableList<String> sdccParameters) {

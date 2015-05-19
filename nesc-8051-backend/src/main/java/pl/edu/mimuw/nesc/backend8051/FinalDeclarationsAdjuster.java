@@ -163,7 +163,8 @@ final class FinalDeclarationsAdjuster {
                     } else if (referencingNode.getKind() != EntityNode.Kind.FUNCTION) {
                         banked = true;
                         break;
-                    } else if (!funsAssignment.get(referencingNode.getUniqueName()).equals(bankName)) {
+                    } else if (!inlineFunctions.contains(referencingNode.getUniqueName())
+                            && !funsAssignment.get(referencingNode.getUniqueName()).equals(bankName)) {
                         banked = true; // call from a function from a different bank
                         break;
                     }

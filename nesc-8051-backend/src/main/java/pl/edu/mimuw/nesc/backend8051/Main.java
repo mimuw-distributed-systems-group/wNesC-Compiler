@@ -195,7 +195,8 @@ public final class Main {
             reduceAttributes(separatedDecls);
             adjustSpecifiers(separatedDecls);
             assignInterrupts(separatedDecls, options.getInterrupts(), result.getABI());
-            final CodeSizeEstimation funsSizesEstimation = estimateFunctionsSizes(separatedDecls);
+            final CodeSizeEstimation funsSizesEstimation = estimateFunctionsSizes(
+                    separatedDecls, result.getReferencesGraph());
             final BankTable bankTable = partitionFunctions(separatedDecls, funsSizesEstimation,
                     result.getAtomicSpecification());
             performPostPartitionAdjustment(separatedDecls, bankTable,
@@ -315,8 +316,8 @@ public final class Main {
      *                     the list will be estimated.
      * @return Object with the result of estimation.
      */
-    private CodeSizeEstimation estimateFunctionsSizes(
-                ImmutableList<Declaration> declarations) throws InterruptedException, IOException {
+    private CodeSizeEstimation estimateFunctionsSizes(ImmutableList<Declaration> declarations,
+                ReferencesGraph refsGraph) throws InterruptedException, IOException {
 
         final SDCCCodeSizeEstimatorFactory estimatorFactory =
                 new SDCCCodeSizeEstimatorFactory(declarations, writeSettings);
@@ -326,7 +327,10 @@ public final class Main {
                 .setSDCCExecutable(options.getSDCCExecutable().orNull())
                 .addSDCCParameters(options.getSDCCParameters().or(DEFAULT_SDCC_PARAMS));
 
-        return estimatorFactory.newFastEstimator().estimate();
+        return estimatorFactory.newInliningEstimator(options.getEstimateThreadsCount(),
+                        options.getSDASExecutable(), refsGraph, options.getMaximumInlineSize(),
+                        options.getRelaxInline())
+                .estimate();
     }
 
     /**

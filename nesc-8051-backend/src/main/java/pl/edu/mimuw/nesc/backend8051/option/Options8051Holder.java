@@ -170,6 +170,18 @@ public final class Options8051Holder {
         }
     }
 
+    public Optional<String> getSDASExecutable() {
+        return Optional.fromNullable(cmdLine.getOptionValue(OPTION_LONG_SDAS_EXEC));
+    }
+
+    public Optional<Integer> getMaximumInlineSize() {
+        return getIntegerOptionValue(OPTION_LONG_MAXIMUM_INLINE_SIZE);
+    }
+
+    public boolean getRelaxInline() {
+        return cmdLine.hasOption(OPTION_LONG_RELAX_INLINE);
+    }
+
     private Optional<Integer> getIntegerOptionValue(String optionName) {
         final Optional<String> optionValue = Optional.fromNullable(
                 cmdLine.getOptionValue(optionName));

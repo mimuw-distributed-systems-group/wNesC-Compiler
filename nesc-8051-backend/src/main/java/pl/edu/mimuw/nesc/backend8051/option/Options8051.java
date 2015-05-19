@@ -14,6 +14,7 @@ final class Options8051 {
     public static final String OPTION_SHORT_THREADS_COUNT = "z";
     public static final String OPTION_SHORT_RELAX_BANKED = "r";
     public static final String OPTION_SHORT_SDCC_PARAMS = "w";
+    public static final String OPTION_SHORT_MAXIMUM_INLINE_SIZE = "l";
 
     /**
      * Long names of options for the 8051 backend.
@@ -21,6 +22,7 @@ final class Options8051 {
     public static final String OPTION_LONG_BANKS = "banks";
     public static final String OPTION_LONG_THREADS_COUNT = "estimate-threads";
     public static final String OPTION_LONG_SDCC_EXEC = "sdcc-exec";
+    public static final String OPTION_LONG_SDAS_EXEC = "sdas-exec";
     public static final String OPTION_LONG_MODEL_SMALL = "model-small";
     public static final String OPTION_LONG_MODEL_MEDIUM = "model-medium";
     public static final String OPTION_LONG_MODEL_LARGE = "model-large";
@@ -29,6 +31,8 @@ final class Options8051 {
     public static final String OPTION_LONG_INTERRUPTS = "interrupts";
     public static final String OPTION_LONG_RELAX_BANKED = "relax-banked";
     public static final String OPTION_LONG_SDCC_PARAMS = "sdcc-parameters";
+    public static final String OPTION_LONG_MAXIMUM_INLINE_SIZE = "maximum-inline-size";
+    public static final String OPTION_LONG_RELAX_INLINE = "relax-inline";
 
     /**
      * Separators used for options values.
