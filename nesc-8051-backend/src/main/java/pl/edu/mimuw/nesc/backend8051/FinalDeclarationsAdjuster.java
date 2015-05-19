@@ -7,9 +7,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import java.util.ArrayDeque;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.Queue;
 import java.util.Set;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.DataDecl;
@@ -17,7 +19,6 @@ import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Declarator;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.IdentifierDeclarator;
 import pl.edu.mimuw.nesc.ast.gen.IdentityVisitor;
 import pl.edu.mimuw.nesc.ast.gen.NestedDeclarator;
 import pl.edu.mimuw.nesc.ast.gen.TypeElement;
@@ -149,32 +150,46 @@ final class FinalDeclarationsAdjuster {
                 continue;
             }
 
-            final String uniqueName = DeclaratorUtils.getUniqueName(functionDecl.getDeclarator()).get();
-            boolean banked = false;
+            final String uniqueName = DeclaratorUtils.getUniqueName(
+                    functionDecl.getDeclarator()).get();
 
-            // Check entities that refer to the function
-            for (Reference reference : refsGraph.getOrdinaryIds().get(uniqueName).getPredecessors()) {
+            if (!mustBeBanked(uniqueName, bankName)) {
+                nonbankedFunsBuilder.add(uniqueName);
+            }
+        }
+    }
+
+    private boolean mustBeBanked(String funUniqueName, String funBankName) {
+        final Set<EntityNode> visited = new HashSet<>();
+        final Queue<EntityNode> queue = new ArrayDeque<>();
+        queue.add(refsGraph.getOrdinaryIds().get(funUniqueName));
+        visited.addAll(queue);
+
+        // Check entities that refer to the function
+        while (!queue.isEmpty()) {
+            final EntityNode entityNode = queue.remove();
+
+            for (Reference reference : entityNode.getPredecessors()) {
                 final EntityNode referencingNode = reference.getReferencingNode();
 
                 if (!reference.isInsideNotEvaluatedExpr()) {
                     if (reference.getType() != Reference.Type.CALL) {
-                        banked = true;
-                        break;
+                        return true;
                     } else if (referencingNode.getKind() != EntityNode.Kind.FUNCTION) {
-                        banked = true;
-                        break;
-                    } else if (!inlineFunctions.contains(referencingNode.getUniqueName())
-                            && !funsAssignment.get(referencingNode.getUniqueName()).equals(bankName)) {
-                        banked = true; // call from a function from a different bank
-                        break;
+                        return true;
+                    } else if (inlineFunctions.contains(referencingNode.getUniqueName())) {
+                        if (!visited.contains(referencingNode)) {
+                            visited.add(referencingNode);
+                            queue.add(referencingNode);
+                        }
+                    } else if (!funsAssignment.get(referencingNode.getUniqueName()).equals(funBankName)) {
+                        return true; // call from a function from a different bank
                     }
                 }
             }
-
-            if (!banked) {
-                nonbankedFunsBuilder.add(uniqueName);
-            }
         }
+
+        return false;
     }
 
     private void setIsBanked(String funUniqueName, Declarator declarator,
