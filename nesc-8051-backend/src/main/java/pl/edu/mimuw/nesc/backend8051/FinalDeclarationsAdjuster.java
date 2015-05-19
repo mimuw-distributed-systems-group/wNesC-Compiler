@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Set;
@@ -21,6 +22,7 @@ import pl.edu.mimuw.nesc.ast.gen.IdentityVisitor;
 import pl.edu.mimuw.nesc.ast.gen.NestedDeclarator;
 import pl.edu.mimuw.nesc.ast.gen.TypeElement;
 import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
+import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.codepartition.BankTable;
@@ -64,6 +66,12 @@ final class FinalDeclarationsAdjuster {
     private final ImmutableMap<String, String> funsAssignment;
 
     /**
+     * Set with names of inline functions that are marked with 'static' and
+     * 'inline' keyword.
+     */
+    private final ImmutableSet<String> inlineFunctions;
+
+    /**
      * Graph of references between entities.
      */
     private final ReferencesGraph refsGraph;
@@ -71,11 +79,13 @@ final class FinalDeclarationsAdjuster {
     FinalDeclarationsAdjuster(
             ImmutableList<Declaration> allDeclarations,
             BankTable bankTable,
+            ImmutableSet<String> inlineFunctions,
             boolean isBankedRelaxed,
             ReferencesGraph refsGraph
     ) {
         checkNotNull(allDeclarations, "declaration cannot be null");
         checkNotNull(bankTable, "bank table cannot be null");
+        checkNotNull(inlineFunctions, "inline functions cannot be null");
         checkNotNull(refsGraph, "references graph cannot be null");
 
         final PrivateBuilder builder = new RealBuilder(bankTable);
@@ -83,6 +93,7 @@ final class FinalDeclarationsAdjuster {
         this.bankTable = bankTable;
         this.isBankedRelaxed = isBankedRelaxed;
         this.funsAssignment = builder.buildFunsAssignment();
+        this.inlineFunctions = inlineFunctions;
         this.refsGraph = refsGraph;
     }
 
@@ -165,8 +176,8 @@ final class FinalDeclarationsAdjuster {
         }
     }
 
-    private void setIsBanked(Declarator declarator, FunctionDeclaration declaration,
-            ImmutableSet<String> nonbankedFuns) {
+    private void setIsBanked(String funUniqueName, Declarator declarator,
+                FunctionDeclaration declaration, ImmutableSet<String> nonbankedFuns) {
         // Don't change the banking characteristic for undefined functions
         if (declaration != null && !declaration.isDefined()) {
             return;
@@ -177,29 +188,40 @@ final class FinalDeclarationsAdjuster {
         checkArgument(deepestDeclarator instanceof FunctionDeclarator,
                 "expected declarator of a function");
         final FunctionDeclarator funDeclarator = (FunctionDeclarator) deepestDeclarator;
-        final IdentifierDeclarator identDeclarator =
-                (IdentifierDeclarator) deepestDeclarator.getDeclarator().get();
-        final String uniqueName = identDeclarator.getUniqueName().get();
 
         /* Change the banking characteristic only if it is allowed according to
-           banked relaxation. */
-        if (!VariousUtils.getBooleanValue(funDeclarator.getIsBanked())
+           banked relaxation. Inline functions are never banked. */
+        if (inlineFunctions.contains(funUniqueName)) {
+            funDeclarator.setIsBanked(false);
+        } else if (!VariousUtils.getBooleanValue(funDeclarator.getIsBanked())
                 || isBankedRelaxed && declaration != null && declaration.getCallAssumptions()
                     .compareTo(FunctionDeclaration.CallAssumptions.SPONTANEOUS) < 0) {
-            funDeclarator.setIsBanked(!nonbankedFuns.contains(uniqueName));
+            funDeclarator.setIsBanked(!nonbankedFuns.contains(funUniqueName));
         }
     }
 
-    private void prepareFunctionSpecifiers(LinkedList<TypeElement> specifiers,
+    private void prepareFunctionSpecifiers(String funUniqueName, LinkedList<TypeElement> specifiers,
             FunctionDeclaration declaration) {
         if (declaration != null && !declaration.isDefined()) {
             return;
         }
 
-        /* If 'static' specifier was to be added, it is necessary to check if
-           the declaration hasn't block scope. */
-
-        TypeElementUtils.removeRID(specifiers, RID.STATIC, RID.EXTERN, RID.INLINE);
+        if (inlineFunctions.contains(funUniqueName)) {
+            /* FIXME: If 'static' specifier is added, it is necessary to check
+               if the declaration hasn't block scope. */
+            final EnumSet<RID> rids = TypeElementUtils.collectRID(specifiers);
+            if (rids.contains(RID.EXTERN)) {
+                TypeElementUtils.removeRID(specifiers, RID.EXTERN);
+            }
+            if (!rids.contains(RID.INLINE)) {
+                specifiers.addFirst(AstUtils.newRid(RID.INLINE));
+            }
+            if (!rids.contains(RID.STATIC)) {
+                specifiers.addFirst(AstUtils.newRid(RID.STATIC));
+            }
+        } else {
+            TypeElementUtils.removeRID(specifiers, RID.STATIC, RID.EXTERN, RID.INLINE);
+        }
     }
 
     /**
@@ -219,8 +241,12 @@ final class FinalDeclarationsAdjuster {
 
         @Override
         public Void visitFunctionDecl(FunctionDecl functionDecl, Void arg) {
-            setIsBanked(functionDecl.getDeclarator(), functionDecl.getDeclaration(), nonbankedFuns);
-            prepareFunctionSpecifiers(functionDecl.getModifiers(), functionDecl.getDeclaration());
+            final String funUniqueName = DeclaratorUtils.getUniqueName(
+                    functionDecl.getDeclarator()).get();
+            setIsBanked(funUniqueName, functionDecl.getDeclarator(),
+                    functionDecl.getDeclaration(), nonbankedFuns);
+            prepareFunctionSpecifiers(funUniqueName, functionDecl.getModifiers(),
+                    functionDecl.getDeclaration());
             return null;
         }
 
@@ -263,8 +289,10 @@ final class FinalDeclarationsAdjuster {
                     DeclaratorUtils.getDeepestNestedDeclarator(variableDecl.getDeclarator());
             if (deepestDeclarator.isPresent() && deepestDeclarator.get() instanceof FunctionDeclarator) {
                 final FunctionDeclaration declarationObj = (FunctionDeclaration) variableDecl.getDeclaration();
-                setIsBanked(variableDecl.getDeclarator().get(), declarationObj, nonbankedFuns);
-                prepareFunctionSpecifiers(declaration.getModifiers(), declarationObj);
+                final String uniqueName = DeclaratorUtils.getUniqueName(
+                        variableDecl.getDeclarator().get()).get();
+                setIsBanked(uniqueName, variableDecl.getDeclarator().get(), declarationObj, nonbankedFuns);
+                prepareFunctionSpecifiers(uniqueName, declaration.getModifiers(), declarationObj);
             }
 
             return null;

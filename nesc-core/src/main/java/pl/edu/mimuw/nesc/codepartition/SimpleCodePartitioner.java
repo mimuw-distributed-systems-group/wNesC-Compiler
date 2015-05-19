@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
+import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 
@@ -56,12 +57,12 @@ public final class SimpleCodePartitioner implements CodePartitioner {
     }
 
     @Override
-    public BankTable partition(Iterable<FunctionDecl> functions,
-            Map<String, Range<Integer>> functionsSizes) throws PartitionImpossibleException {
+    public BankTable partition(Iterable<FunctionDecl> functions, CodeSizeEstimation sizesEstimation)
+            throws PartitionImpossibleException {
         checkNotNull(functions, "functions cannot be null");
-        checkNotNull(functionsSizes, "sizes of functions cannot be null");
+        checkNotNull(sizesEstimation, "estimation of sizes of functions cannot be null");
 
-        final PartitionContext context = new PartitionContext(functionsSizes);
+        final PartitionContext context = new PartitionContext(sizesEstimation.getFunctionsSizes());
         final PriorityQueue<BankedFunction> sortedFuns = assignSpontaneousFunctions(context, functions);
         assignRemainingFunctions(context, sortedFuns);
 

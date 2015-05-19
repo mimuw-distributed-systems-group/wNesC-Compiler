@@ -1,11 +1,10 @@
 package pl.edu.mimuw.nesc.backend8051;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Range;
 import com.google.common.collect.SetMultimap;
 import java.io.IOException;
 import org.apache.commons.cli.ParseException;
@@ -15,6 +14,7 @@ import pl.edu.mimuw.nesc.ast.gen.AttrTransformer;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.astutil.DeclarationsSeparator;
+import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
 import pl.edu.mimuw.nesc.backend8051.option.Options8051Holder;
@@ -23,6 +23,7 @@ import pl.edu.mimuw.nesc.codepartition.BankSchema;
 import pl.edu.mimuw.nesc.codepartition.BankTable;
 import pl.edu.mimuw.nesc.codepartition.PartitionImpossibleException;
 import pl.edu.mimuw.nesc.codepartition.SimpleCodePartitioner;
+import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
 import pl.edu.mimuw.nesc.codesize.SDCCCodeSizeEstimatorFactory;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
@@ -194,13 +195,14 @@ public final class Main {
             reduceAttributes(separatedDecls);
             adjustSpecifiers(separatedDecls);
             assignInterrupts(separatedDecls, options.getInterrupts(), result.getABI());
-            final ImmutableMap<String, Range<Integer>> funsSizesEstimation =
-                    estimateFunctionsSizes(separatedDecls);
+            final CodeSizeEstimation funsSizesEstimation = estimateFunctionsSizes(separatedDecls);
             final BankTable bankTable = partitionFunctions(separatedDecls, funsSizesEstimation,
                     result.getAtomicSpecification());
-            performPostPartitionAdjustment(separatedDecls, bankTable, result.getReferencesGraph());
+            performPostPartitionAdjustment(separatedDecls, bankTable,
+                    funsSizesEstimation.getInlineFunctions(), result.getReferencesGraph());
             final DeclarationsPartitioner.Partition declsPartition =
-                    partitionDeclarations(separatedDecls, bankTable);
+                    partitionDeclarations(separatedDecls, bankTable,
+                            funsSizesEstimation.getInlineFunctions());
             writeDeclarations(declsPartition, result.getOutputFileName());
         } catch (ErroneousIssueException e) {
             System.exit(STATUS_ERROR);
@@ -311,9 +313,9 @@ public final class Main {
      *
      * @param declarations List of declarations. Sizes of defined functions from
      *                     the list will be estimated.
-     * @return Map with the result of estimation.
+     * @return Object with the result of estimation.
      */
-    private ImmutableMap<String, Range<Integer>> estimateFunctionsSizes(
+    private CodeSizeEstimation estimateFunctionsSizes(
                 ImmutableList<Declaration> declarations) throws InterruptedException, IOException {
 
         final SDCCCodeSizeEstimatorFactory estimatorFactory =
@@ -338,11 +340,20 @@ public final class Main {
      */
     private BankTable partitionFunctions(
                 ImmutableList<Declaration> declarations,
-                ImmutableMap<String, Range<Integer>> estimation,
+                final CodeSizeEstimation estimation,
                 AtomicSpecification atomicSpecification
     ) throws PartitionImpossibleException {
         final Iterable<FunctionDecl> functions = FluentIterable.from(declarations)
-                .filter(FunctionDecl.class);
+                .filter(FunctionDecl.class)
+                .filter(new Predicate<FunctionDecl>() {
+                    @Override
+                    public boolean apply(FunctionDecl functionDecl) {
+                        final String funUniqueName = DeclaratorUtils.getUniqueName(
+                                functionDecl.getDeclarator()).get();
+                        return !estimation.getInlineFunctions().contains(funUniqueName);
+                    }
+                });
+
         return new SimpleCodePartitioner(options.getBankSchema().or(DEFAULT_BANK_SCHEMA),
                         atomicSpecification)
                 .partition(functions, estimation);
@@ -358,9 +369,10 @@ public final class Main {
      */
     private DeclarationsPartitioner.Partition partitionDeclarations(
             ImmutableList<Declaration> allDeclarations,
-            BankTable bankTable
+            BankTable bankTable,
+            ImmutableSet<String> inlineFunctions
     ) {
-        return new DeclarationsPartitioner(allDeclarations, bankTable)
+        return new DeclarationsPartitioner(allDeclarations, bankTable, inlineFunctions)
                 .partition();
     }
 
@@ -377,8 +389,10 @@ public final class Main {
      *                  program.
      */
     private void performPostPartitionAdjustment(ImmutableList<Declaration> declarations,
-            BankTable bankTable, ReferencesGraph refsGraph) {
-        new FinalDeclarationsAdjuster(declarations, bankTable, options.getRelaxBanked(), refsGraph)
+            BankTable bankTable, ImmutableSet<String> inlineFunctions,
+            ReferencesGraph refsGraph) {
+        new FinalDeclarationsAdjuster(declarations, bankTable, inlineFunctions,
+                    options.getRelaxBanked(), refsGraph)
                 .adjust();
     }
 

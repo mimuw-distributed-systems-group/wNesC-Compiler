@@ -4,6 +4,8 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableSet;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import pl.edu.mimuw.nesc.ast.RID;
@@ -43,15 +45,23 @@ final class DeclarationsPartitioner {
     private final BankTable bankTable;
 
     /**
+     * Set with unique names of functions that are static inline.
+     */
+    private final ImmutableSet<String> inlineFunctions;
+
+    /**
      * The partition of the declarations that has been computed.
      */
     private Optional<Partition> partition;
 
-    DeclarationsPartitioner(ImmutableList<Declaration> allDeclarations, BankTable bankTable) {
+    DeclarationsPartitioner(ImmutableList<Declaration> allDeclarations, BankTable bankTable,
+            ImmutableSet<String> inlineFunctions) {
         checkNotNull(allDeclarations, "all declarations list cannot be null");
         checkNotNull(bankTable, "bank table cannot be null");
+        checkNotNull(inlineFunctions, "inline functions cannot be null");
         this.allDeclarations = allDeclarations;
         this.bankTable =  bankTable;
+        this.inlineFunctions = inlineFunctions;
         this.partition = Optional.absent();
     }
 
@@ -76,9 +86,16 @@ final class DeclarationsPartitioner {
         final ImmutableList.Builder<Declaration> headerDeclsBuilder = ImmutableList.builder();
         final HeaderDeclarationsCollector collector = new HeaderDeclarationsCollector();
 
+        // Add only declarations
         for (Declaration declaration : allDeclarations) {
             headerDeclsBuilder.add(declaration.accept(collector, null));
         }
+
+        // Add definitions of all inline functions
+        if (collector.inlineFunctionsDefinitions.size() != inlineFunctions.size()) {
+            throw new RuntimeException("cannot collect definitions of all inline functions");
+        }
+        headerDeclsBuilder.addAll(collector.inlineFunctionsDefinitions);
 
         return headerDeclsBuilder.build();
     }
@@ -150,8 +167,15 @@ final class DeclarationsPartitioner {
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     private final class HeaderDeclarationsCollector extends ExceptionVisitor<Declaration, Void> {
+        private final List<FunctionDecl> inlineFunctionsDefinitions = new ArrayList<>();
+
         @Override
         public Declaration visitFunctionDecl(FunctionDecl functionDecl, Void arg) {
+            final String funUniqueName = DeclaratorUtils.getUniqueName(
+                    functionDecl.getDeclarator()).get();
+            if (inlineFunctions.contains(funUniqueName)) {
+                inlineFunctionsDefinitions.add(functionDecl);
+            }
             return AstUtils.createForwardDeclaration(functionDecl);
         }
 

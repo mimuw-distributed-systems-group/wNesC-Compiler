@@ -2,7 +2,6 @@ package pl.edu.mimuw.nesc.codesize;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
 import java.io.File;
 import java.io.FileInputStream;
@@ -123,7 +122,7 @@ final class UnitarySDCCCodeSizeEstimator implements CodeSizeEstimator {
     /**
      * Result of the operation.
      */
-    private Optional<ImmutableMap<String, Range<Integer>>> sizesEstimation;
+    private Optional<CodeSizeEstimation> sizesEstimation;
 
     UnitarySDCCCodeSizeEstimator(
             ImmutableList<Declaration> declarations,
@@ -161,7 +160,7 @@ final class UnitarySDCCCodeSizeEstimator implements CodeSizeEstimator {
     }
 
     @Override
-    public ImmutableMap<String, Range<Integer>> estimate() throws InterruptedException, IOException {
+    public CodeSizeEstimation estimate() throws InterruptedException, IOException {
         if (sizesEstimation.isPresent()) {
             return sizesEstimation.get();
         }
@@ -189,7 +188,7 @@ final class UnitarySDCCCodeSizeEstimator implements CodeSizeEstimator {
                 "some estimation operations have failed");
 
         // Prepare the result
-        sizesEstimation = Optional.of(createResultMap());
+        sizesEstimation = Optional.of(createResultEstimation());
         return sizesEstimation.get();
     }
 
@@ -210,17 +209,16 @@ final class UnitarySDCCCodeSizeEstimator implements CodeSizeEstimator {
         declsWriter.write(declarations);
     }
 
-    private ImmutableMap<String, Range<Integer>> createResultMap() {
-        final ImmutableMap.Builder<String, Range<Integer>> sizesMapBuilder =
-                ImmutableMap.builder();
+    private CodeSizeEstimation createResultEstimation() {
+        final CodeSizeEstimation.Builder estimationBuilder = CodeSizeEstimation.builder();
 
         for (int i = 0; i < results.length(); ++i) {
             final FunctionSizeEstimation estimation = results.get(i);
-            sizesMapBuilder.put(estimation.functionName, Range.closed(estimation.minimumSize,
-                    estimation.maximumSize));
+            estimationBuilder.putFunctionSize(estimation.functionName, Range.closed(
+                    estimation.minimumSize, estimation.maximumSize));
         }
 
-        return sizesMapBuilder.build();
+        return estimationBuilder.build();
     }
 
     /**

@@ -1,40 +1,25 @@
 package pl.edu.mimuw.nesc.codesize;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import pl.edu.mimuw.nesc.ast.RID;
-import pl.edu.mimuw.nesc.ast.gen.DataDecl;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
-import pl.edu.mimuw.nesc.ast.gen.ExceptionVisitor;
-import pl.edu.mimuw.nesc.ast.gen.ExtensionDecl;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
-import pl.edu.mimuw.nesc.ast.gen.FunctionDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.InterfaceRefDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.NestedDeclarator;
-import pl.edu.mimuw.nesc.ast.gen.Node;
 import pl.edu.mimuw.nesc.ast.gen.TypeElement;
-import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
-import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
-import pl.edu.mimuw.nesc.astutil.NodesCopier;
+import pl.edu.mimuw.nesc.astutil.TypeElementsAdjuster;
+import pl.edu.mimuw.nesc.astutil.TypeElementsPreserver;
 import pl.edu.mimuw.nesc.astwriting.CustomDeclarationsWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
@@ -42,7 +27,6 @@ import pl.edu.mimuw.nesc.external.ExternalConstants;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 /**
  * SDCC code size estimator that estimates sizes of multiple functions
@@ -79,27 +63,6 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
      * Name of the code segment with functions whose sizes are estimated.
      */
     private static final String NAME_CODE_SEGMENT = "CODESEG";
-
-    /**
-     * Regular expression that specifies the language of numbers in hexadecimal
-     * notation.
-     */
-    private static final String REGEXP_HEX_NUMBER = "[0-9a-fA-F]+";
-
-    /**
-     * Regular expression that depicts the header of the code segment with
-     * functions whose code size is estimated.
-     */
-    private static final Pattern REGEXP_CODE_SEGMENT = Pattern.compile("A "
-            + NAME_CODE_SEGMENT + " size (?<size>" + REGEXP_HEX_NUMBER
-            + ") flags " + REGEXP_HEX_NUMBER + " addr " + REGEXP_HEX_NUMBER);
-
-    /**
-     * Regular expression that describes a single entry of a code segment in
-     * a .REL file.
-     */
-    private static final Pattern REGEXP_SEGMENT_ENTRY = Pattern.compile(
-            "S _(?<funName>\\w+) Def(?<offset>" + REGEXP_HEX_NUMBER + ")");
 
     /**
      * Memory model that is used for estimating sizes of functions. If the
@@ -149,10 +112,9 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
     private int estimationUnit;
 
     /**
-     * Data that enables restoring original state of AST nodes of the NesC
-     * program.
+     * Object responsible for preserving the state of AST nodes.
      */
-    private final Map<Node, OriginalState> astPreservationData;
+    private final TypeElementsPreserver specifiersPreserver;
 
     /**
      * Object used for invoking SDCC.
@@ -160,9 +122,14 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
     private final ProcessBuilder sdccProcessBuilder;
 
     /**
+     * Object for reading .REL files and computing sizes of functions.
+     */
+    private final FunctionsSizesResolver functionsSizesResolver;
+
+    /**
      * Result of the estimation operation.
      */
-    private Optional<ImmutableMap<String, Range<Integer>>> estimation;
+    private Optional<CodeSizeEstimation> estimation;
 
     FastSDCCCodeSizeEstimator(
             ImmutableList<Declaration> declarations,
@@ -192,13 +159,14 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
         this.functions = functions;
         this.nextFunIndex = 0;
         this.estimationUnit = this.functions.size();
-        this.astPreservationData = new HashMap<>();
+        this.specifiersPreserver = new TypeElementsPreserver(new FunctionSpecifiersAdjuster());
         this.sdccProcessBuilder = new ProcessBuilder();
+        this.functionsSizesResolver = new FunctionsSizesResolver(NAME_CODE_SEGMENT);
         this.estimation = Optional.absent();
     }
 
     @Override
-    public ImmutableMap<String, Range<Integer>> estimate() throws InterruptedException, IOException {
+    public CodeSizeEstimation estimate() throws InterruptedException, IOException {
         if (estimation.isPresent()) {
             return estimation.get();
         }
@@ -213,22 +181,17 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
     }
 
     private void prepareDeclarations() {
-        final PreparingVisitor preparingVisitor = new PreparingVisitor();
-        for (Declaration declaration : allDeclarations) {
-            declaration.accept(preparingVisitor, null);
-        }
+        specifiersPreserver.adjust(allDeclarations);
     }
 
-    private Optional<LinkedList<TypeElement>> prepareFunctionSpecifiers(LinkedList<TypeElement> typeElements) {
+    private void prepareFunctionSpecifiers(List<TypeElement> typeElements,
+                Supplier<List<TypeElement>> copySupplier) {
         final EnumSet<RID> rids = TypeElementUtils.collectRID(typeElements);
-        final NodesCopier<TypeElement> copier = new NodesCopier<>(typeElements);
 
         if (rids.contains(RID.STATIC) || rids.contains(RID.INLINE)) {
-            TypeElementUtils.removeRID(copier.getCopiedNodes(), RID.STATIC,
+            TypeElementUtils.removeRID(copySupplier.get(), RID.STATIC,
                     RID.INLINE);
         }
-
-        return copier.maybeCopy();
     }
 
     private void createHeaderFiles() throws IOException {
@@ -266,8 +229,8 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
     }
 
     private void performEstimation() throws InterruptedException, IOException {
-        final ImmutableMap.Builder<String, Range<Integer>> estimationBuilder =
-                ImmutableMap.builder();
+        final CodeSizeEstimation.Builder estimationBuilder =
+                CodeSizeEstimation.builder();
 
         while (nextFunIndex < functions.size()) {
             runSDCC(false);
@@ -320,60 +283,10 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
     }
 
     private ImmutableMap<String, Integer> determineFunctionsSizes() throws FileNotFoundException {
-        return computeFunctionsSizes(readSegmentData());
+        return functionsSizesResolver.resolve(Paths.get(tempDirectory, NAME_REL_FILE).toString());
     }
 
-    private CodeSegmentData readSegmentData() throws FileNotFoundException {
-        final String relFilePath = Paths.get(tempDirectory, NAME_REL_FILE).toString();
-        final Map<String, Integer> offsets = new HashMap<>();
-        Optional<Integer> totalSize = Optional.absent();
-
-        try (final Scanner scanner = new Scanner(new FileInputStream(relFilePath))) {
-            while (scanner.hasNextLine()) {
-                final String line = scanner.nextLine();
-
-                if (!totalSize.isPresent()) {
-                    final Matcher headerMatcher = REGEXP_CODE_SEGMENT.matcher(line);
-                    if (headerMatcher.matches()) {
-                        totalSize = Optional.of(Integer.valueOf(headerMatcher.group("size"), 16));
-                    }
-                } else {
-                    final Matcher entryMatcher = REGEXP_SEGMENT_ENTRY.matcher(line);
-                    if (entryMatcher.matches()) {
-                        offsets.put(entryMatcher.group("funName"),
-                                Integer.valueOf(entryMatcher.group("offset"), 16));
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (!totalSize.isPresent()) {
-            throw new RuntimeException("cannot find the code segment entry in .REL file");
-        }
-
-        return new CodeSegmentData(totalSize.get(), offsets);
-    }
-
-    private ImmutableMap<String, Integer> computeFunctionsSizes(CodeSegmentData segmentData) {
-        // Sort functions in ascending order according to their offsets
-        final List<String> functionsNames = new ArrayList<>(segmentData.offsets.keySet());
-        Collections.sort(functionsNames, new FunctionOffsetComparator(segmentData.offsets));
-
-        // Compute sizes of functions
-        final Map<String, Integer> workMap = segmentData.offsets;
-        for (int i = 0; i < functionsNames.size(); ++i) {
-            final int minuend = i + 1 < functionsNames.size()
-                    ? workMap.get(functionsNames.get(i + 1))
-                    : segmentData.totalSize;
-            workMap.put(functionsNames.get(i), minuend - workMap.get(functionsNames.get(i)));
-        }
-
-        return ImmutableMap.copyOf(workMap);
-    }
-
-    private void accumulateSizes(ImmutableMap.Builder<String, Range<Integer>> sizesBuilder,
+    private void accumulateSizes(CodeSizeEstimation.Builder estimationBuilder,
                 ImmutableMap<String, Integer> lowerBounds, ImmutableMap<String, Integer> upperBounds) {
         if (lowerBounds.size() != upperBounds.size()) {
             throw new RuntimeException("size of lower bounds map " + lowerBounds.size() +
@@ -392,166 +305,35 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
                         + lowerBoundEntry.getKey() + "'");
             }
 
-            sizesBuilder.put(lowerBoundEntry.getKey(), Range.closed(lowerBoundEntry.getValue(),
-                    upperBounds.get(lowerBoundEntry.getKey())));
+            estimationBuilder.putFunctionSize(lowerBoundEntry.getKey(), Range.closed(
+                    lowerBoundEntry.getValue(), upperBounds.get(lowerBoundEntry.getKey())));
         }
     }
 
     private void restoreDeclarations() {
-        final RestoringVisitor restoringVisitor = new RestoringVisitor();
-        for (Declaration declaration : allDeclarations) {
-            declaration.accept(restoringVisitor, null);
-        }
+        specifiersPreserver.restore(allDeclarations);
     }
 
     /**
-     * Visitor that prepares declarations for the code size estimation.
+     * Class used for adjusting specifiers of functions.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
-    private final class PreparingVisitor extends ExceptionVisitor<Void, Void> {
+    private final class FunctionSpecifiersAdjuster implements TypeElementsAdjuster {
         @Override
-        public Void visitFunctionDecl(FunctionDecl declaration, Void arg) {
-            final LinkedList<TypeElement> originalSpecifiers = declaration.getModifiers();
-            final Optional<LinkedList<TypeElement>> newTypeElements =
-                    prepareFunctionSpecifiers(declaration.getModifiers());
+        public void adjustFunctionDefinition(List<TypeElement> specifiers,
+                Supplier<List<TypeElement>> substituteSupplier, String uniqueName,
+                FunctionDeclaration declarationObj) {
+            prepareFunctionSpecifiers(specifiers, substituteSupplier);
+        }
 
-            if (newTypeElements.isPresent()) {
-                declaration.setModifiers(newTypeElements.get());
-                astPreservationData.put(declaration, new OriginalState(originalSpecifiers));
+        @Override
+        public void adjustFunctionDeclaration(List<TypeElement> specifiers,
+                Supplier<List<TypeElement>> substituteSupplier, String uniqueName,
+                FunctionDeclaration declarationObj) {
+            if (declarationObj == null || declarationObj.isDefined()) {
+                prepareFunctionSpecifiers(specifiers, substituteSupplier);
             }
-
-            return null;
-        }
-
-        @Override
-        public Void visitExtensionDecl(ExtensionDecl declaration, Void arg) {
-            declaration.getDeclaration().accept(this, null);
-            return null;
-        }
-
-        @Override
-        public Void visitDataDecl(DataDecl declaration, Void arg) {
-            if (declaration.getDeclarations().isEmpty()) {
-                return null;
-            } else if (declaration.getDeclarations().size() != 1) {
-                throw new IllegalStateException("unseparated declarations encountered");
-            }
-
-            final VariableDecl variableDecl =
-                    (VariableDecl) declaration.getDeclarations().getFirst();
-            final Optional<NestedDeclarator> deepestNestedDeclarator =
-                    DeclaratorUtils.getDeepestNestedDeclarator(variableDecl.getDeclarator().get());
-
-            if (deepestNestedDeclarator.isPresent()
-                    && deepestNestedDeclarator.get() instanceof FunctionDeclarator) {
-                // Forward declaration of a function
-                final FunctionDeclaration declarationObj =
-                        (FunctionDeclaration) variableDecl.getDeclaration();
-                if (declarationObj != null && !declarationObj.isDefined()) {
-                    return null;
-                }
-                final LinkedList<TypeElement> originalSpecifiers = declaration.getModifiers();
-                final Optional<LinkedList<TypeElement>> newTypeElements =
-                        prepareFunctionSpecifiers(declaration.getModifiers());
-                if (newTypeElements.isPresent()) {
-                    declaration.setModifiers(newTypeElements.get());
-                    astPreservationData.put(declaration, new OriginalState(originalSpecifiers));
-                }
-            } else if (deepestNestedDeclarator.isPresent()
-                    && deepestNestedDeclarator.get() instanceof InterfaceRefDeclarator) {
-                throw new RuntimeException("unexpected interface reference declarator");
-            }
-
-            return null;
-        }
-    }
-
-    /**
-     * Visitor that restores state of declarations.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    private final class RestoringVisitor extends ExceptionVisitor<Void, Void> {
-        @Override
-        public Void visitDataDecl(DataDecl declaration, Void arg) {
-            if (astPreservationData.containsKey(declaration)) {
-                declaration.setModifiers(astPreservationData.get(declaration).typeElements);
-            }
-            return null;
-        }
-
-        @Override
-        public Void visitExtensionDecl(ExtensionDecl declaration, Void arg) {
-            declaration.getDeclaration().accept(this, null);
-            return null;
-        }
-
-        @Override
-        public Void visitFunctionDecl(FunctionDecl declaration, Void arg) {
-            if (astPreservationData.containsKey(declaration)) {
-                declaration.setModifiers(astPreservationData.get(declaration).typeElements);
-            }
-            return null;
-        }
-    }
-
-    /**
-     * Helper class whose object carry information about the original state of
-     * an AST declaration.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    private static final class OriginalState {
-        private final LinkedList<TypeElement> typeElements;
-
-        private OriginalState(LinkedList<TypeElement> typeElements) {
-            checkNotNull(typeElements, "type elements cannot be null");
-            this.typeElements = typeElements;
-        }
-    }
-
-    /**
-     * A small helper class that represents data read from .REL file created by
-     * SDCC.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    private static final class CodeSegmentData {
-        private final Map<String, Integer> offsets;
-        private final int totalSize;
-
-        private CodeSegmentData(int totalSize, Map<String, Integer> offsets) {
-            checkArgument(totalSize >= 0, "total size cannot be negative");
-            checkNotNull(offsets, "offsets cannot be null");
-            this.offsets = offsets;
-            this.totalSize = totalSize;
-        }
-    }
-
-    /**
-     * Comparator that compares names of functions using their offsets from the
-     * beginning of a code segment.
-     *
-     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
-     */
-    private static final class FunctionOffsetComparator implements Comparator<String> {
-        private final Map<String, Integer> offsets;
-
-        private FunctionOffsetComparator(Map<String, Integer> offsets) {
-            checkNotNull(offsets, "offsets cannot be null");
-            this.offsets = offsets;
-        }
-
-        @Override
-        public int compare(String funName1, String funName2) {
-            checkNotNull(funName1, "name of the first function cannot be null");
-            checkNotNull(funName2, "name of the second function cannot be null");
-            checkState(offsets.containsKey(funName1), "unknown function '"
-                    + funName1 + "'");
-            checkState(offsets.containsKey(funName2), "unknown function '"
-                    + funName2 + "'");
-            return Integer.compare(offsets.get(funName1), offsets.get(funName2));
         }
     }
 }

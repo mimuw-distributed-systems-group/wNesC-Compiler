@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.codepartition;
 import com.google.common.collect.Range;
 import java.util.Map;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
+import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
 
 /**
  * <p>Interface with operations for dividing functions into multiple code
@@ -31,13 +32,13 @@ public interface CodePartitioner {
      * construction.
      *
      * @param functions List with functions to partition.
-     * @param functionsSizes Map with estimations of functions sizes.
+     * @param sizesEstimation Object with estimation of functions sizes.
      * @return Bank table that contains all function from the given list assigned
      * @throws PartitionImpossibleException It is not possible to partition the
      *                                      given functions, e.g. sizes of all
      *                                      functions exceed capacity of all
      *                                      banks.
      */
-    BankTable partition(Iterable<FunctionDecl> functions, Map<String, Range<Integer>> functionsSizes)
+    BankTable partition(Iterable<FunctionDecl> functions, CodeSizeEstimation sizesEstimation)
             throws PartitionImpossibleException;
 }
