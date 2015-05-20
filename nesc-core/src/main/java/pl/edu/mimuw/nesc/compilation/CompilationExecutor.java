@@ -572,11 +572,8 @@ public final class CompilationExecutor {
                 .addPreservedObject(atomicSpecification.getEndFunctionName())
                 .build()
                 .clean();
-        final ImmutableList<Declaration> afterLinkageOptimization =
-                new LinkageOptimizer(projectData.getNameMangler())
-                        .optimize(afterCleaning);
         final ImmutableList<Declaration> afterTaskOptimization = performTasksOptimization(
-                projectData, wiresGraph, afterLinkageOptimization, refsGraph);
+                projectData, wiresGraph, afterCleaning, refsGraph);
 
         if (projectData.getOptimizeAtomic()) {
             new AtomicOptimizer(afterTaskOptimization, refsGraph).optimize();

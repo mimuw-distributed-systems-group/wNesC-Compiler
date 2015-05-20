@@ -15,6 +15,8 @@ import pl.edu.mimuw.nesc.compilation.DefaultCompilationListener;
 import pl.edu.mimuw.nesc.compilation.ErroneousIssueException;
 import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 import pl.edu.mimuw.nesc.externalvar.ExternalVariablesWriter;
+import pl.edu.mimuw.nesc.names.mangling.NameMangler;
+import pl.edu.mimuw.nesc.optimization.LinkageOptimizer;
 
 /**
  * <p>Class with <code>main</code> method that allows usage of the compiler. It
@@ -58,12 +60,27 @@ public final class Main {
             final CompilationExecutor executor = new CompilationExecutor();
             executor.setListener(new DefaultCompilationListener());
             final CompilationResult result = executor.compile(args);
-            writeCode(result.getDeclarations(), result.getOutputFileName());
-            writeExternalVariables(result.getDeclarations(), result.getExternalVariables(),
+            final ImmutableList<Declaration> afterLinkageOptimization = optimizeLinkage(
+                    result.getDeclarations(), result.getNameMangler());
+            writeCode(afterLinkageOptimization, result.getOutputFileName());
+            writeExternalVariables(afterLinkageOptimization, result.getExternalVariables(),
                     result.getExternalVariablesFileName());
         } catch (ErroneousIssueException e) {
             System.exit(STATUS_ERROR);
         }
+    }
+
+    /**
+     * Mark declarations as 'static inline' for linkage and code size
+     * optimization.
+     *
+     * @param declarations Declarations that will be optimized.
+     * @param nameMangler Name mangler used for the project.
+     * @return Declarations after the optimization.
+     */
+    private ImmutableList<Declaration> optimizeLinkage(ImmutableList<Declaration> declarations,
+            NameMangler nameMangler) {
+        return new LinkageOptimizer(nameMangler).optimize(declarations);
     }
 
     /**

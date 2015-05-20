@@ -11,6 +11,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.Assign;
 import pl.edu.mimuw.nesc.ast.gen.BreakStmt;
 import pl.edu.mimuw.nesc.ast.gen.CaseLabel;
@@ -145,11 +146,13 @@ public final class TraversingIntermediateGenerator implements IntermediateGenera
                 ? new ExpressionStmt(Location.getDummyLocation(), implFunCall)
                 : new ReturnStmt(Location.getDummyLocation(), Optional.<Expression>of(implFunCall));
 
-        // Add the only statement to the body
+        /* Add the only statement to the body and 'static' and 'inline'
+           specifiers for optimization. */
 
         final FunctionDecl intermediateFun = funData.getIntermediateFunction();
         final CompoundStmt body = (CompoundStmt) intermediateFun.getBody();
         body.getStatements().add(stmt);
+        intermediateFun.getModifiers().addAll(0, AstUtils.newRidsList(RID.STATIC, RID.INLINE));
 
         return intermediateFun;
     }

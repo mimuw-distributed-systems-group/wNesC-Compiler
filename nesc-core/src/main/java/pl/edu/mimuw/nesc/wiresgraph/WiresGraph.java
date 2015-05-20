@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import pl.edu.mimuw.nesc.ast.Location;
-import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
@@ -85,7 +84,7 @@ public final class WiresGraph {
      *                graph.
      */
     private WiresGraph(PrivateBuilder builder) {
-        builder.buildAll();;
+        builder.buildAll();
         this.nodes = builder.getNodesMap();
         this.interfaceRefs = builder.getInterfacesRefsMap();
         this.interfaces = builder.getInterfacesContents();
@@ -422,7 +421,6 @@ public final class WiresGraph {
 
                 final boolean voidOccurred = removeKeywords(typeElements);
                 TypeElementUtils.removeNescTypeElements(typeElements);
-                typeElements.addAll(0, AstUtils.newRidsList(RID.STATIC, RID.INLINE));
                 boolean containsNotVoidDeclarator = false;
                 Declarator declarator = variableDecl.getDeclarator().get();
 
@@ -612,7 +610,6 @@ public final class WiresGraph {
                     typeElements = dataDecl.getModifiers();
                     final boolean returnsVoid = removeKeywords(typeElements);
                     TypeElementUtils.removeNescTypeElements(typeElements);
-                    typeElements.addAll(0, AstUtils.newRidsList(RID.STATIC, RID.INLINE));
 
                     for (Declaration declaration : dataDecl.getDeclarations()) {
                         this.returnsVoid = returnsVoid;
