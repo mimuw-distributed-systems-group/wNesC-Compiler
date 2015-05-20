@@ -411,37 +411,11 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
     }
 
     private ImmutableMap<String, Range<Integer>> performEstimation() throws InterruptedException {
-        final ImmutableMap<String, Integer> lowerBounds = performEstimation(false);
-        final ImmutableMap<String, Integer> upperBounds = performEstimation(true);
-
-        if (lowerBounds.size() != normalFunctions.size()) {
-            throw new RuntimeException("count of functions with lower bounds computed "
-                    + lowerBounds.size() + " is different from the count of functions whose size is estimated "
-                    + normalFunctions.size());
-        } else if (lowerBounds.size() != upperBounds.size()) {
-            throw new RuntimeException("count of functions with lower bounds computed "
-                    + lowerBounds.size() + " is different from the count of function with upper bound computed "
-                    + upperBounds.size());
-        }
-
-        // Join lower and upper bounds
-        final ImmutableMap.Builder<String, Range<Integer>> fullEstimationBuilder = ImmutableMap.builder();
-        for (Map.Entry<String, Integer> lowerBoundEntry : lowerBounds.entrySet()) {
-            if (!upperBounds.containsKey(lowerBoundEntry.getKey())) {
-                throw new RuntimeException("missing upper bound estimation for '"
-                        + lowerBoundEntry.getKey() + "'");
-            }
-            final int lowerBound = Math.min(lowerBoundEntry.getValue(), upperBounds.get(lowerBoundEntry.getKey()));
-            final int upperBound = Math.max(lowerBoundEntry.getValue(), upperBounds.get(lowerBoundEntry.getKey()));
-            fullEstimationBuilder.put(lowerBoundEntry.getKey(), Range.closed(lowerBound, upperBound));
-        }
-
-        return fullEstimationBuilder.build();
-    }
-
-    private ImmutableMap<String, Integer> performEstimation(boolean isBanked) throws InterruptedException {
-        final int functionsPerThread = normalFunctions.size() / threadsCount;
-        int remainderFunctionsCount = normalFunctions.size() % threadsCount;
+        final int adjustedThreadsCount = threadsCount % 2 == 0
+                ? threadsCount / 2
+                : (threadsCount + 1) / 2;
+        final int functionsPerThread = normalFunctions.size() / adjustedThreadsCount;
+        int remainderFunctionsCount = normalFunctions.size() % adjustedThreadsCount;
         int startIndex = 0;
         int requestsCount = 0;
 
@@ -455,8 +429,9 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
 
             final ImmutableList<FunctionDecl> functionsChunk =
                     normalFunctions.subList(startIndex, endIndex);
-            requestsQueue.add(new EstimateRequest(functionsChunk, isBanked));
-            ++requestsCount;
+            requestsQueue.add(new EstimateRequest(functionsChunk, true));
+            requestsQueue.add(new EstimateRequest(functionsChunk, false));
+            requestsCount += 2;
 
             startIndex = endIndex;
         }
@@ -768,16 +743,13 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
         }
 
         private void runSDCC() throws InterruptedException, IOException {
-            final CustomDeclarationsWriter.Banking banking = isBanked
-                    ? CustomDeclarationsWriter.Banking.DEFINED_BANKED
-                    : CustomDeclarationsWriter.Banking.DEFINED_NOT_BANKED;
             final String includedHeader = isBanked
                     ? NAME_BANKED_HEADER
                     : NAME_NONBANKED_HEADER;
             final CustomDeclarationsWriter declsWriter = new CustomDeclarationsWriter(
                     sourceFileFullPath,
                     false,
-                    banking,
+                    CustomDeclarationsWriter.Banking.DONT_CHANGE,
                     writeSettings
             );
             declsWriter.setPrependedText(Optional.of("#include \"" + includedHeader
@@ -960,15 +932,42 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     private static final class ResponseCollectingVisitor implements Response.Visitor<Void, Void> {
-        private final ImmutableMap.Builder<String, Integer> estimationBuilder = ImmutableMap.builder();
+        private final ImmutableMap.Builder<String, Range<Integer>> estimationBuilder = ImmutableMap.builder();
+        private final Map<String, Integer> lowerBounds = new HashMap<>();
+        private final Map<String, Integer> upperBounds = new HashMap<>();
 
-        private ImmutableMap<String, Integer> getEstimation() {
+        private ImmutableMap<String, Range<Integer>> getEstimation() {
+            checkState(lowerBounds.isEmpty() && upperBounds.isEmpty(), "unpaired results are present");
             return estimationBuilder.build();
         }
 
         @Override
         public Void visit(EstimationResponse response, Void arg) {
-            estimationBuilder.putAll(response.getEstimation());
+            // Prepare maps
+            final Map<String, Integer> destinationMap;
+            final Map<String, Integer> otherMap;
+            if (response.isBanked()) {
+                destinationMap = upperBounds;
+                otherMap = lowerBounds;
+            } else {
+                destinationMap = lowerBounds;
+                otherMap = upperBounds;
+            }
+
+            // Accumulate result
+            for (Map.Entry<String, Integer> boundEntry : response.getEstimation().entrySet()) {
+                checkState(!destinationMap.containsKey(boundEntry.getKey()),
+                        "size of a function estimated multiple times");
+                if (otherMap.containsKey(boundEntry.getKey())) {
+                    final int lowerBound = Math.min(boundEntry.getValue(), otherMap.get(boundEntry.getKey()));
+                    final int upperBound = Math.max(boundEntry.getValue(), otherMap.get(boundEntry.getKey()));
+                    estimationBuilder.put(boundEntry.getKey(), Range.closed(lowerBound, upperBound));
+                    otherMap.remove(boundEntry.getKey());
+                } else {
+                    destinationMap.put(boundEntry.getKey(), boundEntry.getValue());
+                }
+            }
+
             return null;
         }
 
