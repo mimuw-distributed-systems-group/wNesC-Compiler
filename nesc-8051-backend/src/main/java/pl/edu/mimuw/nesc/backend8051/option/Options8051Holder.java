@@ -186,6 +186,10 @@ public final class Options8051Holder {
         return Optional.fromNullable(cmdLine.getOptionValue(OPTION_LONG_DUMP_INLINE_FUNCTIONS));
     }
 
+    public boolean getPrintBankingStats() {
+        return cmdLine.hasOption(OPTION_LONG_PRINT_BANKING_STATS);
+    }
+
     private Optional<Integer> getIntegerOptionValue(String optionName) {
         final Optional<String> optionValue = Optional.fromNullable(
                 cmdLine.getOptionValue(optionName));

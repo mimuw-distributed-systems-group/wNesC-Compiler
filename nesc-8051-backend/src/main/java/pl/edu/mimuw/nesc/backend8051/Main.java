@@ -8,14 +8,17 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.EnumSet;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Level;
 import pl.edu.mimuw.nesc.abi.ABI;
+import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.AttrTransformer;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.astutil.DeclarationsSeparator;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
+import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
 import pl.edu.mimuw.nesc.backend8051.option.Options8051Holder;
@@ -206,6 +209,7 @@ public final class Main {
             final DeclarationsPartitioner.Partition declsPartition =
                     partitionDeclarations(separatedDecls, bankTable,
                             funsSizesEstimation.getInlineFunctions());
+            printBankingStatistics(separatedDecls);
             writeDeclarations(declsPartition, result.getOutputFileName());
         } catch (ErroneousIssueException e) {
             System.exit(STATUS_ERROR);
@@ -424,6 +428,63 @@ public final class Main {
         new FinalDeclarationsAdjuster(declarations, bankTable, inlineFunctions,
                     options.getRelaxBanked(), refsGraph)
                 .adjust();
+    }
+
+    /**
+     * Computes and prints banking statistics to stdout if the user requested
+     * it.
+     *
+     * @param allDeclarations List with all declarations of the NesC program.
+     */
+    private void printBankingStatistics(ImmutableList<Declaration> allDeclarations) {
+        if (!options.getPrintBankingStats()) {
+            return;
+        }
+
+        int inlineFunctionsCount = 0, bankedFunctionsCount = 0, nonbankedFunctionsCount = 0;
+        final Iterable<FunctionDecl> functions = FluentIterable.from(allDeclarations)
+                .filter(FunctionDecl.class);
+
+        // Iterate over all functions and compute statistics
+        for (FunctionDecl function : functions) {
+            final EnumSet<RID> rids = TypeElementUtils.collectRID(function.getModifiers());
+
+            if (rids.contains(RID.INLINE)) {
+                ++inlineFunctionsCount;
+            } else if (DeclaratorUtils.getIsBanked(function.getDeclarator())) {
+                ++bankedFunctionsCount;
+            } else {
+                ++nonbankedFunctionsCount;
+            }
+        }
+
+        final int allFunctionsCount = inlineFunctionsCount + bankedFunctionsCount
+                + nonbankedFunctionsCount;
+        final int allPartitionedFunsCount = bankedFunctionsCount + nonbankedFunctionsCount;
+        final int allFunctionsCountLength = Integer.toString(allFunctionsCount).length();
+        final int widthTotal = inlineFunctionsCount == allFunctionsCount
+                || bankedFunctionsCount == allFunctionsCount
+                || nonbankedFunctionsCount == allFunctionsCount
+                ? 6 : 5;
+        final int widthPartitioned = bankedFunctionsCount == allPartitionedFunsCount
+                || nonbankedFunctionsCount == allPartitionedFunsCount
+                ? 6 : 5;
+
+        // Print the statistics
+        System.out.printf("%29s: %" + allFunctionsCountLength + "d (%" + widthTotal + ".2f%%)\n",
+                "count of inline functions", inlineFunctionsCount,
+                (float) (inlineFunctionsCount * 100) / (float) allFunctionsCount);
+        System.out.printf("%29s: %" + allFunctionsCountLength + "d (%" + widthTotal
+                        + ".2f%%, %" + widthPartitioned + ".2f%% of partitioned functions)\n",
+                "count of banked functions", bankedFunctionsCount,
+                (float) (bankedFunctionsCount * 100) / (float) allFunctionsCount,
+                (float) (bankedFunctionsCount * 100) / (float) allPartitionedFunsCount);
+        System.out.printf("%29s: %" + allFunctionsCountLength + "d (%" + widthTotal
+                        + ".2f%%, %" + widthPartitioned + ".2f%% of partitioned functions)\n",
+                "count of non-banked functions", nonbankedFunctionsCount,
+                (float) (nonbankedFunctionsCount * 100) / (float) allFunctionsCount,
+                (float) (nonbankedFunctionsCount * 100) / (float) allPartitionedFunsCount);
+        System.out.printf("%29s: %d\n", "count of all functions", allFunctionsCount);
     }
 
     /**

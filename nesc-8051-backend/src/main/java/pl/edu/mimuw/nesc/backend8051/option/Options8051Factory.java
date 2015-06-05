@@ -86,7 +86,11 @@ final class Options8051Factory {
                 .hasArg()
                 .desc("save names of inline functions in the output C program to file; each name constitutes a single line in the written file")
                 .argName("file")
-                .build()
+                .build(),
+            Option.builder()
+                .longOpt(OPTION_LONG_PRINT_BANKING_STATS)
+                .desc("print statistics of functions defined in output C files: count of inline functions, count of banked functions, count of functions that are not banked and sum of all these counts which is the total number of functions")
+                .build(),
         };
 
         final Iterable<Option> optionsSource = FluentIterable.from(new OptionsLoader().load())

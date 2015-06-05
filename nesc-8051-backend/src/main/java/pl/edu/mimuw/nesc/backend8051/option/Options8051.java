@@ -34,6 +34,7 @@ final class Options8051 {
     public static final String OPTION_LONG_MAXIMUM_INLINE_SIZE = "maximum-inline-size";
     public static final String OPTION_LONG_RELAX_INLINE = "relax-inline";
     public static final String OPTION_LONG_DUMP_INLINE_FUNCTIONS = "dump-inline-functions";
+    public static final String OPTION_LONG_PRINT_BANKING_STATS = "print-banking-stats";
 
     /**
      * Separators used for options values.
