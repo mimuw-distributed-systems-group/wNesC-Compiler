@@ -40,6 +40,7 @@ import pl.edu.mimuw.nesc.astutil.TypeElementsPreserver;
 import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.astwriting.CustomDeclarationsWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
+import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.external.ExternalConstants;
 import pl.edu.mimuw.nesc.refsgraph.EntityNode;
@@ -678,13 +679,15 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
 
             // Update the builder
             this.sdccProcessBuilder.command(sdccCmdList)
-                    .directory(new File(tempDirectory));
+                    .directory(new File(tempDirectory))
+                    .redirectErrorStream(true);
         }
 
         private void configureSDASProcessBuilder() {
             this.sdasProcessBuilder.command(sdasExecutablePath,
                     "-go", cleanedAssemblyFileFullPath)
-                .directory(new File(tempDirectory));
+                .directory(new File(tempDirectory))
+                .redirectErrorStream(true);
         }
     }
 
@@ -766,7 +769,7 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
                 declsWriter.write(chunk.subList(nextFunIndex, endIndex));
 
                 // Run SDCC
-                returnCode = sdccProcessBuilder.start().waitFor();
+                returnCode = VariousUtils.waitForProcessHandlingIO(sdccProcessBuilder.start());
                 if (returnCode != 0) {
                     estimationUnit = Math.max(estimationUnit / 2, 1);
                 }
@@ -783,7 +786,7 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
         }
 
         private void runAssembler() throws InterruptedException, IOException {
-            final int returnCode = sdasProcessBuilder.start().waitFor();
+            final int returnCode = VariousUtils.waitForProcessHandlingIO(sdasProcessBuilder.start());
             if (returnCode != 0) {
                 throw new RuntimeException("SDAS returned code " + returnCode);
             }

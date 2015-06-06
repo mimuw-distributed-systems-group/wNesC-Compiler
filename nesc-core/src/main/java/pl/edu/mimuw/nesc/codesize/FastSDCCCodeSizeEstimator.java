@@ -22,6 +22,7 @@ import pl.edu.mimuw.nesc.astutil.TypeElementsAdjuster;
 import pl.edu.mimuw.nesc.astutil.TypeElementsPreserver;
 import pl.edu.mimuw.nesc.astwriting.CustomDeclarationsWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
+import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.external.ExternalConstants;
 
@@ -225,7 +226,8 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
 
         // Update the builder
         this.sdccProcessBuilder.command(sdccCmdList)
-                .directory(new File(tempDirectory));
+                .directory(new File(tempDirectory))
+                .redirectErrorStream(true);
     }
 
     private void performEstimation() throws InterruptedException, IOException {
@@ -271,7 +273,7 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
             declsWriter.write(functions.subList(nextFunIndex, endIndex));
 
             // Run SDCC
-            returnCode = sdccProcessBuilder.start().waitFor();
+            returnCode = VariousUtils.waitForProcessHandlingIO(sdccProcessBuilder.start());
             if (returnCode != 0) {
                 estimationUnit = Math.max(estimationUnit / 2, 1);
             }

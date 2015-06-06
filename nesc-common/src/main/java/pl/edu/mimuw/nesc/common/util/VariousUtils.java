@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.common.util;
 
 import com.google.common.collect.Range;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigInteger;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -137,6 +138,28 @@ public final class VariousUtils {
             logger.removeAllAppenders();
             logger.addAppender(newAppender);
         }
+    }
+
+    /**
+     * Wait for termination of the given process discarding any data from its
+     * input stream first. This prevents a possible deadlock.
+     *
+     * @param process Process to wait for.
+     * @return Exit code of the process.
+     */
+    public static int waitForProcessHandlingIO(Process process)
+            throws InterruptedException, IOException {
+        checkNotNull(process, "process cannot be null");
+
+        // Read all data from the input stream
+        final InputStream input = process.getInputStream();
+        int b;
+        do {
+            b = input.read();
+        } while (b != -1);
+
+        // Wait for the process
+        return process.waitFor();
     }
 
     /**

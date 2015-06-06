@@ -21,6 +21,7 @@ import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.astwriting.CustomDeclarationsWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
+import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.external.ExternalConstants;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -262,7 +263,8 @@ final class UnitarySDCCCodeSizeEstimator implements CodeSizeEstimator {
 
             // Configure the SDCC process builder
             this.sdccProcessBuilder = new ProcessBuilder(sdccCmdList)
-                    .directory(new File(tempDirectory));
+                    .directory(new File(tempDirectory))
+                    .redirectErrorStream(true);
         }
 
         @Override
@@ -293,7 +295,7 @@ final class UnitarySDCCCodeSizeEstimator implements CodeSizeEstimator {
 
             // Run SDCC
             final Process sdccProcess = sdccProcessBuilder.start();
-            final int sdccRetcode = sdccProcess.waitFor();
+            final int sdccRetcode = VariousUtils.waitForProcessHandlingIO(sdccProcess);
             if (sdccRetcode != 0) {
                 throw new RuntimeException("SDCC returned code " + sdccRetcode);
             }
