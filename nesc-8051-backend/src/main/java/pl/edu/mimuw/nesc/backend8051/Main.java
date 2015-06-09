@@ -40,6 +40,9 @@ import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 import pl.edu.mimuw.nesc.external.ExternalConstants;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.option.OptionsProvider;
+import pl.edu.mimuw.nesc.refsgraph.EntityNode;
+import pl.edu.mimuw.nesc.refsgraph.Reference;
+import pl.edu.mimuw.nesc.refsgraph.ReferenceDirection;
 import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
 
 /**
@@ -202,6 +205,8 @@ public final class Main {
             final CodeSizeEstimation funsSizesEstimation = estimateFunctionsSizes(
                     separatedDecls, result.getReferencesGraph());
             dumpInlineFunctions(funsSizesEstimation.getInlineFunctions());
+            removeInlineFunsFromRefsGraph(funsSizesEstimation.getInlineFunctions(),
+                    result.getReferencesGraph());
             final BankTable bankTable = partitionFunctions(separatedDecls, funsSizesEstimation,
                     result.getAtomicSpecification());
             performPostPartitionAdjustment(separatedDecls, bankTable,
@@ -360,6 +365,21 @@ public final class Main {
             }
         } catch (IOException e) {
             System.err.println("warning: an error occurred while creating the file with names of inline functions");
+        }
+    }
+
+    /**
+     * Remove nodes that represent inline functions from the references graph.
+     * Edges from inline functions nodes are added to nodes that call them.
+     *
+     * @param inlineFunctions Unique names of inline function in the final
+     *                        program.
+     * @param refsGraph Graph with references between entities in the program.
+     */
+    private void removeInlineFunsFromRefsGraph(ImmutableSet<String> inlineFunctions,
+                ReferencesGraph refsGraph) {
+        for (String inlineFunName : inlineFunctions) {
+            refsGraph.mergeOrdinaryId(inlineFunName);
         }
     }
 

@@ -98,7 +98,7 @@ public final class ReferencesGraph {
     public void removeTag(String tagUniqueName) {
         checkNotNull(tagUniqueName, "unique name of tag cannot be null");
         checkArgument(!tagUniqueName.isEmpty(), "unique name of tag cannot be empty");
-        removeNode(tags, tagUniqueName);
+        removeNode(Namespace.TAG, tagUniqueName);
     }
 
     /**
@@ -110,14 +110,74 @@ public final class ReferencesGraph {
     public void removeOrdinaryId(String uniqueName) {
         checkNotNull(uniqueName, "unique name cannot be null");
         checkArgument(!uniqueName.isEmpty(), "unique name cannot be empty");
-        removeNode(ordinaryIds, uniqueName);
+        removeNode(Namespace.ORDINARY, uniqueName);
     }
 
-    private void removeNode(Map<String, EntityNode> nodesMap, String key) {
+    private void removeNode(Namespace namespace, String key) {
+        final Map<String, EntityNode> nodesMap;
+
+        switch (namespace) {
+            case ORDINARY:
+                nodesMap = ordinaryIds;
+                break;
+            case TAG:
+                nodesMap = tags;
+                break;
+            default:
+                throw new RuntimeException("unexpected namespace '" + namespace
+                        + "'");
+        }
+
         if (nodesMap.containsKey(key)) {
             nodesMap.get(key).removeAllEdges();
             nodesMap.remove(key);
         }
+    }
+
+    /**
+     * Merge the node that represents an entity with given name with its
+     * predecessors. All references made by the entity become references of
+     * its predecessors. The node is removed from the graph.
+     *
+     * @param uniqueName Unique name of the entity to merge.
+     */
+    public void mergeOrdinaryId(String uniqueName) {
+        checkNotNull(uniqueName, "unique name cannot be null");
+        checkArgument(!uniqueName.isEmpty(), "unique name cannot be an empty string");
+        mergeNode(Namespace.ORDINARY, uniqueName);
+    }
+
+    /**
+     * Merge the node that represents the tag with given name with its
+     * predecessors. All references made by the tag become references of
+     * its predecessors. The node is removed from the graph.
+     *
+     * @param tagUniqueName Unique name of the tag to merge.
+     */
+    public void mergeTag(String tagUniqueName) {
+        checkNotNull(tagUniqueName, "unique name of the tag cannot be null");
+        checkArgument(!tagUniqueName.isEmpty(), "unique name of the tag cannot be an empty string");
+        mergeNode(Namespace.TAG, tagUniqueName);
+    }
+
+    private void mergeNode(Namespace namespace, String name) {
+        final EntityNode nodeToMerge = requireNode(namespace, name);
+
+        for (Reference referencePredecessor : nodeToMerge.getPredecessors()) {
+            final EntityNode referencingNode = referencePredecessor.getReferencingNode();
+
+            for (Reference referenceSuccessor : nodeToMerge.getSuccessors()) {
+                referencingNode.addReference(
+                        referenceSuccessor.getReferencedNode(),
+                        referenceSuccessor.getType(),
+                        referenceSuccessor.getASTNode(),
+                        referenceSuccessor.isInsideNotEvaluatedExpr(),
+                        referenceSuccessor.isInsideAtomic()
+                );
+            }
+        }
+
+        removeNode(namespace, name);
     }
 
     /**

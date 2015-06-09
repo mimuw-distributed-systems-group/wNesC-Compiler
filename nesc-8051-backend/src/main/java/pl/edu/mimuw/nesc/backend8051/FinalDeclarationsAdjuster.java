@@ -7,11 +7,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import java.util.ArrayDeque;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.Queue;
 import java.util.Set;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.DataDecl;
@@ -160,31 +158,16 @@ final class FinalDeclarationsAdjuster {
     }
 
     private boolean mustBeBanked(String funUniqueName, String funBankName) {
-        final Set<EntityNode> visited = new HashSet<>();
-        final Queue<EntityNode> queue = new ArrayDeque<>();
-        queue.add(refsGraph.getOrdinaryIds().get(funUniqueName));
-        visited.addAll(queue);
+        for (Reference reference : refsGraph.getOrdinaryIds().get(funUniqueName).getPredecessors()) {
+            final EntityNode referencingNode = reference.getReferencingNode();
 
-        // Check entities that refer to the function
-        while (!queue.isEmpty()) {
-            final EntityNode entityNode = queue.remove();
-
-            for (Reference reference : entityNode.getPredecessors()) {
-                final EntityNode referencingNode = reference.getReferencingNode();
-
-                if (!reference.isInsideNotEvaluatedExpr()) {
-                    if (reference.getType() != Reference.Type.CALL) {
-                        return true;
-                    } else if (referencingNode.getKind() != EntityNode.Kind.FUNCTION) {
-                        return true;
-                    } else if (inlineFunctions.contains(referencingNode.getUniqueName())) {
-                        if (!visited.contains(referencingNode)) {
-                            visited.add(referencingNode);
-                            queue.add(referencingNode);
-                        }
-                    } else if (!funsAssignment.get(referencingNode.getUniqueName()).equals(funBankName)) {
-                        return true; // call from a function from a different bank
-                    }
+            if (!reference.isInsideNotEvaluatedExpr()) {
+                if (reference.getType() != Reference.Type.CALL) {
+                    return true;
+                } else if (referencingNode.getKind() != EntityNode.Kind.FUNCTION) {
+                    return true;
+                } else if (!funsAssignment.get(referencingNode.getUniqueName()).equals(funBankName)) {
+                    return true; // call from a function from a different bank
                 }
             }
         }
