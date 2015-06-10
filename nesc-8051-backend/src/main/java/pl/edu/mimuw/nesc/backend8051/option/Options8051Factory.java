@@ -91,6 +91,12 @@ final class Options8051Factory {
                 .longOpt(OPTION_LONG_PRINT_BANKING_STATS)
                 .desc("print statistics of functions defined in output C files: count of inline functions, count of banked functions, count of functions that are not banked and sum of all these counts which is the total number of functions")
                 .build(),
+            Option.builder(OPTION_SHORT_PARTITION_HEURISTIC)
+                .longOpt(OPTION_LONG_PARTITION_HEURISTIC)
+                .hasArg()
+                .desc("heuristic to use for partitioning of functions into banks; available heuristics: simple, greedy-n where n is an arbitrary positive natural number; if this option is not specified, then heuristic 'greedy-10' is used")
+                .argName("heuristic-kind")
+                .build()
         };
 
         final Iterable<Option> optionsSource = FluentIterable.from(new OptionsLoader().load())

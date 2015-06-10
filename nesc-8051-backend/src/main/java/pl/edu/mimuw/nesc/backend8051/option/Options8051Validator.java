@@ -44,6 +44,9 @@ public final class Options8051Validator {
                     + Options8051.SEPARATOR_BANKS_SCHEMA_INNER
                     + "(?<bankCapacity>\\d+)");
 
+    private static final Pattern REGEXP_PARTITION_HEURISTIC =
+            Pattern.compile("simple|greedy-(?<greedyPreValue>[1-9]\\d*)");
+
     /**
      * Set with SDCC parameters that cannot be specified by the option.
      */
@@ -97,7 +100,8 @@ public final class Options8051Validator {
                 new SDCCParametersValidator(),
                 new SDASExecutableValidator(),
                 new MaximumInlineSizeValidator(),
-                new DumpInlineFunctionsValidator()
+                new DumpInlineFunctionsValidator(),
+                new PartitionHeuristicValidator()
         );
     }
 
@@ -345,6 +349,26 @@ public final class Options8051Validator {
         public Optional<String> validate() {
             return checkNonEmptyString(getOptionValue(Options8051.OPTION_LONG_DUMP_INLINE_FUNCTIONS),
                     "name of the file for names of inline functions");
+        }
+    }
+
+    private final class PartitionHeuristicValidator implements SingleValidator {
+        @Override
+        public Optional<String> validate() {
+            final Optional<String> value = getOptionValue(Options8051.OPTION_LONG_PARTITION_HEURISTIC);
+            if (!value.isPresent()) {
+                return Optional.absent();
+            }
+
+            final String msgPrefix = "invalid value for option '--"
+                    + Options8051.OPTION_LONG_PARTITION_HEURISTIC + "': ";
+            final Matcher matcher = REGEXP_PARTITION_HEURISTIC.matcher(value.get());
+
+            if (!matcher.matches()) {
+                return Optional.of(msgPrefix + "invalid kind of heuristic '" + value.get() + "'");
+            } else {
+                return Optional.absent();
+            }
         }
     }
 }

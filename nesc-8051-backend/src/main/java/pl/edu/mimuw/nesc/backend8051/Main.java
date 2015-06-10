@@ -25,6 +25,8 @@ import pl.edu.mimuw.nesc.backend8051.option.Options8051Holder;
 import pl.edu.mimuw.nesc.backend8051.option.Options8051Parser;
 import pl.edu.mimuw.nesc.codepartition.BankSchema;
 import pl.edu.mimuw.nesc.codepartition.BankTable;
+import pl.edu.mimuw.nesc.codepartition.CodePartitioner;
+import pl.edu.mimuw.nesc.codepartition.GreedyCodePartitioner;
 import pl.edu.mimuw.nesc.codepartition.PartitionImpossibleException;
 import pl.edu.mimuw.nesc.codepartition.SimpleCodePartitioner;
 import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
@@ -96,6 +98,11 @@ public final class Main {
      */
     private static final ImmutableList<String> DEFAULT_SDCC_PARAMS =
             ImmutableList.of("--std-c99");
+
+    /**
+     * Default partition heuristic used when the user does not specify any.
+     */
+    private static final String DEFAULT_PARTITION_HEURISTIC = "greedy-10";
 
     /**
      * Code returned by the compiler to the system when the compilation fails.
@@ -406,9 +413,21 @@ public final class Main {
                     }
                 });
 
-        return new SimpleCodePartitioner(options.getBankSchema().or(DEFAULT_BANK_SCHEMA),
-                        atomicSpecification)
-                .partition(functions, estimation, refsGraph);
+        final BankSchema bankSchema = options.getBankSchema().or(DEFAULT_BANK_SCHEMA);
+        final String partitionHeuristic = options.getPartitionHeuristic().or(DEFAULT_PARTITION_HEURISTIC);
+        final CodePartitioner partitioner;
+
+        if (partitionHeuristic.equals("simple")) {
+            partitioner = new SimpleCodePartitioner(bankSchema, atomicSpecification);
+        } else if (partitionHeuristic.startsWith("greedy-")) {
+            partitioner = new GreedyCodePartitioner(bankSchema, atomicSpecification,
+                    Integer.parseInt(partitionHeuristic.substring(7)));
+        } else {
+            throw new RuntimeException("unexpected partition heuristic '"
+                    + partitionHeuristic + "'");
+        }
+
+        return partitioner.partition(functions, estimation, refsGraph);
     }
 
     /**

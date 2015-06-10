@@ -15,6 +15,7 @@ final class Options8051 {
     public static final String OPTION_SHORT_RELAX_BANKED = "r";
     public static final String OPTION_SHORT_SDCC_PARAMS = "w";
     public static final String OPTION_SHORT_MAXIMUM_INLINE_SIZE = "l";
+    public static final String OPTION_SHORT_PARTITION_HEURISTIC = "h";
 
     /**
      * Long names of options for the 8051 backend.
@@ -35,6 +36,7 @@ final class Options8051 {
     public static final String OPTION_LONG_RELAX_INLINE = "relax-inline";
     public static final String OPTION_LONG_DUMP_INLINE_FUNCTIONS = "dump-inline-functions";
     public static final String OPTION_LONG_PRINT_BANKING_STATS = "print-banking-stats";
+    public static final String OPTION_LONG_PARTITION_HEURISTIC = "partition-heuristic";
 
     /**
      * Separators used for options values.

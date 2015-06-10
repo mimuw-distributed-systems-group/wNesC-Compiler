@@ -190,6 +190,10 @@ public final class Options8051Holder {
         return cmdLine.hasOption(OPTION_LONG_PRINT_BANKING_STATS);
     }
 
+    public Optional<String> getPartitionHeuristic() {
+        return Optional.fromNullable(cmdLine.getOptionValue(OPTION_LONG_PARTITION_HEURISTIC));
+    }
+
     private Optional<Integer> getIntegerOptionValue(String optionName) {
         final Optional<String> optionValue = Optional.fromNullable(
                 cmdLine.getOptionValue(optionName));
