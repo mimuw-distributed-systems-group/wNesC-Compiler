@@ -4,6 +4,7 @@ import com.google.common.collect.Range;
 import java.util.Map;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
+import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
 
 /**
  * <p>Interface with operations for dividing functions into multiple code
@@ -31,14 +32,15 @@ public interface CodePartitioner {
      * of this partitioner. The bank schema should be specified at its
      * construction.
      *
-     * @param functions List with functions to partition.
+     * @param functions Iterable with functions to partition.
      * @param sizesEstimation Object with estimation of functions sizes.
+     * @param refsGraph References graph between entities in the program.
      * @return Bank table that contains all function from the given list assigned
      * @throws PartitionImpossibleException It is not possible to partition the
      *                                      given functions, e.g. sizes of all
      *                                      functions exceed capacity of all
      *                                      banks.
      */
-    BankTable partition(Iterable<FunctionDecl> functions, CodeSizeEstimation sizesEstimation)
-            throws PartitionImpossibleException;
+    BankTable partition(Iterable<FunctionDecl> functions, CodeSizeEstimation sizesEstimation,
+            ReferencesGraph refsGraph) throws PartitionImpossibleException;
 }

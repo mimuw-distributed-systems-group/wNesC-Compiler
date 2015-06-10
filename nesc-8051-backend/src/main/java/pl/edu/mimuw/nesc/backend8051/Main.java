@@ -40,9 +40,6 @@ import pl.edu.mimuw.nesc.exception.InvalidOptionsException;
 import pl.edu.mimuw.nesc.external.ExternalConstants;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.option.OptionsProvider;
-import pl.edu.mimuw.nesc.refsgraph.EntityNode;
-import pl.edu.mimuw.nesc.refsgraph.Reference;
-import pl.edu.mimuw.nesc.refsgraph.ReferenceDirection;
 import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
 
 /**
@@ -208,7 +205,7 @@ public final class Main {
             removeInlineFunsFromRefsGraph(funsSizesEstimation.getInlineFunctions(),
                     result.getReferencesGraph());
             final BankTable bankTable = partitionFunctions(separatedDecls, funsSizesEstimation,
-                    result.getAtomicSpecification());
+                    result.getAtomicSpecification(), result.getReferencesGraph());
             performPostPartitionAdjustment(separatedDecls, bankTable,
                     funsSizesEstimation.getInlineFunctions(), result.getReferencesGraph());
             final DeclarationsPartitioner.Partition declsPartition =
@@ -395,7 +392,8 @@ public final class Main {
     private BankTable partitionFunctions(
                 ImmutableList<Declaration> declarations,
                 final CodeSizeEstimation estimation,
-                AtomicSpecification atomicSpecification
+                AtomicSpecification atomicSpecification,
+                ReferencesGraph refsGraph
     ) throws PartitionImpossibleException {
         final Iterable<FunctionDecl> functions = FluentIterable.from(declarations)
                 .filter(FunctionDecl.class)
@@ -410,7 +408,7 @@ public final class Main {
 
         return new SimpleCodePartitioner(options.getBankSchema().or(DEFAULT_BANK_SCHEMA),
                         atomicSpecification)
-                .partition(functions, estimation);
+                .partition(functions, estimation, refsGraph);
     }
 
     /**
