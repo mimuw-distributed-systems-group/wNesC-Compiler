@@ -44,7 +44,7 @@ final class Options8051Factory {
             Option.builder()
                 .longOpt(OPTION_LONG_DUMP_CALL_GRAPH)
                 .hasArg()
-                .desc("save the call graph of functions in the output C program to file")
+                .desc("save the call graph of functions in the output C program to file; inline functions are eliminated from the graph")
                 .argName("file")
                 .build(),
             Option.builder()

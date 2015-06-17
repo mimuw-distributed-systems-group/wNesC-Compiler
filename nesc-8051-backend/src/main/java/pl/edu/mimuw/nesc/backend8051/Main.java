@@ -202,7 +202,6 @@ public final class Main {
             final CompilationResult result = executor.compile(frontendOptions);
             final ImmutableList<Declaration> separatedDecls =
                     separateDeclarations(result.getDeclarations(), result.getNameMangler());
-            dumpCallGraph(result.getReferencesGraph());
             reduceAttributes(separatedDecls);
             adjustSpecifiers(separatedDecls);
             assignInterrupts(separatedDecls, options.getInterrupts(), result.getABI());
@@ -211,6 +210,7 @@ public final class Main {
             dumpInlineFunctions(funsSizesEstimation.getInlineFunctions());
             removeInlineFunsFromRefsGraph(funsSizesEstimation.getInlineFunctions(),
                     result.getReferencesGraph());
+            dumpCallGraph(result.getReferencesGraph());
             final BankTable bankTable = partitionFunctions(separatedDecls, funsSizesEstimation,
                     result.getAtomicSpecification(), result.getReferencesGraph());
             performPostPartitionAdjustment(separatedDecls, bankTable,
