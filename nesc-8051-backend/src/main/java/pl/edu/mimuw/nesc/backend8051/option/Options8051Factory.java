@@ -89,7 +89,7 @@ final class Options8051Factory {
                 .build(),
             Option.builder()
                 .longOpt(OPTION_LONG_PRINT_BANKING_STATS)
-                .desc("print statistics of functions defined in output C files: count of inline functions, count of banked functions, count of functions that are not banked and sum of all these counts which is the total number of functions")
+                .desc("print statistics of functions defined in output C files: time of functions sizes estimation, time of functions partition, count of inline functions, count of banked functions, count of functions that are not banked and sum of all these counts which is the total number of functions")
                 .build(),
             Option.builder(OPTION_SHORT_PARTITION_HEURISTIC)
                 .longOpt(OPTION_LONG_PARTITION_HEURISTIC)

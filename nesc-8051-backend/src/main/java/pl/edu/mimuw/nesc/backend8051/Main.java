@@ -30,6 +30,7 @@ import pl.edu.mimuw.nesc.codepartition.GreedyCodePartitioner;
 import pl.edu.mimuw.nesc.codepartition.PartitionImpossibleException;
 import pl.edu.mimuw.nesc.codepartition.SimpleCodePartitioner;
 import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
+import pl.edu.mimuw.nesc.codesize.CodeSizeEstimator;
 import pl.edu.mimuw.nesc.codesize.SDCCCodeSizeEstimatorFactory;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
@@ -131,6 +132,11 @@ public final class Main {
     private final WriteSettings writeSettings;
 
     /**
+     * Object that measures time of some operations during the compilation.
+     */
+    private final TimeMeasurer timeMeasurer;
+
+    /**
      * Parse and validate parameters for the 8051 version of the compiler. If
      * the parsing process fails or the options don't validate, then compilation
      * is terminated.
@@ -186,6 +192,7 @@ public final class Main {
                 .nameMode(WriteSettings.NameMode.USE_UNIQUE_NAMES)
                 .uniqueMode(WriteSettings.UniqueMode.OUTPUT_VALUES)
                 .build();
+        this.timeMeasurer = new TimeMeasurer();
     }
 
     /**
@@ -334,6 +341,7 @@ public final class Main {
     private CodeSizeEstimation estimateFunctionsSizes(ImmutableList<Declaration> declarations,
                 ReferencesGraph refsGraph) throws InterruptedException, IOException {
 
+        timeMeasurer.codeSizeEstimationStarted();
         final SDCCCodeSizeEstimatorFactory estimatorFactory =
                 new SDCCCodeSizeEstimatorFactory(declarations, writeSettings);
 
@@ -342,10 +350,17 @@ public final class Main {
                 .setSDCCExecutable(options.getSDCCExecutable().orNull())
                 .addSDCCParameters(options.getSDCCParameters().or(DEFAULT_SDCC_PARAMS));
 
-        return estimatorFactory.newInliningEstimator(options.getEstimateThreadsCount(),
-                        options.getSDASExecutable(), refsGraph, options.getMaximumInlineSize(),
-                        options.getRelaxInline())
-                .estimate();
+        final CodeSizeEstimator estimator = estimatorFactory.newInliningEstimator(
+                options.getEstimateThreadsCount(),
+                options.getSDASExecutable(),
+                refsGraph,
+                options.getMaximumInlineSize(),
+                options.getRelaxInline()
+        );
+        final CodeSizeEstimation sizeEstimation = estimator.estimate();
+
+        timeMeasurer.codeSizeEstimationEnded();
+        return sizeEstimation;
     }
 
     /**
@@ -402,6 +417,8 @@ public final class Main {
                 AtomicSpecification atomicSpecification,
                 ReferencesGraph refsGraph
     ) throws PartitionImpossibleException {
+        timeMeasurer.codePartitionStarted();
+
         final Iterable<FunctionDecl> functions = FluentIterable.from(declarations)
                 .filter(FunctionDecl.class)
                 .filter(new Predicate<FunctionDecl>() {
@@ -427,7 +444,10 @@ public final class Main {
                     + partitionHeuristic + "'");
         }
 
-        return partitioner.partition(functions, estimation, refsGraph);
+        final BankTable partition = partitioner.partition(functions, estimation, refsGraph);
+
+        timeMeasurer.codePartitionEnded();
+        return partition;
     }
 
     /**
@@ -508,6 +528,10 @@ public final class Main {
                 ? 6 : 5;
 
         // Print the statistics
+        System.out.printf("%29s: %.3f seconds\n", "estimation time",
+                timeMeasurer.getCodeSizeEstimationSeconds());
+        System.out.printf("%29s: %.3f seconds\n", "partition time",
+                timeMeasurer.getCodePartitionSeconds());
         System.out.printf("%29s: %" + allFunctionsCountLength + "d (%" + widthTotal + ".2f%%)\n",
                 "count of inline functions", inlineFunctionsCount,
                 (float) (inlineFunctionsCount * 100) / (float) allFunctionsCount);
