@@ -21,6 +21,7 @@ import pl.edu.mimuw.nesc.ast.StructKind;
 import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.predicates.IsInitializerPredicate;
+import pl.edu.mimuw.nesc.type.ArrayType;
 import pl.edu.mimuw.nesc.type.FunctionType;
 import pl.edu.mimuw.nesc.type.TypeDefinitionType;
 import pl.edu.mimuw.nesc.type.VoidType;
@@ -160,11 +161,6 @@ public final class Declarations extends AstBuildingBase {
             }
         }
 
-        // Check the type
-        final Interval markerArea = getIdentifierInterval(declarator)
-                .or(Interval.of(declarator.getLocation(), declarator.getEndLocation()));
-        checkVariableType(type, linkage, identifier, markerArea, errorHelper);
-
         final StartDeclarationVisitor declarationVisitor = new StartDeclarationVisitor(environment, variableDecl,
                 declarator, asmStmt, association.getTypeElements(), attributes, linkage, declaratorType,
                 buildingUsesProvides);
@@ -182,6 +178,26 @@ public final class Declarations extends AstBuildingBase {
             declaration.setEndLocation(endLocation);
         }
         declaration.setInitializer(initializer);
+
+        final Declarator declarator = declaration.getDeclarator().get();
+        final ObjectDeclaration declarationObj = declaration.getDeclaration();
+
+        if (!declarationObj.getType().isPresent() || !declarationObj.getType().get().isArrayType()
+                || ((ArrayType) declarationObj.getType().get()).isOfKnownSize()
+                || !initializer.isPresent() || !IsInitializerPredicate.PREDICATE.apply(initializer.get())) {
+            /* Check the type. It should be complete after the declarator or after
+               the initializer if it is present.
+               FIXME If the type of the variable is an array type of unknown
+               size and the initializer list is present, then the type is not
+               checked. However, in such case the type of the variable should be
+               completed - the size of the array should be determined after
+               analysis of the initializer list. */
+            final Interval markerArea = getIdentifierInterval(declarator)
+                    .or(Interval.of(declarator.getLocation(), declarator.getEndLocation()));
+            checkVariableType(declarationObj.getType(), declarationObj.getLinkage(),
+                    DeclaratorUtils.getDeclaratorName(declarator), markerArea, errorHelper);
+        }
+
         return declaration;
     }
 
