@@ -88,7 +88,7 @@ public final class TypesAnalysis {
         // Check type
         if (!unwrappedType.isComplete()) {
             errorHelper.error(interval.getLocation(), interval.getEndLocation(),
-                    new IncompleteVariableTypeError(identifier, unwrappedType));
+                    IncompleteVariableTypeError.variableOfIncompleteType(identifier, unwrappedType));
         }
     }
 

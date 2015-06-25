@@ -181,21 +181,27 @@ public final class Declarations extends AstBuildingBase {
 
         final Declarator declarator = declaration.getDeclarator().get();
         final ObjectDeclaration declarationObj = declaration.getDeclaration();
+        final Interval markerArea = getIdentifierInterval(declarator)
+                .or(Interval.of(declarator.getLocation(), declarator.getEndLocation()));
 
         if (!declarationObj.getType().isPresent() || !declarationObj.getType().get().isArrayType()
                 || ((ArrayType) declarationObj.getType().get()).isOfKnownSize()
                 || !initializer.isPresent() || !IsInitializerPredicate.PREDICATE.apply(initializer.get())) {
             /* Check the type. It should be complete after the declarator or after
-               the initializer if it is present.
+               the initializer if it is present for a variable with no linkage.
                FIXME If the type of the variable is an array type of unknown
                size and the initializer list is present, then the type is not
                checked. However, in such case the type of the variable should be
                completed - the size of the array should be determined after
                analysis of the initializer list. */
-            final Interval markerArea = getIdentifierInterval(declarator)
-                    .or(Interval.of(declarator.getLocation(), declarator.getEndLocation()));
             checkVariableType(declarationObj.getType(), declarationObj.getLinkage(),
                     DeclaratorUtils.getDeclaratorName(declarator), markerArea, errorHelper);
+        } else {
+            /* Emit compilation error with a request to specify the size of the
+               array explicitly. */
+            final ErroneousIssue error = IncompleteVariableTypeError.initializedArrayOfUnknownSize(
+                    DeclaratorUtils.getDeclaratorName(declarator));
+            errorHelper.error(markerArea.getLocation(), markerArea.getEndLocation(), error);
         }
 
         return declaration;
