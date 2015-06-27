@@ -23,6 +23,7 @@ import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
 import pl.edu.mimuw.nesc.backend8051.option.Options8051Holder;
 import pl.edu.mimuw.nesc.backend8051.option.Options8051Parser;
+import pl.edu.mimuw.nesc.codepartition.BComponentsCodePartitioner;
 import pl.edu.mimuw.nesc.codepartition.BankSchema;
 import pl.edu.mimuw.nesc.codepartition.BankTable;
 import pl.edu.mimuw.nesc.codepartition.CodePartitioner;
@@ -436,6 +437,8 @@ public final class Main {
 
         if (partitionHeuristic.equals("simple")) {
             partitioner = new SimpleCodePartitioner(bankSchema, atomicSpecification);
+        } else if (partitionHeuristic.equals("bcomponents")) {
+            partitioner = new BComponentsCodePartitioner(bankSchema, atomicSpecification);
         } else if (partitionHeuristic.startsWith("greedy-")) {
             partitioner = new GreedyCodePartitioner(bankSchema, atomicSpecification,
                     Integer.parseInt(partitionHeuristic.substring(7)));

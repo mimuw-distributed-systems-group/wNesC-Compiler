@@ -94,7 +94,7 @@ final class Options8051Factory {
             Option.builder(OPTION_SHORT_PARTITION_HEURISTIC)
                 .longOpt(OPTION_LONG_PARTITION_HEURISTIC)
                 .hasArg()
-                .desc("heuristic to use for partitioning of functions into banks; available heuristics: simple, greedy-n where n is an arbitrary positive natural number; if this option is not specified, then heuristic 'greedy-10' is used")
+                .desc("heuristic to use for partitioning of functions into banks; available heuristics: simple, bcomponents, greedy-n where n is an arbitrary positive natural number; if this option is not specified, then heuristic 'greedy-10' is used")
                 .argName("heuristic-kind")
                 .build()
         };

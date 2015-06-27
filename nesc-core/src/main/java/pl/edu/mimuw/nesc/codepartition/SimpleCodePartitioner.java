@@ -40,7 +40,6 @@ public final class SimpleCodePartitioner implements CodePartitioner {
      */
     private final CommonBankAllocator commonBankAllocator;
 
-
     public SimpleCodePartitioner(BankSchema bankSchema, AtomicSpecification atomicSpec) {
         checkNotNull(bankSchema, "bank schema cannot be null");
         checkNotNull(atomicSpec, "atomic specification cannot be null");

@@ -1,7 +1,5 @@
 package pl.edu.mimuw.nesc.codepartition;
 
-import com.google.common.collect.Range;
-import java.util.Map;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
 import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
@@ -32,7 +30,9 @@ public interface CodePartitioner {
      * of this partitioner. The bank schema should be specified at its
      * construction.
      *
-     * @param functions Iterable with functions to partition.
+     * @param functions Iterable with functions to partition. Every call to its
+     *                  {@link Iterable#iterator} should give a new iterator
+     *                  that returns the same collection of elements.
      * @param sizesEstimation Object with estimation of functions sizes.
      * @param refsGraph References graph between entities in the program.
      * @return Bank table that contains all function from the given list assigned
