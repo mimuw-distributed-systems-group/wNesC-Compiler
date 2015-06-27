@@ -6,7 +6,6 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import java.math.BigInteger;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.ListIterator;
 import java.util.Map;
@@ -15,6 +14,7 @@ import pl.edu.mimuw.nesc.ast.IntegerCstSuffix;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.RID;
+import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.attribute.Attributes;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
@@ -994,10 +994,10 @@ public final class AstUtils {
      * Give names to unnamed tags contained in given type elements using given
      * name mangler. Both names and unique names are set.
      *
-     * @param typeElements List with potential tag references to name.
+     * @param typeElements Iterable with potential tag references to name.
      * @param nameMangler Name mangler used to generate the name for tags.
      */
-    public static void nameTags(Collection<TypeElement> typeElements, NameMangler nameMangler) {
+    public static void nameTags(Iterable<TypeElement> typeElements, NameMangler nameMangler) {
         checkNotNull(typeElements, "type elements cannot be null");
 
         for (TypeElement typeElement : typeElements) {
@@ -1015,6 +1015,28 @@ public final class AstUtils {
                 tagRef.setName(new Word(Location.getDummyLocation(), name));
                 tagRef.setUniqueName(Optional.of(name));
             }
+        }
+    }
+
+    /**
+     * Make definitions of tags contained in given type elements only
+     * declarations. Fields become empty lists and semantics is set to
+     * {@link StructSemantics#OTHER}.
+     *
+     * @param typeElements Iterable with potential definitions of tag
+     *                     references.
+     */
+    public static void undefineTags(Iterable<TypeElement> typeElements) {
+        checkNotNull(typeElements, "type elements cannot be null");
+
+        for (TypeElement typeElement : typeElements) {
+            if (!(typeElement instanceof TagRef)) {
+                continue;
+            }
+
+            final TagRef tagRef = (TagRef) typeElement;
+            tagRef.setFields(new LinkedList<Declaration>());
+            tagRef.setSemantics(StructSemantics.OTHER);
         }
     }
 

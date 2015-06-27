@@ -225,7 +225,8 @@ public final class Main {
                     funsSizesEstimation.getInlineFunctions(), result.getReferencesGraph());
             final DeclarationsPartitioner.Partition declsPartition =
                     partitionDeclarations(separatedDecls, bankTable,
-                            funsSizesEstimation.getInlineFunctions());
+                            funsSizesEstimation.getInlineFunctions(),
+                            result.getNameMangler());
             printBankingStatistics(separatedDecls);
             writeDeclarations(declsPartition, result.getOutputFileName());
         } catch (ErroneousIssueException e) {
@@ -464,9 +465,10 @@ public final class Main {
     private DeclarationsPartitioner.Partition partitionDeclarations(
             ImmutableList<Declaration> allDeclarations,
             BankTable bankTable,
-            ImmutableSet<String> inlineFunctions
+            ImmutableSet<String> inlineFunctions,
+            NameMangler nameMangler
     ) {
-        return new DeclarationsPartitioner(allDeclarations, bankTable, inlineFunctions)
+        return new DeclarationsPartitioner(allDeclarations, bankTable, inlineFunctions, nameMangler)
                 .partition();
     }
 

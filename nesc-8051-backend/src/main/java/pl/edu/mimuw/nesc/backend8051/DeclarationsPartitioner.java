@@ -23,6 +23,7 @@ import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 import pl.edu.mimuw.nesc.codepartition.BankTable;
+import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -50,18 +51,26 @@ final class DeclarationsPartitioner {
     private final ImmutableSet<String> inlineFunctions;
 
     /**
+     * Object for generation of names for unnamed enumerated, structure and
+     * union types.
+     */
+    private final NameMangler nameMangler;
+
+    /**
      * The partition of the declarations that has been computed.
      */
     private Optional<Partition> partition;
 
     DeclarationsPartitioner(ImmutableList<Declaration> allDeclarations, BankTable bankTable,
-            ImmutableSet<String> inlineFunctions) {
+            ImmutableSet<String> inlineFunctions, NameMangler nameMangler) {
         checkNotNull(allDeclarations, "all declarations list cannot be null");
         checkNotNull(bankTable, "bank table cannot be null");
         checkNotNull(inlineFunctions, "inline functions cannot be null");
+        checkNotNull(nameMangler, "name mangler cannot be null");
         this.allDeclarations = allDeclarations;
         this.bankTable =  bankTable;
         this.inlineFunctions = inlineFunctions;
+        this.nameMangler = nameMangler;
         this.partition = Optional.absent();
     }
 
@@ -145,6 +154,7 @@ final class DeclarationsPartitioner {
                 if (!deepestNestedDeclarator.isPresent() || !(deepestNestedDeclarator.get() instanceof FunctionDeclarator)
                         && !(deepestNestedDeclarator.get() instanceof InterfaceRefDeclarator)) {
                     if (!rids.contains(RID.EXTERN)) {
+                        AstUtils.undefineTags(dataDecl.getModifiers());
                         if (rids.contains(RID.STATIC)) {
                             TypeElementUtils.removeRID(dataDecl.getModifiers(), RID.STATIC);
                         }
@@ -211,6 +221,9 @@ final class DeclarationsPartitioner {
                 throw new IllegalStateException("unexpected interface reference declarator");
             } else {
                 // Variable declaration
+                if (!rids.contains(RID.EXTERN)) {
+                    AstUtils.nameTags(declaration.getModifiers(), nameMangler);
+                }
                 final DataDecl copy = declaration.deepCopy(true);
                 if (rids.contains(RID.STATIC)) {
                     TypeElementUtils.removeRID(copy.getModifiers(), RID.STATIC);

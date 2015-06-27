@@ -144,19 +144,9 @@ public final class DeclarationsSeparator {
         // Prepare type elements
 
         AstUtils.nameTags(dataDecl.getModifiers(), nameMangler);
-
         final LinkedList<TypeElement> typeElements = AstUtils.deepCopyNodes(dataDecl.getModifiers(), true,
                 Optional.<Map<Node, Node>>absent());
-
-        for (TypeElement typeElement : typeElements) {
-            if (typeElement instanceof AttributeRef) {
-                throw new IllegalArgumentException("attribute definition used as type");
-            } else if (typeElement instanceof TagRef) {
-                final TagRef tagRef = (TagRef) typeElement;
-                tagRef.setFields(new LinkedList<Declaration>());
-                tagRef.setSemantics(StructSemantics.OTHER);
-            }
-        }
+        AstUtils.undefineTags(typeElements);
 
         // Create list of declarations
 
