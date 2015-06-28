@@ -114,11 +114,17 @@ public final class EntityNode {
      *                               in an expression that is not evaluated.
      * @param insideAtomic Value indicating if this reference occurs inside
      *                     a part of code that is executed atomically.
+     * @param enclosingLoopsCount Count of loops enclosing the reference.
+     * @param enclosingConditionalStmtsCount Count of conditional statements and
+     *                                       conditional expressions enclosing
+     *                                       the reference.
      */
     void addReference(EntityNode referencedEntity, Reference.Type referenceType,
-            Node astNode, boolean insideNotEvaluatedExpr, boolean insideAtomic) {
+            Node astNode, boolean insideNotEvaluatedExpr, boolean insideAtomic,
+            int enclosingLoopsCount, int enclosingConditionalStmtsCount) {
         final Reference newReference = new Reference(this, referencedEntity,
-                referenceType, astNode, insideNotEvaluatedExpr, insideAtomic);
+                referenceType, astNode, insideNotEvaluatedExpr, insideAtomic,
+                enclosingLoopsCount, enclosingConditionalStmtsCount);
 
         successors.add(newReference);
         referencedEntity.predecessors.add(newReference);

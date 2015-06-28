@@ -47,6 +47,16 @@ public final class Reference {
     private final boolean insideAtomic;
 
     /**
+     * Count of loops enclosing this reference.
+     */
+    private final int enclosingLoopsCount;
+
+    /**
+     * Count of conditional statements that enclose this reference.
+     */
+    private final int enclosingConditionalStmtsCount;
+
+    /**
      * Initializes this reference by storing values of given parameters in
      * member fields.
      *
@@ -57,7 +67,8 @@ public final class Reference {
      *                                  a function call.
      */
     Reference(EntityNode referencingNode, EntityNode referencedNode, Type type,
-            Node astNode, boolean insideNotEvaluatedExpr, boolean insideAtomic) {
+            Node astNode, boolean insideNotEvaluatedExpr, boolean insideAtomic,
+            int enclosingLoopsCount, int enclosingConditionalStmtsCount) {
         checkNotNull(referencingNode, "referencing node cannot be null");
         checkNotNull(referencedNode, "referenced node cannot be null");
         checkNotNull(type, "type cannot be null");
@@ -67,6 +78,8 @@ public final class Reference {
             "the type of this reference is call but the referenced node is not a function and is not a variable");
         checkArgument(type != Type.CALL || astNode instanceof FunctionCall,
             "the type of this reference is call but the AST node is not a function call");
+        checkArgument(enclosingLoopsCount >= 0, "enclosing loops count cannot be negative");
+        checkArgument(enclosingConditionalStmtsCount >= 0, "enclosing conditional statements count cannot be negative");
 
         this.referencingNode = referencingNode;
         this.referencedNode = referencedNode;
@@ -74,6 +87,8 @@ public final class Reference {
         this.astNode = astNode;
         this.insideNotEvaluatedExpr = insideNotEvaluatedExpr;
         this.insideAtomic = insideAtomic;
+        this.enclosingLoopsCount = enclosingLoopsCount;
+        this.enclosingConditionalStmtsCount = enclosingConditionalStmtsCount;
     }
 
     /**
@@ -138,6 +153,28 @@ public final class Reference {
      */
     public boolean isInsideAtomic() {
         return insideAtomic;
+    }
+
+    /**
+     * Get the count of loops enclosing this reference. for statements,
+     * while statements and do-while statements are counted.
+     *
+     * @return Count of loops enclosing this reference.
+     */
+    public int getEnclosingLoopsCount() {
+        return enclosingLoopsCount;
+    }
+
+    /**
+     * Get the count of conditional statements that enclose this reference.
+     * Statements that are counted are: if statements, switch statements and
+     * conditional expressions.
+     *
+     * @return Count of conditional statements (and conditional expressions)
+     *         enclosing this reference.
+     */
+    public int getEnclosingConditionalStmtsCount() {
+        return enclosingConditionalStmtsCount;
     }
 
     /**

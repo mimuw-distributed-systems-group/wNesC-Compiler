@@ -724,6 +724,7 @@ def gen_java_visitor(directory):
     gen_java_exception_visitor(directory)
     gen_java_null_visitor(directory)
     gen_java_identity_visitor(directory)
+    gen_java_decorator_visitor(directory)
 
 
 def gen_java_visitable(directory):
@@ -793,6 +794,29 @@ def gen_java_identity_visitor(directory):
             first = False
             f.write(tab + "public A visit{0}({0} node, A arg) {{\n".format(classname))
             f.write(tab * 2 + "return arg;\n")
+            f.write(tab + "}\n")
+
+        f.write("}\n")
+
+
+def gen_java_decorator_visitor(directory):
+    with open(path.join(directory, "DecoratorVisitor.java"), "w") as f:
+        f.write("package pl.edu.mimuw.nesc.ast.gen;\n\n")
+        f.write("import static com.google.common.base.Preconditions.checkNotNull;\n\n")
+        f.write("public abstract class DecoratorVisitor<R, A> implements Visitor<R, A> {\n")
+        f.write(tab + "private final Visitor<R, A> decoratedVisitor;\n\n")
+        f.write(tab + "protected DecoratorVisitor(Visitor<R, A> decoratedVisitor) {\n")
+        f.write(tab * 2 + 'checkNotNull(decoratedVisitor, "decorated visitor cannot be null");\n')
+        f.write(tab * 2 + "this.decoratedVisitor = decoratedVisitor;\n")
+        f.write(tab + "}\n\n")
+        f.write(tab + "protected Visitor<R, A> getDecoratedVisitor() {\n")
+        f.write(tab * 2 + "return decoratedVisitor;\n")
+        f.write(tab + "}\n")
+
+        for classname in ast_nodes.keys():
+            f.write("\n")
+            f.write(tab + "public R visit{0}({0} node, A arg) {{\n".format(classname))
+            f.write(tab * 2 + "return decoratedVisitor.visit{0}(node, arg);\n".format(classname))
             f.write(tab + "}\n")
 
         f.write("}\n")

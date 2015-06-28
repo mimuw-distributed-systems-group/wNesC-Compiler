@@ -17,12 +17,14 @@ import java.util.Map;
 import java.util.Set;
 import pl.edu.mimuw.nesc.ast.StructSemantics;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.astutil.CountingDecoratorVisitor;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static pl.edu.mimuw.nesc.astutil.CountingDecoratorVisitor.CountingOracle;
 
 /**
  * <p>Class that represents a graph of references between global C entities.
@@ -172,7 +174,11 @@ public final class ReferencesGraph {
                         referenceSuccessor.getType(),
                         referenceSuccessor.getASTNode(),
                         referenceSuccessor.isInsideNotEvaluatedExpr(),
-                        referenceSuccessor.isInsideAtomic()
+                        referenceSuccessor.isInsideAtomic(),
+                        referencePredecessor.getEnclosingLoopsCount()
+                                + referenceSuccessor.getEnclosingLoopsCount(),
+                        referencePredecessor.getEnclosingConditionalStmtsCount()
+                                + referenceSuccessor.getEnclosingConditionalStmtsCount()
                 );
             }
         }
@@ -186,9 +192,10 @@ public final class ReferencesGraph {
      */
     public void addReferenceOrdinaryToOrdinary(String referencingEntity, String referencedEntity,
             Reference.Type referenceType, Node astNode, boolean insideNotEvaluatedExpr,
-            boolean insideAtomic) {
+            boolean insideAtomic, int enclosingLoopsCount, int enclosingConditionalStmtsCount) {
         addReference(ReferenceDirection.FROM_ORDINARY_ID_TO_ORDINARY_ID, referencingEntity,
-                referencedEntity, referenceType, astNode, insideNotEvaluatedExpr, insideAtomic);
+                referencedEntity, referenceType, astNode, insideNotEvaluatedExpr, insideAtomic,
+                enclosingLoopsCount, enclosingConditionalStmtsCount);
     }
 
     /**
@@ -197,10 +204,10 @@ public final class ReferencesGraph {
      */
     public void addReferenceOrdinaryToTag(String referencingEntity, String referencedEntity,
             Reference.Type referenceType, Node astNode, boolean insideNotEvaluatedExpr,
-            boolean insideAtomic) {
+            boolean insideAtomic, int enclosingLoopsCount, int enclosingConditionalStmtsCount) {
         addReference(ReferenceDirection.FROM_ORDINARY_ID_TO_TAG, referencingEntity,
                 referencedEntity, referenceType, astNode, insideNotEvaluatedExpr,
-                insideAtomic);
+                insideAtomic, enclosingLoopsCount, enclosingConditionalStmtsCount);
     }
 
     /**
@@ -209,10 +216,10 @@ public final class ReferencesGraph {
      */
     public void addReferenceTagToOrdinary(String referencingEntity, String referencedEntity,
             Reference.Type referenceType, Node astNode, boolean insideNotEvaluatedExpr,
-            boolean insideAtomic) {
+            boolean insideAtomic, int enclosingLoopsCount, int enclosingConditionalStmtsCount) {
         addReference(ReferenceDirection.FROM_TAG_TO_ORDINARY_ID, referencingEntity,
                 referencedEntity, referenceType, astNode, insideNotEvaluatedExpr,
-                insideAtomic);
+                insideAtomic, enclosingLoopsCount, enclosingConditionalStmtsCount);
     }
 
     /**
@@ -221,10 +228,10 @@ public final class ReferencesGraph {
      */
     public void addReferenceTagToTag(String referencingEntity, String referencedEntity,
             Reference.Type referenceType, Node astNode, boolean insideNotEvaluatedExpr,
-            boolean insideAtomic) {
+            boolean insideAtomic, int enclosingLoopsCount, int enclosingConditionalStmtsCount) {
         addReference(ReferenceDirection.FROM_TAG_TO_TAG, referencingEntity,
                 referencedEntity, referenceType, astNode, insideNotEvaluatedExpr,
-                insideAtomic);
+                insideAtomic, enclosingLoopsCount, enclosingConditionalStmtsCount);
     }
 
     /**
@@ -239,7 +246,8 @@ public final class ReferencesGraph {
      */
     public void addReference(ReferenceDirection direction, String referencingEntity,
             String referencedEntity, Reference.Type referenceType, Node astNode,
-            boolean insideNotEvaluatedExpr, boolean insideAtomic) {
+            boolean insideNotEvaluatedExpr, boolean insideAtomic, int enclosingLoopsCount,
+            int enclosingConditionalStmtsCount) {
         checkNotNull(direction, "direction cannot be null");
         checkNotNull(referencingEntity, "referencing entity cannot be null");
         checkNotNull(referencedEntity, "referenced entity cannot be null");
@@ -247,6 +255,8 @@ public final class ReferencesGraph {
         checkNotNull(astNode, "AST node cannot be null");
         checkArgument(!referencingEntity.isEmpty(), "referencing entity cannot be an empty string");
         checkArgument(!referencedEntity.isEmpty(), "referenced entity cannot be an empty string");
+        checkArgument(enclosingLoopsCount >= 0, "count of enclosing loops cannot be negative");
+        checkArgument(enclosingConditionalStmtsCount >= 0, "count of enclosing conditional statements cannot be negative");
 
         final Namespace namespaceReferencing, namespaceReferenced;
 
@@ -277,7 +287,8 @@ public final class ReferencesGraph {
 
         // Add the reference
         referencingNode.addReference(referencedNode, referenceType, astNode,
-                insideNotEvaluatedExpr, insideAtomic);
+                insideNotEvaluatedExpr, insideAtomic, enclosingLoopsCount,
+                enclosingConditionalStmtsCount);
     }
 
     private EntityNode requireNode(Namespace namespace, String key) {
@@ -655,8 +666,8 @@ public final class ReferencesGraph {
         @Override
         public Void visitFunctionDecl(FunctionDecl declaration, Void arg) {
             final String uniqueName = DeclaratorUtils.getUniqueName(declaration.getDeclarator()).get();
-            declaration.traverse(new ReferencesCreatorVisitor(ordinaryIds.get(uniqueName), ordinaryIds, tags),
-                    new Oracle());
+            declaration.traverse(new CountingDecoratorVisitor<>(new ReferencesCreatorVisitor(
+                    ordinaryIds.get(uniqueName), ordinaryIds, tags)), new CountingOracle<>(new Oracle()));
             return null;
         }
 
@@ -677,22 +688,22 @@ public final class ReferencesGraph {
                 final VariableDecl variableDecl = (VariableDecl) innerDecl;
                 final EntityNode referencingNode = ordinaryIds.get(DeclaratorUtils.getUniqueName(
                         variableDecl.getDeclarator()).get());
-                variableDecl.traverse(new ReferencesCreatorVisitor(referencingNode, ordinaryIds, tags),
-                        new Oracle());
+                variableDecl.traverse(new CountingDecoratorVisitor<>(new ReferencesCreatorVisitor(
+                        referencingNode, ordinaryIds, tags)), new CountingOracle<>(new Oracle()));
 
                 for (TypeElement typeElement : declaration.getModifiers()) {
                     if (typeElement instanceof TagRef) {
                         final TagRef tagRef = (TagRef) typeElement;
                         if (tagRef.getUniqueName().isPresent()) {
                             referencingNode.addReference(tags.get(tagRef.getUniqueName().get()),
-                                    Reference.Type.NORMAL, tagRef, false, false);
+                                    Reference.Type.NORMAL, tagRef, false, false, 0, 0);
                         } else {
-                            tagRef.traverse(new ReferencesCreatorVisitor(referencingNode, ordinaryIds, tags),
-                                    new Oracle());
+                            tagRef.traverse(new CountingDecoratorVisitor<>(new ReferencesCreatorVisitor(
+                                    referencingNode, ordinaryIds, tags)), new CountingOracle<>(new Oracle()));
                         }
                     } else if (typeElement instanceof Typename) {
                         referencingNode.addReference(ordinaryIds.get(((Typename) typeElement).getUniqueName()),
-                                Reference.Type.NORMAL, typeElement, false, false);
+                                Reference.Type.NORMAL, typeElement, false, false, 0, 0);
                     }
                 }
             }
@@ -708,8 +719,9 @@ public final class ReferencesGraph {
             if (tagRef instanceof EnumRef) {
                 addEntitiesReferencedByTag((EnumRef) tagRef);
             } else if (tagRef.getUniqueName().isPresent()) {
-                tagRef.traverse(new ReferencesCreatorVisitor(tags.get(tagRef.getUniqueName().get()), ordinaryIds, tags),
-                        new Oracle());
+                tagRef.traverse(new CountingDecoratorVisitor<>(new ReferencesCreatorVisitor(
+                        tags.get(tagRef.getUniqueName().get()), ordinaryIds, tags)),
+                        new CountingOracle<>(new Oracle()));
             }
         }
 
@@ -728,7 +740,7 @@ public final class ReferencesGraph {
                 for (Declaration declaration : enumRef.getFields()) {
                     final Enumerator enumerator = (Enumerator) declaration;
                     ordinaryIds.get(enumerator.getUniqueName()).addReference(enumNode,
-                            Reference.Type.NORMAL, enumerator, false, false);
+                            Reference.Type.NORMAL, enumerator, false, false, 0, 0);
                 }
             } else {
                 for (Declaration declReferencing : enumRef.getFields()) {
@@ -736,7 +748,7 @@ public final class ReferencesGraph {
                         if (declReferencing != declReferenced) {
                             final EntityNode referencing = ordinaryIds.get(((Enumerator) declReferencing).getUniqueName());
                             final EntityNode referenced = ordinaryIds.get(((Enumerator) declReferenced).getUniqueName());
-                            referencing.addReference(referenced, Reference.Type.NORMAL, declReferencing, false, false);
+                            referencing.addReference(referenced, Reference.Type.NORMAL, declReferencing, false, false, 0, 0);
                         }
                     }
                 }
@@ -746,9 +758,9 @@ public final class ReferencesGraph {
         @Override
         public Void visitEnumerator(Enumerator enumerator, Void arg) {
             if (enumerator.getValue().isPresent()) {
-                enumerator.getValue().get().traverse(new ReferencesCreatorVisitor(
-                        ordinaryIds.get(enumerator.getUniqueName()), ordinaryIds, tags),
-                        new Oracle());
+                enumerator.getValue().get().traverse(new CountingDecoratorVisitor<>(
+                        new ReferencesCreatorVisitor(ordinaryIds.get(enumerator.getUniqueName()),
+                        ordinaryIds, tags)), new CountingOracle<>(new Oracle()));
             }
             return null;
         }
@@ -759,7 +771,7 @@ public final class ReferencesGraph {
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
-    private static final class ReferencesCreatorVisitor extends IdentityVisitor<Oracle> {
+    private static final class ReferencesCreatorVisitor extends IdentityVisitor<CountingOracle<Oracle>> {
         /**
          * Node whose references this visitor encounters.
          */
@@ -795,38 +807,43 @@ public final class ReferencesGraph {
         }
 
         @Override
-        public Oracle visitAtomicStmt(AtomicStmt stmt, Oracle oracle) {
-            return oracle.modifyInsideAtomic(true);
+        public CountingOracle<Oracle> visitAtomicStmt(AtomicStmt stmt, CountingOracle<Oracle> oracle) {
+            return oracle.modifyDecoratedOracle(oracle.getDecoratedOracle().modifyInsideAtomic(true));
         }
 
         @Override
-        public Oracle visitCompoundStmt(CompoundStmt stmt, Oracle oracle) {
-            return oracle.modifyInsideAtomic(oracle.insideAtomic
-                    || stmt.getAtomicVariableUniqueName() != null && stmt.getAtomicVariableUniqueName().isPresent());
+        public CountingOracle<Oracle> visitCompoundStmt(CompoundStmt stmt, CountingOracle<Oracle> oracle) {
+            final Oracle nestedOracle = oracle.getDecoratedOracle();
+            return oracle.modifyDecoratedOracle(nestedOracle.modifyInsideAtomic(nestedOracle.insideAtomic
+                    || stmt.getAtomicVariableUniqueName() != null && stmt.getAtomicVariableUniqueName().isPresent()));
         }
 
         @Override
-        public Oracle visitSizeofExpr(SizeofExpr expr, Oracle oracle) {
-            return oracle.modifyInsideNotEvaluatedExpr(true);
+        public CountingOracle<Oracle> visitSizeofExpr(SizeofExpr expr, CountingOracle<Oracle> oracle) {
+            return oracle.modifyDecoratedOracle(oracle.getDecoratedOracle()
+                    .modifyInsideNotEvaluatedExpr(true));
         }
 
         @Override
-        public Oracle visitAlignofExpr(AlignofExpr expr, Oracle oracle) {
-            return oracle.modifyInsideNotEvaluatedExpr(true);
+        public CountingOracle<Oracle> visitAlignofExpr(AlignofExpr expr, CountingOracle<Oracle> oracle) {
+            return oracle.modifyDecoratedOracle(oracle.getDecoratedOracle()
+                    .modifyInsideNotEvaluatedExpr(true));
         }
 
         @Override
-        public Oracle visitSizeofType(SizeofType expr, Oracle oracle) {
-            return oracle.modifyInsideNotEvaluatedExpr(true);
+        public CountingOracle<Oracle> visitSizeofType(SizeofType expr, CountingOracle<Oracle> oracle) {
+            return oracle.modifyDecoratedOracle(oracle.getDecoratedOracle()
+                    .modifyInsideNotEvaluatedExpr(true));
         }
 
         @Override
-        public Oracle visitAlignofType(AlignofType expr, Oracle oracle) {
-            return oracle.modifyInsideNotEvaluatedExpr(true);
+        public CountingOracle<Oracle> visitAlignofType(AlignofType expr, CountingOracle<Oracle> oracle) {
+            return oracle.modifyDecoratedOracle(oracle.getDecoratedOracle()
+                    .modifyInsideNotEvaluatedExpr(true));
         }
 
         @Override
-        public Oracle visitIdentifier(Identifier identifier, Oracle oracle) {
+        public CountingOracle<Oracle> visitIdentifier(Identifier identifier, CountingOracle<Oracle> oracle) {
             if (ignoredIdentifiers.contains(identifier)) {
                 return oracle;
             }
@@ -839,14 +856,16 @@ public final class ReferencesGraph {
         }
 
         @Override
-        public Oracle visitFunctionCall(FunctionCall expr, Oracle oracle) {
+        public CountingOracle<Oracle> visitFunctionCall(FunctionCall expr, CountingOracle<Oracle> oracle) {
             if (expr.getFunction() instanceof Identifier) {
                 final Identifier identifier = (Identifier) expr.getFunction();
 
                 if (identifier.getUniqueName().isPresent()
                         && ordinaryIds.containsKey(identifier.getUniqueName().get())) {
                     this.referencingNode.addReference(ordinaryIds.get(identifier.getUniqueName().get()),
-                            Reference.Type.CALL, expr, oracle.insideNotEvaluatedExpr, oracle.insideAtomic);
+                            Reference.Type.CALL, expr, oracle.getDecoratedOracle().insideNotEvaluatedExpr,
+                            oracle.getDecoratedOracle().insideAtomic, oracle.getEnclosingLoopsCount(),
+                            oracle.getEnclosingConditionalStmtsCount());
                 }
 
                 ignoredIdentifiers.add(identifier);
@@ -856,73 +875,77 @@ public final class ReferencesGraph {
         }
 
         @Override
-        public Oracle visitTypename(Typename typename, Oracle oracle) {
+        public CountingOracle<Oracle> visitTypename(Typename typename, CountingOracle<Oracle> oracle) {
             addOrdinaryIdReference(typename.getUniqueName(), typename, oracle);
             return oracle;
         }
 
         @Override
-        public Oracle visitComponentTyperef(ComponentTyperef typename, Oracle oracle) {
+        public CountingOracle<Oracle> visitComponentTyperef(ComponentTyperef typename, CountingOracle<Oracle> oracle) {
             addOrdinaryIdReference(typename.getUniqueName(), typename, oracle);
             return oracle;
         }
 
         @Override
-        public Oracle visitStructRef(StructRef tagRef, Oracle oracle) {
+        public CountingOracle<Oracle> visitStructRef(StructRef tagRef, CountingOracle<Oracle> oracle) {
             tagReference(tagRef, oracle);
             return oracle;
         }
 
         @Override
-        public Oracle visitUnionRef(UnionRef tagRef, Oracle oracle) {
+        public CountingOracle<Oracle> visitUnionRef(UnionRef tagRef, CountingOracle<Oracle> oracle) {
             tagReference(tagRef, oracle);
             return oracle;
         }
 
         @Override
-        public Oracle visitEnumRef(EnumRef tagRef, Oracle oracle) {
+        public CountingOracle<Oracle> visitEnumRef(EnumRef tagRef, CountingOracle<Oracle> oracle) {
             tagReference(tagRef, oracle);
             return oracle;
         }
 
         @Override
-        public Oracle visitNxStructRef(NxStructRef tagRef, Oracle oracle) {
+        public CountingOracle<Oracle> visitNxStructRef(NxStructRef tagRef, CountingOracle<Oracle> oracle) {
             tagReference(tagRef, oracle);
             return oracle;
         }
 
         @Override
-        public Oracle visitNxUnionRef(NxUnionRef tagRef, Oracle oracle) {
+        public CountingOracle<Oracle> visitNxUnionRef(NxUnionRef tagRef, CountingOracle<Oracle> oracle) {
             tagReference(tagRef, oracle);
             return oracle;
         }
 
-        private void tagReference(TagRef tagRef, Oracle oracle) {
+        private void tagReference(TagRef tagRef, CountingOracle<Oracle> oracle) {
             if (tagRef.getUniqueName().isPresent()) {
                 addTagReference(tagRef.getUniqueName().get(), tagRef, oracle);
             }
         }
 
-        private void addOrdinaryIdReference(String uniqueName, Node astNode, Oracle oracle) {
+        private void addOrdinaryIdReference(String uniqueName, Node astNode, CountingOracle<Oracle> oracle) {
             if (ordinaryIds.containsKey(uniqueName)) {
                 referencingNode.addReference(
                         ordinaryIds.get(uniqueName),
                         Reference.Type.NORMAL,
                         astNode,
-                        oracle.insideNotEvaluatedExpr,
-                        oracle.insideAtomic
+                        oracle.getDecoratedOracle().insideNotEvaluatedExpr,
+                        oracle.getDecoratedOracle().insideAtomic,
+                        oracle.getEnclosingLoopsCount(),
+                        oracle.getEnclosingConditionalStmtsCount()
                 );
             }
         }
 
-        private void addTagReference(String uniqueName, TagRef astNode, Oracle oracle) {
+        private void addTagReference(String uniqueName, TagRef astNode, CountingOracle<Oracle> oracle) {
             if (tags.containsKey(uniqueName)) {
                 referencingNode.addReference(
                         tags.get(uniqueName),
                         Reference.Type.NORMAL,
                         astNode,
-                        oracle.insideNotEvaluatedExpr,
-                        oracle.insideAtomic
+                        oracle.getDecoratedOracle().insideNotEvaluatedExpr,
+                        oracle.getDecoratedOracle().insideAtomic,
+                        oracle.getEnclosingLoopsCount(),
+                        oracle.getEnclosingConditionalStmtsCount()
                 );
             }
         }

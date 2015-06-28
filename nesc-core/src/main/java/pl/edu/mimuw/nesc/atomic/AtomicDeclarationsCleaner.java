@@ -17,6 +17,7 @@ import pl.edu.mimuw.nesc.ast.gen.TagRef;
 import pl.edu.mimuw.nesc.ast.gen.TypeElement;
 import pl.edu.mimuw.nesc.ast.gen.Typename;
 import pl.edu.mimuw.nesc.ast.gen.VariableDecl;
+import pl.edu.mimuw.nesc.astutil.CountingDecoratorVisitor;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
@@ -26,6 +27,7 @@ import pl.edu.mimuw.nesc.refsgraph.Reference;
 import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static pl.edu.mimuw.nesc.astutil.CountingDecoratorVisitor.CountingOracle;
 
 /**
  * Cleaner for atomic declarations: the type definition and functions for
@@ -70,12 +72,13 @@ public final class AtomicDeclarationsCleaner {
      */
     public ImmutableList<Declaration> clean() {
         // Update references graph
-        final ReferencesGraphUpdatingVisitor updatingVisitor = new ReferencesGraphUpdatingVisitor();
+        final CountingDecoratorVisitor<String> updatingVisitor = new CountingDecoratorVisitor<>(
+                new ReferencesGraphUpdatingVisitor());
         for (Declaration declaration : declarations) {
             if (declaration instanceof FunctionDecl) {
                 final FunctionDecl funDecl = (FunctionDecl) declaration;
-                funDecl.traverse(updatingVisitor, DeclaratorUtils.getUniqueName(
-                        funDecl.getDeclarator()).get());
+                funDecl.traverse(updatingVisitor, new CountingOracle<>(
+                        DeclaratorUtils.getUniqueName(funDecl.getDeclarator()).get()));
             }
         }
 
@@ -169,39 +172,41 @@ public final class AtomicDeclarationsCleaner {
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
-    private final class ReferencesGraphUpdatingVisitor extends IdentityVisitor<String> {
+    private final class ReferencesGraphUpdatingVisitor extends IdentityVisitor<CountingOracle<String>> {
         @Override
-        public String visitTypename(Typename typeElement, String funName) {
+        public CountingOracle<String> visitTypename(Typename typeElement, CountingOracle<String> oracle) {
             if (!VariousUtils.getBooleanValue(typeElement.getHasAtomicOrigin())) {
-                return funName;
+                return oracle;
             }
 
             if (typeElement.getUniqueName().equals(atomicSpecification.getTypename())) {
-                refsGraph.addReferenceOrdinaryToOrdinary(funName, typeElement.getUniqueName(),
-                        Reference.Type.NORMAL, typeElement, false, true);
+                refsGraph.addReferenceOrdinaryToOrdinary(oracle.getDecoratedOracle(),
+                        typeElement.getUniqueName(), Reference.Type.NORMAL, typeElement,
+                        false, true, oracle.getEnclosingLoopsCount(), oracle.getEnclosingConditionalStmtsCount());
             }
 
-            return funName;
+            return oracle;
         }
 
         @Override
-        public String visitFunctionCall(FunctionCall expr, String funName) {
+        public CountingOracle<String> visitFunctionCall(FunctionCall expr, CountingOracle<String> oracle) {
             if (!VariousUtils.getBooleanValue(expr.getHasAtomicOrigin())) {
-                return funName;
+                return oracle;
             }
 
             final Identifier funIdent = (Identifier) expr.getFunction();
             if (!funIdent.getUniqueName().isPresent()) {
-                return funName;
+                return oracle;
             }
 
             if (funIdent.getUniqueName().get().equals(atomicSpecification.getStartFunctionName())
                     || funIdent.getUniqueName().get().equals(atomicSpecification.getEndFunctionName())) {
-                refsGraph.addReferenceOrdinaryToOrdinary(funName, funIdent.getUniqueName().get(),
-                        Reference.Type.CALL, expr, false, true);
+                refsGraph.addReferenceOrdinaryToOrdinary(oracle.getDecoratedOracle(),
+                        funIdent.getUniqueName().get(), Reference.Type.CALL, expr, false,
+                        true, oracle.getEnclosingLoopsCount(), oracle.getEnclosingConditionalStmtsCount());
             }
 
-            return funName;
+            return oracle;
         }
     }
 
