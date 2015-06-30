@@ -1,7 +1,10 @@
 package pl.edu.mimuw.nesc.codepartition;
 
+import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
 import java.util.ArrayDeque;
@@ -20,11 +23,17 @@ import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
+import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
+import pl.edu.mimuw.nesc.common.util.DoubleSumIntervalTreeOperation;
+import pl.edu.mimuw.nesc.common.util.IntegerSumIntervalTreeOperation;
 import pl.edu.mimuw.nesc.common.util.IntervalTree;
+import pl.edu.mimuw.nesc.compilation.CompilationListener;
+import pl.edu.mimuw.nesc.problem.NescWarning;
+import pl.edu.mimuw.nesc.problem.issue.Issue;
 import pl.edu.mimuw.nesc.refsgraph.EntityNode;
 import pl.edu.mimuw.nesc.refsgraph.Reference;
 import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
@@ -55,12 +64,20 @@ public class BComponentsCodePartitioner implements CodePartitioner {
      */
     private final Comparator<TreeAllocation> treeAllocationsComparator;
 
-    public BComponentsCodePartitioner(BankSchema bankSchema, AtomicSpecification atomicSpec) {
+    /**
+     * Listener that will be notified about detected issues.
+     */
+    private final CompilationListener listener;
+
+    public BComponentsCodePartitioner(BankSchema bankSchema, AtomicSpecification atomicSpec,
+            CompilationListener listener) {
         checkNotNull(bankSchema, "bank schema cannot be null");
         checkNotNull(atomicSpec, "atomic specification cannot be null");
+        checkNotNull(listener, "listener cannot be null");
         this.bankSchema = bankSchema;
         this.commonBankAllocator = new CommonBankAllocator(atomicSpec);
         this.treeAllocationsComparator = new TreeAllocationComparator(bankSchema.getCommonBankName());
+        this.listener = listener;
     }
 
     @Override
@@ -78,6 +95,9 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         final BComponentsPartitionContext context = new BComponentsPartitionContext(
                 functions, estimation.getFunctionsSizes(), refsGraph);
         commonBankAllocator.allocate(context, functions);
+        final Queue<FunctionVertex> topologicalOrdering = computeTopologicalOrdering(context);
+        computeFrequencyEstimations(topologicalOrdering);
+        fillCommonBank(context);
         computeBiconnectedComponents(context);
         updateFunctionsSizesTree(context);
         assignFunctions(context);
@@ -85,12 +105,68 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         return context.getBankTable();
     }
 
-    private void computeBiconnectedComponents(BComponentsPartitionContext context) {
-        final BComponentsDfsVertexVisitor bcomponentsDfsVisitor = new BComponentsDfsVertexVisitor();
-        final DepthFirstSearcher depthFirstSearcher = new DepthFirstSearcher(new AllNeighboursProvider());
+    private void fillCommonBank(BComponentsPartitionContext context) {
+        final List<FunctionVertex> allVertices = new ArrayList<>(
+                context.callGraph.getVertices().values());
+        final String commonBankName = bankSchema.getCommonBankName();
+        Collections.sort(allVertices, new FunctionFrequencyComparator());
+
+        for (FunctionVertex vertex : allVertices) {
+            if (context.getBankTable().getFreeSpace(commonBankName) >= context.getFunctionSize(vertex.getUniqueName())
+                    && !vertex.getTargetBank().isPresent()) {
+                context.assign(context.functions.get(vertex.getUniqueName()), commonBankName);
+            }
+        }
+    }
+
+    private Queue<FunctionVertex> computeTopologicalOrdering(BComponentsPartitionContext context) {
+        final TopologicalSortDfsVertexVisitor topologicalDfsVisitor = new TopologicalSortDfsVertexVisitor();
+        final DepthFirstSearcher depthFirstSearcher = new DepthFirstSearcher(new SuccessorsProvider());
 
         for (FunctionVertex vertex : context.callGraph.getVertices().values()) {
-            if (!vertex.hasDfsTreeNumber()) {
+            depthFirstSearcher.search(vertex, topologicalDfsVisitor);
+        }
+
+        return topologicalDfsVisitor.getTopologicalOrdering();
+    }
+
+    private void computeFrequencyEstimations(Queue<FunctionVertex> topologicalOrdering) {
+        final Set<FunctionVertex> completedVertices = new HashSet<>();
+        boolean warningEmitted = false;
+
+        while (!topologicalOrdering.isEmpty()) {
+            final FunctionVertex currentVertex = topologicalOrdering.remove();
+            completedVertices.add(currentVertex);
+
+            if (currentVertex.getPredecessors().isEmpty()) {
+                currentVertex.increaseFrequencyEstimation(1.);
+            }
+
+            for (CallEdge edge : currentVertex.getSuccessors()) {
+                if (edge.getTargetVertex() != currentVertex
+                        && !completedVertices.contains(edge.getTargetVertex())) {
+                    edge.increaseFrequencyEstimation(currentVertex.getFrequencyEstimation()
+                            * Math.pow(2., edge.getEnclosingLoopsCount())
+                            * Math.pow(0.5, edge.getEnclosingConditionalStmtsCount()));
+                    edge.getTargetVertex().increaseFrequencyEstimation(edge.getFrequencyEstimation());
+                } else if (edge.getTargetVertex() != currentVertex && !warningEmitted) {
+                    listener.warning(new NescWarning(Optional.<Location>absent(),
+                            Optional.<Location>absent(), Optional.<Issue.Code>absent(),
+                            "a call loop involving function '" + currentVertex.getUniqueName()
+                            + "' is present which decreases the accuracy of the biconnected components heuristic"));
+                    warningEmitted = true;
+                }
+            }
+        }
+    }
+
+    private void computeBiconnectedComponents(BComponentsPartitionContext context) {
+        final BComponentsDfsVertexVisitor bcomponentsDfsVisitor = new BComponentsDfsVertexVisitor();
+        final DepthFirstSearcher depthFirstSearcher = new DepthFirstSearcher(
+                new UnassignedNeighboursProvider());
+
+        for (FunctionVertex vertex : context.callGraph.getVertices().values()) {
+            if (!vertex.hasDfsTreeNumber() && !vertex.getTargetBank().isPresent()) {
                 depthFirstSearcher.search(vertex, bcomponentsDfsVisitor);
             }
         }
@@ -98,34 +174,50 @@ public class BComponentsCodePartitioner implements CodePartitioner {
 
     private void updateFunctionsSizesTree(BComponentsPartitionContext context) {
         for (FunctionVertex vertex : context.callGraph.getVertices().values()) {
-            context.functionsSizesTree.set(vertex.getDfsTreeNumber(),
-                    context.getFunctionSize(vertex.getUniqueName()));
+            if (!vertex.getTargetBank().isPresent()) {
+                context.functionsSizesTree.set(vertex.getDfsTreeNumber(),
+                        context.getFunctionSize(vertex.getUniqueName()));
+            }
         }
     }
 
     private void assignFunctions(BComponentsPartitionContext context) throws PartitionImpossibleException {
-        int functionsLeft = context.callGraph.getVertices().size();
+        int functionsLeft = computeUnallocatedFunctionsCount(context);
         final Map<FunctionVertex, Set<FunctionVertex>> allocationVertices =
                 findAllocationVertices(context);
 
         while (functionsLeft != 0) {
             final Optional<TreeAllocation> allocation = determineAllocation(
                     context, allocationVertices);
-            if (!allocation.isPresent()) {
-                throw new PartitionImpossibleException("not enough space");
-            }
-            functionsLeft -= performAllocation(context, allocation.get(),
-                    allocationVertices.get(allocation.get().dfsTreeRoot));
-            if (allocation.get().direction == AllocationDirection.UP_TREE) {
-                allocationVertices.put(allocation.get().vertex, allocationVertices.get(
-                        allocation.get().dfsTreeRoot));
-                allocationVertices.remove(allocation.get().dfsTreeRoot);
-            }
-            if (allocation.get().direction == AllocationDirection.DOWN_TREE
-                    && allocation.get().vertex == allocation.get().dfsTreeRoot) {
-                allocationVertices.remove(allocation.get().dfsTreeRoot);
+            if (allocation.isPresent()) {
+                functionsLeft -= performAllocation(context, allocation.get(),
+                        allocationVertices.get(allocation.get().dfsTreeRoot));
+                if (allocation.get().direction == AllocationDirection.UP_TREE) {
+                    allocationVertices.put(allocation.get().vertex, allocationVertices.get(
+                            allocation.get().dfsTreeRoot));
+                    allocationVertices.remove(allocation.get().dfsTreeRoot);
+                }
+                if (allocation.get().direction == AllocationDirection.DOWN_TREE
+                        && allocation.get().vertex == allocation.get().dfsTreeRoot) {
+                    allocationVertices.remove(allocation.get().dfsTreeRoot);
+                }
+            } else {
+                final FunctionVertex treeToAllocate = Collections.max(allocationVertices.keySet(),
+                        new FunctionSizeComparator(context.functionsSizesTree));
+                functionsLeft -= allocateTree(context, treeToAllocate);
+                allocationVertices.remove(treeToAllocate);
             }
         }
+    }
+
+    private int computeUnallocatedFunctionsCount(BComponentsPartitionContext context) {
+        int unallocatedFunctionsCount = 0;
+        for (FunctionVertex vertex : context.callGraph.getVertices().values()) {
+            if (!vertex.getTargetBank().isPresent()) {
+                ++unallocatedFunctionsCount;
+            }
+        }
+        return unallocatedFunctionsCount;
     }
 
     private int performAllocation(BComponentsPartitionContext context, TreeAllocation allocation,
@@ -143,6 +235,9 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                         + allocation.direction + "'");
         }
 
+        context.gains.get(allocation.bankName).set(allocation.vertex.getDfsTreeNumber(),
+                computeGain(allocation.vertex));
+
         final Queue<FunctionVertex> queue = new ArrayDeque<>();
         final Set<FunctionVertex> visitedVertices = new HashSet<>();
         int allocatedFunctionsCount = 0;
@@ -154,10 +249,15 @@ public class BComponentsCodePartitioner implements CodePartitioner {
             final FunctionVertex vertex = queue.remove();
 
             for (FunctionVertex dfsTreeChild : vertex.getDfsTreeChildren()) {
-                if (!visitedVertices.contains(dfsTreeChild)
-                        && (allocation.direction != AllocationDirection.UP_TREE || dfsTreeChild != allocation.vertex)) {
-                    visitedVertices.add(dfsTreeChild);
-                    queue.add(dfsTreeChild);
+                if (!dfsTreeChild.getTargetBank().isPresent()) {
+                    if (!visitedVertices.contains(dfsTreeChild)
+                            && (allocation.direction != AllocationDirection.UP_TREE || dfsTreeChild != allocation.vertex)) {
+                        visitedVertices.add(dfsTreeChild);
+                        queue.add(dfsTreeChild);
+                    }
+                } else {
+                    context.gains.get(dfsTreeChild.getTargetBank().get())
+                            .set(dfsTreeChild.getDfsTreeNumber(), 0.);
                 }
             }
 
@@ -172,7 +272,8 @@ public class BComponentsCodePartitioner implements CodePartitioner {
     private Map<FunctionVertex, Set<FunctionVertex>> findAllocationVertices(BComponentsPartitionContext context) {
         final Map<FunctionVertex, Set<FunctionVertex>> dfsTreesRoots = new HashMap<>();
         for (FunctionVertex vertex : context.callGraph.getVertices().values()) {
-            if (!vertex.getDfsTreeParent().isPresent()) {
+            if (!vertex.getDfsTreeParent().isPresent()
+                    && !vertex.getTargetBank().isPresent()) {
                 dfsTreesRoots.put(vertex, findCutVertices(vertex));
             }
         }
@@ -212,7 +313,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         // Check all allocations in cut vertices
         for (Map.Entry<FunctionVertex, Set<FunctionVertex>> dfsTreeEntry : allocationVertices.entrySet()) {
             final FunctionVertex treeRoot = dfsTreeEntry.getKey();
-            final long allFunctionsSize = context.functionsSizesTree.sum(treeRoot.getDfsTreeNumber(),
+            final int allFunctionsSize = context.functionsSizesTree.compute(treeRoot.getDfsTreeNumber(),
                     treeRoot.getMaximumDfsDescendantNumber() + 1);
             candidateAllocations.clear();
 
@@ -242,26 +343,19 @@ public class BComponentsCodePartitioner implements CodePartitioner {
 
     private void addRootAllocation(Collection<TreeAllocation> candidateAllocations,
                 BComponentsPartitionContext context, FunctionVertex treeRoot,
-                long allFunctionsSize) {
+                int allFunctionsSize) {
         // Check if all functions fit in a bank
-        if (allFunctionsSize <= Integer.MAX_VALUE) {
-            final Optional<String> optBankName = context.getBankTable().getFreeSpace(bankSchema.getCommonBankName()) >= allFunctionsSize
-                    ? Optional.of(bankSchema.getCommonBankName())
-                    : context.getFloorBank((int) allFunctionsSize);
-            if (optBankName.isPresent()) {
-                candidateAllocations.add(new TreeAllocation(treeRoot, treeRoot, AllocationDirection.DOWN_TREE,
-                        optBankName.get(), (int) allFunctionsSize));
-            }
-        }
+        addBestGainAllocation(context, candidateAllocations, treeRoot, treeRoot,
+                AllocationDirection.DOWN_TREE, allFunctionsSize);
     }
 
     private void addTreeAllocation(Collection<TreeAllocation> allocations,
                 BComponentsPartitionContext context, FunctionVertex cutVertex,
-                AllocationDirection direction, long allFunctionsSize,
+                AllocationDirection direction, int allFunctionsSize,
                 FunctionVertex treeRoot) {
-        final long downTreeFunctionsSize = context.functionsSizesTree.sum(cutVertex.getDfsTreeNumber(),
+        final int downTreeFunctionsSize = context.functionsSizesTree.compute(cutVertex.getDfsTreeNumber(),
                 cutVertex.getMaximumDfsDescendantNumber() + 1);
-        final long functionsSize;
+        final int functionsSize;
 
         switch (direction) {
             case DOWN_TREE:
@@ -274,20 +368,96 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                 throw new RuntimeException("unexpected allocation direction " + direction);
         }
 
-        if (Integer.MIN_VALUE <= functionsSize && functionsSize <= Integer.MAX_VALUE) {
-            final Optional<String> bankName;
+        addBestGainAllocation(context, allocations, treeRoot, cutVertex,
+                    direction, functionsSize);
+    }
 
-            if (context.getBankTable().getFreeSpace(bankSchema.getCommonBankName()) >= functionsSize) {
-                bankName = Optional.of(bankSchema.getCommonBankName());
-            } else {
-                bankName = context.getFloorBank((int) functionsSize);
-            }
+    private void addBestGainAllocation(
+            BComponentsPartitionContext context,
+            Collection<TreeAllocation> allocations,
+            FunctionVertex treeRoot,
+            FunctionVertex allocationVertex,
+            AllocationDirection direction,
+            int functionsSize
+    ) {
+        Optional<Double> bestGain = Optional.absent();
+        Optional<String> bestBank = Optional.absent();
 
-            if (bankName.isPresent()) {
-                allocations.add(new TreeAllocation(cutVertex, treeRoot, direction, bankName.get(),
-                        (int) functionsSize));
+        for (String bankName : bankSchema.getBanksNames()) {
+            if (context.getBankTable().getFreeSpace(bankName) >= functionsSize) {
+                final double gain = computeGainForAllocation(context, treeRoot,
+                        allocationVertex, direction, bankName);
+                if (!bestGain.isPresent() || gain > bestGain.get()
+                        || gain == bestGain.get() && bankName.equals(bankSchema.getCommonBankName())) {
+                    bestGain = Optional.of(gain);
+                    bestBank = Optional.of(bankName);
+                }
             }
         }
+
+        if (bestBank.isPresent()) {
+            allocations.add(new TreeAllocation(allocationVertex, treeRoot,
+                    direction, bestBank.get(), functionsSize, bestGain.get()));
+        }
+    }
+
+    private double computeGainForAllocation(
+            BComponentsPartitionContext context,
+            FunctionVertex treeRoot,
+            FunctionVertex allocationVertex,
+            AllocationDirection direction,
+            String bankName
+    ) {
+        final IntervalTree<Double> gainsTree = context.gains.get(bankName);
+
+        switch (direction) {
+            case UP_TREE:
+                 if (treeRoot != allocationVertex) {
+                     double gain = gainsTree.compute(treeRoot.getDfsTreeNumber(),
+                             allocationVertex.getDfsTreeNumber());
+                     if (allocationVertex.getMaximumDfsDescendantNumber() != treeRoot.getMaximumDfsDescendantNumber()) {
+                         gain += gainsTree.compute(allocationVertex.getMaximumDfsDescendantNumber() + 1,
+                                 treeRoot.getMaximumDfsDescendantNumber() + 1);
+                     }
+                     return gain;
+                 } else {
+                     throw new RuntimeException("computing allocation in the root of a tree upwards");
+                 }
+            case DOWN_TREE:
+                return gainsTree.compute(allocationVertex.getDfsTreeNumber(),
+                        allocationVertex.getMaximumDfsDescendantNumber() + 1);
+            default:
+                throw new RuntimeException("unexpected allocation direction '"
+                        + direction + "'");
+        }
+    }
+
+    private double computeGain(FunctionVertex vertex) {
+        double gain = 0.;
+        for (CallEdge successorEdge : vertex.getSuccessors()) {
+            if (successorEdge.getTargetVertex().hasDfsTreeNumber()
+                    && successorEdge.getTargetVertex().getDfsTreeNumber() < vertex.getDfsTreeNumber()) {
+                gain += successorEdge.getFrequencyEstimation();
+            }
+        }
+        for (CallEdge predecessorEdge : vertex.getPredecessors()) {
+            if (predecessorEdge.getSourceVertex().hasDfsTreeNumber()
+                    && predecessorEdge.getSourceVertex().getDfsTreeNumber() < vertex.getDfsTreeNumber()) {
+                gain += predecessorEdge.getFrequencyEstimation();
+            }
+        }
+        return gain;
+    }
+
+    private int allocateTree(BComponentsPartitionContext context, FunctionVertex root)
+                throws PartitionImpossibleException {
+        final AllocatingDfsVertexVisitor allocatingVisitor = new AllocatingDfsVertexVisitor(context);
+        new DepthFirstSearcher(new UnassignedDfsTreeChildrenProvider())
+                .search(root, allocatingVisitor);
+        if (allocatingVisitor.failure) {
+            throw new PartitionImpossibleException("not enough space");
+        }
+        return allocatingVisitor.allocatedFunctionsCount;
     }
 
     /**
@@ -306,7 +476,12 @@ public class BComponentsCodePartitioner implements CodePartitioner {
          * Interval tree for fast computation of total size of functions from
          * a given subtree of the DFS tree.
          */
-        private final IntervalTree functionsSizesTree;
+        private final IntervalTree<Integer> functionsSizesTree;
+
+        /**
+         * Gains stored in an interval tree for each bank.
+         */
+        private final ImmutableMap<String, IntervalTree<Double>> gains;
 
         /**
          * Map with functions that will be partitioned.
@@ -317,7 +492,8 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                     Map<String, Range<Integer>> functionsSizes, ReferencesGraph refsGraph) {
             super(bankSchema, functionsSizes);
             this.callGraph = new CallGraph(functions, refsGraph);
-            this.functionsSizesTree = new IntervalTree(functionsSizes.size());
+            this.functionsSizesTree = new IntervalTree<>(Integer.class,
+                    new IntegerSumIntervalTreeOperation(), functionsSizes.size());
 
             final ImmutableMap.Builder<String, FunctionDecl> functionsMapBuilder =
                     ImmutableMap.builder();
@@ -327,6 +503,14 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                 functionsMapBuilder.put(uniqueName, function);
             }
             this.functions = functionsMapBuilder.build();
+
+            final ImmutableMap.Builder<String, IntervalTree<Double>> gainsBuilder =
+                    ImmutableMap.builder();
+            for (String bankName : bankSchema.getBanksNames()) {
+                gainsBuilder.put(bankName, new IntervalTree<>(Double.class,
+                        new DoubleSumIntervalTreeOperation(), functionsSizes.size()));
+            }
+            this.gains = gainsBuilder.build();
         }
 
         @Override
@@ -339,7 +523,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
             if (vertex.hasDfsTreeNumber()) {
                 functionsSizesTree.set(vertex.getDfsTreeNumber(), 0);
             }
-            callGraph.removeVertex(funUniqueName);
+            vertex.assigned(bankName);
         }
     }
 
@@ -440,19 +624,21 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                     final String funUniqueName = functionsQueue.remove();
                     final EntityNode entityNode = refsGraph.getOrdinaryIds().get(funUniqueName);
                     final FunctionVertex funVertex = vertices.get(funUniqueName);
-                    final List<String> successors = new ArrayList<>(funVertex.getSuccessors().size()
+                    final List<Reference> successors = new ArrayList<>(funVertex.getSuccessors().size()
                         + funVertex.getPredecessors().size());
 
                     for (Reference successorReference : entityNode.getSuccessors()) {
                         if (!successorReference.isInsideNotEvaluatedExpr()
                                 && successorReference.getType() == Reference.Type.CALL
                                 && vertices.containsKey(successorReference.getReferencedNode().getUniqueName())) {
-                            successors.add(successorReference.getReferencedNode().getUniqueName());
+                            successors.add(successorReference);
                         }
                     }
                     Collections.sort(successors, neighbourComparator);
-                    for (String neighbour : successors) {
-                        funVertex.addCall(vertices.get(neighbour));
+                    for (Reference successorReference : successors) {
+                        funVertex.addCall(vertices.get(successorReference.getReferencedNode().getUniqueName()),
+                                successorReference.getEnclosingLoopsCount(),
+                                successorReference.getEnclosingConditionalStmtsCount());
                     }
                 }
 
@@ -527,6 +713,17 @@ public class BComponentsCodePartitioner implements CodePartitioner {
          */
         private final Set<Integer> unmodifiableBiconnectedComponents;
 
+        /**
+         * Estimation of the frequency of calls to the function represented by
+         * this vertex.
+         */
+        private double frequencyEstimation;
+
+        /**
+         * Bank the function represented by this vertex is assigned to.
+         */
+        private Optional<String> targetBank;
+
         private FunctionVertex(String uniqueName) {
             checkNotNull(uniqueName, "unique name cannot be null");
             checkArgument(!uniqueName.isEmpty(), "unique name cannot be an empty string");
@@ -541,6 +738,8 @@ public class BComponentsCodePartitioner implements CodePartitioner {
             this.maximumDfsDescendantNumber = Optional.absent();
             this.biconnectedComponents = new HashSet<>();
             this.unmodifiableBiconnectedComponents = Collections.unmodifiableSet(this.biconnectedComponents);
+            this.frequencyEstimation = 0.;
+            this.targetBank = Optional.absent();
         }
 
         /**
@@ -597,9 +796,14 @@ public class BComponentsCodePartitioner implements CodePartitioner {
          *
          * @param successor Successor to add.
          */
-        private void addCall(FunctionVertex successor) {
+        private void addCall(FunctionVertex successor, int enclosingLoopsCount,
+                    int enclosingConditionalStmtsCount) {
             checkNotNull(successor, "successor cannot be null");
-            final CallEdge newEdge = new CallEdge(this, successor);
+            checkArgument(enclosingLoopsCount >= 0, "count of enclosing loops cannot be negative");
+            checkArgument(enclosingConditionalStmtsCount >= 0, "count of enclosing conditional statements cannot be negative");
+
+            final CallEdge newEdge = new CallEdge(this, successor, enclosingLoopsCount,
+                    enclosingConditionalStmtsCount);
             this.successors.add(newEdge);
             successor.predecessors.add(newEdge);
         }
@@ -783,6 +987,53 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         }
 
         /**
+         * Get the estimation of frequency of calls to the function represented
+         * by this vertex.
+         *
+         * @return Estimation of the frequency of the function represented by
+         *         this vertex being executed.
+         */
+        private double getFrequencyEstimation() {
+            return frequencyEstimation;
+        }
+
+        /**
+         * Increase the estimation of the frequency of calls to the function
+         * represented by this vertex.
+         *
+         * @param value The size of the increase (it will be added to the
+         *              current frequency estimation).
+         */
+        private void increaseFrequencyEstimation(double value) {
+            checkArgument(value >= 0., "value cannot be negative");
+            this.frequencyEstimation += value;
+        }
+
+        /**
+         * Get the name of the bank the function represented by this vertex is
+         * assigned to. The value is absent if the function is not assigned yet.
+         *
+         * @return Name of the bank for this function.
+         */
+        private Optional<String> getTargetBank() {
+            return targetBank;
+        }
+
+        /**
+         * Set the value indicating that this function has been assigned to
+         * a bank.
+         *
+         * @throws IllegalStateException This function has been already assigned
+         *                               to a bank.
+         */
+        private void assigned(String targetBank) {
+            checkNotNull(targetBank, "target bank cannot be null");
+            checkArgument(!targetBank.isEmpty(), "target bank cannot be an empty string");
+            checkState(!this.targetBank.isPresent(), "the function has been already assigned to a bank");
+            this.targetBank = Optional.of(targetBank);
+        }
+
+        /**
          * Class that allows easy iteration over all neighbours of a vertex.
          *
          * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -897,12 +1148,35 @@ public class BComponentsCodePartitioner implements CodePartitioner {
          */
         private final FunctionVertex targetVertex;
 
-        private CallEdge(FunctionVertex sourceVertex, FunctionVertex targetVertex) {
+        /**
+         * Count of loops enclosing this call.
+         */
+        private final int enclosingLoopsCount;
+
+        /**
+         * Count of conditional statements and conditional expressions that
+         * enclose this call.
+         */
+        private final int enclosingConditionalStmtsCount;
+
+        /**
+         * Estimation of the frequency of this call during the program
+         * execution.
+         */
+        private double frequencyEstimation;
+
+        private CallEdge(FunctionVertex sourceVertex, FunctionVertex targetVertex,
+                    int enclosingLoopsCount, int enclosingConditionalStmtsCount) {
             checkNotNull(sourceVertex, "source vertex cannot be null");
             checkNotNull(targetVertex, "target vertex cannot be null");
             checkArgument(sourceVertex != targetVertex, "source and target vertices cannot be the same");
+            checkArgument(enclosingLoopsCount >= 0, "count of enclosing loops cannot be negative");
+            checkArgument(enclosingConditionalStmtsCount >= 0, "count of enclosing conditional statements cannot be negative");
             this.sourceVertex = sourceVertex;
             this.targetVertex = targetVertex;
+            this.enclosingLoopsCount = enclosingLoopsCount;
+            this.enclosingConditionalStmtsCount = enclosingConditionalStmtsCount;
+            this.frequencyEstimation = 0.;
         }
 
         private FunctionVertex getSourceVertex() {
@@ -911,6 +1185,23 @@ public class BComponentsCodePartitioner implements CodePartitioner {
 
         private FunctionVertex getTargetVertex() {
             return targetVertex;
+        }
+
+        private int getEnclosingLoopsCount() {
+            return enclosingLoopsCount;
+        }
+
+        private int getEnclosingConditionalStmtsCount() {
+            return enclosingConditionalStmtsCount;
+        }
+
+        private double getFrequencyEstimation() {
+            return frequencyEstimation;
+        }
+
+        private void increaseFrequencyEstimation(double value) {
+            checkArgument(value >= 0., "value cannot be negative");
+            this.frequencyEstimation += value;
         }
     }
 
@@ -926,29 +1217,47 @@ public class BComponentsCodePartitioner implements CodePartitioner {
 
     /**
      * This neighbours provider returns iterable with all neighbours of the
-     * given vertex.
+     * given vertex except neighbours that have been already assigned to
+     * a bank.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
-    private static final class AllNeighboursProvider implements NeighboursProvider {
+    private static final class UnassignedNeighboursProvider implements NeighboursProvider {
         @Override
         public Iterable<FunctionVertex> getNeighbours(FunctionVertex vertex) {
             checkNotNull(vertex, "vertex cannot be null");
-            return vertex.getAllNeighbours();
+            return FluentIterable.from(vertex.getAllNeighbours())
+                    .filter(new UnassignedVertexPredicate());
         }
     }
 
     /**
-     * This neighbours provider returns iterable with children of the vertex in
-     * the DFS tree.
+     * Successors provider returns iterable with all successors of a vertex. The
+     * graph is viewed as directed.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
-    private static final class DfsTreeChildrenProvider implements NeighboursProvider {
+    private static final class SuccessorsProvider implements NeighboursProvider {
         @Override
         public Iterable<FunctionVertex> getNeighbours(FunctionVertex vertex) {
             checkNotNull(vertex, "vertex cannot be null");
-            return vertex.getDfsTreeChildren();
+            return FluentIterable.from(vertex.getSuccessors())
+                    .transform(new TargetVertexTransformation());
+        }
+    }
+
+    /**
+     * This neighbours provider returns iterable with children of the vertex
+     * in the DFS tree.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class UnassignedDfsTreeChildrenProvider implements NeighboursProvider {
+        @Override
+        public Iterable<FunctionVertex> getNeighbours(FunctionVertex vertex) {
+            checkNotNull(vertex, "vertex cannot be null");
+            return FluentIterable.from(vertex.getDfsTreeChildren())
+                    .filter(new UnassignedVertexPredicate());
         }
     }
 
@@ -1019,14 +1328,16 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         private void computeLowpoint(FunctionVertex vertex) {
             vertex.setLowpoint(vertex.getDfsTreeNumber());
             for (FunctionVertex neighbour : vertex.getAllNeighbours()) {
-                if (neighbour.getDfsTreeParent().isPresent()
-                        && neighbour.getDfsTreeParent().get() == vertex) {
-                    // edge to a child in the DFS tree
-                    vertex.updateLowpoint(neighbour.getLowpoint());
-                } else if (!vertex.getDfsTreeParent().isPresent()
-                        || neighbour != vertex.getDfsTreeParent().get()) {
-                    // a non-tree edge
-                    vertex.updateLowpoint(neighbour.getDfsTreeNumber());
+                if (!neighbour.getTargetBank().isPresent()) {
+                    if (neighbour.getDfsTreeParent().isPresent()
+                            && neighbour.getDfsTreeParent().get() == vertex) {
+                        // edge to a child in the DFS tree
+                        vertex.updateLowpoint(neighbour.getLowpoint());
+                    } else if (!vertex.getDfsTreeParent().isPresent()
+                            || neighbour != vertex.getDfsTreeParent().get()) {
+                        // a non-tree edge
+                        vertex.updateLowpoint(neighbour.getDfsTreeNumber());
+                    }
                 }
             }
         }
@@ -1064,6 +1375,75 @@ public class BComponentsCodePartitioner implements CodePartitioner {
     }
 
     /**
+     * Visitor that computes the topological ordering of vertices in a graph. If
+     * the graph has not any cycles, then it will be correct. Otherwise, the
+     * topological sort is impossible.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class TopologicalSortDfsVertexVisitor implements DfsVertexVisitor {
+        private final Deque<FunctionVertex> ordering = new ArrayDeque<>();
+
+        private Queue<FunctionVertex> getTopologicalOrdering() {
+            return ordering;
+        }
+
+        @Override
+        public void enterVertex(FunctionVertex vertex, Optional<FunctionVertex> parent) {
+            // nothing to do
+        }
+
+        @Override
+        public void leaveVertex(FunctionVertex vertex, Optional<FunctionVertex> parent) {
+            ordering.addFirst(vertex);
+        }
+    }
+
+    /**
+     * Visitor that allocates visited vertices to banks.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class AllocatingDfsVertexVisitor implements DfsVertexVisitor {
+        private final BComponentsPartitionContext context;
+        private Optional<String> currentBank;
+        private boolean failure;
+        private int allocatedFunctionsCount;
+
+        private AllocatingDfsVertexVisitor(BComponentsPartitionContext context) {
+            checkNotNull(context, "context cannot be null");
+            this.context = context;
+            this.currentBank = Optional.absent();
+            this.failure = false;
+        }
+
+        @Override
+        public void enterVertex(FunctionVertex vertex, Optional<FunctionVertex> parent) {
+            if (failure) {
+                return;
+            }
+
+            final int functionSize = context.getFunctionSize(vertex.getUniqueName());
+
+            if (!currentBank.isPresent() || context.getBankTable().getFreeSpace(currentBank.get()) < functionSize) {
+                currentBank = context.getCeilingBank(functionSize);
+            }
+
+            if (currentBank.isPresent()) {
+                context.assign(context.functions.get(vertex.getUniqueName()), currentBank.get());
+                ++allocatedFunctionsCount;
+            } else {
+                failure = true;
+            }
+        }
+
+        @Override
+        public void leaveVertex(FunctionVertex vertex, Optional<FunctionVertex> parent) {
+            // nothing to do
+        }
+    }
+
+    /**
      * Object responsible for performing the depth-first search in the call
      * graph.
      *
@@ -1075,9 +1455,15 @@ public class BComponentsCodePartitioner implements CodePartitioner {
          */
         private final NeighboursProvider neighboursProvider;
 
+        /**
+         * Set with vertices that have been already visited by this searcher.
+         */
+        private final Set<FunctionVertex> visitedVertices;
+
         private DepthFirstSearcher(NeighboursProvider neighboursProvider) {
             checkNotNull(neighboursProvider, "neighbours provider cannot be null");
             this.neighboursProvider = neighboursProvider;
+            this.visitedVertices = new HashSet<>();
         }
 
         /**
@@ -1093,13 +1479,14 @@ public class BComponentsCodePartitioner implements CodePartitioner {
             checkNotNull(startVertex, "start vertex cannot be null");
             checkNotNull(vertexVisitor, "vertex visitor cannot be null");
 
-            final Set<FunctionVertex> visitedVertices = new HashSet<>();
             final Deque<DfsStackElement> dfsStack = new ArrayDeque<>();
 
-            visitedVertices.add(startVertex);
-            dfsStack.push(new DfsStackElement(startVertex, neighboursProvider.getNeighbours(
-                    startVertex).iterator()));
-            vertexVisitor.enterVertex(startVertex, Optional.<FunctionVertex>absent());
+            if (!visitedVertices.contains(startVertex)) {
+                visitedVertices.add(startVertex);
+                dfsStack.push(new DfsStackElement(startVertex, neighboursProvider.getNeighbours(
+                        startVertex).iterator()));
+                vertexVisitor.enterVertex(startVertex, Optional.<FunctionVertex>absent());
+            }
 
             while (!dfsStack.isEmpty()) {
                 final FunctionVertex currentVertex = dfsStack.peek().getVertex();
@@ -1177,20 +1564,24 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         private final AllocationDirection direction;
         private final String bankName;
         private final int totalFunctionsSize;
+        private final double gain;
 
         private TreeAllocation(FunctionVertex vertex, FunctionVertex dfsTreeRoot,
-                    AllocationDirection direction, String bankName, int totalFunctionsSize) {
+                    AllocationDirection direction, String bankName, int totalFunctionsSize,
+                    double gain) {
             checkNotNull(vertex, "vertex cannot be null");
             checkNotNull(dfsTreeRoot, "DFS tree root cannot be null");
             checkNotNull(direction, "direction cannot be null");
             checkNotNull(bankName, "name of the bank cannot be null");
             checkArgument(!bankName.isEmpty(), "name of the bank cannot be an empty string");
             checkArgument(totalFunctionsSize >= 0, "total size of allocated functions cannot be negative");
+            checkArgument(gain >= 0., "gain cannot be negative");
             this.vertex = vertex;
             this.dfsTreeRoot = dfsTreeRoot;
             this.direction = direction;
             this.bankName = bankName;
             this.totalFunctionsSize = totalFunctionsSize;
+            this.gain = gain;
         }
 
         @Override
@@ -1201,6 +1592,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                     .add("direction", direction)
                     .add("target-bank", bankName)
                     .add("total-functions-size", totalFunctionsSize)
+                    .add("gain", gain)
                     .toString();
         }
     }
@@ -1226,6 +1618,12 @@ public class BComponentsCodePartitioner implements CodePartitioner {
             checkNotNull(allocation1, "first tree allocation cannot be null");
             checkNotNull(allocation2, "second tree allocation cannot be null");
 
+            // Comapre gains
+            final int gainResult = Double.compare(allocation1.gain, allocation2.gain);
+            if (gainResult != 0) {
+                return gainResult;
+            }
+
             // Compare total functions sizes
             final int totalSizesResult = Integer.compare(allocation1.totalFunctionsSize,
                     allocation2.totalFunctionsSize);
@@ -1248,12 +1646,59 @@ public class BComponentsCodePartitioner implements CodePartitioner {
     }
 
     /**
+     * Comparator that compares trees by looking at sizes of their functions.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class FunctionSizeComparator implements Comparator<FunctionVertex> {
+        private final IntervalTree<Integer> functionsSizes;
+
+        private FunctionSizeComparator(IntervalTree<Integer> functionsSizes) {
+            checkNotNull(functionsSizes, "functions sizes tree cannot be null");
+            this.functionsSizes = functionsSizes;
+        }
+
+        @Override
+        public int compare(FunctionVertex tree1, FunctionVertex tree2) {
+            checkNotNull(tree1, "the first tree cannot be null");
+            checkNotNull(tree2, "the second tree cannot be null");
+
+            final int functionsSize1 = functionsSizes.compute(tree1.getDfsTreeNumber(),
+                    tree1.getMaximumDfsDescendantNumber() + 1);
+            final int functionsSize2 = functionsSizes.compute(tree2.getDfsTreeNumber(),
+                    tree2.getMaximumDfsDescendantNumber() + 1);
+
+            final int sizesResult = Integer.compare(functionsSize1, functionsSize2);
+
+            return sizesResult != 0
+                    ? sizesResult
+                    : tree1.getUniqueName().compareTo(tree2.getUniqueName());
+        }
+    }
+
+    /**
+     * Comparator of functions that compares using estimation of their
+     * frequencies.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class FunctionFrequencyComparator implements Comparator<FunctionVertex> {
+        @Override
+        public int compare(FunctionVertex vertex1, FunctionVertex vertex2) {
+            checkNotNull(vertex1, "the first vertex cannot be null");
+            checkNotNull(vertex2, "the second vertex cannot be null");
+            return Double.compare(vertex2.getFrequencyEstimation(),
+                    vertex1.getFrequencyEstimation());
+        }
+    }
+
+    /**
      * Comparator for neighbours of a vertex. It specifies their order on the
      * neighbourhood lists.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
-    private static final class NeighbourComparator implements Comparator<String> {
+    private static final class NeighbourComparator implements Comparator<Reference> {
         private final ImmutableMap<String, Integer> neighboursCounts;
 
         private NeighbourComparator(ReferencesGraph refsGraph) {
@@ -1263,13 +1708,16 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         }
 
         @Override
-        public int compare(String funUniqueName1, String funUniqueName2) {
-            checkNotNull(funUniqueName1, "unique name of the first function cannot be null");
-            checkNotNull(funUniqueName2, "unique name of the second function cannot be null");
-            checkArgument(!funUniqueName1.isEmpty(), "unique name of the first function cannot be an empty string");
-            checkArgument(!funUniqueName2.isEmpty(), "unique name of the second function cannot be an empty string");
-            checkState(neighboursCounts.containsKey(funUniqueName1), "the first function is unknown");
-            checkState(neighboursCounts.containsKey(funUniqueName2), "the second function is unknown");
+        public int compare(Reference reference1, Reference reference2) {
+            checkNotNull(reference1, "the first reference cannot be null");
+            checkNotNull(reference2, "the second reference cannot be null");
+            checkState(neighboursCounts.containsKey(reference1.getReferencedNode().getUniqueName()),
+                    "the first function is unknown");
+            checkState(neighboursCounts.containsKey(reference2.getReferencedNode().getUniqueName()),
+                    "the second function is unknown");
+
+            final String funUniqueName1 = reference1.getReferencedNode().getUniqueName();
+            final String funUniqueName2 = reference2.getReferencedNode().getUniqueName();
 
             final int neighboursCountsResult = Integer.compare(neighboursCounts.get(funUniqueName1),
                     neighboursCounts.get(funUniqueName2));
@@ -1317,6 +1765,33 @@ public class BComponentsCodePartitioner implements CodePartitioner {
 
                 return neighboursCountsBuilder.build();
             }
+        }
+    }
+
+    /**
+     * Transformation that returns the target vertex of the given call edge.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class TargetVertexTransformation implements Function<CallEdge, FunctionVertex> {
+        @Override
+        public FunctionVertex apply(CallEdge callEdge) {
+            checkNotNull(callEdge, "call edge cannot be null");
+            return callEdge.getTargetVertex();
+        }
+    }
+
+    /**
+     * Predicate that is fulfilled if and only if the vertex has not been
+     * assigned to a bank.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class UnassignedVertexPredicate implements Predicate<FunctionVertex> {
+        @Override
+        public boolean apply(FunctionVertex vertex) {
+            checkNotNull(vertex, "vertex cannot be null");
+            return !vertex.getTargetBank().isPresent();
         }
     }
 }

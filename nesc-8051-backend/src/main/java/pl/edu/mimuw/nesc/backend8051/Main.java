@@ -439,7 +439,8 @@ public final class Main {
         if (partitionHeuristic.equals("simple")) {
             partitioner = new SimpleCodePartitioner(bankSchema, atomicSpecification);
         } else if (partitionHeuristic.equals("bcomponents")) {
-            partitioner = new BComponentsCodePartitioner(bankSchema, atomicSpecification);
+            partitioner = new BComponentsCodePartitioner(bankSchema, atomicSpecification,
+                    new DefaultCompilationListener());
         } else if (partitionHeuristic.startsWith("greedy-")) {
             partitioner = new GreedyCodePartitioner(bankSchema, atomicSpecification,
                     Integer.parseInt(partitionHeuristic.substring(7)));
