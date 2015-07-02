@@ -17,13 +17,13 @@ final class InstantiatedData extends ProcessedNescData {
 
     InstantiatedData(Component component) {
         checkNotNull(component, "component cannot be null");
-        checkNotNull(component.getInstantiatedComponentName(),
-                "name of the instantiated component in the given component cannot be null");
+        checkNotNull(component.getInstantiationChain(),
+                "instantiation chain in the given component cannot be null");
         checkArgument(!component.getIsAbstract(), "the instantiated component cannot be generic");
-        checkArgument(component.getInstantiatedComponentName().isPresent(),
-                "name of the instantiated component in the given component cannot be absent");
-        checkArgument(!component.getInstantiatedComponentName().get().isEmpty(),
-                "name of the instantiated component in the given component cannot be an empty string");
+        checkArgument(component.getInstantiationChain().isPresent(),
+                "instantiation chain in the given component cannot be absent");
+        checkArgument(component.getInstantiationChain().get().size() > 1,
+                "length of an instantiation chain in a component must have at least two elements");
 
         this.component = component;
     }
@@ -44,7 +44,8 @@ final class InstantiatedData extends ProcessedNescData {
      * @return Name of the "parent" generic component.
      */
     String getInstantiatedComponentName() {
-        return component.getInstantiatedComponentName().get();
+        final int lastIndex = component.getInstantiationChain().get().size() - 1;
+        return component.getInstantiationChain().get().get(lastIndex).getComponentName();
     }
 
     @Override

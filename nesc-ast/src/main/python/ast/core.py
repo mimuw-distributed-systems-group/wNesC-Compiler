@@ -603,6 +603,7 @@ class BasicASTNode(metaclass=ASTElemMetaclass):
             res += "import java.util.Map;\n"
             res += "import java.util.Set;\n"
             res += "import com.google.common.base.Optional;\n"
+            res += "import com.google.common.collect.ImmutableList;\n"
             res += "import pl.edu.mimuw.nesc.ast.*;\n"
             res += "import pl.edu.mimuw.nesc.astutil.AstUtils;\n"
             res += "import pl.edu.mimuw.nesc.declaration.label.*;\n"

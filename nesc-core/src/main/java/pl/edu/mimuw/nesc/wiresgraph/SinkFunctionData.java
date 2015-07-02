@@ -1,8 +1,5 @@
 package pl.edu.mimuw.nesc.wiresgraph;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-
 /**
  * <p>Data about a provided command or event from a module. Node in the wires
  * graph that corresponds to such command or event is a sink.</p>

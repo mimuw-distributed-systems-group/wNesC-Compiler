@@ -43,7 +43,6 @@ import pl.edu.mimuw.nesc.intermediate.TraversingIntermediateGenerator;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.optimization.AtomicOptimizer;
 import pl.edu.mimuw.nesc.optimization.DeclarationsCleaner;
-import pl.edu.mimuw.nesc.optimization.LinkageOptimizer;
 import pl.edu.mimuw.nesc.optimization.TaskOptimizationChecker;
 import pl.edu.mimuw.nesc.optimization.TaskOptimizer;
 import pl.edu.mimuw.nesc.optimization.UnexpectedWiringException;

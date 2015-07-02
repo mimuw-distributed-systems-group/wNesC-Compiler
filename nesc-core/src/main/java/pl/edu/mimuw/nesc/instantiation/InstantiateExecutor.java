@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.instantiation;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.log4j.Logger;
+import pl.edu.mimuw.nesc.ast.InstantiationOrigin;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
@@ -61,6 +63,11 @@ public final class InstantiateExecutor {
      * during the creation of components.
      */
     private final Deque<ConfigurationNode> currentPath = new ArrayDeque<>();
+
+    /**
+     * Deque with current instantiation chain.
+     */
+    private final Deque<InstantiationOrigin> instantiationChain = new ArrayDeque<>();
 
     /**
      * Immutable map with information about components to process. Keys are
@@ -128,6 +135,7 @@ public final class InstantiateExecutor {
 
         componentsAccumulator.clear();
         currentPath.clear();
+        instantiationChain.clear();
 
         // Loop over all components and start paths in non-generic configurations
         for (ComponentData componentData : components.values()) {
@@ -150,6 +158,7 @@ public final class InstantiateExecutor {
 
         // Place the starting configuration on the stack
         currentPath.addLast(ConfigurationNode.forStartConfiguration(configurationData));
+        instantiationChain.addLast(InstantiationOrigin.forFirstElement(configurationName));
 
         // Perform the instantiation
         while (!currentPath.isEmpty()) {
@@ -160,6 +169,7 @@ public final class InstantiateExecutor {
                         currentPath.getLast().getConfigurationImpl());
             } else if (!nextReference.isPresent()) {
                 final ConfigurationNode lastNode = currentPath.removeLast();
+                instantiationChain.removeLast();
                 lastNode.getComponentData().setCurrentlyInstantiated(false);
                 logPath();
             } else {
@@ -189,6 +199,9 @@ public final class InstantiateExecutor {
             throw CyclePresentException.newInstance(currentPath, genericRef.getName().getName());
         }
 
+        instantiationChain.addLast(InstantiationOrigin.forNextElement(genericRef.getName().getName(),
+                genericRef.getAlias().or(genericRef.getName()).getName()));
+
         logInstantiationInfo(genericRef);
         final Component newComponent = copyComponent(instantiatedComponentData.getComponent(),
                 genericRef, implementationToUpdate);
@@ -201,6 +214,8 @@ public final class InstantiateExecutor {
                     (Configuration) newComponent);
             currentPath.addLast(newNode);
             logPath();
+        } else {
+            instantiationChain.removeLast();
         }
     }
 
@@ -224,7 +239,7 @@ public final class InstantiateExecutor {
         final ASTFillingVisitor typeDiscoverer = new ASTFillingVisitor(genericRef,
                 specimen, substitution, nodesMap, manglingVisitor.getNamesMap());
 
-        copy.setInstantiatedComponentName(Optional.of(specimen.getName().getName()));
+        copy.setInstantiationChain(Optional.of(ImmutableList.copyOf(instantiationChain)));
         copy.setIsAbstract(false);
         copy.setParameters(Optional.<LinkedList<Declaration>>absent());
         copy.getName().setName(componentNameMangler.mangle(copy.getName().getName()));
