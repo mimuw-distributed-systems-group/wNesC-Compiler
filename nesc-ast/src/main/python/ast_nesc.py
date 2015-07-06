@@ -249,6 +249,9 @@ class FunctionDecl(BasicASTNode):
         <li>call assumptions for this function are NORMAL or ATOMIC_HWEVENT
         </code>
     </ol>
+    <p><code>intermediateData</code> is set only if this function is an
+    intermediate function and contains the data about the command or event
+    it corresponds to.</p>
     """
     superclass = Declaration
     declarator = ReferenceField("Declarator")
@@ -261,6 +264,8 @@ class FunctionDecl(BasicASTNode):
     declaration = ReferenceField("FunctionDeclaration", constructor_variable=False, visitable=False,
                                  deep_copy_mode=DEEP_COPY_MODE.ASSIGN_REFERENCE_COPY)
     isAtomic = BoolField(constructor_variable=False)
+    intermediateData = ReferenceField("IntermediateData", constructor_variable=False, visitable=False,
+                                      deep_copy_mode=DEEP_COPY_MODE.ASSIGN_NULL, optional=True)
 
     # FIXME refactor attributes below
     #parentFunction = ReferenceField("FunctionDecl", constructor_variable=False, visitable=False)

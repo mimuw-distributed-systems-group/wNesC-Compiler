@@ -111,8 +111,11 @@ public final class TraversingIntermediateGenerator implements IntermediateGenera
         if (impls.isEmpty() && funData.getDefaultImplementationUniqueName().isPresent()
                 || impls.size() == 1 && impls.get(KEY_UNCONDITIONAL).size() == 1) {
             return generateFunctionTrivial(funData, impls);
-        } else {
+        } else if (funData.getDefaultImplementationUniqueName().isPresent()
+                || !impls.get(KEY_UNCONDITIONAL).isEmpty()) {
             return generateFunctionNonTrivial(funData, impls);
+        } else {
+            return generateFunctionNotImplemented(funData);
         }
     }
 
@@ -154,6 +157,10 @@ public final class TraversingIntermediateGenerator implements IntermediateGenera
         body.getStatements().add(stmt);
         intermediateFun.getModifiers().addAll(0, AstUtils.newRidsList(RID.STATIC, RID.INLINE));
 
+        // Update intermediate data
+
+        intermediateFun.getIntermediateData().get().setIsImplemented(true);
+
         return intermediateFun;
     }
 
@@ -182,6 +189,15 @@ public final class TraversingIntermediateGenerator implements IntermediateGenera
             body.getStatements().add(AstUtils.newReturnStmt(resultUniqueName.get()));
         }
 
+        // Update intermediate data
+
+        funData.getIntermediateFunction().getIntermediateData().get().setIsImplemented(true);
+
+        return funData.getIntermediateFunction();
+    }
+
+    private FunctionDecl generateFunctionNotImplemented(IntermediateFunctionData funData) {
+        funData.getIntermediateFunction().getIntermediateData().get().setIsImplemented(false);
         return funData.getIntermediateFunction();
     }
 

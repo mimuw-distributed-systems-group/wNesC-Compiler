@@ -14,7 +14,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import pl.edu.mimuw.nesc.ast.IntermediateData;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
@@ -419,6 +421,7 @@ public final class WiresGraph {
                     defaultImplementationUniqueName = Optional.absent();
                 }
 
+                final InterfaceEntity.Kind kind = determineKind(typeElements);
                 final boolean voidOccurred = removeKeywords(typeElements);
                 TypeElementUtils.removeNescTypeElements(typeElements);
                 boolean containsNotVoidDeclarator = false;
@@ -457,6 +460,8 @@ public final class WiresGraph {
                         false
                 );
                 funDecl.setOldParms(Lists.<Declaration>newList());
+                funDecl.setIntermediateData(Optional.of(new IntermediateData(componentName,
+                        Optional.<String>absent(), entityName, kind)));
 
                 return new IntermediateFunctionData(uniqueName, prepareParametersNames(funDeclarator.getParameters()),
                         instanceParametersCount, returnsVoid, funDecl, defaultImplementationUniqueName,
@@ -553,6 +558,55 @@ public final class WiresGraph {
             }
 
             /**
+             * Determine the kind of an entity from given type elements.
+             *
+             * @param typeElements Type elements with 'command' or 'event'
+             *                     keyword.
+             * @return Kind of an entity determined from given type elements.
+             */
+            private InterfaceEntity.Kind determineKind(Iterable<TypeElement> typeElements) {
+                Optional<InterfaceEntity.Kind> kind = Optional.absent();
+
+                for (TypeElement typeElement : typeElements) {
+                    final RID rid;
+                    if (typeElement instanceof Rid) {
+                        rid = ((Rid) typeElement).getId();
+                    } else if (typeElement instanceof Qualifier) {
+                        rid = ((Qualifier) typeElement).getId();
+                    } else {
+                        continue;
+                    }
+
+                    final Optional<InterfaceEntity.Kind> newKind;
+                    switch (rid) {
+                        case COMMAND:
+                            newKind = Optional.of(InterfaceEntity.Kind.COMMAND);
+                            break;
+                        case EVENT:
+                            newKind = Optional.of(InterfaceEntity.Kind.EVENT);
+                            break;
+                        case TASK:
+                            throw new RuntimeException("unexpected RID '" + rid + "' for a command or event");
+                        default:
+                            newKind = Optional.absent();
+                            break;
+                    }
+
+                    if (!kind.isPresent()) {
+                        kind = newKind;
+                    } else if (newKind.isPresent() && kind.get() != newKind.get()) {
+                        throw new RuntimeException("'event' and 'command' keyword simultaneously present");
+                    }
+                }
+
+                if (kind.isPresent()) {
+                    return kind.get();
+                } else {
+                    throw new RuntimeException("neither 'command' nor 'event' keyword present");
+                }
+            }
+
+            /**
              * Visitor responsible for creating nodes for a single interface.
              *
              * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -596,17 +650,7 @@ public final class WiresGraph {
 
                 @Override
                 public Void visitDataDecl(DataDecl dataDecl, Void arg) {
-                    switch (TypeElementUtils.getFunctionType(dataDecl.getModifiers())) {
-                        case COMMAND:
-                            interfaceEntityKind = InterfaceEntity.Kind.COMMAND;
-                            break;
-                        case EVENT:
-                            interfaceEntityKind = InterfaceEntity.Kind.EVENT;
-                            break;
-                        default:
-                            throw new RuntimeException("declaration other than command or event inside an interface");
-                    }
-
+                    interfaceEntityKind = determineKind(dataDecl.getModifiers());
                     typeElements = dataDecl.getModifiers();
                     final boolean returnsVoid = removeKeywords(typeElements);
                     TypeElementUtils.removeNescTypeElements(typeElements);
@@ -703,6 +747,8 @@ public final class WiresGraph {
                             false
                     );
                     functionDecl.setOldParms(Lists.<Declaration>newList());
+                    functionDecl.setIntermediateData(Optional.of(new IntermediateData(componentName,
+                            Optional.of(interfaceRefName), entityName, interfaceEntityKind)));
 
                     final EntityData result = new IntermediateFunctionData(uniqueName, parametersNames,
                             instanceParameters.isPresent() ? instanceParameters.get().size() : 0,
