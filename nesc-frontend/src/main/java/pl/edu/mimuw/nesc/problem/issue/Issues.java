@@ -111,6 +111,7 @@ public final class Issues {
         INVALID_OFFSETOF_EXPR(80),
         INVALID_BITFIELD_DECLARATION(81),
         INVALID_CALL_INFO_ATTRIBUTE_USAGE(82),
+        NOT_IMPLEMENTED_ENTITY(83),
         ;
 
         private final int codeNumber;

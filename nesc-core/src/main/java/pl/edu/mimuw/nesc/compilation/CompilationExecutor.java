@@ -15,6 +15,7 @@ import pl.edu.mimuw.nesc.FileData;
 import pl.edu.mimuw.nesc.Frontend;
 import pl.edu.mimuw.nesc.NescFrontend;
 import pl.edu.mimuw.nesc.ProjectData;
+import pl.edu.mimuw.nesc.ast.InstantiationOrigin;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.Component;
 import pl.edu.mimuw.nesc.ast.gen.Configuration;
@@ -39,6 +40,7 @@ import pl.edu.mimuw.nesc.finalreduce.OffsetofTransformation;
 import pl.edu.mimuw.nesc.fold.FoldExecutor;
 import pl.edu.mimuw.nesc.instantiation.CyclePresentException;
 import pl.edu.mimuw.nesc.instantiation.InstantiateExecutor;
+import pl.edu.mimuw.nesc.intermediate.ConnectionsChecker;
 import pl.edu.mimuw.nesc.intermediate.TraversingIntermediateGenerator;
 import pl.edu.mimuw.nesc.names.mangling.NameMangler;
 import pl.edu.mimuw.nesc.optimization.AtomicOptimizer;
@@ -203,6 +205,7 @@ public final class CompilationExecutor {
         finalReduce(projectData, taskWiringConf, instantiatedComponents, wiring);
         final ImmutableList<Declaration> finalCode = generate(projectData, instantiatedComponents,
                 intermediateFuns.values());
+        checkConnections(finalCode, instantiatedComponents);
         final ReferencesGraph refsGraph = buildReferencesGraph(finalCode);
         final ImmutableList<Declaration> cleanedCode = optimize(projectData,
                 wiring, finalCode, refsGraph);
@@ -543,6 +546,33 @@ public final class CompilationExecutor {
                 .addDefaultIncludeFiles(projectData.getDefaultIncludeFiles())
                 .build()
                 .generate();
+    }
+
+    /**
+     * Check if all used commands that are called and used events that are
+     * signalled are implemented. If no, the compilation is terminated by
+     * throwing an exception.
+     */
+    private void checkConnections(ImmutableList<Declaration> allDeclarations,
+                Set<Component> instantiatedComponents) throws ErroneousIssueException {
+        // Build the map of instantiation chains
+        final ImmutableMap.Builder<String, ImmutableList<InstantiationOrigin>> instantiationChainsBuilder =
+                ImmutableMap.builder();
+        for (Component component : instantiatedComponents) {
+            instantiationChainsBuilder.put(component.getName().getName(),
+                    component.getInstantiationChain().get());
+        }
+        final ImmutableMap<String, ImmutableList<InstantiationOrigin>> instantiationChains =
+                instantiationChainsBuilder.build();
+
+        // Check connections
+        final CountingCompilationListener countingListener = new CountingCompilationListener(listener);
+        new ConnectionsChecker(instantiationChains, allDeclarations, countingListener)
+                .check();
+
+        if (countingListener.getErrorsCount() > 0) {
+            throw new ErroneousIssueException();
+        }
     }
 
     /**
