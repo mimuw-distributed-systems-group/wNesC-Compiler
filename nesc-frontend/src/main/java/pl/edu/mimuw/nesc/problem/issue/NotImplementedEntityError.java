@@ -27,16 +27,19 @@ public final class NotImplementedEntityError extends ErroneousIssue {
         // Create the identification text for the component
         final StringBuilder identificationTextBuilder = new StringBuilder("instantiated component ");
         final Iterator<InstantiationOrigin> chainIt = instantiationChain.iterator();
+        identificationTextBuilder.append('\'');
         identificationTextBuilder.append(chainIt.next().getComponentName());
+        identificationTextBuilder.append('\'');
         while (chainIt.hasNext()) {
             final InstantiationOrigin origin = chainIt.next();
-            identificationTextBuilder.append(" -> ");
+            identificationTextBuilder.append(" -> '");
             identificationTextBuilder.append(origin.getComponentRefName().get());
+            identificationTextBuilder.append('\'');
 
             if (!origin.getComponentName().equals(origin.getComponentRefName().get())) {
-                identificationTextBuilder.append(" (");
+                identificationTextBuilder.append(" ('");
                 identificationTextBuilder.append(origin.getComponentName());
-                identificationTextBuilder.append(')');
+                identificationTextBuilder.append("')");
             }
         }
 
@@ -76,11 +79,11 @@ public final class NotImplementedEntityError extends ErroneousIssue {
         }
 
         // Information about the component
-        descriptionBuilder.append(" from ");
+        descriptionBuilder.append(" in ");
         descriptionBuilder.append(componentDescription);
 
         // Information about the error
-        descriptionBuilder.append(" is not connected and default implementation is not provided for it");
+        descriptionBuilder.append(" is not connected and it lacks a default implementation");
 
         return new NotImplementedEntityError(descriptionBuilder.toString());
     }

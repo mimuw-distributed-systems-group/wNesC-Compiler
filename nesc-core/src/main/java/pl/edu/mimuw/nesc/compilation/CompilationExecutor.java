@@ -25,6 +25,7 @@ import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.ast.gen.Module;
 import pl.edu.mimuw.nesc.ast.gen.ModuleImpl;
 import pl.edu.mimuw.nesc.ast.gen.NescDecl;
+import pl.edu.mimuw.nesc.astutil.ParametersNamesGiver;
 import pl.edu.mimuw.nesc.atomic.AtomicBlockData;
 import pl.edu.mimuw.nesc.atomic.AtomicDeclarationsCleaner;
 import pl.edu.mimuw.nesc.atomic.AtomicTransformer;
@@ -212,6 +213,7 @@ public final class CompilationExecutor {
         reduceAtomic(projectData, cleanedCode);
         final ImmutableList<Declaration> finalCleanedCode = cleanAtomic(projectData,
                 cleanedCode, refsGraph);
+        nameParameters(finalCleanedCode, projectData.getNameMangler());
 
         return new CompilationResult(finalCleanedCode, projectData.getNameMangler(),
                 refsGraph, projectData.getOutputFile(), projectData.getExternalVariables(),
@@ -645,6 +647,19 @@ public final class CompilationExecutor {
         return new AtomicDeclarationsCleaner(declarations, refsGraph,
                         projectData.getAtomicSpecification())
                 .clean();
+    }
+
+    /**
+     * Name all unnamed parameters in functions definitions from given iterable.
+     *
+     * @param allDeclarations Declarations with definitions of functions whose
+     *                        parameters will be named.
+     * @param nameMangler Name mangler that will be used to generate names for
+     *                    the parameters.
+     */
+    private void nameParameters(ImmutableList<Declaration> allDeclarations,
+                NameMangler nameMangler) {
+        new ParametersNamesGiver(nameMangler).name(allDeclarations);
     }
 
     /**

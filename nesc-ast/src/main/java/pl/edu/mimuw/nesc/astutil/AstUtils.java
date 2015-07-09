@@ -514,6 +514,60 @@ public final class AstUtils {
     }
 
     /**
+     * Create a new identifier declarator with fields set to values of
+     * parameters.
+     *
+     * @param name Name to set.
+     * @param setUniqueName Value indicating if the unique name in the returned
+     *                      identifier declarator will be set. If it is
+     *                      <code>true</code>, the unique name will be set to
+     *                      to the given name. Otherwise, it will be set to an
+     *                      absent value.
+     * @param isNestedInNescEntity Value of the field with the same name to set
+     *                             in the created identifier declarator.
+     * @return Newly created instance of an identifier declarator with fields
+     *         set according to given parameters.
+     */
+    public static IdentifierDeclarator newIdentifierDeclarator(String name,
+            boolean setUniqueName, boolean isNestedInNescEntity) {
+        final Optional<String> uniqueName = setUniqueName
+                ? Optional.of(name)
+                : Optional.<String>absent();
+        return newIdentifierDeclarator(name, uniqueName, isNestedInNescEntity);
+    }
+
+    /**
+     * Create a new identifier declarator with fields set as specified by given
+     * parameters. Other fields have values from the construction.
+     *
+     * @param name Name contained in the created identifier declarator.
+     * @param uniqueName Unique name contained in the created identifier
+     *                   declarator.
+     * @param isNestedInNescEntity Value of the field with the same name to set
+     *                             in the created declarator.
+     * @return Newly created instance of an identifier declarator with fields
+     *         set to values from given parameters.
+     */
+    public static IdentifierDeclarator newIdentifierDeclarator(String name,
+            Optional<String> uniqueName, boolean isNestedInNescEntity) {
+        checkNotNull(name, "name cannot be null");
+        checkNotNull(uniqueName, "unique name cannot be null");
+        checkArgument(!name.isEmpty(), "name cannot be an empty string");
+        checkArgument(!uniqueName.isPresent() || !uniqueName.get().isEmpty(),
+                "unique name cannot be an empty string");
+
+        final IdentifierDeclarator identifierDeclarator = new IdentifierDeclarator(
+                Location.getDummyLocation(),
+                name
+        );
+
+        identifierDeclarator.setUniqueName(uniqueName);
+        identifierDeclarator.setIsNestedInNescEntity(isNestedInNescEntity);
+
+        return identifierDeclarator;
+    }
+
+    /**
      * Creates a list of identifiers with strings from the given list used as
      * names and unique names of the identifiers.
      *
@@ -988,6 +1042,71 @@ public final class AstUtils {
                 new Word(Location.getDummyLocation(), Attributes.getPackedAttributeName()),
                 Optional.<LinkedList<Expression>>absent()
         );
+    }
+
+    /**
+     * Give names to unnamed entities from the given iterable. Nodes other than
+     * DataDecl are ignored and left intact. The only affected nodes contained
+     * in the DataDecl nodes are FieldDecl and VariableDecl nodes. Both names
+     * and unique names are set.
+     *
+     * @param declarations Iterable with declarations.
+     * @param nameMangler Name mangler used to generate names for parameters.
+     */
+    public static void nameEntities(Iterable<Declaration> declarations, NameMangler nameMangler) {
+        checkNotNull(declarations, "parameters cannot be null");
+        checkNotNull(nameMangler, "name mangler cannot be null");
+
+        final Iterable<DataDecl> dataDecls = FluentIterable.from(declarations)
+                .filter(DataDecl.class);
+
+        for (DataDecl dataDecl : dataDecls) {
+            for (Declaration innerDeclaration : dataDecl.getDeclarations()) {
+                if (innerDeclaration instanceof VariableDecl) {
+                    final VariableDecl variableDecl = (VariableDecl) innerDeclaration;
+                    variableDecl.setDeclarator(Optional.of(embedIdentifierDeclarator(
+                            variableDecl.getDeclarator(), nameMangler, true)));
+                } else if (innerDeclaration instanceof FieldDecl) {
+                    final FieldDecl fieldDecl = (FieldDecl) innerDeclaration;
+                    fieldDecl.setDeclarator(Optional.of(embedIdentifierDeclarator(
+                            fieldDecl.getDeclarator(), nameMangler, false)));
+                }
+            }
+        }
+    }
+
+    /**
+     * Embed a new identifier declarator inside the given declarator if it does
+     * not contain one.
+     *
+     * @param declarator Declarator to embed the identifier declarator in.
+     * @param nameMangler Name mangler used to create a unique name for the new
+     *                    declarator.
+     * @param setUniqueName Value indicating if the unique name will be set in
+     *                      the embedded identifier declarator.
+     * @return The given declarator with newly created instance of an identifier
+     *         declarator embedded or the instance if the given declarator is
+     *         absent.
+     */
+    public static Declarator embedIdentifierDeclarator(Optional<Declarator> declarator,
+                NameMangler nameMangler, boolean setUniqueName) {
+        checkNotNull(declarator, "declarator cannot be null");
+        checkNotNull(nameMangler, "name mangler cannot be null");
+
+        final Optional<NestedDeclarator> deepestNestedDeclarator =
+                DeclaratorUtils.getDeepestNestedDeclarator(declarator);
+
+        if (!declarator.isPresent()) {
+            return newIdentifierDeclarator(nameMangler.mangle("__unnamed"),
+                    setUniqueName, false);
+        } else {
+            if (deepestNestedDeclarator.isPresent() && !deepestNestedDeclarator.get().getDeclarator().isPresent()) {
+                deepestNestedDeclarator.get().setDeclarator(Optional.<Declarator>of(newIdentifierDeclarator(
+                        nameMangler.mangle("__unnamed"), setUniqueName, false)));
+            }
+
+            return declarator.get();
+        }
     }
 
     /**
