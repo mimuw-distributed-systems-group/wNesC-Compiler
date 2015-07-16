@@ -1,6 +1,10 @@
 package pl.edu.mimuw.nesc.finalreduce;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -9,6 +13,7 @@ import pl.edu.mimuw.nesc.ast.NescCallKind;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
 import pl.edu.mimuw.nesc.astutil.TypeElementUtils;
+import pl.edu.mimuw.nesc.astutil.predicates.AttributePredicates;
 import pl.edu.mimuw.nesc.names.collecting.FieldNameCollector;
 import pl.edu.mimuw.nesc.names.collecting.NameCollector;
 import pl.edu.mimuw.nesc.names.mangling.CountingNameMangler;
@@ -37,6 +42,16 @@ import static java.lang.String.format;
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
 public final class FinalTransformer extends IdentityVisitor<Optional<String>> {
+    /**
+     * Predicate that allows for checking if an attribute is a GCC attribute
+     * spontaneous, hwevent or atomic_hwevent.
+     */
+    private static final Predicate<Attribute> PREDICATE_GCC_CALL_INFO_ATTRIBUTE = Predicates.or(ImmutableList.of(
+            AttributePredicates.getSpontaneousGccPredicate(),
+            AttributePredicates.getHweventGccPredicate(),
+            AttributePredicates.getAtomicHweventGccPredicate()
+    ));
+
     /**
      * Graph with names of intermediate functions.
      */
@@ -96,8 +111,8 @@ public final class FinalTransformer extends IdentityVisitor<Optional<String>> {
             }
         }
 
-        // Remove NesC attributes
-        TypeElementUtils.removeNescTypeElements(functionDecl.getAttributes());
+        // Remove NesC type elements
+        removeNescTypeElements(functionDecl.getAttributes());
 
         return componentName;
     }
@@ -146,20 +161,20 @@ public final class FinalTransformer extends IdentityVisitor<Optional<String>> {
 
     @Override
     public Optional<String> visitDataDecl(DataDecl dataDecl, Optional<String> componentName) {
-        TypeElementUtils.removeNescTypeElements(dataDecl.getModifiers());
+        removeNescTypeElements(dataDecl.getModifiers());
         new ExternalBaseTransformer(dataDecl, this.abi).transform();
         return componentName;
     }
 
     @Override
     public Optional<String> visitVariableDecl(VariableDecl variableDecl, Optional<String> componentName) {
-        TypeElementUtils.removeNescTypeElements(variableDecl.getAttributes());
+        removeNescTypeElements(variableDecl.getAttributes());
         return componentName;
     }
 
     @Override
     public Optional<String> visitQualifiedDeclarator(QualifiedDeclarator declarator, Optional<String> componentName) {
-        TypeElementUtils.removeNescTypeElements(declarator.getModifiers());
+        removeNescTypeElements(declarator.getModifiers());
         return componentName;
     }
 
@@ -212,7 +227,12 @@ public final class FinalTransformer extends IdentityVisitor<Optional<String>> {
     }
 
     private void removeNescTypeElements(TagRef tagReference) {
-        TypeElementUtils.removeNescTypeElements(tagReference.getAttributes());
+        removeNescTypeElements(tagReference.getAttributes());
+    }
+
+    private void removeNescTypeElements(Collection<? extends TypeElement> typeElements) {
+        removeGccCallInfoAttributes(typeElements);
+        TypeElementUtils.removeNescTypeElements(typeElements);
     }
 
     private boolean removeKeywords(List<TypeElement> typeElements) {
@@ -246,5 +266,24 @@ public final class FinalTransformer extends IdentityVisitor<Optional<String>> {
         final NameCollector<TagRef> nameCollector = new FieldNameCollector();
         nameCollector.collect(tagRef);
         return new CountingNameMangler(nameCollector.get());
+    }
+
+    private void removeGccCallInfoAttributes(Iterable<? extends TypeElement> typeElements) {
+        final Iterator<? extends TypeElement> typeElementsIt = typeElements.iterator();
+        final Predicate<Attribute> noParametersPredicate = AttributePredicates.getNoParametersGccPredicate();
+
+        while (typeElementsIt.hasNext()) {
+            final TypeElement typeElement = typeElementsIt.next();
+            if (!(typeElement instanceof Attribute)) {
+                continue;
+            }
+
+            final Attribute attribute = (Attribute) typeElement;
+
+            if (PREDICATE_GCC_CALL_INFO_ATTRIBUTE.apply(attribute)
+                    && noParametersPredicate.apply(attribute)) {
+                typeElementsIt.remove();
+            }
+        }
     }
 }
