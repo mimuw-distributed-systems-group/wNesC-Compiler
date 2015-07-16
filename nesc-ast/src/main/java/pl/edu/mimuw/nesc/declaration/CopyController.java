@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.declaration;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +27,7 @@ import pl.edu.mimuw.nesc.declaration.tag.FieldTagDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.StructDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.TagDeclaration;
 import pl.edu.mimuw.nesc.declaration.tag.UnionDeclaration;
+import pl.edu.mimuw.nesc.declaration.tag.fieldtree.TreeElement;
 import pl.edu.mimuw.nesc.type.Type;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -640,7 +642,12 @@ public final class CopyController {
             checkNotNull(specimen, "specimen cannot be null");
 
             if (specimen.isDefined()) {
-                copy.define(specimen.getStructure().get());
+                final ImmutableList.Builder<TreeElement> structureCopyBuilder =
+                        ImmutableList.builder();
+                for (TreeElement element : specimen.getStructure().get()) {
+                    structureCopyBuilder.add(element.deepCopy(CopyController.this));
+                }
+                copy.define(structureCopyBuilder.build());
             }
         }
 
