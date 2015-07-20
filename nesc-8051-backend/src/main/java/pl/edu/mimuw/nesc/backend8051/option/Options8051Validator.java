@@ -45,7 +45,7 @@ public final class Options8051Validator {
                     + "(?<bankCapacity>\\d+)");
 
     private static final Pattern REGEXP_PARTITION_HEURISTIC =
-            Pattern.compile("simple|greedy-(?<greedyPreValue>[1-9]\\d*)|bcomponents");
+            Pattern.compile("simple|greedy-(?<greedyPreValue>[1-9]\\d*)|bcomponents|tmsearch");
 
     /**
      * Set with SDCC parameters that cannot be specified by the option.

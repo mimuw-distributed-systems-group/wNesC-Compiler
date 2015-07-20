@@ -26,6 +26,7 @@ import java.util.TreeMap;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
+import pl.edu.mimuw.nesc.codepartition.context.PartitionContext;
 import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.util.DoubleSumIntervalTreeOperation;
@@ -514,7 +515,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         }
 
         @Override
-        void assign(FunctionDecl function, String bankName) {
+        public void assign(FunctionDecl function, String bankName) {
             super.assign(function, bankName);
 
             final String funUniqueName = DeclaratorUtils.getUniqueName(

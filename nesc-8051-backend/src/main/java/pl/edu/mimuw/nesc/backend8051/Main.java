@@ -30,6 +30,7 @@ import pl.edu.mimuw.nesc.codepartition.CodePartitioner;
 import pl.edu.mimuw.nesc.codepartition.GreedyCodePartitioner;
 import pl.edu.mimuw.nesc.codepartition.PartitionImpossibleException;
 import pl.edu.mimuw.nesc.codepartition.SimpleCodePartitioner;
+import pl.edu.mimuw.nesc.codepartition.TabuSearchCodePartitioner;
 import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
 import pl.edu.mimuw.nesc.codesize.CodeSizeEstimator;
 import pl.edu.mimuw.nesc.codesize.SDCCCodeSizeEstimatorFactory;
@@ -441,6 +442,8 @@ public final class Main {
         } else if (partitionHeuristic.equals("bcomponents")) {
             partitioner = new BComponentsCodePartitioner(bankSchema, atomicSpecification,
                     new DefaultCompilationListener());
+        } else if (partitionHeuristic.equals("tmsearch")) {
+            partitioner = new TabuSearchCodePartitioner(bankSchema, atomicSpecification);
         } else if (partitionHeuristic.startsWith("greedy-")) {
             partitioner = new GreedyCodePartitioner(bankSchema, atomicSpecification,
                     Integer.parseInt(partitionHeuristic.substring(7)));

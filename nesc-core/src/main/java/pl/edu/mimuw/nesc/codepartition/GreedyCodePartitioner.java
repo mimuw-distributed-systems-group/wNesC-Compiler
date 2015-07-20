@@ -12,6 +12,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
+import pl.edu.mimuw.nesc.codepartition.context.PartitionContext;
 import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.refsgraph.EntityNode;
@@ -225,7 +226,7 @@ public final class GreedyCodePartitioner implements CodePartitioner {
         }
 
         @Override
-        void assign(FunctionDecl function, String targetBankName) {
+        public void assign(FunctionDecl function, String targetBankName) {
             super.assign(function, targetBankName);
 
             final String funUniqueName = DeclaratorUtils.getUniqueName(

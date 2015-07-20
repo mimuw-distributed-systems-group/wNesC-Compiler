@@ -1,4 +1,4 @@
-package pl.edu.mimuw.nesc.codepartition;
+package pl.edu.mimuw.nesc.codepartition.context;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.Range;
@@ -8,6 +8,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
+import pl.edu.mimuw.nesc.codepartition.BankSchema;
+import pl.edu.mimuw.nesc.codepartition.BankTable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -16,12 +18,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-class PartitionContext {
+public class PartitionContext {
     private final BankTable bankTable;
     private final TreeMap<Integer, Set<String>> banksFreeSpaceMap;
     private final Map<String, Range<Integer>> functionsSizes;
 
-    PartitionContext(BankSchema bankSchema, Map<String, Range<Integer>> functionsSizes) {
+    public PartitionContext(BankSchema bankSchema, Map<String, Range<Integer>> functionsSizes) {
         checkNotNull(bankSchema, "bank schema cannot be null");
         checkNotNull(functionsSizes, "sizes of functions cannot be null");
 
@@ -31,16 +33,16 @@ class PartitionContext {
         this.functionsSizes = functionsSizes;
     }
 
-    int getFunctionSize(FunctionDecl functionDecl) {
+    public int getFunctionSize(FunctionDecl functionDecl) {
         final String uniqueName = DeclaratorUtils.getUniqueName(functionDecl.getDeclarator()).get();
         return getFunctionSize(uniqueName);
     }
 
-    int getFunctionSize(String funUniqueName) {
+    public int getFunctionSize(String funUniqueName) {
         return functionsSizes.get(funUniqueName).upperEndpoint();
     }
 
-    void assign(FunctionDecl function, String bankName) {
+    public void assign(FunctionDecl function, String bankName) {
         final int funSize = getFunctionSize(function);
         final int oldTargetBankFreeSpace = bankTable.getFreeSpace(bankName);
         if (funSize > oldTargetBankFreeSpace) {
@@ -48,29 +50,35 @@ class PartitionContext {
         }
 
         bankTable.allocate(bankName, function, funSize);
-        final int newTargetBankFreeSpace = bankTable.getFreeSpace(bankName);
-
-        if (funSize > 0) {
-            final Set<String> banksMapSet = banksFreeSpaceMap.get(oldTargetBankFreeSpace);
-            if (!banksMapSet.remove(bankName)) {
-                throw new IllegalStateException("inconsistent information about free space in bank " + bankName);
-            }
-            if (banksMapSet.isEmpty()) {
-                banksFreeSpaceMap.remove(oldTargetBankFreeSpace);
-            }
-
-            if (!banksFreeSpaceMap.containsKey(newTargetBankFreeSpace)) {
-                banksFreeSpaceMap.put(newTargetBankFreeSpace, new HashSet<String>());
-            }
-            banksFreeSpaceMap.get(newTargetBankFreeSpace).add(bankName);
-        }
+        modifyBankFreeSpace(bankName, oldTargetBankFreeSpace,
+                bankTable.getFreeSpace(bankName));
     }
 
-    BankTable getBankTable() {
+    protected void modifyBankFreeSpace(String bankName, int oldBankFreeSpace,
+            int newBankFreeSpace) {
+        if (oldBankFreeSpace == newBankFreeSpace) {
+            return;
+        }
+
+        final Set<String> banksMapSet = banksFreeSpaceMap.get(oldBankFreeSpace);
+        if (!banksMapSet.remove(bankName)) {
+            throw new IllegalStateException("inconsistent information about free space in bank " + bankName);
+        }
+        if (banksMapSet.isEmpty()) {
+            banksFreeSpaceMap.remove(oldBankFreeSpace);
+        }
+
+        if (!banksFreeSpaceMap.containsKey(newBankFreeSpace)) {
+            banksFreeSpaceMap.put(newBankFreeSpace, new HashSet<String>());
+        }
+        banksFreeSpaceMap.get(newBankFreeSpace).add(bankName);
+    }
+
+    public BankTable getBankTable() {
         return bankTable;
     }
 
-    Optional<String> getCeilingBank(int size) {
+    public Optional<String> getCeilingBank(int size) {
         final Optional<Map.Entry<Integer, Set<String>>> entry = Optional.fromNullable(
                 banksFreeSpaceMap.lastEntry());
         return entry.isPresent() && entry.get().getKey() >= size
@@ -78,7 +86,7 @@ class PartitionContext {
                 : Optional.<String>absent();
     }
 
-    Optional<String> getFloorBank(int size) {
+    public Optional<String> getFloorBank(int size) {
         final Optional<Map.Entry<Integer, Set<String>>> entry = Optional.fromNullable(
                 banksFreeSpaceMap.ceilingEntry(size));
         return entry.isPresent()

@@ -3,6 +3,7 @@ package pl.edu.mimuw.nesc.codepartition;
 import com.google.common.collect.ImmutableList;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
+import pl.edu.mimuw.nesc.codepartition.context.PartitionContext;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 
