@@ -21,7 +21,7 @@ import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.util.FindUnionSet;
 import pl.edu.mimuw.nesc.common.util.NavigableInverseMap;
-import pl.edu.mimuw.nesc.constexpr.value.factory.IntegerConstantFactory;
+import pl.edu.mimuw.nesc.refsgraph.EntityNode;
 import pl.edu.mimuw.nesc.refsgraph.Reference;
 import pl.edu.mimuw.nesc.refsgraph.ReferencesGraph;
 
@@ -313,11 +313,10 @@ public final class TabuSearchCodePartitioner implements CodePartitioner {
     }
 
     /**
-     * Compute mapping from each function to the sum of weights on edges
-     * incident to the function and functions in the same bank in the current
-     * assignment.
+     * Compute mapping from banks to maps that associate each function with the
+     * count of calls from its bank.
      *
-     * @param context Context with current assignment.
+     * @param context Context with the current assignment.
      * @return Map with inner weights.
      */
     private ImmutableMap<String, NavigableInverseMap<String, Integer>> computeInnerWeights(
@@ -327,19 +326,20 @@ public final class TabuSearchCodePartitioner implements CodePartitioner {
 
         for (String bankName : bankSchema.getBanksNames()) {
             final Set<FunctionDecl> bankContents = context.getBankContents(bankName);
-            final NavigableInverseMap<String, Integer> innerWeights = new NavigableInverseMap<>();
-            innerWeightsBuilder.put(bankName, innerWeights);
+            final NavigableInverseMap<String, Integer> bankInnerWeights = new NavigableInverseMap<>();
+            innerWeightsBuilder.put(bankName, bankInnerWeights);
 
             for (FunctionDecl function : bankContents) {
-                final String funUniqueName = DeclaratorUtils.getUniqueName(function.getDeclarator()).get();
-                final FunctionVertex funVertex = context.switchingGraph.getVertices().get(funUniqueName);
-                innerWeights.put(funUniqueName, 0);
+                final String funUniqueName = DeclaratorUtils.getUniqueName(
+                        function.getDeclarator()).get();
+                bankInnerWeights.put(funUniqueName, 0);
 
-                for (SwitchingActionEdge edge : funVertex.getNeighbours().values()) {
-                    if (bankContents.contains(context.functions.get(edge.getOtherVertex(funVertex).getFunctionUniqueName()))) {
-                        // Edge to the same bank
-                        innerWeights.put(funUniqueName, innerWeights.get(funUniqueName)
-                                + edge.getWeight());
+                for (Reference predecessorReference : context.referencesGraph.getOrdinaryIds().get(funUniqueName).getPredecessors()) {
+                    if (!predecessorReference.isInsideNotEvaluatedExpr()
+                            && predecessorReference.getType() == Reference.Type.CALL
+                            && predecessorReference.getReferencingNode().getKind() == EntityNode.Kind.FUNCTION
+                            && bankContents.contains(context.functions.get(predecessorReference.getReferencingNode().getUniqueName()))) {
+                        bankInnerWeights.put(funUniqueName, bankInnerWeights.get(funUniqueName) + 1);
                     }
                 }
             }
@@ -376,23 +376,38 @@ public final class TabuSearchCodePartitioner implements CodePartitioner {
         final Map<String, Integer> diffMap = new HashMap<>();
         int newInnerWeight = 0;
 
-        for (SwitchingActionEdge edge : transferredFunVertex.getNeighbours().values()) {
-            final FunctionVertex otherVertex = edge.getOtherVertex(transferredFunVertex);
-            final String otherFunBank = context.getTargetBank(context.functions.get(otherVertex.getFunctionUniqueName())).get();
-            final int previousValue = Optional.fromNullable(diffMap.get(otherVertex.getFunctionUniqueName())).or(0);
-            final Optional<Integer> newValue;
+        // Iterate over successors of the transferred vertex
+        for (Reference successorReference : context.referencesGraph.getOrdinaryIds().get(transferredFunVertex.getFunctionUniqueName()).getSuccessors()) {
+            if (!successorReference.isInsideNotEvaluatedExpr()
+                    && successorReference.getType() == Reference.Type.CALL
+                    && successorReference.getReferencedNode().getKind() == EntityNode.Kind.FUNCTION
+                    && context.functions.containsKey(successorReference.getReferencedNode().getUniqueName())) {
+                final String successorBank = context.getTargetBank(context.functions.get(
+                        successorReference.getReferencedNode().getUniqueName())).get();
+                final int previousValue = Optional.fromNullable(diffMap.get(
+                        successorReference.getReferencedNode().getUniqueName())).or(0);
+                final Optional<Integer> newValue;
 
-            if (oldBank.equals(otherFunBank)) {
-                newValue = Optional.of(previousValue - edge.getWeight());
-            } else if (newBank.equals(otherFunBank)) {
-                newValue = Optional.of(previousValue + edge.getWeight());
-                newInnerWeight += edge.getWeight();
-            } else {
-                newValue = Optional.absent();
+                if (oldBank.equals(successorBank)) {
+                    newValue = Optional.of(previousValue - 1);
+                } else if (newBank.equals(successorBank)) {
+                    newValue = Optional.of(previousValue + 1);
+                } else {
+                    newValue = Optional.absent();
+                }
+
+                if (newValue.isPresent()) {
+                    diffMap.put(successorReference.getReferencedNode().getUniqueName(), newValue.get());
+                }
             }
+        }
 
-            if (newValue.isPresent()) {
-                diffMap.put(otherVertex.getFunctionUniqueName(), newValue.get());
+        // Iterate over predecessors of the transferred vertex
+        for (Reference predecessorReference : context.referencesGraph.getOrdinaryIds().get(transferredFunVertex.getFunctionUniqueName()).getPredecessors()) {
+            if (!predecessorReference.isInsideNotEvaluatedExpr()
+                    && predecessorReference.getType() == Reference.Type.CALL
+                    && predecessorReference.getReferencingNode().getKind() == EntityNode.Kind.FUNCTION) {
+                ++newInnerWeight;
             }
         }
 
@@ -835,6 +850,11 @@ public final class TabuSearchCodePartitioner implements CodePartitioner {
         private final SwitchingGraph switchingGraph;
 
         /**
+         * The graph that represents references between entities in the program.
+         */
+        private final ReferencesGraph referencesGraph;
+
+        /**
          * Map with all functions to partition. Keys are their unique names and
          * values are their definitions.
          */
@@ -852,6 +872,9 @@ public final class TabuSearchCodePartitioner implements CodePartitioner {
 
             // Switching graph
             this.switchingGraph = new SwitchingGraph(functions, refsGraph);
+
+            // References graph
+            this.referencesGraph = refsGraph;
 
             // Map of functions
             final ImmutableMap.Builder<String, FunctionDecl> functionsBuilder =
