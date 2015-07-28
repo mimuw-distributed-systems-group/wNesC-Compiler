@@ -49,6 +49,25 @@ public class NavigableInverseMap<K, V> implements Map<K, V> {
      */
     private final Collection<V> unmodifiableValuesSet = Collections.unmodifiableCollection(mapping.values());
 
+    /**
+     * Constructs an empty navigable inverse map.
+     */
+    public NavigableInverseMap() {
+        // nothing to do
+    }
+
+    /**
+     * Constructs a navigable inverse map with the same mappings as in
+     * <code>otherMap</code>.
+     *
+     * @param otherMap Mappings that will be present in this map after the
+     *                 construction finishes.
+     */
+    public NavigableInverseMap(Map<? extends K, ? extends V> otherMap) {
+        checkNotNull(otherMap, "the map cannot be null");
+        putAll(otherMap);
+    }
+
     @Override
     public void clear() {
         mapping.clear();

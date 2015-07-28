@@ -51,7 +51,7 @@ public class DynamicPartitionContext extends PartitionContext {
      * Set with names of banks whose capacity is exceeded by the current
      * assignment.
      */
-    private final Set<String> overloadedBanks;
+    private final NavigableSet<String> overloadedBanks;
 
     /**
      * Map with banks that are empty. Keys are their capacities and
@@ -61,7 +61,7 @@ public class DynamicPartitionContext extends PartitionContext {
     /**
      * Unmodifiable view of the set with overloaded banks.
      */
-    private final Set<String> unmodifiableOverloadedBanks;
+    private final SortedSet<String> unmodifiableOverloadedBanks;
 
     /**
      * Unmodifiable view of the set with empty banks.
@@ -76,7 +76,7 @@ public class DynamicPartitionContext extends PartitionContext {
         this.freeSpace = builder.buildFreeSpaceMap();
         this.overloadedBanks = builder.buildOverloadedBanks();
         this.emptyBanks = builder.buildEmptyBanks();
-        this.unmodifiableOverloadedBanks = Collections.unmodifiableSet(this.overloadedBanks);
+        this.unmodifiableOverloadedBanks = Collections.unmodifiableSortedSet(this.overloadedBanks);
         this.unmodifiableEmptyBanks = Collections.unmodifiableSortedSet(this.emptyBanks);
     }
 
@@ -190,7 +190,7 @@ public class DynamicPartitionContext extends PartitionContext {
      *
      * @return Unmodifiable set of overloaded banks.
      */
-    public Set<String> getOverloadedBanks() {
+    public SortedSet<String> getOverloadedBanks() {
         return unmodifiableOverloadedBanks;
     }
 
@@ -222,7 +222,7 @@ public class DynamicPartitionContext extends PartitionContext {
 
     private interface PrivateBuilder {
         Map<String, Integer> buildFreeSpaceMap();
-        Set<String> buildOverloadedBanks();
+        NavigableSet<String> buildOverloadedBanks();
         NavigableSet<String> buildEmptyBanks();
     }
 
@@ -243,8 +243,8 @@ public class DynamicPartitionContext extends PartitionContext {
         }
 
         @Override
-        public Set<String> buildOverloadedBanks() {
-            return new HashSet<>();
+        public NavigableSet<String> buildOverloadedBanks() {
+            return new TreeSet<>();
         }
 
         @Override

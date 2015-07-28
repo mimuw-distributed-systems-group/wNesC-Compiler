@@ -45,7 +45,7 @@ public final class Options8051Validator {
                     + "(?<bankCapacity>\\d+)");
 
     private static final Pattern REGEXP_PARTITION_HEURISTIC =
-            Pattern.compile("simple|greedy-(?<greedyPreValue>[1-9]\\d*)|bcomponents|tmsearch");
+            Pattern.compile("simple|greedy-(?<greedyPreValue>[1-9]\\d*)|bcomponents|tmsearch-(?<tmsearchMaxIterCount>\\d+)-(?<tmsearchMaxFruitlessIterCount>\\d+)");
 
     /**
      * Set with SDCC parameters that cannot be specified by the option.
@@ -159,6 +159,11 @@ public final class Options8051Validator {
         return value.isPresent() && value.get().isEmpty()
                 ? Optional.of(optionText + " cannot be empty")
                 : Optional.<String>absent();
+    }
+
+    private boolean checkNotGreaterThanMaxInt(String value) {
+        final BigInteger valueBigInt = new BigInteger(value);
+        return valueBigInt.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) <= 0;
     }
 
     /**
@@ -366,6 +371,21 @@ public final class Options8051Validator {
 
             if (!matcher.matches()) {
                 return Optional.of(msgPrefix + "invalid kind of heuristic '" + value.get() + "'");
+            } else if (value.get().startsWith("greedy-")) {
+                return checkNotGreaterThanMaxInt(matcher.group("greedyPreValue"))
+                        ? Optional.<String>absent()
+                        : Optional.of(msgPrefix + "value of the parameter for the greedy heuristic exceeds "
+                            + Integer.MAX_VALUE);
+            } else if (value.get().startsWith("tmsearch-")) {
+                if (!checkNotGreaterThanMaxInt(matcher.group("tmsearchMaxIterCount"))) {
+                    return Optional.of(msgPrefix + "maximum count of iterations exceeds "
+                            + Integer.MAX_VALUE);
+                } else if (!checkNotGreaterThanMaxInt(matcher.group("tmsearchMaxFruitlessIterCount"))) {
+                    return Optional.of(msgPrefix + "maximum count of consecutive fruitless iterations exceeds "
+                            + Integer.MAX_VALUE);
+                } else {
+                    return Optional.absent();
+                }
             } else {
                 return Optional.absent();
             }

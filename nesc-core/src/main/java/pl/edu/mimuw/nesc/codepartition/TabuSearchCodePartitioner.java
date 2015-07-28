@@ -4,15 +4,21 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Range;
 import com.google.common.collect.TreeMultimap;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import java.util.NavigableSet;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeSet;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
@@ -46,11 +52,34 @@ public final class TabuSearchCodePartitioner implements CodePartitioner {
      */
     private final CommonBankAllocator commonBankAllocator;
 
-    public TabuSearchCodePartitioner(BankSchema bankSchema, AtomicSpecification atomicSpec) {
+    /**
+     * Comparator used to identify the best solution. Solutions that are greater
+     * than others according to the comparator are considered better.
+     */
+    private final Comparator<Solution> solutionComparator;
+
+    /**
+     * Limit for the total amount of iterations made by the tabu search.
+     */
+    private final int maximumIterationsCount;
+
+    /**
+     * Limit for the total amount of consecutive iterations made by the tabu
+     * search in which the best solution is not improved.
+     */
+    private final int maximumFruitlessIterationsCount;
+
+    public TabuSearchCodePartitioner(BankSchema bankSchema, AtomicSpecification atomicSpec,
+            int maximumIterationsCount, int maximumFruitlessIterationsCount) {
         checkNotNull(bankSchema, "bank schema cannot be null");
         checkNotNull(atomicSpec, "atomic specification cannot be null");
+        checkArgument(maximumIterationsCount >= 0, "maximum iterations count cannot be negative");
+        checkArgument(maximumFruitlessIterationsCount >= 0, "maximum fruitless iterations count cannot negative");
         this.bankSchema = bankSchema;
         this.commonBankAllocator = new CommonBankAllocator(atomicSpec);
+        this.solutionComparator = new SolutionComparator();
+        this.maximumIterationsCount = maximumIterationsCount;
+        this.maximumFruitlessIterationsCount = maximumFruitlessIterationsCount;
     }
 
     @Override
@@ -71,6 +100,7 @@ public final class TabuSearchCodePartitioner implements CodePartitioner {
         final ImmutableList<FunctionDecl> remainingFuns = allocateToCommonBank(context, functions);
         computeKCut(context, remainingFuns);
         tune(context);
+        tmsearch(context);
 
         return context.finish();
     }
@@ -140,8 +170,8 @@ public final class TabuSearchCodePartitioner implements CodePartitioner {
         final FindUnionSet<String> verticesSet = new FindUnionSet<>(graph.getVertices());
 
         while (verticesSet.size() > 1) {
-            final String currentSet = verticesSet.getAllRepresentatives().iterator().next();
-            final ImmutableMap<String, Integer> weightsToOtherSets =
+            final String currentSet = Collections.min(verticesSet.getAllRepresentatives());
+            final ImmutableSortedMap<String, Integer> weightsToOtherSets =
                     computeWeightsToOtherSets(currentSet, verticesSet, graph);
 
             int totalWeight = 0;
@@ -164,7 +194,7 @@ public final class TabuSearchCodePartitioner implements CodePartitioner {
         return currentMin;
     }
 
-    private ImmutableMap<String, Integer> computeWeightsToOtherSets(String currentSet,
+    private ImmutableSortedMap<String, Integer> computeWeightsToOtherSets(String currentSet,
                 FindUnionSet<String> verticesSet, SwitchingGraph.Subgraph graph) {
         currentSet = verticesSet.find(currentSet);
         final Map<String, Integer> weightsToOtherSets = new HashMap<>();
@@ -202,7 +232,7 @@ public final class TabuSearchCodePartitioner implements CodePartitioner {
             }
         }
 
-        return ImmutableMap.copyOf(weightsToOtherSets);
+        return ImmutableSortedMap.copyOf(weightsToOtherSets);
     }
 
     private Cut generateCut(String extractedSet, FindUnionSet<String> verticesSets,
@@ -412,6 +442,145 @@ public final class TabuSearchCodePartitioner implements CodePartitioner {
         }
 
         return new WeightsDifference(ImmutableMap.copyOf(diffMap), newInnerWeight);
+    }
+
+    private void tmsearch(TabuSearchPartitionContext context) {
+        final TabuList tabuList = new TabuList(context.functions.size(),
+                context.functions.size(), bankSchema.getBanksNames().size());
+        Solution current = new Solution(context);
+        Solution best = current;
+        int iterationsCount = 0, fruitlessIterationsCount = 0;
+
+        while (iterationsCount < maximumIterationsCount
+                && fruitlessIterationsCount < maximumFruitlessIterationsCount) {
+            final Optional<Solution> bestAllowedNeighbour = computeBestAllowedNeighbour(context,
+                    current, tabuList, context.referencesGraph);
+
+            if (bestAllowedNeighbour.isPresent()) {
+                current = bestAllowedNeighbour.get();
+            }
+
+            if (bestAllowedNeighbour.isPresent() && solutionComparator.compare(bestAllowedNeighbour.get(), best) > 0) {
+                best = bestAllowedNeighbour.get();
+                fruitlessIterationsCount = 0;
+            } else {
+                ++fruitlessIterationsCount;
+            }
+
+            tabuList.incrementTime();
+            ++iterationsCount;
+        }
+
+        for (Map.Entry<String, String> allocationEntry : best.getAllocation().entrySet()) {
+            context.remove(context.functions.get(allocationEntry.getKey()));
+            context.assign(context.functions.get(allocationEntry.getKey()),
+                    allocationEntry.getValue());
+        }
+    }
+
+    private Optional<Solution> computeBestAllowedNeighbour(TabuSearchPartitionContext context,
+                Solution startSolution, TabuList tabu, ReferencesGraph refsGraph) {
+        final MutableSolution neighbourhood = new MutableSolution(startSolution, refsGraph);
+        Optional<Solution> bestNeighbourhood = Optional.absent();
+        Optional<ImmutableSet<String>> bestMovedFunctions = Optional.absent();
+        final Set<String> movedFunctions = new HashSet<>();
+
+        for (Map.Entry<String, String> allocationEntry : startSolution.getAllocation().entrySet()) {
+            if (context.fixedFunctions.contains(allocationEntry.getKey())) {
+                continue;
+            }
+
+            for (String bankName : bankSchema.getBanksNames()) {
+                if (bankName.equals(allocationEntry.getValue())) {
+                    continue;
+                }
+
+                // Update the set of moved functions
+                movedFunctions.clear();
+                movedFunctions.add(allocationEntry.getKey());
+
+                // Move the function to the new bank
+                neighbourhood.move(allocationEntry.getKey(), bankName);
+
+                /* Check if the solution is feasible and if no, try to correct
+                   it. */
+                if (!correctNeighbourhood(context, neighbourhood, allocationEntry.getValue(),
+                        bankName, allocationEntry.getKey(), movedFunctions)) {
+                    neighbourhood.move(allocationEntry.getKey(), allocationEntry.getValue());
+                    continue;
+                }
+
+                if ((!bestNeighbourhood.isPresent()
+                        || bestNeighbourhood.get().getNonBankedFunctionsCount() < neighbourhood.nonBankedFunctionsCount)
+                        && tabu.isAllowed(neighbourhood.allocation, movedFunctions)) {
+                    bestNeighbourhood = Optional.of(new Solution(neighbourhood));
+                    bestMovedFunctions = Optional.of(ImmutableSet.copyOf(movedFunctions));
+                }
+
+                restoreSolution(neighbourhood, allocationEntry.getKey(), allocationEntry.getValue(),
+                        bankName, movedFunctions);
+            }
+        }
+
+        if (bestNeighbourhood.isPresent()) {
+            tabu.update(bestNeighbourhood.get(), bestMovedFunctions.get());
+        }
+
+        return bestNeighbourhood;
+    }
+
+    private boolean correctNeighbourhood(TabuSearchPartitionContext context, MutableSolution neighbourhood,
+                String targetBankName, String sourceBankName, String fixedFunction,
+                Set<String> movedFunctions) {
+        if (neighbourhood.freeSpace.get(sourceBankName) < 0) {
+            final int surplus = -neighbourhood.freeSpace.get(sourceBankName);
+            final SortedMap<Integer, NavigableSet<String>> correctingFunctions =
+                    neighbourhood.functionsSizes.get(sourceBankName).inverseMap().tailMap(surplus);
+            Optional<String> correctingFunction = Optional.absent();
+
+            for (Map.Entry<Integer, NavigableSet<String>> correctingEntry : correctingFunctions.entrySet()) {
+                if (correctingEntry.getKey() > neighbourhood.freeSpace.get(targetBankName)) {
+                    break;
+                }
+                for (String correctingFunctionCandidate : correctingEntry.getValue()) {
+                    if (!correctingFunctionCandidate.equals(fixedFunction)
+                            && !context.fixedFunctions.contains(correctingFunctionCandidate)) {
+                        correctingFunction = Optional.of(correctingFunctionCandidate);
+                        break;
+                    }
+                }
+            }
+
+            if (correctingFunction.isPresent()) {
+                movedFunctions.add(correctingFunction.get());
+                neighbourhood.move(correctingFunction.get(), targetBankName);
+                if (neighbourhood.freeSpace.get(sourceBankName) < 0
+                        || neighbourhood.freeSpace.get(targetBankName) < 0) {
+                    throw new RuntimeException("overloaded bank after correction");
+                }
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            return true;
+        }
+    }
+
+    private void restoreSolution(MutableSolution neighbourhood, String originalFunction,
+                String originalBank, String newBank, Set<String> movedFunctions) {
+        int restoredFunsCount = 0;
+        for (String movedFun : movedFunctions) {
+            if (restoredFunsCount == 2) {
+                throw new RuntimeException("too many moved functions: " + movedFunctions.size());
+            }
+            if (movedFun.equals(originalFunction)) {
+                neighbourhood.move(movedFun, originalBank);
+            } else {
+                neighbourhood.move(movedFun, newBank);
+            }
+            ++restoredFunsCount;
+        }
     }
 
     /**
@@ -913,6 +1082,594 @@ public final class TabuSearchCodePartitioner implements CodePartitioner {
 
         private int getNewWeightForTransferredFunction() {
             return newWeightForTransferredFunction;
+        }
+    }
+
+    /**
+     * A single partition of functions into banks.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class Solution implements Comparable<Solution> {
+        /**
+         * Map from names of functions to names of banks they are allocated to.
+         */
+        private final ImmutableSortedMap<String, String> allocation;
+
+        /**
+         * Map from names of functions to counts of calls made by callers of
+         * these functions from other banks.
+         */
+        private final ImmutableMap<String, Integer> callsFromOtherBanks;
+
+        /**
+         * Count of non-banked functions in this solution.
+         */
+        private final int nonBankedFunctionsCount;
+
+        /**
+         * Map from names of banks to amounts of free space in them in this
+         * partition.
+         */
+        private final ImmutableMap<String, Integer> freeSpace;
+
+        /**
+         * Map from names of banks to maps with sizes for functions allocated to
+         * these banks.
+         */
+        private final ImmutableMap<String, NavigableInverseMap<String, Integer>> functionsSizes;
+
+        private Solution(TabuSearchPartitionContext context) {
+            checkNotNull(context, "context cannot be null");
+            final PrivateBuilder builder = new FromTabuSearchContextBuilder(context);
+            this.allocation = builder.buildAllocation();
+            this.callsFromOtherBanks = builder.buildCallsFromOtherBanks();
+            this.nonBankedFunctionsCount = builder.buildNonBankedFunctionsCount();
+            this.freeSpace = builder.buildFreeSpace();
+            this.functionsSizes = builder.buildFunctionsSizes();
+        }
+
+        private Solution(MutableSolution mutableSolution) {
+            checkNotNull(mutableSolution, "mutable solution cannot be null");
+            final PrivateBuilder builder = new FromMutableSolutionBuilder(mutableSolution);
+            this.allocation = builder.buildAllocation();
+            this.callsFromOtherBanks = builder.buildCallsFromOtherBanks();
+            this.nonBankedFunctionsCount = builder.buildNonBankedFunctionsCount();
+            this.freeSpace = builder.buildFreeSpace();
+            this.functionsSizes = builder.buildFunctionsSizes();
+        }
+
+        private ImmutableMap<String, String> getAllocation() {
+            return allocation;
+        }
+
+        private ImmutableMap<String, Integer> getCallsFromOtherBanks() {
+            return callsFromOtherBanks;
+        }
+
+        private int getNonBankedFunctionsCount() {
+            return nonBankedFunctionsCount;
+        }
+
+        private ImmutableMap<String, Integer> getFreeSpace() {
+            return freeSpace;
+        }
+
+        private ImmutableMap<String, NavigableInverseMap<String, Integer>> getFunctionsSizes() {
+            return functionsSizes;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return other != null && getClass() == other.getClass()
+                    && allocation.equals(((Solution) other).allocation);
+        }
+
+        @Override
+        public int hashCode() {
+            return allocation.hashCode();
+        }
+
+        @Override
+        public int compareTo(Solution otherSolution) {
+            checkNotNull(otherSolution, "the other solution cannot be null");
+
+            final Iterator<Map.Entry<String, String>> thisIt = allocation.entrySet().iterator(),
+                otherIt = otherSolution.getAllocation().entrySet().iterator();
+
+            /* For each iteration the key returned by an iterator is greater
+               than the key returned in the previous iteration because
+               allocations are represented by sorted maps. */
+            while (thisIt.hasNext() && otherIt.hasNext()) {
+                final Map.Entry<String, String> thisEntry = thisIt.next(),
+                        otherEntry = otherIt.next();
+
+                final int funNameResult = thisEntry.getKey().compareTo(otherEntry.getKey());
+                if (funNameResult != 0) {
+                    return funNameResult;
+                }
+
+                final int targetBankResult = thisEntry.getValue().compareTo(otherEntry.getValue());
+                if (targetBankResult != 0) {
+                    return targetBankResult;
+                }
+            }
+
+            return thisIt.hasNext()
+                    ? 1
+                    : (otherIt.hasNext() ? -1 : 0);
+        }
+
+        /**
+         * Interface for building particular elements of a solution.
+         *
+         * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+         */
+        private interface PrivateBuilder {
+            ImmutableSortedMap<String, String> buildAllocation();
+            ImmutableMap<String, Integer> buildCallsFromOtherBanks();
+            int buildNonBankedFunctionsCount();
+            ImmutableMap<String, Integer> buildFreeSpace();
+            ImmutableMap<String, NavigableInverseMap<String, Integer>> buildFunctionsSizes();
+        }
+
+        /**
+         * Implementation of the builder for constructing a solution from
+         * a tabu search context.
+         *
+         * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+         */
+        private final static class FromTabuSearchContextBuilder implements PrivateBuilder {
+            private final TabuSearchPartitionContext context;
+            private boolean callsFromOtherBanksBuilt;
+            private final Map<String, Integer> callsFromOtherBanks;
+
+            private FromTabuSearchContextBuilder(TabuSearchPartitionContext context) {
+                checkNotNull(context, "context cannot be null");
+                this.context = context;
+                this.callsFromOtherBanksBuilt = false;
+                this.callsFromOtherBanks = new HashMap<>();
+            }
+
+            @Override
+            public ImmutableSortedMap<String, String> buildAllocation() {
+                final ImmutableSortedMap.Builder<String, String> allocationBuilder =
+                        ImmutableSortedMap.naturalOrder();
+                for (String bankName : context.getBankTable().getSchema().getBanksNames()) {
+                    for (FunctionDecl function : context.getBankContents(bankName)) {
+                        final String funUniqueName = DeclaratorUtils.getUniqueName(
+                                function.getDeclarator()).get();
+                        allocationBuilder.put(funUniqueName, bankName);
+                    }
+                }
+                return allocationBuilder.build();
+            }
+
+            @Override
+            public ImmutableMap<String, Integer> buildCallsFromOtherBanks() {
+                addCallsFromOtherBanks();
+                return ImmutableMap.copyOf(callsFromOtherBanks);
+            }
+
+            private void addCallsFromOtherBanks() {
+                if (callsFromOtherBanksBuilt) {
+                    return;
+                }
+
+                callsFromOtherBanksBuilt = true;
+
+                for (String bankName : context.getBankTable().getSchema().getBanksNames()) {
+                    final Set<FunctionDecl> bankContents = context.getBankContents(bankName);
+
+                    for (FunctionDecl function : context.getBankContents(bankName)) {
+                        final String funUniqueName = DeclaratorUtils.getUniqueName(
+                                function.getDeclarator()).get();
+                        callsFromOtherBanks.put(funUniqueName, 0);
+
+                        for (Reference predecessorReference : context.referencesGraph.getOrdinaryIds().get(funUniqueName).getPredecessors()) {
+                            if (!predecessorReference.isInsideNotEvaluatedExpr()
+                                    && predecessorReference.getType() == Reference.Type.CALL
+                                    && predecessorReference.getReferencingNode().getKind() == EntityNode.Kind.FUNCTION
+                                    && !bankContents.contains(context.functions.get(predecessorReference.getReferencingNode().getUniqueName()))) {
+                                callsFromOtherBanks.put(funUniqueName, callsFromOtherBanks.get(funUniqueName) + 1);
+                            }
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public int buildNonBankedFunctionsCount() {
+                addCallsFromOtherBanks();
+                int nonBankedFunctionsCount = 0;
+                for (int otherBanksCallsCount : callsFromOtherBanks.values()) {
+                    if (otherBanksCallsCount == 0) {
+                        ++nonBankedFunctionsCount;
+                    }
+                }
+                return nonBankedFunctionsCount;
+            }
+
+            @Override
+            public ImmutableMap<String, Integer> buildFreeSpace() {
+                final ImmutableMap.Builder<String, Integer> freeSpaceBuilder =
+                        ImmutableMap.builder();
+                for (String bankName : context.getBankTable().getSchema().getBanksNames()) {
+                    freeSpaceBuilder.put(bankName, context.getFreeSpace(bankName));
+                }
+                return freeSpaceBuilder.build();
+            }
+
+            @Override
+            public ImmutableMap<String, NavigableInverseMap<String, Integer>> buildFunctionsSizes() {
+                final ImmutableMap.Builder<String, NavigableInverseMap<String, Integer>> functionsSizesBuilder =
+                        ImmutableMap.builder();
+                for (String bankName : context.getBankTable().getBanksNames()) {
+                    final NavigableInverseMap<String, Integer> bankFunctionsSizes =
+                            new NavigableInverseMap<>();
+                    functionsSizesBuilder.put(bankName, bankFunctionsSizes);
+
+                    for (FunctionDecl function : context.getBankContents(bankName)) {
+                        final String funUniqueName = DeclaratorUtils.getUniqueName(
+                                function.getDeclarator()).get();
+                        bankFunctionsSizes.put(funUniqueName, context.getFunctionSize(function));
+                    }
+                }
+                return functionsSizesBuilder.build();
+            }
+        }
+
+        /**
+         * Implementation of a builder that creates elements of a solution
+         * from a mutable solution.
+         *
+         * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+         */
+        private static final class FromMutableSolutionBuilder implements PrivateBuilder {
+            private final MutableSolution mutableSolution;
+
+            private FromMutableSolutionBuilder(MutableSolution mutableSolution) {
+                checkNotNull(mutableSolution, "mutable solution cannot be null");
+                this.mutableSolution = mutableSolution;
+            }
+
+            @Override
+            public ImmutableSortedMap<String, String> buildAllocation() {
+                return ImmutableSortedMap.copyOf(mutableSolution.allocation);
+            }
+
+            @Override
+            public ImmutableMap<String, Integer> buildCallsFromOtherBanks() {
+                return ImmutableMap.copyOf(mutableSolution.callsFromOtherBanks);
+            }
+
+            @Override
+            public int buildNonBankedFunctionsCount() {
+                return mutableSolution.nonBankedFunctionsCount;
+            }
+
+            @Override
+            public ImmutableMap<String, Integer> buildFreeSpace() {
+                return ImmutableMap.copyOf(mutableSolution.freeSpace);
+            }
+
+            @Override
+            public ImmutableMap<String, NavigableInverseMap<String, Integer>> buildFunctionsSizes() {
+                final ImmutableMap.Builder<String, NavigableInverseMap<String, Integer>> functionsSizesBuilder =
+                        ImmutableMap.builder();
+                for (Map.Entry<String, NavigableInverseMap<String, Integer>> sizeEntry : mutableSolution.functionsSizes.entrySet()) {
+                    functionsSizesBuilder.put(sizeEntry.getKey(), new NavigableInverseMap<>(sizeEntry.getValue()));
+                }
+                return functionsSizesBuilder.build();
+            }
+        }
+    }
+
+    /**
+     * Mutable data structures from an ordinary solution.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class MutableSolution {
+        /**
+         * Graph of references between entities in the program.
+         */
+        private final ReferencesGraph refsGraph;
+
+        /**
+         * Map from names of functions to names of banks they are allocated to.
+         */
+        private final Map<String, String> allocation;
+
+        /**
+         * Map from names of functions to counts of calls made by callers of
+         * these functions from other banks.
+         */
+        private final Map<String, Integer> callsFromOtherBanks;
+
+        /**
+         * Count of non-banked functions in this solution.
+         */
+        private int nonBankedFunctionsCount;
+
+        /**
+         * Map from names of banks to amounts of free space in them in this
+         * partition.
+         */
+        private final Map<String, Integer> freeSpace;
+
+        /**
+         * Map from names of banks to maps with sizes for functions allocated to
+         * these banks.
+         */
+        private final Map<String, NavigableInverseMap<String, Integer>> functionsSizes;
+
+        private MutableSolution(Solution solution, ReferencesGraph refsGraph) {
+            checkNotNull(solution, "solution cannot be null");
+            checkNotNull(refsGraph, "references graph cannot be null");
+            this.refsGraph = refsGraph;
+            this.allocation = new HashMap<>(solution.getAllocation());
+            this.callsFromOtherBanks = new HashMap<>(solution.getCallsFromOtherBanks());
+            this.nonBankedFunctionsCount = solution.getNonBankedFunctionsCount();
+            this.freeSpace = new HashMap<>(solution.getFreeSpace());
+            this.functionsSizes = new HashMap<>();
+            for (Map.Entry<String, NavigableInverseMap<String, Integer>> bankEntry : solution.getFunctionsSizes().entrySet()) {
+                this.functionsSizes.put(bankEntry.getKey(), new NavigableInverseMap<>(bankEntry.getValue()));
+            }
+        }
+
+        private void move(String funUniqueName, String targetBankName) {
+            checkNotNull(funUniqueName, "unique name of the function cannot be null");
+            checkNotNull(targetBankName, "name of the target bank cannot be null");
+            checkState(allocation.containsKey(funUniqueName), "function with given name is not assigned to any bank");
+            checkArgument(freeSpace.containsKey(targetBankName), "name of the target bank is invalid");
+
+            final String sourceBankName = allocation.get(funUniqueName);
+
+            if (sourceBankName.equals(targetBankName)) {
+                return;
+            }
+
+            updateCallsFromOtherBanks(funUniqueName, targetBankName);
+            allocation.put(funUniqueName, targetBankName);
+
+            final int funSize = functionsSizes.get(sourceBankName).get(funUniqueName);
+            freeSpace.put(sourceBankName, freeSpace.get(sourceBankName) + funSize);
+            freeSpace.put(targetBankName, freeSpace.get(targetBankName) - funSize);
+            functionsSizes.get(sourceBankName).remove(funUniqueName);
+            functionsSizes.get(targetBankName).put(funUniqueName, funSize);
+        }
+
+        private void updateCallsFromOtherBanks(String funUniqueName, String targetBankName) {
+            final String sourceBankName = allocation.get(funUniqueName);
+            final int originalCallsCount = callsFromOtherBanks.get(funUniqueName);
+
+            // Iterate over successors
+            for (Reference successorReference : refsGraph.getOrdinaryIds().get(funUniqueName).getSuccessors()) {
+                if (!successorReference.isInsideNotEvaluatedExpr()
+                        && successorReference.getType() == Reference.Type.CALL
+                        && successorReference.getReferencedNode().getKind() == EntityNode.Kind.FUNCTION
+                        && allocation.containsKey(successorReference.getReferencedNode().getUniqueName())
+                        && !successorReference.getReferencedNode().getUniqueName().equals(funUniqueName)) {
+                    final String successorFunBank = allocation.get(successorReference.getReferencedNode().getUniqueName());
+                    final int previousValue = callsFromOtherBanks.get(successorReference.getReferencedNode().getUniqueName());
+                    final Optional<Integer> newValue;
+
+                    if (successorFunBank.equals(targetBankName)) {
+                        newValue = Optional.of(previousValue - 1);
+                    } else if (successorFunBank.equals(sourceBankName)) {
+                        newValue = Optional.of(previousValue + 1);
+                    } else {
+                        newValue = Optional.absent();
+                    }
+
+                    if (newValue.isPresent()) {
+                        if (newValue.get() < 0) {
+                            throw new RuntimeException("new value of count of calls from other banks is negative");
+                        }
+                        callsFromOtherBanks.put(successorReference.getReferencedNode().getUniqueName(),
+                                newValue.get());
+                        if (previousValue == 0) {
+                            --nonBankedFunctionsCount;
+                        } else if (newValue.get() == 0) {
+                            ++nonBankedFunctionsCount;
+                        }
+                    }
+                }
+            }
+
+            // Iterate over predecessors
+            int newCallsCount = 0;
+            for (Reference predecessorReference : refsGraph.getOrdinaryIds().get(funUniqueName).getPredecessors()) {
+                if (!predecessorReference.isInsideNotEvaluatedExpr()
+                        && predecessorReference.getType() == Reference.Type.CALL
+                        && predecessorReference.getReferencingNode().getKind() == EntityNode.Kind.FUNCTION
+                        && !allocation.get(predecessorReference.getReferencingNode().getUniqueName()).equals(targetBankName)) {
+                    ++newCallsCount;
+                }
+            }
+            callsFromOtherBanks.put(funUniqueName, newCallsCount);
+            if (newCallsCount != originalCallsCount) {
+                if (newCallsCount == 0) {
+                    ++nonBankedFunctionsCount;
+                } else if (originalCallsCount == 0) {
+                    --nonBankedFunctionsCount;
+                }
+            }
+        }
+    }
+
+    /**
+     * Tabu list for the tabu search.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class TabuList {
+        /**
+         * Maximum count of forbidden solutions.
+         */
+        private final int forbiddenSolutionsCount;
+
+        /**
+         * Amount of time that must elapse until a forbidden solution is again
+         * allowed.
+         */
+        private final int solutionExpirationTime;
+
+        /**
+         * Amount of time that must elapse until a forbidden vertex is again
+         * allowed.
+         */
+        private final int functionExpirationTime;
+
+        /**
+         * Set with allocations from forbidden solutions.
+         */
+        private final Set<Map<String, String>> forbiddenAllocations;
+
+        /**
+         * Multimap the a rating of a solution maps to solutions with that
+         * rating.
+         */
+        private final TreeMultimap<Integer, Solution> sortedForbiddenSolutions;
+
+        /**
+         * Map from forbidden solutions to their expiration times.
+         */
+        private final NavigableInverseMap<Solution, Integer> forbiddenSolutionsExpirationTimes;
+
+        /**
+         * Map from vertices that cannot be moved to their expiration times.
+         */
+        private final NavigableInverseMap<String, Integer> forbiddenFunctions;
+
+        /**
+         * The actual value of the time.
+         */
+        private int currentTime;
+
+        private TabuList(int forbiddenSolutionsCount, int solutionExpirationTime,
+                    int functionExpirationTime) {
+            checkArgument(forbiddenSolutionsCount > 0, "count of forbidden solutions must be positive");
+            checkArgument(solutionExpirationTime > 0, "solution expiration time must be positive");
+            checkArgument(functionExpirationTime > 0, "vertex expiration time must be positive");
+            this.forbiddenSolutionsCount = forbiddenSolutionsCount;
+            this.solutionExpirationTime = solutionExpirationTime;
+            this.functionExpirationTime = functionExpirationTime;
+            this.forbiddenAllocations = new HashSet<>();
+            this.sortedForbiddenSolutions = TreeMultimap.create();
+            this.forbiddenSolutionsExpirationTimes = new NavigableInverseMap<>();
+            this.forbiddenFunctions = new NavigableInverseMap<>();
+            this.currentTime = 0;
+        }
+
+        private boolean isAllowed(Map<String, String> allocation, Set<String> movedFunctions) {
+            checkNotNull(allocation, "allocation cannot be null");
+            checkNotNull(movedFunctions, "moved functions cannot be null");
+            return !forbiddenAllocations.contains(allocation)
+                    && Collections.disjoint(forbiddenFunctions.keySet(), movedFunctions);
+        }
+
+        private void incrementTime() {
+            ++currentTime;
+            removeExpiredSolutions();
+            removeExpiredFunctions();
+        }
+
+        private void removeExpiredSolutions() {
+            final List<Solution> solutionsForRemoval = new LinkedList<>();
+            final SortedMap<Integer, NavigableSet<Solution>> expiredSolutions =
+                    forbiddenSolutionsExpirationTimes.inverseMap().headMap(currentTime);
+
+            // Collect expired solutions
+            for (Map.Entry<Integer, NavigableSet<Solution>> expiredEntry : expiredSolutions.entrySet()) {
+                solutionsForRemoval.addAll(expiredEntry.getValue());
+            }
+
+            // Remove expired solutions
+            for (Solution expiredSolution : solutionsForRemoval) {
+                if (!forbiddenAllocations.remove(expiredSolution.getAllocation())) {
+                    throw new RuntimeException("allocation from an expired solution not contained in the set of allocations");
+                }
+                if (!sortedForbiddenSolutions.remove(expiredSolution.getNonBankedFunctionsCount(), expiredSolution)) {
+                    throw new RuntimeException("an expired solution not contained in the set of forbidden solutions");
+                }
+                if (forbiddenSolutionsExpirationTimes.remove(expiredSolution) == null) {
+                    throw new RuntimeException("an expired solution not contained in the map of forbidden solutions");
+                }
+            }
+        }
+
+        private void removeExpiredFunctions() {
+            final List<String> functionsForRemoval = new LinkedList<>();
+            final SortedMap<Integer, NavigableSet<String>> expiredFunctions =
+                    forbiddenFunctions.inverseMap().headMap(currentTime);
+
+            // Collect expired functions
+            for (Map.Entry<Integer, NavigableSet<String>> expiredEntry : expiredFunctions.entrySet()) {
+                functionsForRemoval.addAll(expiredEntry.getValue());
+            }
+
+            // Remove expired functions
+            for (String expiredFunction : functionsForRemoval) {
+                if (forbiddenFunctions.remove(expiredFunction) == null) {
+                    throw new RuntimeException("an expired function not contained in the map of forbidden functions");
+                }
+            }
+        }
+
+        private void update(Solution newForbiddenSolution, Set<String> newForbiddenFunctions) {
+            checkNotNull(newForbiddenSolution, "solution cannot be null");
+            checkNotNull(newForbiddenFunctions, "moved functions cannot be null");
+            checkState(!forbiddenAllocations.contains(newForbiddenSolution.getAllocation()),
+                    "the given solution is already forbidden");
+            checkState(Collections.disjoint(newForbiddenFunctions, forbiddenFunctions.keySet()),
+                    "one of the given functions is already forbidden");
+
+            // Add forbidden functions
+            for (String newForbiddenFunction : newForbiddenFunctions) {
+                forbiddenFunctions.put(newForbiddenFunction,
+                        currentTime + functionExpirationTime);
+            }
+
+            // Add the forbidden solution
+            forbiddenAllocations.add(newForbiddenSolution.getAllocation());
+            sortedForbiddenSolutions.put(newForbiddenSolution.getNonBankedFunctionsCount(),
+                    newForbiddenSolution);
+            forbiddenSolutionsExpirationTimes.put(newForbiddenSolution,
+                    currentTime + solutionExpirationTime);
+
+            /* Remove the worst solution if the count limit of forbidden
+               solutions is exceeded. */
+            if (sortedForbiddenSolutions.size() > forbiddenSolutionsCount) {
+                final Map.Entry<Integer, Solution> worstSolutionEntry = sortedForbiddenSolutions.entries().iterator().next();
+                sortedForbiddenSolutions.remove(worstSolutionEntry.getKey(), worstSolutionEntry.getValue());
+                if (!forbiddenAllocations.remove(worstSolutionEntry.getValue().getAllocation())) {
+                    throw new RuntimeException("allocation from superfluous solution is not contained in the set of forbidden allocations");
+                }
+                if (forbiddenSolutionsExpirationTimes.remove(worstSolutionEntry.getValue()) == null) {
+                    throw new RuntimeException("superfluous solution is absent in the map of forbidden solutions");
+                }
+            }
+            checkState(sortedForbiddenSolutions.size() <= forbiddenSolutionsCount,
+                    "count of forbidden solutions exceeds the limit after removal of the superfluous solutions");
+        }
+    }
+
+    /**
+     * Comparator for comparing solutions and determining better ones. The order
+     * of objects implemented by this comparator is the ascending order of
+     * counts of non-banked functions from solutions.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class SolutionComparator implements Comparator<Solution> {
+        @Override
+        public int compare(Solution solution1, Solution solution2) {
+            checkNotNull(solution1, "the first solution cannot be null");
+            checkNotNull(solution2, "the second solution cannot be null");
+            return Integer.compare(solution1.getNonBankedFunctionsCount(),
+                    solution2.getNonBankedFunctionsCount());
         }
     }
 }

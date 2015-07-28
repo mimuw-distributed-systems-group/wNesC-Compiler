@@ -442,8 +442,11 @@ public final class Main {
         } else if (partitionHeuristic.equals("bcomponents")) {
             partitioner = new BComponentsCodePartitioner(bankSchema, atomicSpecification,
                     new DefaultCompilationListener());
-        } else if (partitionHeuristic.equals("tmsearch")) {
-            partitioner = new TabuSearchCodePartitioner(bankSchema, atomicSpecification);
+        } else if (partitionHeuristic.startsWith("tmsearch-")) {
+            final int lastDashPos = partitionHeuristic.lastIndexOf('-');
+            partitioner = new TabuSearchCodePartitioner(bankSchema, atomicSpecification,
+                    Integer.parseInt(partitionHeuristic.substring(9, lastDashPos)),
+                    Integer.parseInt(partitionHeuristic.substring(lastDashPos + 1)));
         } else if (partitionHeuristic.startsWith("greedy-")) {
             partitioner = new GreedyCodePartitioner(bankSchema, atomicSpecification,
                     Integer.parseInt(partitionHeuristic.substring(7)));
