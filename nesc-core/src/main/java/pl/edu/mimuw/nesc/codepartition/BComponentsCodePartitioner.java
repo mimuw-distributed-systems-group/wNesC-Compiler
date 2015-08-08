@@ -29,7 +29,6 @@ import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.codepartition.context.PartitionContext;
 import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
-import pl.edu.mimuw.nesc.common.util.DoubleSumIntervalTreeOperation;
 import pl.edu.mimuw.nesc.common.util.IntegerSumIntervalTreeOperation;
 import pl.edu.mimuw.nesc.common.util.IntervalTree;
 import pl.edu.mimuw.nesc.compilation.CompilationListener;
@@ -236,9 +235,6 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                         + allocation.direction + "'");
         }
 
-        context.gains.get(allocation.bankName).set(allocation.vertex.getDfsTreeNumber(),
-                computeGain(allocation.vertex));
-
         final Queue<FunctionVertex> queue = new ArrayDeque<>();
         final Set<FunctionVertex> visitedVertices = new HashSet<>();
         int allocatedFunctionsCount = 0;
@@ -256,9 +252,6 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                         visitedVertices.add(dfsTreeChild);
                         queue.add(dfsTreeChild);
                     }
-                } else {
-                    context.gains.get(dfsTreeChild.getTargetBank().get())
-                            .set(dfsTreeChild.getDfsTreeNumber(), 0.);
                 }
             }
 
@@ -345,9 +338,11 @@ public class BComponentsCodePartitioner implements CodePartitioner {
     private void addRootAllocation(Collection<TreeAllocation> candidateAllocations,
                 BComponentsPartitionContext context, FunctionVertex treeRoot,
                 int allFunctionsSize) {
-        // Check if all functions fit in a bank
-        addBestGainAllocation(context, candidateAllocations, treeRoot, treeRoot,
-                AllocationDirection.DOWN_TREE, allFunctionsSize);
+        final Optional<String> targetBank = context.getFloorBank(allFunctionsSize);
+        if (targetBank.isPresent()) {
+            candidateAllocations.add(new TreeAllocation(treeRoot, treeRoot,
+                    AllocationDirection.DOWN_TREE, targetBank.get(), allFunctionsSize));
+        }
     }
 
     private void addTreeAllocation(Collection<TreeAllocation> allocations,
@@ -369,85 +364,11 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                 throw new RuntimeException("unexpected allocation direction " + direction);
         }
 
-        addBestGainAllocation(context, allocations, treeRoot, cutVertex,
-                    direction, functionsSize);
-    }
-
-    private void addBestGainAllocation(
-            BComponentsPartitionContext context,
-            Collection<TreeAllocation> allocations,
-            FunctionVertex treeRoot,
-            FunctionVertex allocationVertex,
-            AllocationDirection direction,
-            int functionsSize
-    ) {
-        Optional<Double> bestGain = Optional.absent();
-        Optional<String> bestBank = Optional.absent();
-
-        for (String bankName : bankSchema.getBanksNames()) {
-            if (context.getBankTable().getFreeSpace(bankName) >= functionsSize) {
-                final double gain = computeGainForAllocation(context, treeRoot,
-                        allocationVertex, direction, bankName);
-                if (!bestGain.isPresent() || gain > bestGain.get()
-                        || gain == bestGain.get() && bankName.equals(bankSchema.getCommonBankName())) {
-                    bestGain = Optional.of(gain);
-                    bestBank = Optional.of(bankName);
-                }
-            }
+        final Optional<String> targetBank = context.getFloorBank(functionsSize);
+        if (targetBank.isPresent()) {
+            allocations.add(new TreeAllocation(cutVertex, treeRoot, direction,
+                    targetBank.get(), functionsSize));
         }
-
-        if (bestBank.isPresent()) {
-            allocations.add(new TreeAllocation(allocationVertex, treeRoot,
-                    direction, bestBank.get(), functionsSize, bestGain.get()));
-        }
-    }
-
-    private double computeGainForAllocation(
-            BComponentsPartitionContext context,
-            FunctionVertex treeRoot,
-            FunctionVertex allocationVertex,
-            AllocationDirection direction,
-            String bankName
-    ) {
-        final IntervalTree<Double> gainsTree = context.gains.get(bankName);
-
-        switch (direction) {
-            case UP_TREE:
-                 if (treeRoot != allocationVertex) {
-                     double gain = gainsTree.compute(treeRoot.getDfsTreeNumber(),
-                             allocationVertex.getDfsTreeNumber());
-                     if (allocationVertex.getMaximumDfsDescendantNumber() != treeRoot.getMaximumDfsDescendantNumber()) {
-                         gain += gainsTree.compute(allocationVertex.getMaximumDfsDescendantNumber() + 1,
-                                 treeRoot.getMaximumDfsDescendantNumber() + 1);
-                     }
-                     return gain;
-                 } else {
-                     throw new RuntimeException("computing allocation in the root of a tree upwards");
-                 }
-            case DOWN_TREE:
-                return gainsTree.compute(allocationVertex.getDfsTreeNumber(),
-                        allocationVertex.getMaximumDfsDescendantNumber() + 1);
-            default:
-                throw new RuntimeException("unexpected allocation direction '"
-                        + direction + "'");
-        }
-    }
-
-    private double computeGain(FunctionVertex vertex) {
-        double gain = 0.;
-        for (CallEdge successorEdge : vertex.getSuccessors()) {
-            if (successorEdge.getTargetVertex().hasDfsTreeNumber()
-                    && successorEdge.getTargetVertex().getDfsTreeNumber() < vertex.getDfsTreeNumber()) {
-                gain += successorEdge.getFrequencyEstimation();
-            }
-        }
-        for (CallEdge predecessorEdge : vertex.getPredecessors()) {
-            if (predecessorEdge.getSourceVertex().hasDfsTreeNumber()
-                    && predecessorEdge.getSourceVertex().getDfsTreeNumber() < vertex.getDfsTreeNumber()) {
-                gain += predecessorEdge.getFrequencyEstimation();
-            }
-        }
-        return gain;
     }
 
     private int allocateTree(BComponentsPartitionContext context, FunctionVertex root)
@@ -480,11 +401,6 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         private final IntervalTree<Integer> functionsSizesTree;
 
         /**
-         * Gains stored in an interval tree for each bank.
-         */
-        private final ImmutableMap<String, IntervalTree<Double>> gains;
-
-        /**
          * Map with functions that will be partitioned.
          */
         private final ImmutableMap<String, FunctionDecl> functions;
@@ -504,14 +420,6 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                 functionsMapBuilder.put(uniqueName, function);
             }
             this.functions = functionsMapBuilder.build();
-
-            final ImmutableMap.Builder<String, IntervalTree<Double>> gainsBuilder =
-                    ImmutableMap.builder();
-            for (String bankName : bankSchema.getBanksNames()) {
-                gainsBuilder.put(bankName, new IntervalTree<>(Double.class,
-                        new DoubleSumIntervalTreeOperation(), functionsSizes.size()));
-            }
-            this.gains = gainsBuilder.build();
         }
 
         @Override
@@ -1565,24 +1473,20 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         private final AllocationDirection direction;
         private final String bankName;
         private final int totalFunctionsSize;
-        private final double gain;
 
         private TreeAllocation(FunctionVertex vertex, FunctionVertex dfsTreeRoot,
-                    AllocationDirection direction, String bankName, int totalFunctionsSize,
-                    double gain) {
+                    AllocationDirection direction, String bankName, int totalFunctionsSize) {
             checkNotNull(vertex, "vertex cannot be null");
             checkNotNull(dfsTreeRoot, "DFS tree root cannot be null");
             checkNotNull(direction, "direction cannot be null");
             checkNotNull(bankName, "name of the bank cannot be null");
             checkArgument(!bankName.isEmpty(), "name of the bank cannot be an empty string");
             checkArgument(totalFunctionsSize >= 0, "total size of allocated functions cannot be negative");
-            checkArgument(gain >= 0., "gain cannot be negative");
             this.vertex = vertex;
             this.dfsTreeRoot = dfsTreeRoot;
             this.direction = direction;
             this.bankName = bankName;
             this.totalFunctionsSize = totalFunctionsSize;
-            this.gain = gain;
         }
 
         @Override
@@ -1593,7 +1497,6 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                     .add("direction", direction)
                     .add("target-bank", bankName)
                     .add("total-functions-size", totalFunctionsSize)
-                    .add("gain", gain)
                     .toString();
         }
     }
@@ -1618,12 +1521,6 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         public int compare(TreeAllocation allocation1, TreeAllocation allocation2) {
             checkNotNull(allocation1, "first tree allocation cannot be null");
             checkNotNull(allocation2, "second tree allocation cannot be null");
-
-            // Comapre gains
-            final int gainResult = Double.compare(allocation1.gain, allocation2.gain);
-            if (gainResult != 0) {
-                return gainResult;
-            }
 
             // Compare total functions sizes
             final int totalSizesResult = Integer.compare(allocation1.totalFunctionsSize,
