@@ -4,11 +4,18 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multiset;
+import com.google.common.collect.Ordering;
+import com.google.common.collect.TreeMultiset;
 import java.math.BigInteger;
 import java.util.ArrayDeque;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.Map;
+import java.util.NavigableSet;
+import java.util.TreeSet;
 import pl.edu.mimuw.nesc.wiresgraph.IndexedNode;
 import pl.edu.mimuw.nesc.wiresgraph.SpecificationElementNode;
 
@@ -75,12 +82,42 @@ final class ImplementationResolver {
                 source.getSuccessors().entries().iterator()));
     }
 
-    public ListMultimap<Optional<ImmutableList<BigInteger>>, IndexedNode> resolve() {
+    public ImmutableListMultimap<Optional<ImmutableList<BigInteger>>, IndexedNode> resolve() {
         while (!stateStack.isEmpty()) {
             stateStack.peek().accept(iterationStepGateway, null);
         }
 
-        return implementations;
+        return sortImplementations();
+    }
+
+    private ImmutableListMultimap<Optional<ImmutableList<BigInteger>>, IndexedNode> sortImplementations() {
+        // Sort the keys
+        final NavigableSet<Optional<ImmutableList<BigInteger>>> sortedIndices =
+                new TreeSet<>(new IndicesComparator());
+        sortedIndices.addAll(implementations.keySet());
+        if (sortedIndices.size() != implementations.keySet().size()) {
+            throw new RuntimeException("invalid size of the set with indices, actual "
+                    + sortedIndices.size() + ", expected " + implementations.keySet().size());
+        }
+
+        // Create the multimap with proper ordering of keys and values
+        final ImmutableListMultimap.Builder<Optional<ImmutableList<BigInteger>>, IndexedNode>
+                sortedImplementationsBuilder = ImmutableListMultimap.builder();
+        for (Optional<ImmutableList<BigInteger>> indices : sortedIndices) {
+            final Multiset<IndexedNode> sortedIndexedNodes = TreeMultiset.create(new IndexedNodeComparator());
+            sortedIndexedNodes.addAll(implementations.get(indices));
+
+            if (sortedIndexedNodes.size() != implementations.get(indices).size()) {
+                throw new RuntimeException("invalid size of a set with indexed nodes, actual "
+                        + sortedIndexedNodes.size() + ", expected " + implementations.get(indices).size());
+            }
+
+            for (IndexedNode indexedNode : sortedIndexedNodes) {
+                sortedImplementationsBuilder.put(indices, indexedNode);
+            }
+        }
+
+        return sortedImplementationsBuilder.build();
     }
 
     private void iterationStep(FullIterationState state) {
@@ -160,5 +197,60 @@ final class ImplementationResolver {
         }
 
         return nodeWrappers.get(node);
+    }
+
+    /**
+     * Comparator for the indices of connections. An absent element is first and
+     * further elements are sorted in an ascending lexicographical order.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class IndicesComparator implements Comparator<Optional<ImmutableList<BigInteger>>> {
+        /**
+         * Comparator for comparing the lists.
+         */
+        private final Comparator<Iterable<BigInteger>> listComparator = Ordering.<BigInteger>natural().lexicographical();
+
+        @Override
+        public int compare(Optional<ImmutableList<BigInteger>> indices1,
+                Optional<ImmutableList<BigInteger>> indices2) {
+            checkNotNull(indices1, "first indices cannot be null");
+            checkNotNull(indices2, "second indices cannot be null");
+
+            if (indices1.isPresent() && !indices2.isPresent()) {
+                return 1;
+            } else if (!indices1.isPresent() && indices2.isPresent()) {
+                return -1;
+            } else if (!indices1.isPresent()) {
+                return 0;
+            } else {
+                return listComparator.compare(indices1.get(), indices2.get());
+            }
+        }
+    }
+
+    /**
+     * Comparator for indexed nodes. First, the name of the specification
+     * element is compared and second the indices.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class IndexedNodeComparator implements Comparator<IndexedNode> {
+        /**
+         * Comparator used for comparisons of the indices.
+         */
+        private final IndicesComparator indicesComparator = new IndicesComparator();
+
+        @Override
+        public int compare(IndexedNode indexedNode1, IndexedNode indexedNode2) {
+            checkNotNull(indexedNode1, "first indexed node cannot be null");
+            checkNotNull(indexedNode2, "second indexed node cannot be null");
+
+            final int resultName = indexedNode1.getNode().getName().compareTo(
+                    indexedNode2.getNode().getName());
+            return resultName != 0
+                    ? resultName
+                    : indicesComparator.compare(indexedNode1.getIndices(), indexedNode2.getIndices());
+        }
     }
 }

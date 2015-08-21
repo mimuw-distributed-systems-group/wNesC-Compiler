@@ -1,7 +1,7 @@
 package pl.edu.mimuw.nesc.codepartition;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableSortedSet;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,7 +20,7 @@ public final class BankSchema {
      * Map with the information. Keys are names of banks and values are their
      * capacities.
      */
-    private final ImmutableMap<String, Integer> banksMap;
+    private final ImmutableSortedMap<String, Integer> banksMap;
 
     /**
      * String with name of the common bank.
@@ -40,7 +40,7 @@ public final class BankSchema {
         return new Builder(commonBankName, commonBankCapacity);
     }
 
-    private BankSchema(ImmutableMap<String, Integer> banksMap, String commonBankName) {
+    private BankSchema(ImmutableSortedMap<String, Integer> banksMap, String commonBankName) {
         this.banksMap = banksMap;
         this.commonBankName = commonBankName;
     }
@@ -60,7 +60,7 @@ public final class BankSchema {
      *
      * @return Names of all banks contained in a set.
      */
-    public ImmutableSet<String> getBanksNames() {
+    public ImmutableSortedSet<String> getBanksNames() {
         return banksMap.keySet();
     }
 
@@ -124,7 +124,7 @@ public final class BankSchema {
         }
 
         public BankSchema build() {
-            return new BankSchema(ImmutableMap.copyOf(banksMap), commonBankName);
+            return new BankSchema(ImmutableSortedMap.copyOf(banksMap), commonBankName);
         }
     }
 }

@@ -9,7 +9,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.NavigableSet;
 import pl.edu.mimuw.nesc.ContextRef;
 import pl.edu.mimuw.nesc.FileData;
 import pl.edu.mimuw.nesc.Frontend;
@@ -195,7 +195,7 @@ public final class CompilationExecutor {
         handleIssues(projectData);
         final Optional<Configuration> taskWiringConf = basicReduce(projectData);
         collectUniqueNames(projectData);
-        final Set<Component> instantiatedComponents = instantiate(projectData, taskWiringConf);
+        final NavigableSet<Component> instantiatedComponents = instantiate(projectData, taskWiringConf);
         fold(projectData, taskWiringConf, instantiatedComponents);
         performFinalAnalysis(projectData, taskWiringConf, instantiatedComponents);
         final WiresGraph wiring = connect(projectData, taskWiringConf, instantiatedComponents);
@@ -288,7 +288,7 @@ public final class CompilationExecutor {
      *                       non-generic modules.
      * @return Set with instantiated components.
      */
-    private Set<Component> instantiate(ProjectData projectData, Optional<Configuration> taskWiringConf)
+    private NavigableSet<Component> instantiate(ProjectData projectData, Optional<Configuration> taskWiringConf)
                 throws ErroneousIssueException {
         final InstantiateExecutor.Builder executorBuilder = InstantiateExecutor.builder()
                 .nameMangler(projectData.getNameMangler());
@@ -325,7 +325,7 @@ public final class CompilationExecutor {
      * @param instantiatedComponents Instantiated components.
      */
     private void fold(ProjectData projectData, Optional<Configuration> taskWiringConf,
-            Set<Component> instantiatedComponents) {
+            NavigableSet<Component> instantiatedComponents) {
         final FoldExecutor.Builder executorBuilder = FoldExecutor.builder()
                 .addNodes(instantiatedComponents);
 
@@ -367,7 +367,7 @@ public final class CompilationExecutor {
      *                               instantiated.
      */
     private void performFinalAnalysis(ProjectData projectData, Optional<Configuration> taskWiringConf,
-            Set<Component> instantiatedComponents) throws ErroneousIssueException {
+            NavigableSet<Component> instantiatedComponents) throws ErroneousIssueException {
         final FinalAnalyzer finalAnalyzer = new FinalAnalyzer(projectData.getABI());
         final TaskOptimizationChecker.Builder taskOptCheckerBuilder =
                 TaskOptimizationChecker.builder(projectData.getSchedulerSpecification().get());
@@ -427,7 +427,7 @@ public final class CompilationExecutor {
      * @return The created graph.
      */
     private WiresGraph connect(ProjectData projectData, Optional<Configuration> taskWiringConf,
-            Set<Component> instantiatedComponents) {
+            NavigableSet<Component> instantiatedComponents) {
         final ConnectExecutor.Builder executorBuilder = ConnectExecutor.builder(
                 projectData.getNameMangler(), projectData.getABI())
                 .addNescDeclarations(instantiatedComponents);
@@ -492,7 +492,7 @@ public final class CompilationExecutor {
      * remove NesC attributes.
      */
     private void finalReduce(ProjectData projectData, Optional<Configuration> taskWiringConf,
-            Set<Component> instantiatedComponents, WiresGraph graph) {
+            NavigableSet<Component> instantiatedComponents, WiresGraph graph) {
         final FinalTransformer transformer = new FinalTransformer(graph, projectData.getABI());
         final ExternalExprTransformer externalTransformer = new ExternalExprTransformer(
                 projectData.getNameMangler());
@@ -536,7 +536,7 @@ public final class CompilationExecutor {
      */
     private ImmutableList<Declaration> generate(
             ProjectData projectData,
-            Set<Component> instantiatedComponents,
+            NavigableSet<Component> instantiatedComponents,
             Collection<FunctionDecl> intermediateFuns
     ) {
         final String mainConfigName = ((NescDecl) projectData.getRootFileData().get().getEntityRoot().get())
@@ -556,7 +556,7 @@ public final class CompilationExecutor {
      * throwing an exception.
      */
     private void checkConnections(ImmutableList<Declaration> allDeclarations,
-                Set<Component> instantiatedComponents) throws ErroneousIssueException {
+                NavigableSet<Component> instantiatedComponents) throws ErroneousIssueException {
         // Build the map of instantiation chains
         final ImmutableMap.Builder<String, ImmutableList<InstantiationOrigin>> instantiationChainsBuilder =
                 ImmutableMap.builder();

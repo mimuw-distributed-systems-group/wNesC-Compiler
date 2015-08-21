@@ -6,6 +6,9 @@ import com.google.common.collect.Iterables;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import pl.edu.mimuw.nesc.ast.gen.ArrayDeclarator;
 import pl.edu.mimuw.nesc.ast.gen.Declaration;
 import pl.edu.mimuw.nesc.ast.gen.Declarator;
@@ -76,12 +79,12 @@ public final class ModuleTable extends ComponentTable<InterfaceEntityElement> {
     /**
      * Map that contains information about declared tasks.
      */
-    private final Map<String, TaskElement> tasks;
+    private final NavigableMap<String, TaskElement> tasks;
 
     /**
      * Unmodifiable view of tasks added to this table.
      */
-    private final Map<String, TaskElement> unmodifiableTasks;
+    private final SortedMap<String, TaskElement> unmodifiableTasks;
 
     /**
      * Map with keys that are names of interface references created for tasks
@@ -130,7 +133,7 @@ public final class ModuleTable extends ComponentTable<InterfaceEntityElement> {
         super(builder.getSuperclassBuilder().getComponentTablePrivateBuilder());
 
         this.tasks = builder.buildTasks();
-        this.unmodifiableTasks = Collections.unmodifiableMap(this.tasks);
+        this.unmodifiableTasks = Collections.unmodifiableSortedMap(this.tasks);
         this.tasksInterfaceRefs = new HashMap<>();
         this.unmodifiableTasksInterfaceRefs = Collections.unmodifiableMap(this.tasksInterfaceRefs);
 
@@ -219,7 +222,7 @@ public final class ModuleTable extends ComponentTable<InterfaceEntityElement> {
      *
      * @return Unmodifiable view of tasks from this table.
      */
-    public Map<String, TaskElement> getTasks() {
+    public SortedMap<String, TaskElement> getTasks() {
         return unmodifiableTasks;
     }
 
@@ -311,7 +314,7 @@ public final class ModuleTable extends ComponentTable<InterfaceEntityElement> {
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
     private interface PrivateBuilder {
-        Map<String, TaskElement> buildTasks();
+        NavigableMap<String, TaskElement> buildTasks();
         ComponentTable.Builder<InterfaceEntityElement, ModuleTable> getSuperclassBuilder();
     }
 
@@ -328,8 +331,8 @@ public final class ModuleTable extends ComponentTable<InterfaceEntityElement> {
          */
         private final PrivateBuilder privateBuilder = new PrivateBuilder() {
             @Override
-            public Map<String, TaskElement> buildTasks() {
-                return new HashMap<>();
+            public NavigableMap<String, TaskElement> buildTasks() {
+                return new TreeMap<>();
             }
 
             @Override
@@ -399,8 +402,8 @@ public final class ModuleTable extends ComponentTable<InterfaceEntityElement> {
          */
         private final PrivateBuilder privateBuilder = new PrivateBuilder() {
             @Override
-            public Map<String, TaskElement> buildTasks() {
-                final Map<String, TaskElement> result = new HashMap<>(tasksSpecimen);
+            public NavigableMap<String, TaskElement> buildTasks() {
+                final NavigableMap<String, TaskElement> result = new TreeMap<>(tasksSpecimen);
                 for (Map.Entry<String, TaskElement> taskEntry : result.entrySet()) {
                     taskEntry.setValue(taskEntry.getValue().deepCopy());
                 }

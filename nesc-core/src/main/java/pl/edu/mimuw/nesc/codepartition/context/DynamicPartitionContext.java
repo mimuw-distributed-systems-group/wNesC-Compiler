@@ -1,19 +1,20 @@
 package pl.edu.mimuw.nesc.codepartition.context;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Ordering;
 import com.google.common.collect.Range;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.TreeMultimap;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
+import pl.edu.mimuw.nesc.astutil.FunctionDeclComparator;
 import pl.edu.mimuw.nesc.codepartition.BankSchema;
 import pl.edu.mimuw.nesc.codepartition.BankTable;
 
@@ -71,7 +72,7 @@ public class DynamicPartitionContext extends PartitionContext {
     public DynamicPartitionContext(BankSchema bankSchema, Map<String, Range<Integer>> functionsSizes) {
         super(bankSchema, functionsSizes);
         final PrivateBuilder builder = new RealBuilder(bankSchema);
-        this.banksContents = HashMultimap.create();
+        this.banksContents = TreeMultimap.create(Ordering.natural(), new FunctionDeclComparator());
         this.allocation = new HashMap<>();
         this.freeSpace = builder.buildFreeSpaceMap();
         this.overloadedBanks = builder.buildOverloadedBanks();
@@ -89,7 +90,9 @@ public class DynamicPartitionContext extends PartitionContext {
 
         // Save the allocation
         allocation.put(function, bankName);
-        banksContents.put(bankName, function);
+        if (!banksContents.put(bankName, function)) {
+            throw new RuntimeException("function to assign already present in the banks contents map");
+        }
 
         // Update free space of banks
         final int funSize = getFunctionSize(function);
@@ -161,7 +164,9 @@ public class DynamicPartitionContext extends PartitionContext {
 
         // Update the allocation
         final String oldBank = allocation.remove(function);
-        banksContents.remove(oldBank, function);
+        if (!banksContents.remove(oldBank, function)) {
+            throw new RuntimeException("function for removal absent in banks contents map");
+        }
 
         // Update free space of banks
         final int funSize = getFunctionSize(function);
@@ -213,9 +218,10 @@ public class DynamicPartitionContext extends PartitionContext {
     public BankTable finish() {
         checkState(getOverloadedBanks().isEmpty(), "cannot finish because there are overloaded banks");
         final BankTable bankTable = getBankTable();
-        for (Map.Entry<String, FunctionDecl> assignment : banksContents.entries()) {
-            bankTable.allocate(assignment.getKey(), assignment.getValue(),
-                    getFunctionSize(assignment.getValue()));
+        for (String bankName : banksContents.keySet()) {
+            for (FunctionDecl function : banksContents.get(bankName)) {
+                bankTable.allocate(bankName, function, getFunctionSize(function));
+            }
         }
         return bankTable;
     }

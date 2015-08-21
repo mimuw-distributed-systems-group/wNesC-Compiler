@@ -7,6 +7,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import pl.edu.mimuw.nesc.ast.CallDirection;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.NescCallKind;
@@ -261,7 +262,7 @@ final class BasicReduceVisitor extends IdentityVisitor<BlockData> {
     }
 
     private void wireTaskInterfaceRefs(Module module) {
-        final Map<String, TaskElement> tasks = module.getModuleTable().getTasks();
+        final SortedMap<String, TaskElement> tasks = module.getModuleTable().getTasks();
 
         if (module.getIsAbstract() || tasks.isEmpty()) {
             return;

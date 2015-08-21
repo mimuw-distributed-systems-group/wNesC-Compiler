@@ -13,11 +13,14 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableSet;
 import java.util.Set;
+import java.util.TreeSet;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.ast.InstantiationOrigin;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.*;
+import pl.edu.mimuw.nesc.astutil.NescDeclComparator;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
 import pl.edu.mimuw.nesc.names.collecting.NescEntityNameCollector;
 import pl.edu.mimuw.nesc.names.mangling.CountingNameMangler;
@@ -79,12 +82,12 @@ public final class InstantiateExecutor {
      * Set that contains instantiated components (new components that previously
      * hasn't existed). It is absent before performing the instantiation.
      */
-    private Optional<Set<Component>> instantiatedComponents = Optional.absent();
+    private Optional<NavigableSet<Component>> instantiatedComponents = Optional.absent();
 
     /**
      * Set to accumulate newly created components.
      */
-    private final Set<Component> componentsAccumulator = new HashSet<>();
+    private final NavigableSet<Component> componentsAccumulator = new TreeSet<>(new NescDeclComparator());
 
     /**
      * Component name mangler used to create unique names for instantiated
@@ -128,7 +131,7 @@ public final class InstantiateExecutor {
      *
      * @return Set with new components, created as the result of instantiation.
      */
-    public Set<Component> instantiate() throws CyclePresentException {
+    public NavigableSet<Component> instantiate() throws CyclePresentException {
         if (instantiatedComponents.isPresent()) {
             return instantiatedComponents.get();
         }
@@ -207,7 +210,9 @@ public final class InstantiateExecutor {
                 genericRef, implementationToUpdate);
 
         // Update state
-        componentsAccumulator.add(newComponent);
+        if (!componentsAccumulator.add(newComponent)) {
+            throw new RuntimeException("a newly created component unexpectedly present in the components accumulator");
+        }
         if (newComponent instanceof Configuration) {
             instantiatedComponentData.setCurrentlyInstantiated(true);
             final ConfigurationNode newNode = ConfigurationNode.forNewConfiguration(instantiatedComponentData,
