@@ -102,7 +102,7 @@ public final class Main {
     /**
      * Default partition heuristic used when the user does not specify any.
      */
-    private static final String DEFAULT_PARTITION_HEURISTIC = "greedy-10";
+    private static final String DEFAULT_PARTITION_HEURISTIC = "bcomponents";
 
     /**
      * Code returned by the compiler to the system when the compilation fails.
