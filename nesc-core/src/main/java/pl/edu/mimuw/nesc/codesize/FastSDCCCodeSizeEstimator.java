@@ -22,7 +22,7 @@ import pl.edu.mimuw.nesc.astutil.TypeElementsAdjuster;
 import pl.edu.mimuw.nesc.astutil.TypeElementsPreserver;
 import pl.edu.mimuw.nesc.astwriting.CustomDeclarationsWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
-import pl.edu.mimuw.nesc.common.util.VariousUtils;
+import pl.edu.mimuw.nesc.common.util.ProcessConsumer;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.external.ExternalConstants;
 
@@ -167,7 +167,8 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
     }
 
     @Override
-    public CodeSizeEstimation estimate() throws InterruptedException, IOException {
+    public CodeSizeEstimation estimate() throws EstimationProgramFailedException,
+                InterruptedException, IOException {
         if (estimation.isPresent()) {
             return estimation.get();
         }
@@ -230,7 +231,8 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
                 .redirectErrorStream(true);
     }
 
-    private void performEstimation() throws InterruptedException, IOException {
+    private void performEstimation() throws EstimationProgramFailedException,
+                InterruptedException, IOException {
         final CodeSizeEstimation.Builder estimationBuilder =
                 CodeSizeEstimation.builder();
 
@@ -246,7 +248,8 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
         estimation = Optional.of(estimationBuilder.build());
     }
 
-    private void runSDCC(boolean isBanked) throws IOException, InterruptedException {
+    private void runSDCC(boolean isBanked) throws EstimationProgramFailedException,
+                IOException, InterruptedException {
         final CustomDeclarationsWriter.Banking banking = isBanked
                 ? CustomDeclarationsWriter.Banking.DEFINED_BANKED
                 : CustomDeclarationsWriter.Banking.DEFINED_NOT_BANKED;
@@ -262,6 +265,7 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
 
         int returnCode;
         int initialEstimationUnit;
+        ProcessConsumer sdccProcessConsumer;
 
         do {
             initialEstimationUnit = estimationUnit;
@@ -273,14 +277,16 @@ final class FastSDCCCodeSizeEstimator implements CodeSizeEstimator {
             declsWriter.write(functions.subList(nextFunIndex, endIndex));
 
             // Run SDCC
-            returnCode = VariousUtils.waitForProcessHandlingIO(sdccProcessBuilder.start());
+            sdccProcessConsumer = new ProcessConsumer(sdccProcessBuilder.start());
+            returnCode = sdccProcessConsumer.consume();
             if (returnCode != 0) {
                 estimationUnit = Math.max(estimationUnit / 2, 1);
             }
         } while (returnCode != 0 && initialEstimationUnit != 1);
 
         if (returnCode != 0) {
-            throw new RuntimeException("SDCC returned code " + returnCode);
+            throw EstimationProgramFailedException.newInstance("SDCC", returnCode,
+                    sdccProcessConsumer.getProcessOutput());
         }
     }
 

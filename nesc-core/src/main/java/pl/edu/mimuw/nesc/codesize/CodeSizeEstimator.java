@@ -19,10 +19,13 @@ public interface CodeSizeEstimator {
      *         it means that the size of function named <code>key</code> has
      *         size at least <code>V1</code> bytes and at most <code>V2</code>
      *         bytes.
+     * @throws EstimationProgramFailedException An external program used for the
+     *                                          estimation has failed.
      * @throws InterruptedException The estimation operation uses some kind of
      *                              waiting and it has been interrupted.
      * @throws IOException An IO operation is necessary for the estimation and
      *                     the operation has failed.
      */
-    CodeSizeEstimation estimate() throws InterruptedException, IOException;
+    CodeSizeEstimation estimate() throws EstimationProgramFailedException,
+            InterruptedException, IOException;
 }

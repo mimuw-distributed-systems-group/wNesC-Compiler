@@ -40,7 +40,7 @@ import pl.edu.mimuw.nesc.astutil.TypeElementsPreserver;
 import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.astwriting.CustomDeclarationsWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
-import pl.edu.mimuw.nesc.common.util.VariousUtils;
+import pl.edu.mimuw.nesc.common.util.ProcessConsumer;
 import pl.edu.mimuw.nesc.declaration.object.FunctionDeclaration;
 import pl.edu.mimuw.nesc.external.ExternalConstants;
 import pl.edu.mimuw.nesc.refsgraph.EntityNode;
@@ -227,7 +227,8 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
     }
 
     @Override
-    public CodeSizeEstimation estimate() throws InterruptedException, IOException {
+    public CodeSizeEstimation estimate() throws EstimationProgramFailedException,
+            InterruptedException, IOException {
         if (estimation.isPresent()) {
             return estimation.get();
         }
@@ -411,7 +412,8 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
         }
     }
 
-    private ImmutableMap<String, Range<Integer>> performEstimation() throws InterruptedException {
+    private ImmutableMap<String, Range<Integer>> performEstimation()
+                throws EstimationProgramFailedException, InterruptedException {
         final int adjustedThreadsCount = threadsCount % 2 == 0
                 ? threadsCount / 2
                 : (threadsCount + 1) / 2;
@@ -629,6 +631,9 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
                     // Handle next request
                     requestsQueue.take().accept(this, null);
                 }
+            } catch (EstimationProgramFailedException e) {
+                // Report that SDCC or SDAS failed
+                responsesQueue.add(new EstimationProgramFailedResponse(e));
             } catch (Exception e) {
                 /* Report the exception by putting it into the responses queue
                    and terminate. */
@@ -637,7 +642,7 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
         }
 
         @Override
-        public Void visit(EstimateRequest request, Void arg) {
+        public Void visit(EstimateRequest request, Void arg) throws EstimationProgramFailedException  {
             try {
                 final ChunkEstimator chunkEstimator = new ChunkEstimator(
                         request.getFunctions(),
@@ -730,7 +735,8 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
             this.nextFunIndex = 0;
         }
 
-        private ImmutableMap<String, Integer> estimate() throws InterruptedException, IOException {
+        private ImmutableMap<String, Integer> estimate() throws EstimationProgramFailedException,
+                    InterruptedException, IOException {
             final ImmutableMap.Builder<String, Integer> estimationBuilder =
                     ImmutableMap.builder();
 
@@ -745,7 +751,7 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
             return estimationBuilder.build();
         }
 
-        private void runSDCC() throws InterruptedException, IOException {
+        private void runSDCC() throws EstimationProgramFailedException, InterruptedException, IOException {
             final String includedHeader = isBanked
                     ? NAME_BANKED_HEADER
                     : NAME_NONBANKED_HEADER;
@@ -760,6 +766,7 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
 
             int returnCode;
             int initialEstimationUnit;
+            ProcessConsumer sdccProcessConsumer;
 
             do {
                 initialEstimationUnit = estimationUnit;
@@ -769,14 +776,16 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
                 declsWriter.write(chunk.subList(nextFunIndex, endIndex));
 
                 // Run SDCC
-                returnCode = VariousUtils.waitForProcessHandlingIO(sdccProcessBuilder.start());
+                sdccProcessConsumer = new ProcessConsumer(sdccProcessBuilder.start());
+                returnCode = sdccProcessConsumer.consume();
                 if (returnCode != 0) {
                     estimationUnit = Math.max(estimationUnit / 2, 1);
                 }
             } while (returnCode != 0 && initialEstimationUnit != 1);
 
             if (returnCode != 0) {
-                throw new RuntimeException("SDCC returned code " + returnCode);
+                throw EstimationProgramFailedException.newInstance("SDCC", returnCode,
+                        sdccProcessConsumer.getProcessOutput());
             }
         }
 
@@ -785,10 +794,12 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
                     inlineFunctionsNames).remove();
         }
 
-        private void runAssembler() throws InterruptedException, IOException {
-            final int returnCode = VariousUtils.waitForProcessHandlingIO(sdasProcessBuilder.start());
+        private void runAssembler() throws EstimationProgramFailedException, InterruptedException, IOException {
+            final ProcessConsumer sdasProcessConsumer = new ProcessConsumer(sdasProcessBuilder.start());
+            final int returnCode = sdasProcessConsumer.consume();
             if (returnCode != 0) {
-                throw new RuntimeException("SDAS returned code " + returnCode);
+                throw EstimationProgramFailedException.newInstance("SDAS", returnCode,
+                        sdasProcessConsumer.getProcessOutput());
             }
         }
 
@@ -807,11 +818,11 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
         private Request() {
         }
 
-        public abstract <R, A> R accept(Visitor<R, A> visitor, A arg);
+        public abstract <R, A> R accept(Visitor<R, A> visitor, A arg) throws EstimationProgramFailedException;
 
         public interface Visitor<R, A> {
-            R visit(EstimateRequest request, A arg);
-            R visit(TerminationRequest request, A arg);
+            R visit(EstimateRequest request, A arg) throws EstimationProgramFailedException;
+            R visit(TerminationRequest request, A arg) throws EstimationProgramFailedException;
         }
     }
 
@@ -839,7 +850,7 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
         }
 
         @Override
-        public <R, A> R accept(Visitor<R, A> visitor, A arg) {
+        public <R, A> R accept(Visitor<R, A> visitor, A arg) throws EstimationProgramFailedException {
             return visitor.visit(this, arg);
         }
     }
@@ -854,7 +865,7 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
         }
 
         @Override
-        public <R, A> R accept(Visitor<R, A> visitor, A arg) {
+        public <R, A> R accept(Visitor<R, A> visitor, A arg) throws EstimationProgramFailedException {
             return visitor.visit(this, arg);
         }
     }
@@ -868,11 +879,12 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
         private Response() {
         }
 
-        public abstract <R, A> R accept(Visitor<R, A> visitor, A arg);
+        public abstract <R, A> R accept(Visitor<R, A> visitor, A arg) throws EstimationProgramFailedException;
 
         public interface Visitor<R, A> {
-            R visit(EstimationResponse response, A arg);
-            R visit(ExceptionResponse response, A arg);
+            R visit(EstimationResponse response, A arg) throws EstimationProgramFailedException;
+            R visit(EstimationProgramFailedResponse response, A arg) throws EstimationProgramFailedException;
+            R visit(ExceptionResponse response, A arg) throws EstimationProgramFailedException;
         }
     }
 
@@ -900,7 +912,31 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
         }
 
         @Override
-        public <R, A> R accept(Visitor<R, A> visitor, A arg) {
+        public <R, A> R accept(Visitor<R, A> visitor, A arg) throws EstimationProgramFailedException {
+            return visitor.visit(this, arg);
+        }
+    }
+
+    /**
+     * Response sent when an external program used for the estimation fails.
+     * External programs that are currently used: SDAS, SDCC.
+     *
+     * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
+     */
+    private static final class EstimationProgramFailedResponse extends Response {
+        private final EstimationProgramFailedException failureException;
+
+        private EstimationProgramFailedResponse(EstimationProgramFailedException exception) {
+            checkNotNull(exception, "exception cannot be null");
+            this.failureException = exception;
+        }
+
+        public EstimationProgramFailedException getException() {
+            return failureException;
+        }
+
+        @Override
+        public <R, A> R accept(Visitor<R, A> visitor, A arg) throws EstimationProgramFailedException {
             return visitor.visit(this, arg);
         }
     }
@@ -924,7 +960,7 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
         }
 
         @Override
-        public <R, A> R accept(Visitor<R, A> visitor, A arg) {
+        public <R, A> R accept(Visitor<R, A> visitor, A arg) throws EstimationProgramFailedException {
             return visitor.visit(this, arg);
         }
     }
@@ -972,6 +1008,11 @@ final class InliningSDCCCodeSizeEstimator implements CodeSizeEstimator {
             }
 
             return null;
+        }
+
+        @Override
+        public Void visit(EstimationProgramFailedResponse response, Void arg) throws EstimationProgramFailedException {
+            throw response.getException();
         }
 
         @Override

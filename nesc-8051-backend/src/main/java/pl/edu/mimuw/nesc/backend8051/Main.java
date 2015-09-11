@@ -30,6 +30,7 @@ import pl.edu.mimuw.nesc.codepartition.SimpleCodePartitioner;
 import pl.edu.mimuw.nesc.codepartition.TabuSearchCodePartitioner;
 import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
 import pl.edu.mimuw.nesc.codesize.CodeSizeEstimator;
+import pl.edu.mimuw.nesc.codesize.EstimationProgramFailedException;
 import pl.edu.mimuw.nesc.codesize.SDCCCodeSizeEstimatorFactory;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
 import pl.edu.mimuw.nesc.common.util.VariousUtils;
@@ -239,6 +240,14 @@ public final class Main {
             System.err.println("error: cannot partition functions into the code banks: "
                     + e.getMessage());
             System.exit(STATUS_ERROR);
+        } catch (EstimationProgramFailedException e) {
+            System.err.println("error: estimation operation failed: " + e.getMessage());
+            try {
+                e.writeProgramOutput(System.err);
+            } catch (IOException ioe) {
+                System.err.println("I/O error: " + e.getMessage());
+            }
+            System.exit(STATUS_ERROR);
         }
     }
 
@@ -339,7 +348,8 @@ public final class Main {
      * @return Object with the result of estimation.
      */
     private CodeSizeEstimation estimateFunctionsSizes(ImmutableList<Declaration> declarations,
-                ReferencesGraph refsGraph) throws InterruptedException, IOException {
+                ReferencesGraph refsGraph) throws EstimationProgramFailedException,
+                InterruptedException, IOException {
 
         timeMeasurer.codeSizeEstimationStarted();
         final SDCCCodeSizeEstimatorFactory estimatorFactory =
