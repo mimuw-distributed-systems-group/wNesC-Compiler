@@ -112,6 +112,7 @@ public final class Issues {
         INVALID_BITFIELD_DECLARATION(81),
         INVALID_CALL_INFO_ATTRIBUTE_USAGE(82),
         NOT_IMPLEMENTED_ENTITY(83),
+        INVALID_NESC_DECLARATION_NAME(84),
         ;
 
         private final int codeNumber;

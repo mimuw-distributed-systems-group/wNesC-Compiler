@@ -3,15 +3,19 @@ package pl.edu.mimuw.nesc.astbuilding.nesc;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
+import java.io.File;
+import java.io.IOException;
 import java.util.Map;
 import org.apache.log4j.Logger;
 import pl.edu.mimuw.nesc.abi.ABI;
 import pl.edu.mimuw.nesc.analysis.attributes.AttributeAnalyzer;
 import pl.edu.mimuw.nesc.analysis.SemanticListener;
 import pl.edu.mimuw.nesc.ast.Location;
+import pl.edu.mimuw.nesc.ast.NescDeclarationKind;
 import pl.edu.mimuw.nesc.ast.RID;
 import pl.edu.mimuw.nesc.ast.gen.*;
 import pl.edu.mimuw.nesc.astutil.AstUtils;
+import pl.edu.mimuw.nesc.problem.issue.InvalidNescDeclarationName;
 import pl.edu.mimuw.nesc.type.Type;
 import pl.edu.mimuw.nesc.astbuilding.AstBuildingBase;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
@@ -68,6 +72,30 @@ public final class NescComponents extends AstBuildingBase {
                           ABI abi) {
         super(nescEnvironment, issuesMultimapBuilder, tokensMultimapBuilder,
                 semanticListener, attributeAnalyzer, abi);
+    }
+
+    public void startNescDeclaration(Word nescDeclName, NescDeclarationKind nescDeclKind, String filePath) {
+        // Extract the expected name of the NesC declaration
+        final File fileObj = new File(filePath);
+        final String fileName = fileObj.getName();
+        if (!fileName.endsWith(".nc")) {
+            throw new RuntimeException("file '" + fileName + "' with a NesC declaration lacks extension '.nc'");
+        }
+        final String baseName = fileName.substring(0, fileName.length() - 3);
+
+        // Check if the name of the NesC declaration matches
+        if (!nescDeclName.getName().equals(baseName)) {
+            // Get the canonical name of the parsed file
+            String canonicalName;
+            try {
+                canonicalName = fileObj.getCanonicalPath();
+            } catch (IOException e) {
+                canonicalName = fileObj.getAbsolutePath();
+            }
+            errorHelper.error(nescDeclName.getLocation(), nescDeclName.getEndLocation(),
+                    new InvalidNescDeclarationName(nescDeclName.getName(), baseName,
+                            nescDeclKind, canonicalName));
+        }
     }
 
     public Interface startInterface(Environment environment, Location startLocation, Word name) {

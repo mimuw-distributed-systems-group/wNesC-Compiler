@@ -537,6 +537,7 @@ interface:
         environment.setStartLocation($name.getEndLocation());
         entityStarted($name.getName());
         parserListener.nescEntityRecognized(NesCFileType.INTERFACE);
+        nescComponents.startNescDeclaration($name, NescDeclarationKind.INTERFACE, this.filePath);
         final Interface iface = nescComponents.startInterface(environment, $keyword.getLocation(), $name);
         $<Interface>$ = iface;
     }
@@ -666,6 +667,7 @@ module:
         final Location startLocation = $isGeneric.getValue()
                 ? $isGeneric.getLocation()
                 : $keyword.getLocation();
+        nescComponents.startNescDeclaration($name, NescDeclarationKind.MODULE, this.filePath);
         final Module module = nescComponents.startModule(environment, startLocation, $name,
                 $isGeneric.getValue());
         $<Module>$ = module;
@@ -718,6 +720,7 @@ configuration:
         final Location startLocation = $isGeneric.getValue()
                 ? $isGeneric.getLocation()
                 : $keyword.getLocation();
+        nescComponents.startNescDeclaration($name, NescDeclarationKind.CONFIGURATION, this.filePath);
         final Configuration configuration = nescComponents.startConfiguration(environment, startLocation,
                 $name, $isGeneric.getValue());
         $<Configuration>$ = configuration;
@@ -758,13 +761,14 @@ configuration:
     ;
 
 binary_component:
-      COMPONENT idword nesc_attributes LBRACE requires_or_provides_list RBRACE
+      COMPONENT idword[name] nesc_attributes LBRACE requires_or_provides_list RBRACE
     {
         entityStarted($2.getName());
         final BinaryComponentImpl dummy = new BinaryComponentImpl($1.getLocation());
         final BinaryComponent component = new BinaryComponent($1.getLocation(), $3, $2, $5, dummy, false,
                 Optional.<LinkedList<Declaration>>absent());
         component.setEndLocation($6.getEndLocation());
+        nescComponents.startNescDeclaration($name, NescDeclarationKind.BINARY_COMPONENT, this.filePath);
         $$ = component;
     }
     ;
