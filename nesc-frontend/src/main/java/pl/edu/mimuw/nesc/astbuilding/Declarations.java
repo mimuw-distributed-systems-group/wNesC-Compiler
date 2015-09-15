@@ -1495,9 +1495,32 @@ public final class Declarations extends AstBuildingBase {
         }
 
         @Override
-        public Void visitInterfaceRefDeclarator(InterfaceRefDeclarator elem, Void arg) {
-            Declarations.this.errorHelper.error(elem.getLocation(), Optional.of(elem.getEndLocation()),
-                    "unexpected interface reference");
+        public Void visitInterfaceRefDeclarator(InterfaceRefDeclarator declarator, Void arg) {
+            /*  Report an error because an interface reference declarator can
+                be only used to provide the body of a command or an event. It
+                cannot be used to only declare it. */
+            Declarations.this.errorHelper.error(
+                    declarator.getLocation(),
+                    Optional.of(declarator.getEndLocation()),
+                    "unexpected interface reference"
+            );
+
+            // Create a declaration object for further analysis
+            final IdentifierDeclarator identDeclarator = (IdentifierDeclarator) declarator.getDeclarator().get();
+            final String name = declarator.getName().getName() + "." + identDeclarator.getName();
+            final String uniqueName = semanticListener.nameManglingRequired(name);
+            final VariableDeclaration declarationObj = VariableDeclaration.builder()
+                    .uniqueName(uniqueName)
+                    .name(name)
+                    .startLocation(declarator.getLocation())
+                    .build();
+
+            /* Change the state as if the declaration was correct except
+               adding the name to the environment and analyzing attributes. */
+            emitGlobalNameEvent(uniqueName, name);
+            variableDecl.setDeclaration(declarationObj);
+            identDeclarator.setUniqueName(Optional.of(uniqueName));
+
             return null;
         }
 
