@@ -795,6 +795,11 @@ public final class TabuSearchCodePartitioner implements CodePartitioner {
                         }
                     }
 
+                    @Override
+                    public void remove() {
+                        throw new UnsupportedOperationException();
+                    }
+
                     private void extractNext() {
                         while (!nextEdge.isPresent() && allNeighboursIt.hasNext()) {
                             final SwitchingActionEdge edge = allNeighboursIt.next();
