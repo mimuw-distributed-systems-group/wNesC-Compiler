@@ -5,6 +5,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
 import java.util.ArrayDeque;
@@ -29,6 +30,8 @@ import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.codepartition.context.PartitionContext;
 import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
 import pl.edu.mimuw.nesc.common.AtomicSpecification;
+import pl.edu.mimuw.nesc.common.util.DoubleSumIntervalTreeOperation;
+import pl.edu.mimuw.nesc.common.util.FindUnionSet;
 import pl.edu.mimuw.nesc.common.util.IntegerSumIntervalTreeOperation;
 import pl.edu.mimuw.nesc.common.util.IntervalTree;
 import pl.edu.mimuw.nesc.compilation.CompilationListener;
@@ -99,7 +102,8 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         computeFrequencyEstimations(topologicalOrdering);
         fillCommonBank(context);
         computeBiconnectedComponents(context);
-        updateFunctionsSizesTree(context);
+        computeMaximumSpanningForest(context, topologicalOrdering);
+        updateIntervalTrees(context);
         assignFunctions(context);
 
         return context.getBankTable();
@@ -134,8 +138,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         final Set<FunctionVertex> completedVertices = new HashSet<>();
         boolean warningEmitted = false;
 
-        while (!topologicalOrdering.isEmpty()) {
-            final FunctionVertex currentVertex = topologicalOrdering.remove();
+        for (final FunctionVertex currentVertex : topologicalOrdering) {
             completedVertices.add(currentVertex);
 
             if (currentVertex.getPredecessors().isEmpty()) {
@@ -172,11 +175,95 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         }
     }
 
-    private void updateFunctionsSizesTree(BComponentsPartitionContext context) {
+    private void computeMaximumSpanningForest(BComponentsPartitionContext context,
+                Queue<FunctionVertex> topologicalOrdering) {
+        final List<CallEdge> sortedEdges = sortCallEdges(context);
+        final ImmutableListMultimap<FunctionVertex, FunctionVertex> maximumSpanningForestNeighbours =
+                computeMaximumSpanningForestNeighbours(context, sortedEdges);
+        putSpanningForest(context, topologicalOrdering, maximumSpanningForestNeighbours);
+    }
+
+    private List<CallEdge> sortCallEdges(BComponentsPartitionContext context) {
+        final List<CallEdge> edges = new ArrayList<>();
+
+        // Add all edges to the list
+        for (FunctionVertex funVertex : context.callGraph.getVertices().values()) {
+            if (!funVertex.getTargetBank().isPresent()) {
+                for (CallEdge successorEdge : funVertex.getSuccessors()) {
+                    if (!successorEdge.getTargetVertex().getTargetBank().isPresent()) {
+                        edges.add(successorEdge);
+                    }
+                }
+            }
+        }
+
+        // Sort the edges in the ascending order of frequency estimations
+        Collections.sort(edges, new FrequencyEstimationEdgeComparator());
+
+        return edges;
+    }
+
+    /**
+     * Compute the maximum spanning forest by using the Kruskal's algorithm.
+     */
+    private ImmutableListMultimap<FunctionVertex, FunctionVertex> computeMaximumSpanningForestNeighbours(
+            BComponentsPartitionContext context,
+            List<CallEdge> sortedEdges
+    ) {
+        final FindUnionSet<String> connectedComponents = new FindUnionSet<>(
+                context.callGraph.getVertices().keySet());
+        final ImmutableListMultimap.Builder<FunctionVertex, FunctionVertex> neighboursBuilder =
+                ImmutableListMultimap.builder();
+
+        for (int i = sortedEdges.size() - 1; i >= 0; --i) {
+            final CallEdge currentEdge = sortedEdges.get(i);
+            final FunctionVertex sourceVertex = currentEdge.getSourceVertex(),
+                    targetVertex = currentEdge.getTargetVertex();
+
+            if (!connectedComponents.find(sourceVertex.getUniqueName()).equals(
+                    connectedComponents.find(targetVertex.getUniqueName()))) {
+                neighboursBuilder.put(sourceVertex, targetVertex);
+                neighboursBuilder.put(targetVertex, sourceVertex);
+                connectedComponents.union(sourceVertex.getUniqueName(), targetVertex.getUniqueName());
+            }
+        }
+
+        return neighboursBuilder.build();
+    }
+
+    private void putSpanningForest(
+            BComponentsPartitionContext context,
+            Queue<FunctionVertex> topologicalOrdering,
+            ImmutableListMultimap<FunctionVertex, FunctionVertex> forestNeighbours
+    ) {
+        // Reset all vertices
+        for (FunctionVertex vertex : context.callGraph.getVertices().values()) {
+            if (!vertex.getTargetBank().isPresent()) {
+                vertex.resetDfsTreeNumber();
+                vertex.resetDfsTreeParent();
+                vertex.resetMaximumDfsDescendantNumber();
+            }
+        }
+
+        final DfsVertexVisitor spanningForestVisitor = new SpanningForestVertexVisitor();
+        final DepthFirstSearcher depthFirstSearcher = new DepthFirstSearcher(
+                new SpecificNeighboursProvider(forestNeighbours.asMap()));
+
+        // Put the new spanning forest
+        for (FunctionVertex funVertex : topologicalOrdering) {
+            if (!funVertex.getTargetBank().isPresent() && !funVertex.hasDfsTreeNumber()) {
+                depthFirstSearcher.search(funVertex, spanningForestVisitor);
+            }
+        }
+    }
+
+    private void updateIntervalTrees(BComponentsPartitionContext context) {
         for (FunctionVertex vertex : context.callGraph.getVertices().values()) {
             if (!vertex.getTargetBank().isPresent()) {
                 context.functionsSizesTree.set(vertex.getDfsTreeNumber(),
                         context.getFunctionSize(vertex.getUniqueName()));
+                context.frequencyEstimationsTree.set(vertex.getDfsTreeNumber(),
+                        vertex.getFrequencyEstimation());
             }
         }
     }
@@ -309,12 +396,15 @@ public class BComponentsCodePartitioner implements CodePartitioner {
             final FunctionVertex treeRoot = dfsTreeEntry.getKey();
             final int allFunctionsSize = context.functionsSizesTree.compute(treeRoot.getDfsTreeNumber(),
                     treeRoot.getMaximumDfsDescendantNumber() + 1);
+            final double allFunctionsFrequency = context.frequencyEstimationsTree.compute(treeRoot.getDfsTreeNumber(),
+                    treeRoot.getMaximumDfsDescendantNumber() + 1);
             candidateAllocations.clear();
 
             if (bestAllocation.isPresent()) {
                 candidateAllocations.add(bestAllocation.get());
             }
-            addRootAllocation(candidateAllocations, context, treeRoot, allFunctionsSize);
+            addRootAllocation(candidateAllocations, context, treeRoot,
+                    allFunctionsSize, allFunctionsFrequency);
 
             for (FunctionVertex cutVertex : dfsTreeEntry.getValue()) {
                 if (cutVertex == treeRoot) {
@@ -322,9 +412,11 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                 }
 
                 addTreeAllocation(candidateAllocations, context, cutVertex,
-                        AllocationDirection.DOWN_TREE, allFunctionsSize, treeRoot);
+                        AllocationDirection.DOWN_TREE, allFunctionsSize,
+                        allFunctionsFrequency, treeRoot);
                 addTreeAllocation(candidateAllocations, context, cutVertex,
-                        AllocationDirection.UP_TREE, allFunctionsSize, treeRoot);
+                        AllocationDirection.UP_TREE, allFunctionsSize,
+                        allFunctionsFrequency, treeRoot);
             }
 
             if (!candidateAllocations.isEmpty()) {
@@ -337,28 +429,34 @@ public class BComponentsCodePartitioner implements CodePartitioner {
 
     private void addRootAllocation(Collection<TreeAllocation> candidateAllocations,
                 BComponentsPartitionContext context, FunctionVertex treeRoot,
-                int allFunctionsSize) {
+                int allFunctionsSize, double allFunctionsFrequency) {
         final Optional<String> targetBank = context.getFloorBank(allFunctionsSize);
         if (targetBank.isPresent()) {
             candidateAllocations.add(new TreeAllocation(treeRoot, treeRoot,
-                    AllocationDirection.DOWN_TREE, targetBank.get(), allFunctionsSize));
+                    AllocationDirection.DOWN_TREE, targetBank.get(),
+                    allFunctionsSize, allFunctionsFrequency));
         }
     }
 
     private void addTreeAllocation(Collection<TreeAllocation> allocations,
                 BComponentsPartitionContext context, FunctionVertex cutVertex,
                 AllocationDirection direction, int allFunctionsSize,
-                FunctionVertex treeRoot) {
+                double allFunctionsFrequency, FunctionVertex treeRoot) {
         final int downTreeFunctionsSize = context.functionsSizesTree.compute(cutVertex.getDfsTreeNumber(),
                 cutVertex.getMaximumDfsDescendantNumber() + 1);
+        final double downTreeFunctionsFrequency = context.frequencyEstimationsTree.compute(
+                cutVertex.getDfsTreeNumber(), cutVertex.getMaximumDfsDescendantNumber() + 1);
         final int functionsSize;
+        final double functionsFrequency;
 
         switch (direction) {
             case DOWN_TREE:
                 functionsSize = downTreeFunctionsSize;
+                functionsFrequency = downTreeFunctionsFrequency;
                 break;
             case UP_TREE:
                 functionsSize = allFunctionsSize - downTreeFunctionsSize;
+                functionsFrequency = allFunctionsFrequency - downTreeFunctionsFrequency;
                 break;
             default:
                 throw new RuntimeException("unexpected allocation direction " + direction);
@@ -367,7 +465,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         final Optional<String> targetBank = context.getFloorBank(functionsSize);
         if (targetBank.isPresent()) {
             allocations.add(new TreeAllocation(cutVertex, treeRoot, direction,
-                    targetBank.get(), functionsSize));
+                    targetBank.get(), functionsSize, functionsFrequency));
         }
     }
 
@@ -401,6 +499,12 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         private final IntervalTree<Integer> functionsSizesTree;
 
         /**
+         * Interval tree that allows for computing sums of frequency
+         * estimations.
+         */
+        private final IntervalTree<Double> frequencyEstimationsTree;
+
+        /**
          * Map with functions that will be partitioned.
          */
         private final ImmutableMap<String, FunctionDecl> functions;
@@ -411,6 +515,8 @@ public class BComponentsCodePartitioner implements CodePartitioner {
             this.callGraph = new CallGraph(functions, refsGraph);
             this.functionsSizesTree = new IntervalTree<>(Integer.class,
                     new IntegerSumIntervalTreeOperation(), functionsSizes.size());
+            this.frequencyEstimationsTree = new IntervalTree<>(Double.class,
+                    new DoubleSumIntervalTreeOperation(), functionsSizes.size());
 
             final ImmutableMap.Builder<String, FunctionDecl> functionsMapBuilder =
                     ImmutableMap.builder();
@@ -431,6 +537,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
             final FunctionVertex vertex = callGraph.getVertices().get(funUniqueName);
             if (vertex.hasDfsTreeNumber()) {
                 functionsSizesTree.set(vertex.getDfsTreeNumber(), 0);
+                frequencyEstimationsTree.set(vertex.getDfsTreeNumber(), 0.);
             }
             vertex.assigned(bankName);
         }
@@ -784,6 +891,17 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         }
 
         /**
+         * Removes the information about the current DFS tree number allowing
+         * to set it again.
+         *
+         * @throws IllegalStateException The DFS tree number has not been set yet.
+         */
+        private void resetDfsTreeNumber() {
+            checkState(dfsTreeNumber.isPresent(), "DFS tree number has not been set yet");
+            this.dfsTreeNumber = Optional.absent();
+        }
+
+        /**
          * Set the parent of this vertex in the DFS tree. It can be set exactly
          * once.
          *
@@ -804,6 +922,14 @@ public class BComponentsCodePartitioner implements CodePartitioner {
          */
         private Optional<FunctionVertex> getDfsTreeParent() {
             return dfsTreeParent;
+        }
+
+        /**
+         * Remove the current information about the parent of this vertex in the
+         * DFS tree ensuring that it can be set, possibly again.
+         */
+        private void resetDfsTreeParent() {
+            this.dfsTreeParent = Optional.absent();
         }
 
         /**
@@ -872,6 +998,19 @@ public class BComponentsCodePartitioner implements CodePartitioner {
          */
         private int getMaximumDfsDescendantNumber() {
             return maximumDfsDescendantNumber.get();
+        }
+
+        /**
+         * Remove the information about the maximum DFS descendant number of
+         * this vertex allowing to set it again.
+         *
+         * @throws IllegalStateException Maximum DFS descendant number of this
+         *                               vertex has not been set yet.
+         */
+        private void resetMaximumDfsDescendantNumber() {
+            checkState(maximumDfsDescendantNumber.isPresent(),
+                    "maximum DFS descendant number has not been set yet");
+            this.maximumDfsDescendantNumber = Optional.absent();
         }
 
         /**
@@ -1171,6 +1310,32 @@ public class BComponentsCodePartitioner implements CodePartitioner {
     }
 
     /**
+     * Neighbours provider that provides vertices from the map specified at
+     * construction-time. If the map does not contain an entry for a vertex,
+     * then this provider returns an empty iterable.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class SpecificNeighboursProvider implements NeighboursProvider {
+        private final Map<FunctionVertex, ? extends Iterable<FunctionVertex>> neighbours;
+
+        private SpecificNeighboursProvider(Map<FunctionVertex, ? extends Iterable<FunctionVertex>> neighbours) {
+            checkNotNull(neighbours, "neighbours cannot be null");
+            this.neighbours = neighbours;
+        }
+
+        @Override
+        public Iterable<FunctionVertex> getNeighbours(FunctionVertex vertex) {
+            checkNotNull(vertex, "vertex cannot be null");
+            final Optional<Iterable<FunctionVertex>> neighboursIterable =
+                    Optional.fromNullable(neighbours.get(vertex));
+            return neighboursIterable.isPresent()
+                    ? neighboursIterable.get()
+                    : Collections.<FunctionVertex>emptyList();
+        }
+    }
+
+    /**
      * Interface with events that occur during a DFS traversal of a graph.
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
@@ -1353,6 +1518,33 @@ public class BComponentsCodePartitioner implements CodePartitioner {
     }
 
     /**
+     * Vertex visitor that builds a spanning forest corresponding to the DFS
+     * search, numbers vertices in a pre-order numbering and computes maximum
+     * DFS descendant numbers for vertices.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class SpanningForestVertexVisitor implements DfsVertexVisitor {
+        private int nextDfsNumber = 0;
+
+        @Override
+        public void enterVertex(FunctionVertex funVertex, Optional<FunctionVertex> parent) {
+            funVertex.setDfsTreeNumber(nextDfsNumber++);
+            if (parent.isPresent()) {
+                funVertex.setDfsTreeParent(parent.get());
+            }
+        }
+
+        @Override
+        public void leaveVertex(FunctionVertex funVertex, Optional<FunctionVertex> parent) {
+            funVertex.setMaximumDfsDescendantNumber(funVertex.getDfsTreeNumber());
+            for (FunctionVertex child : funVertex.getDfsTreeChildren()) {
+                funVertex.updateMaximumDfsDescendantNumber(child.getMaximumDfsDescendantNumber());
+            }
+        }
+    }
+
+    /**
      * Object responsible for performing the depth-first search in the call
      * graph.
      *
@@ -1473,20 +1665,24 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         private final AllocationDirection direction;
         private final String bankName;
         private final int totalFunctionsSize;
+        private final double frequencyEstimationsSum;
 
         private TreeAllocation(FunctionVertex vertex, FunctionVertex dfsTreeRoot,
-                    AllocationDirection direction, String bankName, int totalFunctionsSize) {
+                    AllocationDirection direction, String bankName, int totalFunctionsSize,
+                    double frequencyEstimationsSum) {
             checkNotNull(vertex, "vertex cannot be null");
             checkNotNull(dfsTreeRoot, "DFS tree root cannot be null");
             checkNotNull(direction, "direction cannot be null");
             checkNotNull(bankName, "name of the bank cannot be null");
             checkArgument(!bankName.isEmpty(), "name of the bank cannot be an empty string");
             checkArgument(totalFunctionsSize >= 0, "total size of allocated functions cannot be negative");
+            checkArgument(frequencyEstimationsSum >= 0., "frequency estimations sum cannot be negative");
             this.vertex = vertex;
             this.dfsTreeRoot = dfsTreeRoot;
             this.direction = direction;
             this.bankName = bankName;
             this.totalFunctionsSize = totalFunctionsSize;
+            this.frequencyEstimationsSum = frequencyEstimationsSum;
         }
 
         @Override
@@ -1497,6 +1693,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                     .add("direction", direction)
                     .add("target-bank", bankName)
                     .add("total-functions-size", totalFunctionsSize)
+                    .add("frequency-estimations-sum", frequencyEstimationsSum)
                     .toString();
         }
     }
@@ -1521,6 +1718,13 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         public int compare(TreeAllocation allocation1, TreeAllocation allocation2) {
             checkNotNull(allocation1, "first tree allocation cannot be null");
             checkNotNull(allocation2, "second tree allocation cannot be null");
+
+            // Compare total frequency estimations
+            final int frequencyEstimationsResult = Double.compare(allocation1.frequencyEstimationsSum,
+                    allocation2.frequencyEstimationsSum);
+            if (frequencyEstimationsResult != 0) {
+                return frequencyEstimationsResult;
+            }
 
             // Compare total functions sizes
             final int totalSizesResult = Integer.compare(allocation1.totalFunctionsSize,
@@ -1690,6 +1894,57 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         public boolean apply(FunctionVertex vertex) {
             checkNotNull(vertex, "vertex cannot be null");
             return !vertex.getTargetBank().isPresent();
+        }
+    }
+
+    /**
+     * A comparator that specifies an order on edges in the call graph. It is
+     * the ascending order of their frequency estimations. If the frequency
+     * estimations are equal, then the smaller names of vertices incident with
+     * the edges are compared. If they are equal too, then the greater names
+     * are compared.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class FrequencyEstimationEdgeComparator implements Comparator<CallEdge> {
+        @Override
+        public int compare(CallEdge edge1, CallEdge edge2) {
+            checkNotNull(edge1, "the first edge cannot be null");
+            checkNotNull(edge2, "the second edge cannot be null");
+
+            // Compare the frequency estimations
+            final int frequencyEstimationResult = Double.compare(edge1.getFrequencyEstimation(),
+                    edge2.getFrequencyEstimation());
+            if (frequencyEstimationResult != 0) {
+                return frequencyEstimationResult;
+            }
+
+            // Determine names of connected functions
+            final String[] uniqueNames1 = getSortedIncidentVertices(edge1);
+            final String[] uniqueNames2 = getSortedIncidentVertices(edge2);
+
+            // Compare smaller names of incident functions
+            final int smallerNamesResult = uniqueNames1[0].compareTo(uniqueNames2[0]);
+            if (smallerNamesResult != 0) {
+                return smallerNamesResult;
+            }
+
+            // Compare greater names of functions
+            return uniqueNames1[1].compareTo(uniqueNames2[1]);
+        }
+
+        private String[] getSortedIncidentVertices(CallEdge edge) {
+            final String[] sortedNames = new String[2];
+
+            if (edge.getSourceVertex().getUniqueName().compareTo(edge.getTargetVertex().getUniqueName()) < 0) {
+                sortedNames[0] = edge.getSourceVertex().getUniqueName();
+                sortedNames[1] = edge.getTargetVertex().getUniqueName();
+            } else {
+                sortedNames[0] = edge.getTargetVertex().getUniqueName();
+                sortedNames[1] = edge.getSourceVertex().getUniqueName();
+            }
+
+            return sortedNames;
         }
     }
 }
