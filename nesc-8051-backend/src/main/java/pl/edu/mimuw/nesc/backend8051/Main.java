@@ -18,6 +18,7 @@ import pl.edu.mimuw.nesc.astutil.DeclarationsSeparator;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.astwriting.ASTWriter;
 import pl.edu.mimuw.nesc.astwriting.WriteSettings;
+import pl.edu.mimuw.nesc.backend8051.option.Options8051;
 import pl.edu.mimuw.nesc.backend8051.option.Options8051Holder;
 import pl.edu.mimuw.nesc.backend8051.option.Options8051Parser;
 import pl.edu.mimuw.nesc.codepartition.BComponentsCodePartitioner;
@@ -104,6 +105,12 @@ public final class Main {
      * Default partition heuristic used when the user does not specify any.
      */
     private static final String DEFAULT_PARTITION_HEURISTIC = "bcomponents";
+
+    /**
+     * Default spanning forest kind used when the user does not specify any.
+     */
+    private static final BComponentsCodePartitioner.SpanningForestKind DEFAULT_SPANNING_FOREST_KIND =
+            BComponentsCodePartitioner.SpanningForestKind.BCOMPONENTS;
 
     /**
      * Code returned by the compiler to the system when the compilation fails.
@@ -444,11 +451,18 @@ public final class Main {
         final String partitionHeuristic = options.getPartitionHeuristic().or(DEFAULT_PARTITION_HEURISTIC);
         final CodePartitioner partitioner;
 
+        if (!partitionHeuristic.equals("bcomponents") && options.getSpanningForestKind().isPresent()) {
+            System.err.println("warning: option '" + Options8051.OPTION_LONG_SPANNING_FOREST
+                + "' ignored because the biconnected components heuristic has not been selected for the partitioning");
+        }
+
         if (partitionHeuristic.equals("simple")) {
             partitioner = new SimpleCodePartitioner(bankSchema, atomicSpecification);
         } else if (partitionHeuristic.equals("bcomponents")) {
-            partitioner = new BComponentsCodePartitioner(bankSchema, atomicSpecification,
-                    new DefaultCompilationListener());
+            final BComponentsCodePartitioner.SpanningForestKind spanningForestKind =
+                    options.getSpanningForestKind().or(DEFAULT_SPANNING_FOREST_KIND);
+            partitioner = new BComponentsCodePartitioner(spanningForestKind, bankSchema,
+                    atomicSpecification, new DefaultCompilationListener());
         } else if (partitionHeuristic.startsWith("tmsearch-")) {
             final int lastDashPos = partitionHeuristic.lastIndexOf('-');
             partitioner = new TabuSearchCodePartitioner(bankSchema, atomicSpecification,

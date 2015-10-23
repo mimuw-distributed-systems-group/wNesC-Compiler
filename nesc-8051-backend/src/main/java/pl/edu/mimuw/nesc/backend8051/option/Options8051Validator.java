@@ -101,7 +101,8 @@ public final class Options8051Validator {
                 new SDASExecutableValidator(),
                 new MaximumInlineSizeValidator(),
                 new DumpInlineFunctionsValidator(),
-                new PartitionHeuristicValidator()
+                new PartitionHeuristicValidator(),
+                new SpanningForestKindValidator()
         );
     }
 
@@ -389,6 +390,22 @@ public final class Options8051Validator {
             } else {
                 return Optional.absent();
             }
+        }
+    }
+
+    private final class SpanningForestKindValidator implements SingleValidator {
+        @Override
+        public Optional<String> validate() {
+            final Optional<String> value = getOptionValue(Options8051.OPTION_LONG_SPANNING_FOREST);
+            if (!value.isPresent()) {
+                return Optional.absent();
+            }
+
+            return Options8051.MAP_SPANNING_FOREST.containsKey(value.get())
+                    ? Optional.<String>absent()
+                    : Optional.of("invalid value for option '--"
+                        + Options8051.OPTION_LONG_SPANNING_FOREST
+                        + "': invalid spanning forest kind '" + value.get() + "'");
         }
     }
 }

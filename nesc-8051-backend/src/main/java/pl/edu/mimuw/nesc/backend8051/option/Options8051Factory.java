@@ -96,7 +96,13 @@ final class Options8051Factory {
                 .hasArg()
                 .desc("heuristic to use for partitioning of functions into banks; available heuristics: simple, bcomponents, greedy-n (where n is an arbitrary positive natural number), tmsearch-n-m (where n and m are arbitrary natural numbers, n is the maximum count of iterations and m is the maximum count of consecutive fruitless iterations); if this option is not specified, then heuristic 'bcomponents' is used")
                 .argName("heuristic-kind")
-                .build()
+                .build(),
+            Option.builder()
+                .longOpt(OPTION_LONG_SPANNING_FOREST)
+                .hasArg()
+                .desc("kind of spanning forest that will be used by the biconnected components heuristic; available kinds: original, minimum, maximum; original implies that the spanning forest constructed during the computation of biconnected components will be used; if this option is not specified, then original spanning forest is used; this option has no effect if the biconnected components heuristic is not used for the partitioning")
+                .argName("forest-kind")
+                .build(),
         };
 
         final Iterable<Option> optionsSource = FluentIterable.from(new OptionsLoader().load())

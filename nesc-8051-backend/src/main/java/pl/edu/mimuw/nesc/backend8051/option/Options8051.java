@@ -1,12 +1,15 @@
 package pl.edu.mimuw.nesc.backend8051.option;
 
+import com.google.common.collect.ImmutableMap;
+import pl.edu.mimuw.nesc.codepartition.BComponentsCodePartitioner;
+
 /**
  * <p>Class with some data about the options for 8051 version of the
  * compiler.</p>
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
  */
-final class Options8051 {
+public final class Options8051 {
     /**
      * Short names of options for the 8051 backend.
      */
@@ -37,6 +40,7 @@ final class Options8051 {
     public static final String OPTION_LONG_DUMP_INLINE_FUNCTIONS = "dump-inline-functions";
     public static final String OPTION_LONG_PRINT_BANKING_STATS = "print-banking-stats";
     public static final String OPTION_LONG_PARTITION_HEURISTIC = "partition-heuristic";
+    public static final String OPTION_LONG_SPANNING_FOREST = "spanning-forest";
 
     /**
      * Separators used for options values.
@@ -50,6 +54,16 @@ final class Options8051 {
      * Separators of parameter names and their values.
      */
     public static final char PARAMETER_SEPARATOR_SDCC_PARAMS = '=';
+
+    /**
+     * Map for parsing the spanning forest kind.
+     */
+    public static final ImmutableMap<String, BComponentsCodePartitioner.SpanningForestKind> MAP_SPANNING_FOREST =
+            ImmutableMap.of(
+                    "original", BComponentsCodePartitioner.SpanningForestKind.BCOMPONENTS,
+                    "minimum", BComponentsCodePartitioner.SpanningForestKind.MINIMUM,
+                    "maximum", BComponentsCodePartitioner.SpanningForestKind.MAXIMUM
+            );
 
     /**
      * Private constructor to prevent instantiating this class.

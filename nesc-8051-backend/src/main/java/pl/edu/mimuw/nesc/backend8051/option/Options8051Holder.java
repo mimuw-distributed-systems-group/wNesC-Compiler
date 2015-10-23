@@ -5,6 +5,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 import org.apache.commons.cli.CommandLine;
+import pl.edu.mimuw.nesc.codepartition.BComponentsCodePartitioner;
 import pl.edu.mimuw.nesc.codepartition.BankSchema;
 import pl.edu.mimuw.nesc.codesize.SDCCMemoryModel;
 
@@ -192,6 +193,25 @@ public final class Options8051Holder {
 
     public Optional<String> getPartitionHeuristic() {
         return Optional.fromNullable(cmdLine.getOptionValue(OPTION_LONG_PARTITION_HEURISTIC));
+    }
+
+    public Optional<BComponentsCodePartitioner.SpanningForestKind> getSpanningForestKind() {
+        // Get the value of the option specified by the user
+        final Optional<String> spanningForestKindString = Optional.fromNullable(
+                cmdLine.getOptionValue(OPTION_LONG_SPANNING_FOREST));
+        if (!spanningForestKindString.isPresent()) {
+            return Optional.absent();
+        }
+
+        // Parse the value
+        final Optional<BComponentsCodePartitioner.SpanningForestKind> spanningForestKind =
+                Optional.fromNullable(MAP_SPANNING_FOREST.get(spanningForestKindString.get()));
+        if (!spanningForestKind.isPresent()) {
+            throw new IllegalStateException("invalid spanning forest kind '"
+                    + spanningForestKindString.get() + "'");
+        }
+
+        return spanningForestKind;
     }
 
     private Optional<Integer> getIntegerOptionValue(String optionName) {

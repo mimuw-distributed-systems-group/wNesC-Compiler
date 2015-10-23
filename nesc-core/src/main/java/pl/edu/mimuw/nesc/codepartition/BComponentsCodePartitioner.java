@@ -7,6 +7,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Range;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -72,11 +73,19 @@ public class BComponentsCodePartitioner implements CodePartitioner {
      */
     private final CompilationListener listener;
 
-    public BComponentsCodePartitioner(BankSchema bankSchema, AtomicSpecification atomicSpec,
-            CompilationListener listener) {
+    /**
+     * Kind of the spanning forests built by this partitioner for creating
+     * partitions.
+     */
+    private final SpanningForestKind spanningForestKind;
+
+    public BComponentsCodePartitioner(SpanningForestKind spanningForestKind, BankSchema bankSchema,
+            AtomicSpecification atomicSpec, CompilationListener listener) {
+        checkNotNull(spanningForestKind, "spanning forest kind cannot be null");
         checkNotNull(bankSchema, "bank schema cannot be null");
         checkNotNull(atomicSpec, "atomic specification cannot be null");
         checkNotNull(listener, "listener cannot be null");
+        this.spanningForestKind = spanningForestKind;
         this.bankSchema = bankSchema;
         this.commonBankAllocator = new CommonBankAllocator(atomicSpec);
         this.treeAllocationsComparator = new TreeAllocationComparator(bankSchema.getCommonBankName());
@@ -102,7 +111,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         computeFrequencyEstimations(topologicalOrdering);
         fillCommonBank(context);
         computeBiconnectedComponents(context);
-        computeMaximumSpanningForest(context, topologicalOrdering);
+        computeSpanningForest(context, topologicalOrdering);
         updateIntervalTrees(context);
         assignFunctions(context);
 
@@ -175,12 +184,16 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         }
     }
 
-    private void computeMaximumSpanningForest(BComponentsPartitionContext context,
+    private void computeSpanningForest(BComponentsPartitionContext context,
                 Queue<FunctionVertex> topologicalOrdering) {
+        if (spanningForestKind == SpanningForestKind.BCOMPONENTS) {
+            return;
+        }
+
         final List<CallEdge> sortedEdges = sortCallEdges(context);
-        final ImmutableListMultimap<FunctionVertex, FunctionVertex> maximumSpanningForestNeighbours =
-                computeMaximumSpanningForestNeighbours(context, sortedEdges);
-        putSpanningForest(context, topologicalOrdering, maximumSpanningForestNeighbours);
+        final ImmutableListMultimap<FunctionVertex, FunctionVertex> spanningForestNeighbours =
+                computeSpanningForestNeighbours(context, sortedEdges);
+        putSpanningForest(context, topologicalOrdering, spanningForestNeighbours);
     }
 
     private List<CallEdge> sortCallEdges(BComponentsPartitionContext context) {
@@ -204,19 +217,39 @@ public class BComponentsCodePartitioner implements CodePartitioner {
     }
 
     /**
-     * Compute the maximum spanning forest by using the Kruskal's algorithm.
+     * Compute the minimum or maximum spanning forest (depending on
+     * {@link BComponentsCodePartitioner#spanningForestKind}) by using the
+     * Kruskal's algorithm.
+     *
+     * @throws IllegalStateException The spanning forest kind of this
+     *                               partitioner is
+     *                               {@link SpanningForestKind#BCOMPONENTS}.
      */
-    private ImmutableListMultimap<FunctionVertex, FunctionVertex> computeMaximumSpanningForestNeighbours(
+    private ImmutableListMultimap<FunctionVertex, FunctionVertex> computeSpanningForestNeighbours(
             BComponentsPartitionContext context,
             List<CallEdge> sortedEdges
     ) {
+        // Determine the order of iteration over the edges
+        final List<CallEdge> edgesForIteration;
+        switch (spanningForestKind) {
+            case MINIMUM:
+                edgesForIteration = sortedEdges;
+                break;
+            case MAXIMUM:
+                edgesForIteration = Lists.reverse(sortedEdges);
+                break;
+            default:
+                throw new IllegalStateException("unexpected spanning forest kind '"
+                        + spanningForestKind + "'");
+        }
+
         final FindUnionSet<String> connectedComponents = new FindUnionSet<>(
                 context.callGraph.getVertices().keySet());
         final ImmutableListMultimap.Builder<FunctionVertex, FunctionVertex> neighboursBuilder =
                 ImmutableListMultimap.builder();
 
-        for (int i = sortedEdges.size() - 1; i >= 0; --i) {
-            final CallEdge currentEdge = sortedEdges.get(i);
+        // Iterate over the edges building the spanning forest
+        for (CallEdge currentEdge : edgesForIteration) {
             final FunctionVertex sourceVertex = currentEdge.getSourceVertex(),
                     targetVertex = currentEdge.getTargetVertex();
 
@@ -1946,5 +1979,31 @@ public class BComponentsCodePartitioner implements CodePartitioner {
 
             return sortedNames;
         }
+    }
+
+    /**
+     * An enum type representing the kind of the spanning forest that will be
+     * used for the partitioning.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    public enum SpanningForestKind {
+        /**
+         * A minimum spanning forest will be computed for the call graph and
+         * used for the partitioning.
+         */
+        MINIMUM,
+
+        /**
+         * A maximum spanning forest will be computed for the call graph and
+         * used for the partitioning.
+         */
+        MAXIMUM,
+
+        /**
+         * The spanning forest built during the biconnected components
+         * computation will be used.
+         */
+        BCOMPONENTS,
     }
 }
