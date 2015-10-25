@@ -41,6 +41,7 @@ public final class Options8051 {
     public static final String OPTION_LONG_PRINT_BANKING_STATS = "print-banking-stats";
     public static final String OPTION_LONG_PARTITION_HEURISTIC = "partition-heuristic";
     public static final String OPTION_LONG_SPANNING_FOREST = "spanning-forest";
+    public static final String OPTION_LONG_PREFER_HIGHER_ESTIMATE_ALLOCATIONS = "prefer-higher-estimate-allocations";
 
     /**
      * Separators used for options values.

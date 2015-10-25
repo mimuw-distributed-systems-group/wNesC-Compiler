@@ -79,8 +79,9 @@ public class BComponentsCodePartitioner implements CodePartitioner {
      */
     private final SpanningForestKind spanningForestKind;
 
-    public BComponentsCodePartitioner(SpanningForestKind spanningForestKind, BankSchema bankSchema,
-            AtomicSpecification atomicSpec, CompilationListener listener) {
+    public BComponentsCodePartitioner(BankSchema bankSchema, AtomicSpecification atomicSpec,
+            SpanningForestKind spanningForestKind, boolean preferHigherEstimateAllocations,
+            CompilationListener listener) {
         checkNotNull(spanningForestKind, "spanning forest kind cannot be null");
         checkNotNull(bankSchema, "bank schema cannot be null");
         checkNotNull(atomicSpec, "atomic specification cannot be null");
@@ -88,7 +89,8 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         this.spanningForestKind = spanningForestKind;
         this.bankSchema = bankSchema;
         this.commonBankAllocator = new CommonBankAllocator(atomicSpec);
-        this.treeAllocationsComparator = new TreeAllocationComparator(bankSchema.getCommonBankName());
+        this.treeAllocationsComparator = new TreeAllocationComparator(bankSchema.getCommonBankName(),
+                preferHigherEstimateAllocations);
         this.listener = listener;
     }
 
@@ -1740,11 +1742,13 @@ public class BComponentsCodePartitioner implements CodePartitioner {
      */
     private static final class TreeAllocationComparator implements Comparator<TreeAllocation> {
         private final String commonBankName;
+        private final boolean preferHigherEstimateAllocations;
 
-        private TreeAllocationComparator(String commonBankName) {
+        private TreeAllocationComparator(String commonBankName, boolean preferHigherEstimateAllocations) {
             checkNotNull(commonBankName, "name of the common bank cannot be null");
             checkArgument(!commonBankName.isEmpty(), "name of the common bank cannot be an empty string");
             this.commonBankName = commonBankName;
+            this.preferHigherEstimateAllocations = preferHigherEstimateAllocations;
         }
 
         @Override
@@ -1752,11 +1756,13 @@ public class BComponentsCodePartitioner implements CodePartitioner {
             checkNotNull(allocation1, "first tree allocation cannot be null");
             checkNotNull(allocation2, "second tree allocation cannot be null");
 
-            // Compare total frequency estimations
-            final int frequencyEstimationsResult = Double.compare(allocation1.frequencyEstimationsSum,
-                    allocation2.frequencyEstimationsSum);
-            if (frequencyEstimationsResult != 0) {
-                return frequencyEstimationsResult;
+            if (preferHigherEstimateAllocations) {
+                // Compare total frequency estimations
+                final int frequencyEstimationsResult = Double.compare(allocation1.frequencyEstimationsSum,
+                        allocation2.frequencyEstimationsSum);
+                if (frequencyEstimationsResult != 0) {
+                    return frequencyEstimationsResult;
+                }
             }
 
             // Compare total functions sizes

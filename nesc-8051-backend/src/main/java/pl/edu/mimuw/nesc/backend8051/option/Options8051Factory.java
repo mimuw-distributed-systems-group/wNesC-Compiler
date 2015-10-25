@@ -103,6 +103,10 @@ final class Options8051Factory {
                 .desc("kind of spanning forest that will be used by the biconnected components heuristic; available kinds: original, minimum, maximum; original implies that the spanning forest constructed during the computation of biconnected components will be used; if this option is not specified, then original spanning forest is used; this option has no effect if the biconnected components heuristic is not used for the partitioning")
                 .argName("forest-kind")
                 .build(),
+            Option.builder()
+                .longOpt(OPTION_LONG_PREFER_HIGHER_ESTIMATE_ALLOCATIONS)
+                .desc("prefer allocations with higher frequency estimates in the biconnected components heuristic; if the biconnected components heuristic is not used for the partitioning, this option has no effect")
+                .build(),
         };
 
         final Iterable<Option> optionsSource = FluentIterable.from(new OptionsLoader().load())

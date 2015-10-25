@@ -214,6 +214,10 @@ public final class Options8051Holder {
         return spanningForestKind;
     }
 
+    public boolean getPreferHigherEstimateAllocations() {
+        return cmdLine.hasOption(OPTION_LONG_PREFER_HIGHER_ESTIMATE_ALLOCATIONS);
+    }
+
     private Optional<Integer> getIntegerOptionValue(String optionName) {
         final Optional<String> optionValue = Optional.fromNullable(
                 cmdLine.getOptionValue(optionName));

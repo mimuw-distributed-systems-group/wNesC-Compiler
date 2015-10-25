@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Iterator;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Level;
 import pl.edu.mimuw.nesc.abi.ABI;
@@ -451,18 +452,16 @@ public final class Main {
         final String partitionHeuristic = options.getPartitionHeuristic().or(DEFAULT_PARTITION_HEURISTIC);
         final CodePartitioner partitioner;
 
-        if (!partitionHeuristic.equals("bcomponents") && options.getSpanningForestKind().isPresent()) {
-            System.err.println("warning: option '" + Options8051.OPTION_LONG_SPANNING_FOREST
-                + "' ignored because the biconnected components heuristic has not been selected for the partitioning");
-        }
+        warnAboutBComponentsHeuristicNoEffectOpts();
 
         if (partitionHeuristic.equals("simple")) {
             partitioner = new SimpleCodePartitioner(bankSchema, atomicSpecification);
         } else if (partitionHeuristic.equals("bcomponents")) {
             final BComponentsCodePartitioner.SpanningForestKind spanningForestKind =
                     options.getSpanningForestKind().or(DEFAULT_SPANNING_FOREST_KIND);
-            partitioner = new BComponentsCodePartitioner(spanningForestKind, bankSchema,
-                    atomicSpecification, new DefaultCompilationListener());
+            partitioner = new BComponentsCodePartitioner(bankSchema, atomicSpecification,
+                    spanningForestKind, options.getPreferHigherEstimateAllocations(),
+                    new DefaultCompilationListener());
         } else if (partitionHeuristic.startsWith("tmsearch-")) {
             final int lastDashPos = partitionHeuristic.lastIndexOf('-');
             partitioner = new TabuSearchCodePartitioner(bankSchema, atomicSpecification,
@@ -480,6 +479,51 @@ public final class Main {
 
         timeMeasurer.codePartitionEnded();
         return partition;
+    }
+
+    private void warnAboutBComponentsHeuristicNoEffectOpts() {
+        // Determine the heuristic that will be used
+        final String partitionHeuristic = options.getPartitionHeuristic().or(DEFAULT_PARTITION_HEURISTIC);
+
+        if (partitionHeuristic.equals("bcomponents")) {
+            return;
+        }
+
+        // Collect options with no effect
+        final ImmutableList.Builder<String> optionsNoEffectBuilder = ImmutableList.builder();
+        if (options.getSpanningForestKind().isPresent()) {
+            optionsNoEffectBuilder.add(Options8051.OPTION_LONG_SPANNING_FOREST);
+        }
+        if (options.getPreferHigherEstimateAllocations()) {
+            optionsNoEffectBuilder.add(Options8051.OPTION_LONG_PREFER_HIGHER_ESTIMATE_ALLOCATIONS);
+        }
+        final ImmutableList<String> optionsNoEffect = optionsNoEffectBuilder.build();
+
+        if (optionsNoEffect.isEmpty()) {
+            return;
+        }
+
+        // Generate the warning text
+        final StringBuilder warningTextBuilder = new StringBuilder(
+                optionsNoEffect.size() > 1
+                ? "warning: options "
+                : "warning: option "
+        );
+        final Iterator<String> optionsNoEffectIt = optionsNoEffect.iterator();
+        if (optionsNoEffectIt.hasNext()) {
+            warningTextBuilder.append(" '--");
+            warningTextBuilder.append(optionsNoEffectIt.next());
+            warningTextBuilder.append('\'');
+            while (optionsNoEffectIt.hasNext()) {
+                warningTextBuilder.append(", '--");
+                warningTextBuilder.append(optionsNoEffectIt.next());
+                warningTextBuilder.append('\'');
+            }
+        }
+        warningTextBuilder.append(" ignored because the biconnected components heuristic has not been selected for the partitioning");
+
+        // Print the warning
+        System.err.println(warningTextBuilder.toString());
     }
 
     /**
