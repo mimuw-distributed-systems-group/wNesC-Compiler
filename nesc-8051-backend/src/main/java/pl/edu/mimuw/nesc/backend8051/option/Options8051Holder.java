@@ -218,6 +218,10 @@ public final class Options8051Holder {
         return cmdLine.hasOption(OPTION_LONG_PREFER_HIGHER_ESTIMATE_ALLOCATIONS);
     }
 
+    public boolean getExtendedSubtreePartitioning() {
+        return cmdLine.hasOption(OPTION_LONG_EXTENDED_SUBTREE_PARTITIONING);
+    }
+
     private Optional<Integer> getIntegerOptionValue(String optionName) {
         final Optional<String> optionValue = Optional.fromNullable(
                 cmdLine.getOptionValue(optionName));

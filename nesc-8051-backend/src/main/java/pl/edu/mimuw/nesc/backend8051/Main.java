@@ -461,7 +461,7 @@ public final class Main {
                     options.getSpanningForestKind().or(DEFAULT_SPANNING_FOREST_KIND);
             partitioner = new BComponentsCodePartitioner(bankSchema, atomicSpecification,
                     spanningForestKind, options.getPreferHigherEstimateAllocations(),
-                    new DefaultCompilationListener());
+                    options.getExtendedSubtreePartitioning(), new DefaultCompilationListener());
         } else if (partitionHeuristic.startsWith("tmsearch-")) {
             final int lastDashPos = partitionHeuristic.lastIndexOf('-');
             partitioner = new TabuSearchCodePartitioner(bankSchema, atomicSpecification,
@@ -496,6 +496,9 @@ public final class Main {
         }
         if (options.getPreferHigherEstimateAllocations()) {
             optionsNoEffectBuilder.add(Options8051.OPTION_LONG_PREFER_HIGHER_ESTIMATE_ALLOCATIONS);
+        }
+        if (options.getExtendedSubtreePartitioning()) {
+            optionsNoEffectBuilder.add(Options8051.OPTION_LONG_EXTENDED_SUBTREE_PARTITIONING);
         }
         final ImmutableList<String> optionsNoEffect = optionsNoEffectBuilder.build();
 

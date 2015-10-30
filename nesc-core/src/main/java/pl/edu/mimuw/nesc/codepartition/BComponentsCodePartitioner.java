@@ -7,6 +7,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Range;
 import java.util.ArrayDeque;
@@ -69,6 +70,11 @@ public class BComponentsCodePartitioner implements CodePartitioner {
     private final Comparator<TreeAllocation> treeAllocationsComparator;
 
     /**
+     * Comparator for allocations used for extended subtree partitioning.
+     */
+    private final Comparator<ExtendedTreeAllocation> extendedTreeAllocationsComparator;
+
+    /**
      * Listener that will be notified about detected issues.
      */
     private final CompilationListener listener;
@@ -79,19 +85,28 @@ public class BComponentsCodePartitioner implements CodePartitioner {
      */
     private final SpanningForestKind spanningForestKind;
 
+    /**
+     * Value indicating if extended subtree partitioning mechanism is to be
+     * used.
+     */
+    private final boolean extendedSubtreePartitioning;
+
     public BComponentsCodePartitioner(BankSchema bankSchema, AtomicSpecification atomicSpec,
             SpanningForestKind spanningForestKind, boolean preferHigherEstimateAllocations,
-            CompilationListener listener) {
+            boolean extendedSubtreePartitioning, CompilationListener listener) {
         checkNotNull(spanningForestKind, "spanning forest kind cannot be null");
         checkNotNull(bankSchema, "bank schema cannot be null");
         checkNotNull(atomicSpec, "atomic specification cannot be null");
         checkNotNull(listener, "listener cannot be null");
-        this.spanningForestKind = spanningForestKind;
         this.bankSchema = bankSchema;
         this.commonBankAllocator = new CommonBankAllocator(atomicSpec);
         this.treeAllocationsComparator = new TreeAllocationComparator(bankSchema.getCommonBankName(),
                 preferHigherEstimateAllocations);
+        this.extendedTreeAllocationsComparator = new ExtendedTreeAllocationComparator(
+                this.treeAllocationsComparator);
         this.listener = listener;
+        this.spanningForestKind = spanningForestKind;
+        this.extendedSubtreePartitioning = extendedSubtreePartitioning;
     }
 
     @Override
@@ -309,8 +324,12 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                 findAllocationVertices(context);
 
         while (functionsLeft != 0) {
-            final Optional<TreeAllocation> allocation = determineAllocation(
+            Optional<TreeAllocation> allocation = determineAllocation(
                     context, allocationVertices);
+            if (extendedSubtreePartitioning && !allocation.isPresent()) {
+                allocation = findMinimumWeightAllocation(context, allocationVertices.keySet());
+            }
+
             if (allocation.isPresent()) {
                 functionsLeft -= performAllocation(context, allocation.get(),
                         allocationVertices.get(allocation.get().dfsTreeRoot));
@@ -323,14 +342,17 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                         && allocation.get().vertex == allocation.get().dfsTreeRoot) {
                     allocationVertices.remove(allocation.get().dfsTreeRoot);
                 }
-            } else {
+            } else if (!extendedSubtreePartitioning) {
                 final FunctionVertex treeToAllocate = Collections.max(allocationVertices.keySet(),
                         new FunctionSizeComparator(context.functionsSizesTree));
                 functionsLeft -= allocateTree(context, treeToAllocate);
                 allocationVertices.remove(treeToAllocate);
+            } else {
+                throw new PartitionImpossibleException("not enough space");
             }
         }
     }
+
 
     private int computeUnallocatedFunctionsCount(BComponentsPartitionContext context) {
         int unallocatedFunctionsCount = 0;
@@ -513,6 +535,149 @@ public class BComponentsCodePartitioner implements CodePartitioner {
             throw new PartitionImpossibleException("not enough space");
         }
         return allocatingVisitor.allocatedFunctionsCount;
+    }
+
+    private Optional<TreeAllocation> findMinimumWeightAllocation(BComponentsPartitionContext context,
+                Set<FunctionVertex> treeRoots) {
+        Optional<ExtendedTreeAllocation> bestAllocation = Optional.absent();
+
+        for (FunctionVertex treeRoot : treeRoots) {
+            final Optional<ExtendedTreeAllocation> bestTreeAllocation =
+                    findMinimumWeightSubtree(context, treeRoot);
+
+            if (bestTreeAllocation.isPresent() && !bestAllocation.isPresent()
+                    || bestTreeAllocation.isPresent() && extendedTreeAllocationsComparator.compare(
+                        bestAllocation.get(), bestTreeAllocation.get()) < 0) {
+                bestAllocation = Optional.of(bestTreeAllocation.get());
+            }
+        }
+
+        return Optional.<TreeAllocation>of(bestAllocation.get());
+    }
+
+    private Optional<ExtendedTreeAllocation> findMinimumWeightSubtree(
+            BComponentsPartitionContext context,
+            FunctionVertex treeRoot
+    ) {
+        final int allFunctionsSize = context.functionsSizesTree.compute(treeRoot.getDfsTreeNumber(),
+                treeRoot.getMaximumDfsDescendantNumber() + 1);
+        final double allFunctionsFrequency = context.frequencyEstimationsTree.compute(treeRoot.getDfsTreeNumber(),
+                treeRoot.getMaximumDfsDescendantNumber() + 1);
+        Optional<ExtendedTreeAllocation> bestTreeAllocation = Optional.absent();
+        final List<ExtendedTreeAllocation> candidates = new ArrayList<>();
+
+        final Set<FunctionVertex> enqueuedVertices = new HashSet<>();
+        final Queue<FunctionVertex> queue = new ArrayDeque<>();
+        queue.add(treeRoot);
+        enqueuedVertices.addAll(queue);
+
+        while (!queue.isEmpty()) {
+            final FunctionVertex currentVertex = queue.remove();
+            final ImmutableSet<FunctionVertex> subtreeVertices = collectSubtreeVertices(currentVertex);
+            final double outerEdgesWeightsSum = computeOuterEdgesWeightsSum(subtreeVertices);
+
+            prepareAllocations(context, candidates, bestTreeAllocation, currentVertex, treeRoot,
+                    allFunctionsSize, allFunctionsFrequency, outerEdgesWeightsSum);
+            if (!candidates.isEmpty()) {
+                bestTreeAllocation = Optional.of(Collections.max(candidates, extendedTreeAllocationsComparator));
+            }
+
+            for (FunctionVertex dfsChild : currentVertex.getDfsTreeChildren()) {
+                if (!dfsChild.getTargetBank().isPresent() && !enqueuedVertices.contains(dfsChild)) {
+                    queue.add(dfsChild);
+                    enqueuedVertices.add(dfsChild);
+                }
+            }
+        }
+
+        return bestTreeAllocation;
+    }
+
+    private ImmutableSet<FunctionVertex> collectSubtreeVertices(FunctionVertex vertex) {
+        final ImmutableSet.Builder<FunctionVertex> subtreeVerticesBuilder = ImmutableSet.builder();
+
+        final Set<FunctionVertex> enqueuedVertices = new HashSet<>();
+        final Queue<FunctionVertex> queue = new ArrayDeque<>();
+        queue.add(vertex);
+        enqueuedVertices.addAll(queue);
+
+        while (!queue.isEmpty()) {
+            final FunctionVertex currentVertex = queue.remove();
+            subtreeVerticesBuilder.add(currentVertex);
+
+            for (FunctionVertex dfsChild : currentVertex.getDfsTreeChildren()) {
+                if (!dfsChild.getTargetBank().isPresent() && !enqueuedVertices.contains(dfsChild)) {
+                    queue.add(dfsChild);
+                    enqueuedVertices.add(dfsChild);
+                }
+            }
+        }
+
+        return subtreeVerticesBuilder.build();
+    }
+
+    private double computeOuterEdgesWeightsSum(ImmutableSet<FunctionVertex> subtreeVertices) {
+        double outerEdgesWeightsSum = 0.;
+
+        for (FunctionVertex subtreeVertex : subtreeVertices) {
+            final FluentIterable<CallEdge> neighbourEdges = FluentIterable.from(subtreeVertex.getPredecessors())
+                    .append(subtreeVertex.getSuccessors());
+
+            for (CallEdge edge : neighbourEdges) {
+                final FunctionVertex otherVertex = edge.getSourceVertex() == subtreeVertex
+                        ? edge.getTargetVertex()
+                        : edge.getSourceVertex();
+
+                if (!subtreeVertices.contains(otherVertex)) {
+                    outerEdgesWeightsSum += edge.getFrequencyEstimation();
+                }
+            }
+        }
+
+        return outerEdgesWeightsSum;
+    }
+
+    private void prepareAllocations(
+            BComponentsPartitionContext context,
+            Collection<ExtendedTreeAllocation> candidateAllocations,
+            Optional<ExtendedTreeAllocation> bestTreeAllocation,
+            FunctionVertex vertex,
+            FunctionVertex treeRoot,
+            int allFunctionsSize,
+            double allFunctionsFrequency,
+            double outerEdgesWeightsSum
+    ) {
+        final int subtreeFunctionsSize = context.functionsSizesTree.compute(
+                vertex.getDfsTreeNumber(), vertex.getMaximumDfsDescendantNumber() + 1);
+        final double subtreeFunctionsFrequency = context.frequencyEstimationsTree.compute(
+                vertex.getDfsTreeNumber(), vertex.getMaximumDfsDescendantNumber() + 1);
+
+        candidateAllocations.clear();
+
+        // The current best allocation
+        if (bestTreeAllocation.isPresent()) {
+            candidateAllocations.add(bestTreeAllocation.get());
+        }
+
+        // The down-tree allocation
+        final Optional<String> targetBankDown = context.getFloorBank(subtreeFunctionsSize);
+        if (targetBankDown.isPresent()) {
+            candidateAllocations.add(new ExtendedTreeAllocation(vertex, treeRoot,
+                    AllocationDirection.DOWN_TREE, targetBankDown.get(), subtreeFunctionsSize,
+                    subtreeFunctionsFrequency, outerEdgesWeightsSum));
+        }
+
+        // The up-tree allocation
+        if (vertex != treeRoot) {
+            final int upTreeFunctionsSize = allFunctionsSize - subtreeFunctionsSize;
+            final double upTreeFunctionsFrequency = allFunctionsFrequency - subtreeFunctionsFrequency;
+            final Optional<String> targetBankUp = context.getFloorBank(upTreeFunctionsSize);
+            if (targetBankUp.isPresent()) {
+                candidateAllocations.add(new ExtendedTreeAllocation(vertex, treeRoot,
+                        AllocationDirection.UP_TREE, targetBankUp.get(), upTreeFunctionsSize,
+                        upTreeFunctionsFrequency, outerEdgesWeightsSum));
+            }
+        }
     }
 
     /**
@@ -1694,7 +1859,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
      *
      * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>
      */
-    private static final class TreeAllocation {
+    private static class TreeAllocation {
         private final FunctionVertex vertex;
         private final FunctionVertex dfsTreeRoot;
         private final AllocationDirection direction;
@@ -1730,6 +1895,25 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                     .add("total-functions-size", totalFunctionsSize)
                     .add("frequency-estimations-sum", frequencyEstimationsSum)
                     .toString();
+        }
+    }
+
+    /**
+     * Object that represents an allocation used in the extended subtree
+     * partitioning.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class ExtendedTreeAllocation extends TreeAllocation {
+        private final double outerEdgesWeightsSum;
+
+        private ExtendedTreeAllocation(FunctionVertex vertex, FunctionVertex dfsTreeRoot,
+                AllocationDirection direction, String bankName, int totalFunctionsSize,
+                double frequencyEstimationsSum, double outerEdgesWeightsSum) {
+            super(vertex, dfsTreeRoot, direction, bankName, totalFunctionsSize,
+                    frequencyEstimationsSum);
+            checkArgument(outerEdgesWeightsSum >= 0., "outer edges weights sum cannot be negative");
+            this.outerEdgesWeightsSum = outerEdgesWeightsSum;
         }
     }
 
@@ -1783,6 +1967,33 @@ public class BComponentsCodePartitioner implements CodePartitioner {
 
             return allocation1.vertex.getUniqueName().compareTo(
                     allocation2.vertex.getUniqueName());
+        }
+    }
+
+    /**
+     * Comparator for determining better extended tree allocations. A greater
+     * allocation is the preferred allocation.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class ExtendedTreeAllocationComparator implements Comparator<ExtendedTreeAllocation> {
+        private final Comparator<TreeAllocation> innerComparator;
+
+        private ExtendedTreeAllocationComparator(Comparator<TreeAllocation> innerComparator) {
+            checkNotNull(innerComparator, "inner comparator cannot be null");
+            this.innerComparator = innerComparator;
+        }
+
+        @Override
+        public int compare(ExtendedTreeAllocation allocation1, ExtendedTreeAllocation allocation2) {
+            checkNotNull(allocation1, "the first allocation cannot be null");
+            checkNotNull(allocation2, "the second allocation cannot be null");
+
+            final int weightsSumResult = Double.compare(allocation2.outerEdgesWeightsSum,
+                    allocation1.outerEdgesWeightsSum);
+            return weightsSumResult != 0
+                    ? weightsSumResult
+                    : innerComparator.compare(allocation1, allocation2);
         }
     }
 

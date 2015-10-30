@@ -42,6 +42,7 @@ public final class Options8051 {
     public static final String OPTION_LONG_PARTITION_HEURISTIC = "partition-heuristic";
     public static final String OPTION_LONG_SPANNING_FOREST = "spanning-forest";
     public static final String OPTION_LONG_PREFER_HIGHER_ESTIMATE_ALLOCATIONS = "prefer-higher-estimate-allocations";
+    public static final String OPTION_LONG_EXTENDED_SUBTREE_PARTITIONING = "extended-subtree-partitioning";
 
     /**
      * Separators used for options values.
