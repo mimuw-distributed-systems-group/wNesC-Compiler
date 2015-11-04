@@ -30,6 +30,14 @@ public final class Options8051Holder {
         }
     };
 
+    private static final Function<String, Double> FUNCTION_PARSE_DOUBLE = new Function<String, Double>() {
+        @Override
+        public Double apply(String value) {
+            checkNotNull(value, "argument cannot be null");
+            return Double.valueOf(value);
+        }
+    };
+
     /**
      * The parsed 8051 options.
      */
@@ -222,9 +230,26 @@ public final class Options8051Holder {
         return cmdLine.hasOption(OPTION_LONG_EXTENDED_SUBTREE_PARTITIONING);
     }
 
+    public Optional<Double> getLoopFactor() {
+        return getDoubleOptionValue(OPTION_LONG_LOOP_FACTOR);
+    }
+
+    public Optional<Double> getConditionalFactor() {
+        return getDoubleOptionValue(OPTION_LONG_CONDITIONAL_FACTOR);
+    }
+
     private Optional<Integer> getIntegerOptionValue(String optionName) {
+        return getTransformedOptionValue(optionName, FUNCTION_PARSE_INT);
+    }
+
+    private Optional<Double> getDoubleOptionValue(String optionName) {
+        return getTransformedOptionValue(optionName, FUNCTION_PARSE_DOUBLE);
+    }
+
+    private <T> Optional<T> getTransformedOptionValue(String optionName,
+                    Function<String, T> transformFunction) {
         final Optional<String> optionValue = Optional.fromNullable(
                 cmdLine.getOptionValue(optionName));
-        return optionValue.transform(FUNCTION_PARSE_INT);
+        return optionValue.transform(transformFunction);
     }
 }

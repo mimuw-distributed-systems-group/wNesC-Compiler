@@ -114,6 +114,19 @@ public final class Main {
             BComponentsCodePartitioner.SpanningForestKind.BCOMPONENTS;
 
     /**
+     * Default loop factor for the biconnected components heuristic used if the
+     * user does not specify any.
+     */
+    private static final double DEFAULT_LOOP_FACTOR = 2.;
+
+    /**
+     * Default conditional factor for the biconnected components heuristic used
+     * if the user does not specify any.
+     */
+    private static final double DEFAULT_CONDITIONAL_FACTOR = 0.5;
+
+
+    /**
      * Code returned by the compiler to the system when the compilation fails.
      */
     private static final int STATUS_ERROR = 1;
@@ -459,9 +472,16 @@ public final class Main {
         } else if (partitionHeuristic.equals("bcomponents")) {
             final BComponentsCodePartitioner.SpanningForestKind spanningForestKind =
                     options.getSpanningForestKind().or(DEFAULT_SPANNING_FOREST_KIND);
-            partitioner = new BComponentsCodePartitioner(bankSchema, atomicSpecification,
-                    spanningForestKind, options.getPreferHigherEstimateAllocations(),
-                    options.getExtendedSubtreePartitioning(), new DefaultCompilationListener());
+            partitioner = new BComponentsCodePartitioner(
+                    bankSchema,
+                    atomicSpecification,
+                    options.getLoopFactor().or(DEFAULT_LOOP_FACTOR),
+                    options.getConditionalFactor().or(DEFAULT_CONDITIONAL_FACTOR),
+                    spanningForestKind,
+                    options.getPreferHigherEstimateAllocations(),
+                    options.getExtendedSubtreePartitioning(),
+                    new DefaultCompilationListener()
+            );
         } else if (partitionHeuristic.startsWith("tmsearch-")) {
             final int lastDashPos = partitionHeuristic.lastIndexOf('-');
             partitioner = new TabuSearchCodePartitioner(bankSchema, atomicSpecification,
@@ -499,6 +519,12 @@ public final class Main {
         }
         if (options.getExtendedSubtreePartitioning()) {
             optionsNoEffectBuilder.add(Options8051.OPTION_LONG_EXTENDED_SUBTREE_PARTITIONING);
+        }
+        if (options.getLoopFactor().isPresent()) {
+            optionsNoEffectBuilder.add(Options8051.OPTION_LONG_LOOP_FACTOR);
+        }
+        if (options.getConditionalFactor().isPresent()) {
+            optionsNoEffectBuilder.add(Options8051.OPTION_LONG_CONDITIONAL_FACTOR);
         }
         final ImmutableList<String> optionsNoEffect = optionsNoEffectBuilder.build();
 

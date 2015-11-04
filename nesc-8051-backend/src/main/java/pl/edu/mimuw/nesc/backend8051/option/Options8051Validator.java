@@ -102,7 +102,9 @@ public final class Options8051Validator {
                 new MaximumInlineSizeValidator(),
                 new DumpInlineFunctionsValidator(),
                 new PartitionHeuristicValidator(),
-                new SpanningForestKindValidator()
+                new SpanningForestKindValidator(),
+                new LoopFactorValidator(),
+                new ConditionalFactorValidator()
         );
     }
 
@@ -165,6 +167,14 @@ public final class Options8051Validator {
     private boolean checkNotGreaterThanMaxInt(String value) {
         final BigInteger valueBigInt = new BigInteger(value);
         return valueBigInt.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) <= 0;
+    }
+
+    private Optional<Double> checkParsesAsDouble(String value) {
+        try {
+            return Optional.of(Double.parseDouble(value));
+        } catch (NumberFormatException e) {
+            return Optional.absent();
+        }
     }
 
     /**
@@ -406,6 +416,50 @@ public final class Options8051Validator {
                     : Optional.of("invalid value for option '--"
                         + Options8051.OPTION_LONG_SPANNING_FOREST
                         + "': invalid spanning forest kind '" + value.get() + "'");
+        }
+    }
+
+    private final class LoopFactorValidator implements SingleValidator {
+        @Override
+        public Optional<String> validate() {
+            final Optional<String> value = getOptionValue(Options8051.OPTION_LONG_LOOP_FACTOR);
+            if (!value.isPresent()) {
+                return Optional.absent();
+            }
+
+            final String msgPrefix = "invalid value for option '--"
+                    + Options8051.OPTION_LONG_LOOP_FACTOR + "': ";
+            final Optional<Double> parsedValue = checkParsesAsDouble(value.get());
+
+            if (!parsedValue.isPresent()) {
+                return Optional.of(msgPrefix + "'" + value.get() + "' is an invalid floating-point number");
+            } else if (parsedValue.get() < 1.) {
+                return Optional.of(msgPrefix + "number '" + value.get() + "' is not greater than or equal to 1");
+            } else {
+                return Optional.absent();
+            }
+        }
+    }
+
+    private final class ConditionalFactorValidator implements SingleValidator {
+        @Override
+        public Optional<String> validate() {
+            final Optional<String> value = getOptionValue(Options8051.OPTION_LONG_CONDITIONAL_FACTOR);
+            if (!value.isPresent()) {
+                return Optional.absent();
+            }
+
+            final String msgPrefix = "invalid value for option '--"
+                    + Options8051.OPTION_LONG_CONDITIONAL_FACTOR + "': ";
+            final Optional<Double> parsedValue = checkParsesAsDouble(value.get());
+
+            if (!parsedValue.isPresent()) {
+                return Optional.of(msgPrefix + "'" + value.get() + "' is an invalid floating-point number");
+            } else if (parsedValue.get() < 0. || parsedValue.get() > 1.) {
+                return Optional.of(msgPrefix + "number '" + value.get() + "' is not in range [0, 1]");
+            } else {
+                return Optional.absent();
+            }
         }
     }
 }

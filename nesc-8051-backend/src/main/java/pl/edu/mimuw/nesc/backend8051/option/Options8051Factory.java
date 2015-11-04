@@ -111,6 +111,18 @@ final class Options8051Factory {
                 .longOpt(OPTION_LONG_EXTENDED_SUBTREE_PARTITIONING)
                 .desc("perform extended subtree partitioning in the biconnected components heuristic; if the biconnected components heuristic is not used for the partitioning, this option has no effect")
                 .build(),
+            Option.builder()
+                .longOpt(OPTION_LONG_LOOP_FACTOR)
+                .hasArg()
+                .desc("use the given number as the loop factor in the biconnected components heuristic; the number must be greater than or equal to 1; if the biconnected components heuristic is not selected for the partitioning, this option has no effect")
+                .argName("number")
+                .build(),
+            Option.builder()
+                .longOpt(OPTION_LONG_CONDITIONAL_FACTOR)
+                .hasArg()
+                .desc("use the specified number as the conditional factor in the biconnected components heuristic; the number must be a floating-point number from range [0, 1]; if the biconnected components heuristic is not selected for the partitioning, this option has no effect")
+                .argName("number")
+                .build(),
         };
 
         final Iterable<Option> optionsSource = FluentIterable.from(new OptionsLoader().load())

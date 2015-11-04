@@ -91,22 +91,40 @@ public class BComponentsCodePartitioner implements CodePartitioner {
      */
     private final boolean extendedSubtreePartitioning;
 
+    /**
+     * Value that controls the increase of a frequency estimate for a call
+     * instruction inside a loop. It must be greater than or equal to 1.
+     */
+    private final double loopFactor;
+
+    /**
+     * Value that controls the decrease of a frequency estimate for a call
+     * instruction inside a conditional statement. It must be greater than or
+     * equal to 0 and less than or equal to 1.
+     */
+    private final double conditionalFactor;
+
     public BComponentsCodePartitioner(BankSchema bankSchema, AtomicSpecification atomicSpec,
-            SpanningForestKind spanningForestKind, boolean preferHigherEstimateAllocations,
-            boolean extendedSubtreePartitioning, CompilationListener listener) {
-        checkNotNull(spanningForestKind, "spanning forest kind cannot be null");
+            double loopFactor, double conditionalFactor, SpanningForestKind spanningForestKind,
+            boolean preferHigherEstimateAllocations, boolean extendedSubtreePartitioning,
+            CompilationListener listener) {
         checkNotNull(bankSchema, "bank schema cannot be null");
         checkNotNull(atomicSpec, "atomic specification cannot be null");
+        checkNotNull(spanningForestKind, "spanning forest kind cannot be null");
         checkNotNull(listener, "listener cannot be null");
+        checkArgument(loopFactor >= 1., "the loop factor must be greater than or equal to 1");
+        checkArgument(0. <= conditionalFactor && conditionalFactor <= 1., "the conditional factor must be in range [0, 1]");
         this.bankSchema = bankSchema;
         this.commonBankAllocator = new CommonBankAllocator(atomicSpec);
         this.treeAllocationsComparator = new TreeAllocationComparator(bankSchema.getCommonBankName(),
                 preferHigherEstimateAllocations);
         this.extendedTreeAllocationsComparator = new ExtendedTreeAllocationComparator(
                 this.treeAllocationsComparator);
-        this.listener = listener;
+        this.loopFactor = loopFactor;
+        this.conditionalFactor = conditionalFactor;
         this.spanningForestKind = spanningForestKind;
         this.extendedSubtreePartitioning = extendedSubtreePartitioning;
+        this.listener = listener;
     }
 
     @Override
@@ -175,8 +193,8 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                 if (edge.getTargetVertex() != currentVertex
                         && !completedVertices.contains(edge.getTargetVertex())) {
                     edge.increaseFrequencyEstimation(currentVertex.getFrequencyEstimation()
-                            * Math.pow(2., edge.getEnclosingLoopsCount())
-                            * Math.pow(0.5, edge.getEnclosingConditionalStmtsCount()));
+                            * Math.pow(loopFactor, edge.getEnclosingLoopsCount())
+                            * Math.pow(conditionalFactor, edge.getEnclosingConditionalStmtsCount()));
                     edge.getTargetVertex().increaseFrequencyEstimation(edge.getFrequencyEstimation());
                 } else if (edge.getTargetVertex() != currentVertex && !warningEmitted) {
                     listener.warning(new NescWarning(Optional.<Location>absent(),
