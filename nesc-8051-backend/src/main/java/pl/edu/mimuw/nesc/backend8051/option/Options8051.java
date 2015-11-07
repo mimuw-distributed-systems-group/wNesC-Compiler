@@ -42,7 +42,7 @@ public final class Options8051 {
     public static final String OPTION_LONG_PARTITION_HEURISTIC = "partition-heuristic";
     public static final String OPTION_LONG_SPANNING_FOREST = "spanning-forest";
     public static final String OPTION_LONG_PREFER_HIGHER_ESTIMATE_ALLOCATIONS = "prefer-higher-estimate-allocations";
-    public static final String OPTION_LONG_EXTENDED_SUBTREE_PARTITIONING = "extended-subtree-partitioning";
+    public static final String OPTION_LONG_ARBITRARY_SUBTREE_PARTITIONING = "arbitrary-subtree-partitioning";
     public static final String OPTION_LONG_LOOP_FACTOR = "loop-factor";
     public static final String OPTION_LONG_CONDITIONAL_FACTOR = "conditional-factor";
 
@@ -67,6 +67,16 @@ public final class Options8051 {
                     "original", BComponentsCodePartitioner.SpanningForestKind.BCOMPONENTS,
                     "minimum", BComponentsCodePartitioner.SpanningForestKind.MINIMUM,
                     "maximum", BComponentsCodePartitioner.SpanningForestKind.MAXIMUM
+            );
+
+    /**
+     * Map for parsing the arbitrary subtree partitioning mode.
+     */
+    public static final ImmutableMap<String, BComponentsCodePartitioner.ArbitrarySubtreePartitioningMode> MAP_ARBITRARY_SUBTREE_PARTITIONING =
+            ImmutableMap.of(
+                    "always", BComponentsCodePartitioner.ArbitrarySubtreePartitioningMode.ALWAYS,
+                    "emergency", BComponentsCodePartitioner.ArbitrarySubtreePartitioningMode.ON_EMERGENCY,
+                    "never", BComponentsCodePartitioner.ArbitrarySubtreePartitioningMode.NEVER
             );
 
     /**

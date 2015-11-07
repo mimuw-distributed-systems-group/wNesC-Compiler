@@ -114,6 +114,13 @@ public final class Main {
             BComponentsCodePartitioner.SpanningForestKind.BCOMPONENTS;
 
     /**
+     * Default arbitrary subtree partitioning mode used when the user does not
+     * specify any.
+     */
+    private static final BComponentsCodePartitioner.ArbitrarySubtreePartitioningMode DEFAULT_ARBITRARY_SUBTREE_PARTITIONING_MODE =
+            BComponentsCodePartitioner.ArbitrarySubtreePartitioningMode.NEVER;
+
+    /**
      * Default loop factor for the biconnected components heuristic used if the
      * user does not specify any.
      */
@@ -470,16 +477,14 @@ public final class Main {
         if (partitionHeuristic.equals("simple")) {
             partitioner = new SimpleCodePartitioner(bankSchema, atomicSpecification);
         } else if (partitionHeuristic.equals("bcomponents")) {
-            final BComponentsCodePartitioner.SpanningForestKind spanningForestKind =
-                    options.getSpanningForestKind().or(DEFAULT_SPANNING_FOREST_KIND);
             partitioner = new BComponentsCodePartitioner(
                     bankSchema,
                     atomicSpecification,
                     options.getLoopFactor().or(DEFAULT_LOOP_FACTOR),
                     options.getConditionalFactor().or(DEFAULT_CONDITIONAL_FACTOR),
-                    spanningForestKind,
+                    options.getSpanningForestKind().or(DEFAULT_SPANNING_FOREST_KIND),
                     options.getPreferHigherEstimateAllocations(),
-                    options.getExtendedSubtreePartitioning(),
+                    options.getArbitrarySubtreePartitioningMode().or(DEFAULT_ARBITRARY_SUBTREE_PARTITIONING_MODE),
                     new DefaultCompilationListener()
             );
         } else if (partitionHeuristic.startsWith("tmsearch-")) {
@@ -517,8 +522,8 @@ public final class Main {
         if (options.getPreferHigherEstimateAllocations()) {
             optionsNoEffectBuilder.add(Options8051.OPTION_LONG_PREFER_HIGHER_ESTIMATE_ALLOCATIONS);
         }
-        if (options.getExtendedSubtreePartitioning()) {
-            optionsNoEffectBuilder.add(Options8051.OPTION_LONG_EXTENDED_SUBTREE_PARTITIONING);
+        if (options.getArbitrarySubtreePartitioningMode().isPresent()) {
+            optionsNoEffectBuilder.add(Options8051.OPTION_LONG_ARBITRARY_SUBTREE_PARTITIONING);
         }
         if (options.getLoopFactor().isPresent()) {
             optionsNoEffectBuilder.add(Options8051.OPTION_LONG_LOOP_FACTOR);

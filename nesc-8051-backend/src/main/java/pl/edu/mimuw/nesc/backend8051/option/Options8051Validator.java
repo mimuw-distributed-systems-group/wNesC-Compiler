@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 import org.apache.commons.cli.CommandLine;
 import pl.edu.mimuw.nesc.codesize.SDCCMemoryModel;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -102,7 +103,12 @@ public final class Options8051Validator {
                 new MaximumInlineSizeValidator(),
                 new DumpInlineFunctionsValidator(),
                 new PartitionHeuristicValidator(),
-                new SpanningForestKindValidator(),
+                new EnumOptionValidator(Options8051.OPTION_LONG_SPANNING_FOREST,
+                        Options8051.MAP_SPANNING_FOREST.keySet(),
+                        "spanning forest kind"),
+                new EnumOptionValidator(Options8051.OPTION_LONG_ARBITRARY_SUBTREE_PARTITIONING,
+                        Options8051.MAP_ARBITRARY_SUBTREE_PARTITIONING.keySet(),
+                        "arbitrary subtree partitioning mode"),
                 new LoopFactorValidator(),
                 new ConditionalFactorValidator()
         );
@@ -403,19 +409,35 @@ public final class Options8051Validator {
         }
     }
 
-    private final class SpanningForestKindValidator implements SingleValidator {
+    private final class EnumOptionValidator implements SingleValidator {
+        private final String optionName;
+        private final ImmutableSet<String> correctValues;
+        private final String enumDescription;
+
+        private EnumOptionValidator(String optionName, ImmutableSet<String> correctValues,
+                    String enumDescription) {
+            checkNotNull(optionName, "option name cannot be null");
+            checkNotNull(correctValues, "correct values cannot be null");
+            checkNotNull(enumDescription, "enum description cannot be null");
+            checkArgument(!optionName.isEmpty(), "option name cannot be an empty string");
+            checkArgument(!enumDescription.isEmpty(), "enum description cannot be an empty string");
+            this.optionName = optionName;
+            this.correctValues = correctValues;
+            this.enumDescription = enumDescription;
+        }
+
         @Override
         public Optional<String> validate() {
-            final Optional<String> value = getOptionValue(Options8051.OPTION_LONG_SPANNING_FOREST);
+            final Optional<String> value = getOptionValue(optionName);
             if (!value.isPresent()) {
                 return Optional.absent();
             }
 
-            return Options8051.MAP_SPANNING_FOREST.containsKey(value.get())
+            return correctValues.contains(value.get())
                     ? Optional.<String>absent()
-                    : Optional.of("invalid value for option '--"
-                        + Options8051.OPTION_LONG_SPANNING_FOREST
-                        + "': invalid spanning forest kind '" + value.get() + "'");
+                    : Optional.of("invalid value for option '--" + optionName
+                        + "': invalid " + enumDescription + " '" + value.get()
+                        + "'");
         }
     }
 

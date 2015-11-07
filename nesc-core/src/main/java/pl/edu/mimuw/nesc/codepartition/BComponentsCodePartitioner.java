@@ -86,10 +86,10 @@ public class BComponentsCodePartitioner implements CodePartitioner {
     private final SpanningForestKind spanningForestKind;
 
     /**
-     * Value indicating if extended subtree partitioning mechanism is to be
-     * used.
+     * Value indicating the mode of the arbitrary subtree partitioning to use by
+     * this partitioner.
      */
-    private final boolean extendedSubtreePartitioning;
+    private final ArbitrarySubtreePartitioningMode arbitrarySubtreePartitioning;
 
     /**
      * Value that controls the increase of a frequency estimate for a call
@@ -106,11 +106,12 @@ public class BComponentsCodePartitioner implements CodePartitioner {
 
     public BComponentsCodePartitioner(BankSchema bankSchema, AtomicSpecification atomicSpec,
             double loopFactor, double conditionalFactor, SpanningForestKind spanningForestKind,
-            boolean preferHigherEstimateAllocations, boolean extendedSubtreePartitioning,
+            boolean preferHigherEstimateAllocations, ArbitrarySubtreePartitioningMode arbitrarySubtreePartitioningMode,
             CompilationListener listener) {
         checkNotNull(bankSchema, "bank schema cannot be null");
         checkNotNull(atomicSpec, "atomic specification cannot be null");
         checkNotNull(spanningForestKind, "spanning forest kind cannot be null");
+        checkNotNull(arbitrarySubtreePartitioningMode, "arbitrary subtree partitioning mode cannot be null");
         checkNotNull(listener, "listener cannot be null");
         checkArgument(loopFactor >= 1., "the loop factor must be greater than or equal to 1");
         checkArgument(0. <= conditionalFactor && conditionalFactor <= 1., "the conditional factor must be in range [0, 1]");
@@ -123,7 +124,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         this.loopFactor = loopFactor;
         this.conditionalFactor = conditionalFactor;
         this.spanningForestKind = spanningForestKind;
-        this.extendedSubtreePartitioning = extendedSubtreePartitioning;
+        this.arbitrarySubtreePartitioning = arbitrarySubtreePartitioningMode;
         this.listener = listener;
     }
 
@@ -342,10 +343,17 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                 findAllocationVertices(context);
 
         while (functionsLeft != 0) {
-            Optional<TreeAllocation> allocation = determineAllocation(
-                    context, allocationVertices);
-            if (extendedSubtreePartitioning && !allocation.isPresent()) {
+            Optional<TreeAllocation> allocation;
+            if (arbitrarySubtreePartitioning == ArbitrarySubtreePartitioningMode.NEVER
+                    || arbitrarySubtreePartitioning == ArbitrarySubtreePartitioningMode.ON_EMERGENCY) {
+                allocation = determineAllocation(context, allocationVertices);
+                if (!allocation.isPresent() && arbitrarySubtreePartitioning == ArbitrarySubtreePartitioningMode.ON_EMERGENCY) {
+                    allocation = findMinimumWeightAllocation(context, allocationVertices.keySet());
+                }
+            } else if (arbitrarySubtreePartitioning == ArbitrarySubtreePartitioningMode.ALWAYS) {
                 allocation = findMinimumWeightAllocation(context, allocationVertices.keySet());
+            } else {
+                throw new IllegalStateException("unexpected arbitrary partitioning mode " + arbitrarySubtreePartitioning);
             }
 
             if (allocation.isPresent()) {
@@ -360,7 +368,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                         && allocation.get().vertex == allocation.get().dfsTreeRoot) {
                     allocationVertices.remove(allocation.get().dfsTreeRoot);
                 }
-            } else if (!extendedSubtreePartitioning) {
+            } else if (arbitrarySubtreePartitioning == ArbitrarySubtreePartitioningMode.NEVER) {
                 final FunctionVertex treeToAllocate = Collections.max(allocationVertices.keySet(),
                         new FunctionSizeComparator(context.functionsSizesTree));
                 functionsLeft -= allocateTree(context, treeToAllocate);
@@ -582,7 +590,6 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         final double allFunctionsFrequency = context.frequencyEstimationsTree.compute(treeRoot.getDfsTreeNumber(),
                 treeRoot.getMaximumDfsDescendantNumber() + 1);
         Optional<ExtendedTreeAllocation> bestTreeAllocation = Optional.absent();
-        final List<ExtendedTreeAllocation> candidates = new ArrayList<>();
 
         final Set<FunctionVertex> enqueuedVertices = new HashSet<>();
         final Queue<FunctionVertex> queue = new ArrayDeque<>();
@@ -591,13 +598,13 @@ public class BComponentsCodePartitioner implements CodePartitioner {
 
         while (!queue.isEmpty()) {
             final FunctionVertex currentVertex = queue.remove();
-            final ImmutableSet<FunctionVertex> subtreeVertices = collectSubtreeVertices(currentVertex);
-            final double outerEdgesWeightsSum = computeOuterEdgesWeightsSum(subtreeVertices);
+            final Optional<ExtendedTreeAllocation> bestSubtreeAllocation = determineBestAllocationInVertex(
+                    context, currentVertex, treeRoot, allFunctionsSize, allFunctionsFrequency);
+            final boolean isBetter = bestTreeAllocation.isPresent() && bestSubtreeAllocation.isPresent()
+                    && extendedTreeAllocationsComparator.compare(bestSubtreeAllocation.get(), bestTreeAllocation.get()) > 0;
 
-            prepareAllocations(context, candidates, bestTreeAllocation, currentVertex, treeRoot,
-                    allFunctionsSize, allFunctionsFrequency, outerEdgesWeightsSum);
-            if (!candidates.isEmpty()) {
-                bestTreeAllocation = Optional.of(Collections.max(candidates, extendedTreeAllocationsComparator));
+            if (!bestTreeAllocation.isPresent() || isBetter) {
+                bestTreeAllocation = bestSubtreeAllocation;
             }
 
             for (FunctionVertex dfsChild : currentVertex.getDfsTreeChildren()) {
@@ -609,6 +616,98 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         }
 
         return bestTreeAllocation;
+    }
+
+    private Optional<ExtendedTreeAllocation> determineBestAllocationInVertex(
+                BComponentsPartitionContext context,
+                FunctionVertex vertex,
+                FunctionVertex treeRoot,
+                int allFunctionsSize,
+                double allFunctionsFrequency
+    ) {
+        final int downTreeFunctionsSize = context.functionsSizesTree.compute(vertex.getDfsTreeNumber(),
+                vertex.getMaximumDfsDescendantNumber() + 1);
+        final double downTreeFunctionsFrequency = context.frequencyEstimationsTree.compute(vertex.getDfsTreeNumber(),
+                vertex.getMaximumDfsDescendantNumber() + 1);
+        final int upTreeFunctionsSize = allFunctionsSize - downTreeFunctionsSize;
+        final double upTreeFunctionsFrequency = allFunctionsFrequency - downTreeFunctionsFrequency;
+
+        // The vertices are computed lazily
+        Optional<ImmutableSet<FunctionVertex>> subtreeVertices = Optional.absent();
+
+        Optional<ExtendedTreeAllocation> bestAllocation = Optional.absent();
+        final List<ExtendedTreeAllocation> candidateAllocations = new ArrayList<>();
+
+        for (String bankName : bankSchema.getBanksNames()) {
+            // Check if there is enough place in the bank for an allocation
+            final int freeSpace = context.getBankTable().getFreeSpace(bankName);
+            if (downTreeFunctionsSize > freeSpace && (vertex == treeRoot || upTreeFunctionsSize > freeSpace)) {
+                continue;
+            }
+
+            if (!subtreeVertices.isPresent()) {
+                subtreeVertices = Optional.of(collectSubtreeVertices(vertex));
+            }
+
+            final ImmutableSet<FunctionVertex> nonBankedVertices = determineNonBankedFunctionsAfterAllocation(
+                    context, bankName, subtreeVertices.get());
+            final double outerEdgesWeightsSum = computeOuterEdgesWeightsSum(subtreeVertices.get(),
+                    nonBankedVertices);
+
+            candidateAllocations.clear();
+            if (bestAllocation.isPresent()) {
+                candidateAllocations.add(bestAllocation.get());
+            }
+            if (downTreeFunctionsSize <= freeSpace) {
+                candidateAllocations.add(new ExtendedTreeAllocation(vertex, treeRoot,
+                        AllocationDirection.DOWN_TREE, bankName, downTreeFunctionsSize,
+                        downTreeFunctionsFrequency, outerEdgesWeightsSum));
+            }
+            if (vertex != treeRoot && upTreeFunctionsSize <= freeSpace) {
+                candidateAllocations.add(new ExtendedTreeAllocation(vertex, treeRoot,
+                        AllocationDirection.UP_TREE, bankName, upTreeFunctionsSize,
+                        upTreeFunctionsFrequency, outerEdgesWeightsSum));
+            }
+
+            bestAllocation = Optional.of(Collections.max(candidateAllocations, extendedTreeAllocationsComparator));
+        }
+
+        return bestAllocation;
+    }
+
+    private ImmutableSet<FunctionVertex> determineNonBankedFunctionsAfterAllocation(
+                BComponentsPartitionContext context,
+                String targetBankName,
+                ImmutableSet<FunctionVertex> subtreeVertices
+    ) {
+        final ImmutableSet.Builder<FunctionVertex> nonBankedFunsBuilder = ImmutableSet.builder();
+        final FluentIterable<FunctionVertex> bankVertices = FluentIterable
+                .from(context.getBankTable().getBankContents(targetBankName))
+                .transform(context.functionVertexFinder);
+        final FluentIterable<FunctionVertex> consideredVertices = FluentIterable.from(subtreeVertices)
+                .append(bankVertices);
+
+        if (!targetBankName.equals(bankSchema.getCommonBankName())) {
+            for (FunctionVertex vertex : consideredVertices) {
+                boolean nonBanked = true;
+                for (CallEdge predecessorEdge : vertex.getPredecessors()) {
+                    final FunctionVertex callerVertex = predecessorEdge.getSourceVertex();
+                    if (!subtreeVertices.contains(callerVertex)
+                            && (!callerVertex.getTargetBank().isPresent()
+                                || !callerVertex.getTargetBank().get().equals(targetBankName))) {
+                        nonBanked = false;
+                        break;
+                    }
+                }
+                if (nonBanked) {
+                    nonBankedFunsBuilder.add(vertex);
+                }
+            }
+        } else {
+            nonBankedFunsBuilder.addAll(consideredVertices);
+        }
+
+        return nonBankedFunsBuilder.build();
     }
 
     private ImmutableSet<FunctionVertex> collectSubtreeVertices(FunctionVertex vertex) {
@@ -634,7 +733,10 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         return subtreeVerticesBuilder.build();
     }
 
-    private double computeOuterEdgesWeightsSum(ImmutableSet<FunctionVertex> subtreeVertices) {
+    private double computeOuterEdgesWeightsSum(
+                ImmutableSet<FunctionVertex> subtreeVertices,
+                ImmutableSet<FunctionVertex> nonBankedVertices
+    ) {
         double outerEdgesWeightsSum = 0.;
 
         for (FunctionVertex subtreeVertex : subtreeVertices) {
@@ -642,60 +744,15 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                     .append(subtreeVertex.getSuccessors());
 
             for (CallEdge edge : neighbourEdges) {
-                final FunctionVertex otherVertex = edge.getSourceVertex() == subtreeVertex
-                        ? edge.getTargetVertex()
-                        : edge.getSourceVertex();
-
-                if (!subtreeVertices.contains(otherVertex)) {
+                final FunctionVertex callee = edge.getTargetVertex();
+                if ((!callee.getTargetBank().isPresent() || !callee.getTargetBank().get().equals(bankSchema.getCommonBankName()))
+                        && !nonBankedVertices.contains(callee)) {
                     outerEdgesWeightsSum += edge.getFrequencyEstimation();
                 }
             }
         }
 
         return outerEdgesWeightsSum;
-    }
-
-    private void prepareAllocations(
-            BComponentsPartitionContext context,
-            Collection<ExtendedTreeAllocation> candidateAllocations,
-            Optional<ExtendedTreeAllocation> bestTreeAllocation,
-            FunctionVertex vertex,
-            FunctionVertex treeRoot,
-            int allFunctionsSize,
-            double allFunctionsFrequency,
-            double outerEdgesWeightsSum
-    ) {
-        final int subtreeFunctionsSize = context.functionsSizesTree.compute(
-                vertex.getDfsTreeNumber(), vertex.getMaximumDfsDescendantNumber() + 1);
-        final double subtreeFunctionsFrequency = context.frequencyEstimationsTree.compute(
-                vertex.getDfsTreeNumber(), vertex.getMaximumDfsDescendantNumber() + 1);
-
-        candidateAllocations.clear();
-
-        // The current best allocation
-        if (bestTreeAllocation.isPresent()) {
-            candidateAllocations.add(bestTreeAllocation.get());
-        }
-
-        // The down-tree allocation
-        final Optional<String> targetBankDown = context.getFloorBank(subtreeFunctionsSize);
-        if (targetBankDown.isPresent()) {
-            candidateAllocations.add(new ExtendedTreeAllocation(vertex, treeRoot,
-                    AllocationDirection.DOWN_TREE, targetBankDown.get(), subtreeFunctionsSize,
-                    subtreeFunctionsFrequency, outerEdgesWeightsSum));
-        }
-
-        // The up-tree allocation
-        if (vertex != treeRoot) {
-            final int upTreeFunctionsSize = allFunctionsSize - subtreeFunctionsSize;
-            final double upTreeFunctionsFrequency = allFunctionsFrequency - subtreeFunctionsFrequency;
-            final Optional<String> targetBankUp = context.getFloorBank(upTreeFunctionsSize);
-            if (targetBankUp.isPresent()) {
-                candidateAllocations.add(new ExtendedTreeAllocation(vertex, treeRoot,
-                        AllocationDirection.UP_TREE, targetBankUp.get(), upTreeFunctionsSize,
-                        upTreeFunctionsFrequency, outerEdgesWeightsSum));
-            }
-        }
     }
 
     /**
@@ -727,6 +784,12 @@ public class BComponentsCodePartitioner implements CodePartitioner {
          */
         private final ImmutableMap<String, FunctionDecl> functions;
 
+        /**
+         * Function that finds the function vertex corresponding to a function
+         * definition AST node in the call graph in this context.
+         */
+        private final FunctionVertexFinder functionVertexFinder;
+
         private BComponentsPartitionContext(Iterable<FunctionDecl> functions,
                     Map<String, Range<Integer>> functionsSizes, ReferencesGraph refsGraph) {
             super(bankSchema, functionsSizes);
@@ -735,6 +798,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                     new IntegerSumIntervalTreeOperation(), functionsSizes.size());
             this.frequencyEstimationsTree = new IntervalTree<>(Double.class,
                     new DoubleSumIntervalTreeOperation(), functionsSizes.size());
+            this.functionVertexFinder = new FunctionVertexFinder(this.callGraph);
 
             final ImmutableMap.Builder<String, FunctionDecl> functionsMapBuilder =
                     ImmutableMap.builder();
@@ -2217,6 +2281,35 @@ public class BComponentsCodePartitioner implements CodePartitioner {
     }
 
     /**
+     * Function transforming a function definition AST node to the corresponding
+     * function vertex in a call graph given at construction.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class FunctionVertexFinder implements Function<FunctionDecl, FunctionVertex> {
+        private final CallGraph callGraph;
+
+        private FunctionVertexFinder(CallGraph callGraph) {
+            checkNotNull(callGraph, "call graph cannot be null");
+            this.callGraph = callGraph;
+        }
+
+        @Override
+        public FunctionVertex apply(FunctionDecl functionDecl) {
+            checkNotNull(functionDecl, "function definition AST node cannot be null");
+            final String funUniqueName = DeclaratorUtils.getUniqueName(
+                    functionDecl.getDeclarator()).get();
+            final Optional<FunctionVertex> functionVertex = Optional.fromNullable(
+                    callGraph.getVertices().get(funUniqueName));
+            if (!functionVertex.isPresent()) {
+                throw new IllegalArgumentException("function '" + funUniqueName
+                        + "' absent in the call graph of this function finder");
+            }
+            return functionVertex.get();
+        }
+    }
+
+    /**
      * An enum type representing the kind of the spanning forest that will be
      * used for the partitioning.
      *
@@ -2240,5 +2333,31 @@ public class BComponentsCodePartitioner implements CodePartitioner {
          * computation will be used.
          */
         BCOMPONENTS,
+    }
+
+    /**
+     * An enum type representing the mode of the arbitrary subtree partitioning.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    public enum ArbitrarySubtreePartitioningMode {
+        /**
+         * Arbitrary subtree partitioning will be used to find the best
+         * allocation instead of partitioning in cut vertices.
+         */
+        ALWAYS,
+
+        /**
+         * Arbitrary subtree partitioning will be used to find a feasible
+         * allocation if and only if partitioning in cut vertices fails.
+         */
+        ON_EMERGENCY,
+
+        /**
+         * Arbitrary subtree partitioning will be never used to find an
+         * allocation. If partitioning in cut vertices fails, the DFS algorithm
+         * is used.
+         */
+        NEVER,
     }
 }

@@ -3,11 +3,13 @@ package pl.edu.mimuw.nesc.backend8051.option;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import org.apache.commons.cli.CommandLine;
 import pl.edu.mimuw.nesc.codepartition.BComponentsCodePartitioner;
 import pl.edu.mimuw.nesc.codepartition.BankSchema;
 import pl.edu.mimuw.nesc.codesize.SDCCMemoryModel;
+import pl.edu.mimuw.nesc.common.util.MappingFunction;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -30,6 +32,9 @@ public final class Options8051Holder {
         }
     };
 
+    /**
+     * Function for parsing doubles in strings.
+     */
     private static final Function<String, Double> FUNCTION_PARSE_DOUBLE = new Function<String, Double>() {
         @Override
         public Double apply(String value) {
@@ -37,6 +42,18 @@ public final class Options8051Holder {
             return Double.valueOf(value);
         }
     };
+
+    /**
+     * Function for parsing the spanning forest kind.
+     */
+    private static final Function<String, BComponentsCodePartitioner.SpanningForestKind> FUNCTION_PARSE_SPANNING_FOREST_KIND =
+            new MappingFunction<>(Options8051.MAP_SPANNING_FOREST);
+
+    /**
+     * Function for parsing the arbitrary subtree partitioning mode.
+     */
+    private static final Function<String, BComponentsCodePartitioner.ArbitrarySubtreePartitioningMode> FUNCTION_PARSE_ARBITRARY_SUBTREE_PARTITIONING_MODE =
+            new MappingFunction<>(Options8051.MAP_ARBITRARY_SUBTREE_PARTITIONING);
 
     /**
      * The parsed 8051 options.
@@ -204,30 +221,17 @@ public final class Options8051Holder {
     }
 
     public Optional<BComponentsCodePartitioner.SpanningForestKind> getSpanningForestKind() {
-        // Get the value of the option specified by the user
-        final Optional<String> spanningForestKindString = Optional.fromNullable(
-                cmdLine.getOptionValue(OPTION_LONG_SPANNING_FOREST));
-        if (!spanningForestKindString.isPresent()) {
-            return Optional.absent();
-        }
-
-        // Parse the value
-        final Optional<BComponentsCodePartitioner.SpanningForestKind> spanningForestKind =
-                Optional.fromNullable(MAP_SPANNING_FOREST.get(spanningForestKindString.get()));
-        if (!spanningForestKind.isPresent()) {
-            throw new IllegalStateException("invalid spanning forest kind '"
-                    + spanningForestKindString.get() + "'");
-        }
-
-        return spanningForestKind;
+        return getTransformedOptionValue(OPTION_LONG_SPANNING_FOREST,
+                FUNCTION_PARSE_SPANNING_FOREST_KIND);
     }
 
     public boolean getPreferHigherEstimateAllocations() {
         return cmdLine.hasOption(OPTION_LONG_PREFER_HIGHER_ESTIMATE_ALLOCATIONS);
     }
 
-    public boolean getExtendedSubtreePartitioning() {
-        return cmdLine.hasOption(OPTION_LONG_EXTENDED_SUBTREE_PARTITIONING);
+    public Optional<BComponentsCodePartitioner.ArbitrarySubtreePartitioningMode> getArbitrarySubtreePartitioningMode() {
+        return getTransformedOptionValue(OPTION_LONG_ARBITRARY_SUBTREE_PARTITIONING,
+                FUNCTION_PARSE_ARBITRARY_SUBTREE_PARTITIONING_MODE);
     }
 
     public Optional<Double> getLoopFactor() {

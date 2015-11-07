@@ -108,8 +108,10 @@ final class Options8051Factory {
                 .desc("prefer allocations with higher frequency estimates in the biconnected components heuristic; if the biconnected components heuristic is not used for the partitioning, this option has no effect")
                 .build(),
             Option.builder()
-                .longOpt(OPTION_LONG_EXTENDED_SUBTREE_PARTITIONING)
-                .desc("perform extended subtree partitioning in the biconnected components heuristic; if the biconnected components heuristic is not used for the partitioning, this option has no effect")
+                .longOpt(OPTION_LONG_ARBITRARY_SUBTREE_PARTITIONING)
+                .hasArg()
+                .desc("select an arbitrary subtree partitioning mode in the biconnected components heuristic; available modes: always, emergency, never; if this option is not specified, mode 'never' is used; if the biconnected components heuristic is not used for the partitioning, this option has no effect")
+                .argName("mode")
                 .build(),
             Option.builder()
                 .longOpt(OPTION_LONG_LOOP_FACTOR)
