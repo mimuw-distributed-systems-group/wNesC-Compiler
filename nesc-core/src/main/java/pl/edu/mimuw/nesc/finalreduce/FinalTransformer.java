@@ -37,6 +37,8 @@ import static java.lang.String.format;
  *     <li>moving instance parameters of functions definitions to the beginning
  *     of the list of normal parameters</li>
  *     <li>removing NesC attributes</li>
+ *     <li>performing transformations of external structures and external
+ *     unions</li>
  * </ol>
  *
  * @author Michał Ciszewski <michal.ciszewski@students.mimuw.edu.pl>

@@ -25,6 +25,7 @@ import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.ast.gen.Module;
 import pl.edu.mimuw.nesc.ast.gen.ModuleImpl;
 import pl.edu.mimuw.nesc.ast.gen.NescDecl;
+import pl.edu.mimuw.nesc.ast.gen.Visitor;
 import pl.edu.mimuw.nesc.astutil.ParametersNamesGiver;
 import pl.edu.mimuw.nesc.atomic.AtomicBlockData;
 import pl.edu.mimuw.nesc.atomic.AtomicDeclarationsCleaner;
@@ -488,45 +489,64 @@ public final class CompilationExecutor {
     }
 
     /**
-     * Perform the final reduce, e.g. reduce 'call' and 'signal' expressions and
-     * remove NesC attributes.
+     * <p>Perform the final reduction which consists of the following steps
+     * (they are performed in this order):</p>
+     * <ol>
+     *     <li>the final transformation, e.g. 'call' and 'signal' expressions
+     *     are reduced and NesC attributes are removed</li>
+     *     <li>transformation of expressions whose values are of external base
+     *     types</li>
+     *     <li>transformation of 'offsetof' expressions (they are replaced with
+     *     their values)</li>
+     * </ol>
      */
     private void finalReduce(ProjectData projectData, Optional<Configuration> taskWiringConf,
             NavigableSet<Component> instantiatedComponents, WiresGraph graph) {
-        final FinalTransformer transformer = new FinalTransformer(graph, projectData.getABI());
-        final ExternalExprTransformer externalTransformer = new ExternalExprTransformer(
-                projectData.getNameMangler());
-        final ExternalExprBlockData blockData = new ExternalExprBlockData();
-        final ExprTransformer<Void> offsetofTransformer = new ExprTransformer<>(
-                new OffsetofTransformation(projectData.getABI()));
+        traverseProgram(projectData, taskWiringConf, instantiatedComponents,
+                new FinalTransformer(graph, projectData.getABI()),
+                Optional.<String>absent());
+        traverseProgram(projectData, taskWiringConf, instantiatedComponents,
+                new ExternalExprTransformer(projectData.getNameMangler()),
+                new ExternalExprBlockData());
+        traverseProgram(projectData, taskWiringConf, instantiatedComponents,
+                new ExprTransformer<>(new OffsetofTransformation(projectData.getABI())),
+                null);
+    }
 
+    /**
+     * <p>Traverse the program with a visitor. Elements of the program that are
+     * traversed:</p>
+     * <ul>
+     *     <li>all instantiated components</li>
+     *     <li>all external declarations</li>
+     *     <li>all non-generic (singleton) components</li>
+     *     <li>the configuration wiring tasks</li>
+     * </ul>
+     */
+    private <A> void traverseProgram(ProjectData projectData, Optional<Configuration> taskWiringConf,
+                    NavigableSet<Component> instantiatedComponents, Visitor<A, A> visitor, A arg) {
+        // Traverse all instantiated components
         for (Component component : instantiatedComponents) {
-            component.traverse(transformer, Optional.<String>absent());
-            component.traverse(externalTransformer, blockData);
-            component.traverse(offsetofTransformer, null);
+            component.traverse(visitor, arg);
         }
 
+        // Traverse all external declarations and non-generic components
         for (FileData fileData : projectData.getFileDatas().values()) {
             if (fileData.getEntityRoot().isPresent()
                     && fileData.getEntityRoot().get() instanceof Component) {
                 final Component component = (Component) fileData.getEntityRoot().get();
                 if (!component.getIsAbstract()) {
-                    component.traverse(transformer, Optional.<String>absent());
-                    component.traverse(externalTransformer, blockData);
-                    component.traverse(offsetofTransformer, null);
+                    component.traverse(visitor, arg);
                 }
             }
             for (Declaration declaration : fileData.getExtdefs()) {
-                declaration.traverse(transformer, Optional.<String>absent());
-                declaration.traverse(externalTransformer, blockData);
-                declaration.traverse(offsetofTransformer, null);
+                declaration.traverse(visitor, arg);
             }
         }
 
+        // The configuration wiring task interfaces
         if (taskWiringConf.isPresent()) {
-            taskWiringConf.get().traverse(transformer, Optional.<String>absent());
-            taskWiringConf.get().traverse(externalTransformer, blockData);
-            taskWiringConf.get().traverse(offsetofTransformer, null);
+            taskWiringConf.get().traverse(visitor, arg);
         }
     }
 
