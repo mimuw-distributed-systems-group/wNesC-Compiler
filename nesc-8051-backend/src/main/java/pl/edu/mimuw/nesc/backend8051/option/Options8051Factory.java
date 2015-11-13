@@ -125,6 +125,12 @@ final class Options8051Factory {
                 .desc("use the specified number as the conditional factor in the biconnected components heuristic; the number must be a floating-point number from range [0, 1]; if the biconnected components heuristic is not selected for the partitioning, this option has no effect")
                 .argName("number")
                 .build(),
+            Option.builder()
+                .longOpt(OPTION_LONG_COMMON_BANK_ALLOCATION_ALGORITHM)
+                .hasArg()
+                .desc("use the specified algorithm for allocation to the common bank in the first stage of the biconnected components heuristic; available algorithms: greedy-estimations, 2approx, nop; if this option is not specified, then algorithm 'greedy-estimations' will be used; if the biconnected components heuristic is not selected for the partitioning, this option has no effect")
+                .argName("algorithm")
+                .build(),
         };
 
         final Iterable<Option> optionsSource = FluentIterable.from(new OptionsLoader().load())

@@ -4,11 +4,13 @@ import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.Map;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Level;
 import pl.edu.mimuw.nesc.abi.ABI;
@@ -119,6 +121,13 @@ public final class Main {
      */
     private static final BComponentsCodePartitioner.ArbitrarySubtreePartitioningMode DEFAULT_ARBITRARY_SUBTREE_PARTITIONING_MODE =
             BComponentsCodePartitioner.ArbitrarySubtreePartitioningMode.NEVER;
+
+    /**
+     * Default common bank allocation algorithm used when the user does not
+     * specify any.
+     */
+    private static final BComponentsCodePartitioner.CommonBankAllocationAlgorithm DEFAULT_COMMON_BANK_ALLOCATION_ALGORITHM =
+            BComponentsCodePartitioner.CommonBankAllocationAlgorithm.GREEDY_DESCENDING_ESTIMATIONS;
 
     /**
      * Default loop factor for the biconnected components heuristic used if the
@@ -482,6 +491,7 @@ public final class Main {
                     atomicSpecification,
                     options.getLoopFactor().or(DEFAULT_LOOP_FACTOR),
                     options.getConditionalFactor().or(DEFAULT_CONDITIONAL_FACTOR),
+                    options.getCommonBankAllocationAlgorithm().or(DEFAULT_COMMON_BANK_ALLOCATION_ALGORITHM),
                     options.getSpanningForestKind().or(DEFAULT_SPANNING_FOREST_KIND),
                     options.getPreferHigherEstimateAllocations(),
                     options.getArbitrarySubtreePartitioningMode().or(DEFAULT_ARBITRARY_SUBTREE_PARTITIONING_MODE),
@@ -514,24 +524,7 @@ public final class Main {
             return;
         }
 
-        // Collect options with no effect
-        final ImmutableList.Builder<String> optionsNoEffectBuilder = ImmutableList.builder();
-        if (options.getSpanningForestKind().isPresent()) {
-            optionsNoEffectBuilder.add(Options8051.OPTION_LONG_SPANNING_FOREST);
-        }
-        if (options.getPreferHigherEstimateAllocations()) {
-            optionsNoEffectBuilder.add(Options8051.OPTION_LONG_PREFER_HIGHER_ESTIMATE_ALLOCATIONS);
-        }
-        if (options.getArbitrarySubtreePartitioningMode().isPresent()) {
-            optionsNoEffectBuilder.add(Options8051.OPTION_LONG_ARBITRARY_SUBTREE_PARTITIONING);
-        }
-        if (options.getLoopFactor().isPresent()) {
-            optionsNoEffectBuilder.add(Options8051.OPTION_LONG_LOOP_FACTOR);
-        }
-        if (options.getConditionalFactor().isPresent()) {
-            optionsNoEffectBuilder.add(Options8051.OPTION_LONG_CONDITIONAL_FACTOR);
-        }
-        final ImmutableList<String> optionsNoEffect = optionsNoEffectBuilder.build();
+        final ImmutableList<String> optionsNoEffect = determineBComponentsNoEffectOpts();
 
         if (optionsNoEffect.isEmpty()) {
             return;
@@ -558,6 +551,31 @@ public final class Main {
 
         // Print the warning
         System.err.println(warningTextBuilder.toString());
+    }
+
+    private ImmutableList<String> determineBComponentsNoEffectOpts() {
+        final ImmutableMap<String, Optional<?>> specifiedOptions = ImmutableMap.<String, Optional<?>>builder()
+            .put(Options8051.OPTION_LONG_SPANNING_FOREST, options.getSpanningForestKind())
+            .put(Options8051.OPTION_LONG_ARBITRARY_SUBTREE_PARTITIONING, options.getArbitrarySubtreePartitioningMode())
+            .put(Options8051.OPTION_LONG_LOOP_FACTOR, options.getLoopFactor())
+            .put(Options8051.OPTION_LONG_CONDITIONAL_FACTOR, options.getConditionalFactor())
+            .put(Options8051.OPTION_LONG_COMMON_BANK_ALLOCATION_ALGORITHM, options.getCommonBankAllocationAlgorithm())
+            .build();
+
+
+        final ImmutableList.Builder<String> noEffectOptsBuilder = ImmutableList.builder();
+
+        for (Map.Entry<String, Optional<?>> optionEntry : specifiedOptions.entrySet()) {
+            if (optionEntry.getValue().isPresent()) {
+                noEffectOptsBuilder.add(optionEntry.getKey());
+            }
+        }
+
+        if (options.getPreferHigherEstimateAllocations()) {
+            noEffectOptsBuilder.add(Options8051.OPTION_LONG_PREFER_HIGHER_ESTIMATE_ALLOCATIONS);
+        }
+
+        return noEffectOptsBuilder.build();
     }
 
     /**

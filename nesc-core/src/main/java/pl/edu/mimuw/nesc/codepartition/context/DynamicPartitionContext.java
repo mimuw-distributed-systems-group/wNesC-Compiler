@@ -136,14 +136,7 @@ public class DynamicPartitionContext extends PartitionContext {
         return Optional.fromNullable(allocation.get(function));
     }
 
-    /**
-     * Get the amount of free space in the given bank for the current
-     * assignment.
-     *
-     * @param bankName Name of a bank whose free space can be checked.
-     * @return Amount of free space in the bank with given name for the current
-     *         assignment.
-     */
+    @Override
     public int getFreeSpace(String bankName) {
         checkNotNull(bankName, "bank name cannot be null");
         checkArgument(!bankName.isEmpty(), "bank name cannot be an empty string");

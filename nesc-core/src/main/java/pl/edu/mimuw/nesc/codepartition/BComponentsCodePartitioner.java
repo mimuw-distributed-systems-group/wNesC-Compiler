@@ -5,6 +5,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -92,24 +93,31 @@ public class BComponentsCodePartitioner implements CodePartitioner {
     private final ArbitrarySubtreePartitioningMode arbitrarySubtreePartitioning;
 
     /**
-     * Value that controls the increase of a frequency estimate for a call
+     * Value that controls the increase of a frequency estimation for a call
      * instruction inside a loop. It must be greater than or equal to 1.
      */
     private final double loopFactor;
 
     /**
-     * Value that controls the decrease of a frequency estimate for a call
+     * Value that controls the decrease of a frequency estimation for a call
      * instruction inside a conditional statement. It must be greater than or
      * equal to 0 and less than or equal to 1.
      */
     private final double conditionalFactor;
 
+    /**
+     * Object used by this partitioner to allocate functions to the common bank
+     * in the first stage of the heuristic.
+     */
+    private final CommonBankFiller commonBankFiller;
+
     public BComponentsCodePartitioner(BankSchema bankSchema, AtomicSpecification atomicSpec,
-            double loopFactor, double conditionalFactor, SpanningForestKind spanningForestKind,
-            boolean preferHigherEstimateAllocations, ArbitrarySubtreePartitioningMode arbitrarySubtreePartitioningMode,
-            CompilationListener listener) {
+            double loopFactor, double conditionalFactor, CommonBankAllocationAlgorithm commonBankAlgorithm,
+            SpanningForestKind spanningForestKind, boolean preferHigherEstimateAllocations,
+            ArbitrarySubtreePartitioningMode arbitrarySubtreePartitioningMode, CompilationListener listener) {
         checkNotNull(bankSchema, "bank schema cannot be null");
         checkNotNull(atomicSpec, "atomic specification cannot be null");
+        checkNotNull(commonBankAlgorithm, "common bank allocation algorithm cannot be null");
         checkNotNull(spanningForestKind, "spanning forest kind cannot be null");
         checkNotNull(arbitrarySubtreePartitioningMode, "arbitrary subtree partitioning mode cannot be null");
         checkNotNull(listener, "listener cannot be null");
@@ -121,6 +129,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                 preferHigherEstimateAllocations);
         this.extendedTreeAllocationsComparator = new ExtendedTreeAllocationComparator(
                 this.treeAllocationsComparator);
+        this.commonBankFiller = new CommonBankFillerFactory().create(commonBankAlgorithm);
         this.loopFactor = loopFactor;
         this.conditionalFactor = conditionalFactor;
         this.spanningForestKind = spanningForestKind;
@@ -145,27 +154,13 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         commonBankAllocator.allocate(context, functions);
         final Queue<FunctionVertex> topologicalOrdering = computeTopologicalOrdering(context);
         computeFrequencyEstimations(topologicalOrdering);
-        fillCommonBank(context);
+        commonBankFiller.fillCommonBank(context);
         computeBiconnectedComponents(context);
         computeSpanningForest(context, topologicalOrdering);
         updateIntervalTrees(context);
         assignFunctions(context);
 
         return context.getBankTable();
-    }
-
-    private void fillCommonBank(BComponentsPartitionContext context) {
-        final List<FunctionVertex> allVertices = new ArrayList<>(
-                context.callGraph.getVertices().values());
-        final String commonBankName = bankSchema.getCommonBankName();
-        Collections.sort(allVertices, new FunctionFrequencyComparator());
-
-        for (FunctionVertex vertex : allVertices) {
-            if (context.getBankTable().getFreeSpace(commonBankName) >= context.getFunctionSize(vertex.getUniqueName())
-                    && !vertex.getTargetBank().isPresent()) {
-                context.assign(context.functions.get(vertex.getUniqueName()), commonBankName);
-            }
-        }
     }
 
     private Queue<FunctionVertex> computeTopologicalOrdering(BComponentsPartitionContext context) {
@@ -2359,5 +2354,281 @@ public class BComponentsCodePartitioner implements CodePartitioner {
          * is used.
          */
         NEVER,
+    }
+
+    /**
+     * The algorithm that will be used for allocation to the common bank
+     * performed as the first step by the heuristic.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    public enum CommonBankAllocationAlgorithm {
+        /**
+         * A greedy algorithm that does not guarantee any approximation factor.
+         * Functions are sequenced in the descending order of their frequency
+         * estimation and assigned in this order. A function is assigned if and
+         * only if it fits the common bank.
+         */
+        GREEDY_DESCENDING_ESTIMATIONS,
+
+        /**
+         * A 2-approximation algorithm for the knapsack problem: it guarantees
+         * that the sum of frequency estimations of functions allocated to the
+         * common bank by the algorithm is at most two times less than in the
+         * optimal allocation.
+         */
+        TWO_APPROXIMATION,
+
+        /**
+         * An algorithm that does not allocate any functions to the common
+         * bank: it does nothing.
+         */
+        NO_OPERATION,
+    }
+
+    /**
+     * Factory for creating common bank fillers.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class CommonBankFillerFactory {
+        /**
+         * Create a new instance of a common bank filler realizing the given
+         * kind of algorithm.
+         *
+         * @param algorithm Algorithm that the created common bank filler will
+         *                  follow.
+         * @return Newly created instance of a common bank filler following
+         *         the given algorithm.
+         */
+        private CommonBankFiller create(CommonBankAllocationAlgorithm algorithm) {
+            checkNotNull(algorithm, "algorithm cannot be null");
+
+            switch (algorithm) {
+                case GREEDY_DESCENDING_ESTIMATIONS:
+                    return new DescendingEstimationsFiller();
+                case TWO_APPROXIMATION:
+                    return new TwoApproximationFiller();
+                case NO_OPERATION:
+                    return new NoOperationFiller();
+                default:
+                    throw new RuntimeException("unexpected common bank allocation algorithm "
+                            + algorithm);
+            }
+        }
+    }
+
+    /**
+     * Interface for performing the first step of the biconnected components
+     * heuristic, i.e. allocation to the common bank.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private interface CommonBankFiller {
+        /**
+         * Assign unallocated functions in the given context to the common bank.
+         * It must be performed with a specific algorithm.
+         *
+         * @param context Partitioning context.
+         * @throws NullPointerException The context is null.
+         */
+        void fillCommonBank(BComponentsPartitionContext context);
+    }
+
+    /**
+     * Common bank filler realizing the algorithm represented by
+     * {@link CommonBankAllocationAlgorithm#GREEDY_DESCENDING_ESTIMATIONS}.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class DescendingEstimationsFiller implements CommonBankFiller {
+        @Override
+        public void fillCommonBank(BComponentsPartitionContext context) {
+            checkNotNull(context, "context cannot be null");
+
+            final List<FunctionVertex> allVertices = new ArrayList<>(
+                    context.callGraph.getVertices().values());
+            Collections.sort(allVertices, new FunctionFrequencyComparator());
+
+            for (FunctionVertex vertex : allVertices) {
+                if (!vertex.getTargetBank().isPresent()
+                        && context.fitsInCommonBank(vertex.getUniqueName())) {
+                    context.assignToCommonBank(context.functions.get(vertex.getUniqueName()));
+                }
+            }
+        }
+    }
+
+    /**
+     * A common bank filler implementing the algorithm represented by
+     * {@link CommonBankAllocationAlgorithm#TWO_APPROXIMATION}.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class TwoApproximationFiller implements CommonBankFiller {
+        @Override
+        public void fillCommonBank(BComponentsPartitionContext context) {
+            checkNotNull(context, "context cannot be null");
+            final ImmutableList<FunctionVertex> sortedFunctions = sortFunctions(context);
+            final FunctionListPrefix longestFittingPrefix = determineLongestFittingPrefix(
+                    context, sortedFunctions);
+            allocateToCommonBank(context, sortedFunctions, longestFittingPrefix);
+            allocateRemainingFunctions(context, sortedFunctions);
+        }
+
+        private ImmutableList<FunctionVertex> sortFunctions(BComponentsPartitionContext context) {
+            final int commonBankFreeSpace = context.getFreeSpaceInCommonBank();
+
+            /* Create a list with all unallocated functions that fit in the
+               common bank. */
+            final List<FunctionVertex> unallocatedFunctions = new ArrayList<>();
+            for (FunctionVertex vertex : context.callGraph.getVertices().values()) {
+                final int functionSize = context.getFunctionSize(vertex.getUniqueName());
+
+                if (!vertex.getTargetBank().isPresent() && functionSize <= commonBankFreeSpace) {
+                    unallocatedFunctions.add(vertex);
+                }
+            }
+
+            /* Sort the functions in the descending order with the respect to
+               their ratios. */
+            Collections.sort(unallocatedFunctions, new FrequencyEstimationToSizeRatioComparator(context));
+
+            return ImmutableList.copyOf(unallocatedFunctions);
+        }
+
+        private FunctionListPrefix determineLongestFittingPrefix(BComponentsPartitionContext context,
+                    ImmutableList<FunctionVertex> functions) {
+            final int commonBankFreeSpace = context.getFreeSpaceInCommonBank();
+
+            int prefixSize = 0;
+            int totalFunctionsSize = 0;
+            double frequencyEstimationsSum = 0.;
+
+            for (FunctionVertex vertex : functions) {
+                final int functionSize = context.getFunctionSize(vertex.getUniqueName());
+
+                if (totalFunctionsSize + functionSize <= commonBankFreeSpace) {
+                    ++prefixSize;
+                    totalFunctionsSize += functionSize;
+                    frequencyEstimationsSum += vertex.getFrequencyEstimation();
+                } else {
+                    break;
+                }
+            }
+
+            return new FunctionListPrefix(prefixSize, frequencyEstimationsSum);
+        }
+
+        private void allocateToCommonBank(
+                    BComponentsPartitionContext context,
+                    ImmutableList<FunctionVertex> functions,
+                    FunctionListPrefix longestFittingPrefix
+        ) {
+            if (functions.isEmpty()) {
+                return;
+            }
+
+            /* Choose the better solution: the prefix or the element directly
+               after it. It guarantees the approximation factor. */
+            if (longestFittingPrefix.size >= functions.size()
+                    || longestFittingPrefix.frequencyEstimationsSum
+                        >= functions.get(longestFittingPrefix.size).getFrequencyEstimation()) {
+                // Allocate functions from the prefix
+                for (int i = 0; i < longestFittingPrefix.size; ++i) {
+                    context.assignToCommonBank(context.functions.get(functions.get(i).getUniqueName()));
+                }
+            } else {
+                // Allocate the function directly following the prefix
+                context.assignToCommonBank(context.functions.get(functions.get(
+                        longestFittingPrefix.size).getUniqueName()));
+            }
+        }
+
+        private void allocateRemainingFunctions(BComponentsPartitionContext context,
+                    ImmutableList<FunctionVertex> functions) {
+            for (FunctionVertex functionVertex : functions) {
+                if (!functionVertex.getTargetBank().isPresent()
+                        && context.fitsInCommonBank(functionVertex.getUniqueName())) {
+                    context.assignToCommonBank(context.functions.get(functionVertex.getUniqueName()));
+                }
+            }
+        }
+
+        /**
+         * Comparator that realizes the order of function vertices defined as
+         * follows. A function vertex v is greater than a function vertex u if
+         * and only if the ratio of the frequency estimation of v to the size of
+         * v is less than the same ratio for u or the ratios for v and u are
+         * equal and the unique name of function v is less than the unique name
+         * for function u.
+         *
+         * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+         */
+        private static final class FrequencyEstimationToSizeRatioComparator implements Comparator<FunctionVertex> {
+            private final BComponentsPartitionContext context;
+
+            private FrequencyEstimationToSizeRatioComparator(BComponentsPartitionContext context) {
+                checkNotNull(context, "context cannot be null");
+                this.context = context;
+            }
+
+            @Override
+            public int compare(FunctionVertex vertex1, FunctionVertex vertex2) {
+                checkNotNull(vertex1, "first vertex cannot be null");
+                checkNotNull(vertex2, "second vertex cannot be null");
+
+                final int resultRatio = Double.compare(computeRatio(vertex2),
+                        computeRatio(vertex1));
+                return resultRatio != 0
+                        ? resultRatio
+                        : vertex2.getUniqueName().compareTo(vertex1.getUniqueName());
+            }
+
+            private double computeRatio(FunctionVertex vertex) {
+                return vertex.getFrequencyEstimation()
+                        / (double) context.getFunctionSize(vertex.getUniqueName());
+            }
+        }
+
+        /**
+         * A helper object that carries information about a prefix of a list of
+         * functions. The exact list of functions an object corresponds to is
+         * determined from the context.
+         *
+         * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+         */
+        private static final class FunctionListPrefix {
+            /**
+             * Size of the prefix (the number of functions it consists of).
+             */
+            private final int size;
+
+            /**
+             * Sum of frequency estimations of functions from the prefix.
+             */
+            private final double frequencyEstimationsSum;
+
+            private FunctionListPrefix(int size, double frequencyEstimationsSum) {
+                checkArgument(size >= 0, "size cannot be negative");
+                checkArgument(frequencyEstimationsSum >= 0., "frequency estimations sum cannot be negative");
+                this.size = size;
+                this.frequencyEstimationsSum = frequencyEstimationsSum;
+            }
+        }
+    }
+
+    /**
+     * A common bank filler implementing the algorithm represented by
+     * {@link CommonBankAllocationAlgorithm#NO_OPERATION}.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class NoOperationFiller implements CommonBankFiller {
+        @Override
+        public void fillCommonBank(BComponentsPartitionContext context) {
+            checkNotNull(context, "context cannot be null");
+            // do nothing because this filler does not allocate any functions
+        }
     }
 }

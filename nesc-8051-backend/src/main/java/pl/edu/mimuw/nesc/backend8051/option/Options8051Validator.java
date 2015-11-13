@@ -110,7 +110,10 @@ public final class Options8051Validator {
                         Options8051.MAP_ARBITRARY_SUBTREE_PARTITIONING.keySet(),
                         "arbitrary subtree partitioning mode"),
                 new LoopFactorValidator(),
-                new ConditionalFactorValidator()
+                new ConditionalFactorValidator(),
+                new EnumOptionValidator(Options8051.OPTION_LONG_COMMON_BANK_ALLOCATION_ALGORITHM,
+                        Options8051.MAP_COMMON_BANK_ALLOCATION_ALGORITHM.keySet(),
+                        "common bank allocation algorithm")
         );
     }
 

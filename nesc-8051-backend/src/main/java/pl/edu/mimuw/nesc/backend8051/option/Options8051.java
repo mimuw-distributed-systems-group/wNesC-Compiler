@@ -45,6 +45,7 @@ public final class Options8051 {
     public static final String OPTION_LONG_ARBITRARY_SUBTREE_PARTITIONING = "arbitrary-subtree-partitioning";
     public static final String OPTION_LONG_LOOP_FACTOR = "loop-factor";
     public static final String OPTION_LONG_CONDITIONAL_FACTOR = "conditional-factor";
+    public static final String OPTION_LONG_COMMON_BANK_ALLOCATION_ALGORITHM = "common-bank-allocation-algorithm";
 
     /**
      * Separators used for options values.
@@ -77,6 +78,16 @@ public final class Options8051 {
                     "always", BComponentsCodePartitioner.ArbitrarySubtreePartitioningMode.ALWAYS,
                     "emergency", BComponentsCodePartitioner.ArbitrarySubtreePartitioningMode.ON_EMERGENCY,
                     "never", BComponentsCodePartitioner.ArbitrarySubtreePartitioningMode.NEVER
+            );
+
+    /**
+     * Map for parsing the common bank allocation algorithm.
+     */
+    public static final ImmutableMap<String, BComponentsCodePartitioner.CommonBankAllocationAlgorithm> MAP_COMMON_BANK_ALLOCATION_ALGORITHM =
+            ImmutableMap.of(
+                    "greedy-estimations", BComponentsCodePartitioner.CommonBankAllocationAlgorithm.GREEDY_DESCENDING_ESTIMATIONS,
+                    "2approx", BComponentsCodePartitioner.CommonBankAllocationAlgorithm.TWO_APPROXIMATION,
+                    "nop", BComponentsCodePartitioner.CommonBankAllocationAlgorithm.NO_OPERATION
             );
 
     /**

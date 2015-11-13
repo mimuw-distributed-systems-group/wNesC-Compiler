@@ -56,6 +56,12 @@ public final class Options8051Holder {
             new MappingFunction<>(Options8051.MAP_ARBITRARY_SUBTREE_PARTITIONING);
 
     /**
+     * Function for parsing the common bank allocation algorithm.
+     */
+    private static final Function<String, BComponentsCodePartitioner.CommonBankAllocationAlgorithm> FUNCTION_PARSE_COMMON_BANK_ALLOCATION_ALGORITHM =
+            new MappingFunction<>(Options8051.MAP_COMMON_BANK_ALLOCATION_ALGORITHM);
+
+    /**
      * The parsed 8051 options.
      */
     private final CommandLine cmdLine;
@@ -240,6 +246,11 @@ public final class Options8051Holder {
 
     public Optional<Double> getConditionalFactor() {
         return getDoubleOptionValue(OPTION_LONG_CONDITIONAL_FACTOR);
+    }
+
+    public Optional<BComponentsCodePartitioner.CommonBankAllocationAlgorithm> getCommonBankAllocationAlgorithm() {
+        return getTransformedOptionValue(OPTION_LONG_COMMON_BANK_ALLOCATION_ALGORITHM,
+                FUNCTION_PARSE_COMMON_BANK_ALLOCATION_ALGORITHM);
     }
 
     private Optional<Integer> getIntegerOptionValue(String optionName) {

@@ -11,7 +11,9 @@ import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.codepartition.BankSchema;
 import pl.edu.mimuw.nesc.codepartition.BankTable;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Class that represents a context for a single partition operation.
@@ -39,6 +41,11 @@ public class PartitionContext {
     }
 
     public int getFunctionSize(String funUniqueName) {
+        checkNotNull(funUniqueName, "unique name of the function cannot be null");
+        checkArgument(!funUniqueName.isEmpty(), "unique name of the function cannot be an empty string");
+        checkState(functionsSizes.containsKey(funUniqueName),
+                "this context does not contain information about the size of the given function");
+
         return functionsSizes.get(funUniqueName).upperEndpoint();
     }
 
@@ -52,6 +59,18 @@ public class PartitionContext {
         bankTable.allocate(bankName, function, funSize);
         modifyBankFreeSpace(bankName, oldTargetBankFreeSpace,
                 bankTable.getFreeSpace(bankName));
+    }
+
+    /**
+     * <p>Assign the given function to the common bank. Equivalent to</p>
+     * <pre>
+     *     assign(function, getBankTable().getCommonBankName());
+     * </pre>
+     *
+     * @param function Function that will be assigned to the common bank.
+     */
+    public void assignToCommonBank(FunctionDecl function) {
+        assign(function, bankTable.getCommonBankName());
     }
 
     protected void modifyBankFreeSpace(String bankName, int oldBankFreeSpace,
@@ -74,8 +93,62 @@ public class PartitionContext {
         banksFreeSpaceMap.get(newBankFreeSpace).add(bankName);
     }
 
-    public BankTable getBankTable() {
+    public final BankTable getBankTable() {
         return bankTable;
+    }
+
+    /**
+     * Get the amount of free space in the bank with the given name for the
+     * current allocation stored in this context.
+     *
+     * @param bankName Name of the bank whose amount of free space will be
+     *                 returned.
+     * @return Amount of free space in the bank with the given name.
+     * @throws NullPointerException Given bank name is null.
+     * @throws IllegalArgumentException Given bank name is an empty string.
+     * @throws IllegalStateException There is no bank with the given name.
+     */
+    public int getFreeSpace(String bankName) {
+        // the exceptions are thrown by this call
+        return bankTable.getFreeSpace(bankName);
+    }
+
+    /**
+     * Get the amount of free space in the common bank for the current
+     * allocation stored in this context.
+     *
+     * @return Amount of free space in the common bank.
+     */
+    public int getFreeSpaceInCommonBank() {
+        return getFreeSpace(bankTable.getCommonBankName());
+    }
+
+    /**
+     * Check if the function with the given unique name fits in the bank with
+     * the given name for the current allocation stored in this context.
+     *
+     * @param functionUniqueName Unique name of a function.
+     * @param bankName Name of a bank.
+     * @return <code>true</code> if and only if the function with the given
+     *         unique name fits in the bank with the given name.
+     */
+    public boolean fitsIn(String functionUniqueName, String bankName) {
+        return getFunctionSize(functionUniqueName) <= getFreeSpace(bankName);
+    }
+
+    /**
+     * <p>Check if the function with the given name fits in the common bank for
+     * the current allocation stored in this context. Equivalent to:</p>
+     * <pre>
+     *     fitsIn(functionUniqueName, getBankTable().getCommonBankName());
+     * </pre>
+     *
+     * @param functionUniqueName Unique name of a function.
+     * @return <code>true</code> if and only if the given function fits in the
+     *         common bank.
+     */
+    public boolean fitsInCommonBank(String functionUniqueName) {
+        return fitsIn(functionUniqueName, bankTable.getCommonBankName());
     }
 
     public Optional<String> getCeilingBank(int size) {
