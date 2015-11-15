@@ -130,6 +130,20 @@ public final class Main {
             BComponentsCodePartitioner.CommonBankAllocationAlgorithm.GREEDY_DESCENDING_ESTIMATIONS;
 
     /**
+     * Default bank choice method for allocation in cut vertices if the user
+     * does not specify any.
+     */
+    private static final BComponentsCodePartitioner.TargetBankChoiceMethod DEFAULT_BANK_CHOICE_METHOD_CUT_VERTICES =
+            BComponentsCodePartitioner.TargetBankChoiceMethod.FLOOR_BANK;
+
+    /**
+     * Default bank choice method for DFS allocation if the user does not
+     * specify any,
+     */
+    private static final BComponentsCodePartitioner.TargetBankChoiceMethod DEFAULT_BANK_CHOICE_METHOD_DFS =
+            BComponentsCodePartitioner.TargetBankChoiceMethod.CEILING_BANK;
+
+    /**
      * Default loop factor for the biconnected components heuristic used if the
      * user does not specify any.
      */
@@ -495,6 +509,9 @@ public final class Main {
                     options.getSpanningForestKind().or(DEFAULT_SPANNING_FOREST_KIND),
                     options.getPreferHigherEstimateAllocations(),
                     options.getArbitrarySubtreePartitioningMode().or(DEFAULT_ARBITRARY_SUBTREE_PARTITIONING_MODE),
+                    options.getBankChoiceMethodCutVertices().or(DEFAULT_BANK_CHOICE_METHOD_CUT_VERTICES),
+                    options.getBankChoiceMethodDfs().or(DEFAULT_BANK_CHOICE_METHOD_DFS),
+                    options.getBankChoiceMethodAsp(),
                     new DefaultCompilationListener()
             );
         } else if (partitionHeuristic.startsWith("tmsearch-")) {
@@ -560,6 +577,9 @@ public final class Main {
             .put(Options8051.OPTION_LONG_LOOP_FACTOR, options.getLoopFactor())
             .put(Options8051.OPTION_LONG_CONDITIONAL_FACTOR, options.getConditionalFactor())
             .put(Options8051.OPTION_LONG_COMMON_BANK_ALLOCATION_ALGORITHM, options.getCommonBankAllocationAlgorithm())
+            .put(Options8051.OPTION_LONG_BANK_CHOICE_METHOD_CUT_VERTICES, options.getBankChoiceMethodCutVertices())
+            .put(Options8051.OPTION_LONG_BANK_CHOICE_METHOD_DFS, options.getBankChoiceMethodDfs())
+            .put(Options8051.OPTION_LONG_BANK_CHOICE_METHOD_ASP, options.getBankChoiceMethodAsp())
             .build();
 
 

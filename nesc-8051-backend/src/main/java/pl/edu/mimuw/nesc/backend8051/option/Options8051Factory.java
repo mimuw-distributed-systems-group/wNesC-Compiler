@@ -131,6 +131,24 @@ final class Options8051Factory {
                 .desc("use the specified algorithm for allocation to the common bank in the first stage of the biconnected components heuristic; available algorithms: greedy-estimations, 2approx, nop; if this option is not specified, then algorithm 'greedy-estimations' will be used; if the biconnected components heuristic is not selected for the partitioning, this option has no effect")
                 .argName("algorithm")
                 .build(),
+            Option.builder()
+                .longOpt(OPTION_LONG_BANK_CHOICE_METHOD_CUT_VERTICES)
+                .hasArg()
+                .desc("use the specified method for choosing the target bank for a candidate allocation in a cut vertex in the biconnected components heuristic; available methods: floor, ceiling; if this option is not specified, then method 'floor' is used; if the biconnected components heuristic is not selected for the partitioning, this option has no effect")
+                .argName("method")
+                .build(),
+            Option.builder()
+                .longOpt(OPTION_LONG_BANK_CHOICE_METHOD_DFS)
+                .hasArg()
+                .desc("use the specified method for choosing the target bank for the DFS allocation in the biconnected components heuristic; available methods: floor, ceiling; if this option is not specified, then method 'ceiling' is used; if the biconnected components heuristic is not selected for the partitioning, this option has no effect")
+                .argName("method")
+                .build(),
+            Option.builder()
+                .longOpt(OPTION_LONG_BANK_CHOICE_METHOD_ASP)
+                .hasArg()
+                .desc("use the specified method for choosing the target bank for the arbitrary subtree partitioning in the biconnected components heuristic; available methods: floor, ceiling; if this option is not specified, then all banks will be considered for an allocation; if the biconnected components heuristic is not selected for the partitioning, this option has no effect")
+                .argName("method")
+                .build(),
         };
 
         final Iterable<Option> optionsSource = FluentIterable.from(new OptionsLoader().load())

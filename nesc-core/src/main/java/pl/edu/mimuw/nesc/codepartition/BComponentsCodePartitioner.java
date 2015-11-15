@@ -10,6 +10,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -17,6 +18,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -111,18 +113,41 @@ public class BComponentsCodePartitioner implements CodePartitioner {
      */
     private final CommonBankFiller commonBankFiller;
 
+    /**
+     * Target bank picker for allocations in cut vertices.
+     */
+    private final TargetBankPicker targetBankPickerCutVertices;
+
+    /**
+     * Target bank picker for DFS allocations.
+     */
+    private final TargetBankPicker targetBankPickerDfs;
+
+    /**
+     * Target bank picker for arbitrary subtree partitioning.
+     */
+    private final Optional<TargetBankPicker> targetBankPickerAsp;
+
     public BComponentsCodePartitioner(BankSchema bankSchema, AtomicSpecification atomicSpec,
             double loopFactor, double conditionalFactor, CommonBankAllocationAlgorithm commonBankAlgorithm,
             SpanningForestKind spanningForestKind, boolean preferHigherEstimateAllocations,
-            ArbitrarySubtreePartitioningMode arbitrarySubtreePartitioningMode, CompilationListener listener) {
+            ArbitrarySubtreePartitioningMode arbitrarySubtreePartitioningMode,
+            TargetBankChoiceMethod targetBankChoiceMethodCutVertices,
+            TargetBankChoiceMethod targetBankChoiceMethodDfs,
+            Optional<TargetBankChoiceMethod> targetBankChoiceMethodAsp,
+            CompilationListener listener) {
         checkNotNull(bankSchema, "bank schema cannot be null");
         checkNotNull(atomicSpec, "atomic specification cannot be null");
         checkNotNull(commonBankAlgorithm, "common bank allocation algorithm cannot be null");
         checkNotNull(spanningForestKind, "spanning forest kind cannot be null");
         checkNotNull(arbitrarySubtreePartitioningMode, "arbitrary subtree partitioning mode cannot be null");
+        checkNotNull(targetBankChoiceMethodCutVertices, "target bank choice method for cut vertices allocation cannot be null");
+        checkNotNull(targetBankChoiceMethodDfs, "target bank choice method for DFS allocation cannot be null");
+        checkNotNull(targetBankChoiceMethodAsp, "target bank choice method for arbitrary subtree partitioning cannot be null");
         checkNotNull(listener, "listener cannot be null");
         checkArgument(loopFactor >= 1., "the loop factor must be greater than or equal to 1");
         checkArgument(0. <= conditionalFactor && conditionalFactor <= 1., "the conditional factor must be in range [0, 1]");
+        final TargetBankPickerFactory targetBankPickerFactory = new TargetBankPickerFactory();
         this.bankSchema = bankSchema;
         this.commonBankAllocator = new CommonBankAllocator(atomicSpec);
         this.treeAllocationsComparator = new TreeAllocationComparator(bankSchema.getCommonBankName(),
@@ -134,6 +159,9 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         this.conditionalFactor = conditionalFactor;
         this.spanningForestKind = spanningForestKind;
         this.arbitrarySubtreePartitioning = arbitrarySubtreePartitioningMode;
+        this.targetBankPickerCutVertices = targetBankPickerFactory.create(targetBankChoiceMethodCutVertices);
+        this.targetBankPickerDfs = targetBankPickerFactory.create(targetBankChoiceMethodDfs);
+        this.targetBankPickerAsp = targetBankChoiceMethodAsp.transform(targetBankPickerFactory.getFunction());
         this.listener = listener;
     }
 
@@ -508,7 +536,8 @@ public class BComponentsCodePartitioner implements CodePartitioner {
     private void addRootAllocation(Collection<TreeAllocation> candidateAllocations,
                 BComponentsPartitionContext context, FunctionVertex treeRoot,
                 int allFunctionsSize, double allFunctionsFrequency) {
-        final Optional<String> targetBank = context.getFloorBank(allFunctionsSize);
+        final Optional<String> targetBank = targetBankPickerCutVertices.pick(
+                context, allFunctionsSize);
         if (targetBank.isPresent()) {
             candidateAllocations.add(new TreeAllocation(treeRoot, treeRoot,
                     AllocationDirection.DOWN_TREE, targetBank.get(),
@@ -540,7 +569,8 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                 throw new RuntimeException("unexpected allocation direction " + direction);
         }
 
-        final Optional<String> targetBank = context.getFloorBank(functionsSize);
+        final Optional<String> targetBank = targetBankPickerCutVertices.pick(
+                context, functionsSize);
         if (targetBank.isPresent()) {
             allocations.add(new TreeAllocation(cutVertex, treeRoot, direction,
                     targetBank.get(), functionsSize, functionsFrequency));
@@ -549,7 +579,8 @@ public class BComponentsCodePartitioner implements CodePartitioner {
 
     private int allocateTree(BComponentsPartitionContext context, FunctionVertex root)
                 throws PartitionImpossibleException {
-        final AllocatingDfsVertexVisitor allocatingVisitor = new AllocatingDfsVertexVisitor(context);
+        final AllocatingDfsVertexVisitor allocatingVisitor = new AllocatingDfsVertexVisitor(
+                context, targetBankPickerDfs);
         new DepthFirstSearcher(new UnassignedDfsTreeChildrenProvider())
                 .search(root, allocatingVisitor);
         if (allocatingVisitor.failure) {
@@ -627,47 +658,55 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         final int upTreeFunctionsSize = allFunctionsSize - downTreeFunctionsSize;
         final double upTreeFunctionsFrequency = allFunctionsFrequency - downTreeFunctionsFrequency;
 
-        // The vertices are computed lazily
-        Optional<ImmutableSet<FunctionVertex>> subtreeVertices = Optional.absent();
+        final BestAllocationChoiceData choiceData = new BestAllocationChoiceData(vertex,
+                treeRoot, downTreeFunctionsSize, downTreeFunctionsFrequency,
+                upTreeFunctionsSize, upTreeFunctionsFrequency);
+        for (AllocationDirection direction : AllocationDirection.values()) {
+            determineBestDirectedAllocationInVertex(context, choiceData, direction);
+        }
 
-        Optional<ExtendedTreeAllocation> bestAllocation = Optional.absent();
-        final List<ExtendedTreeAllocation> candidateAllocations = new ArrayList<>();
+        return choiceData.bestAllocation;
+    }
 
-        for (String bankName : bankSchema.getBanksNames()) {
-            // Check if there is enough place in the bank for an allocation
-            final int freeSpace = context.getBankTable().getFreeSpace(bankName);
-            if (downTreeFunctionsSize > freeSpace && (vertex == treeRoot || upTreeFunctionsSize > freeSpace)) {
+    private void determineBestDirectedAllocationInVertex(BComponentsPartitionContext context,
+                BestAllocationChoiceData choiceData, AllocationDirection direction) {
+        if (direction == AllocationDirection.UP_TREE && choiceData.vertex == choiceData.treeRoot) {
+            return;
+        }
+
+        final int functionsSize = choiceData.getFunctionsSize(direction);
+        final double functionsFrequency = choiceData.getFunctionsFrequency(direction);
+
+        final Iterable<String> banksToConsider = targetBankPickerAsp.isPresent()
+                ? Optional.presentInstances(Collections.singleton(
+                    targetBankPickerAsp.get().pick(context, functionsSize)))
+                : bankSchema.getBanksNames();
+
+        for (String bankName : banksToConsider) {
+            // Check if there is enough place in the bank
+            if (functionsSize > context.getFreeSpace(bankName)) {
                 continue;
             }
 
-            if (!subtreeVertices.isPresent()) {
-                subtreeVertices = Optional.of(collectSubtreeVertices(vertex));
+            // Compute subtree vertices lazily
+            if (!choiceData.subtreeVertices.isPresent()) {
+                choiceData.subtreeVertices = Optional.of(collectSubtreeVertices(choiceData.vertex));
             }
 
             final ImmutableSet<FunctionVertex> nonBankedVertices = determineNonBankedFunctionsAfterAllocation(
-                    context, bankName, subtreeVertices.get());
-            final double outerEdgesWeightsSum = computeOuterEdgesWeightsSum(subtreeVertices.get(),
+                    context, bankName, choiceData.subtreeVertices.get());
+            final double outerEdgesWeightsSum = computeOuterEdgesWeightsSum(choiceData.subtreeVertices.get(),
                     nonBankedVertices);
 
-            candidateAllocations.clear();
-            if (bestAllocation.isPresent()) {
-                candidateAllocations.add(bestAllocation.get());
-            }
-            if (downTreeFunctionsSize <= freeSpace) {
-                candidateAllocations.add(new ExtendedTreeAllocation(vertex, treeRoot,
-                        AllocationDirection.DOWN_TREE, bankName, downTreeFunctionsSize,
-                        downTreeFunctionsFrequency, outerEdgesWeightsSum));
-            }
-            if (vertex != treeRoot && upTreeFunctionsSize <= freeSpace) {
-                candidateAllocations.add(new ExtendedTreeAllocation(vertex, treeRoot,
-                        AllocationDirection.UP_TREE, bankName, upTreeFunctionsSize,
-                        upTreeFunctionsFrequency, outerEdgesWeightsSum));
-            }
+            final ExtendedTreeAllocation newCandidate = new ExtendedTreeAllocation(
+                    choiceData.vertex, choiceData.treeRoot, direction, bankName,
+                    functionsSize, functionsFrequency, outerEdgesWeightsSum);
 
-            bestAllocation = Optional.of(Collections.max(candidateAllocations, extendedTreeAllocationsComparator));
+            if (!choiceData.bestAllocation.isPresent()
+                    || extendedTreeAllocationsComparator.compare(choiceData.bestAllocation.get(), newCandidate) < 0) {
+                choiceData.bestAllocation = Optional.of(newCandidate);
+            }
         }
-
-        return bestAllocation;
     }
 
     private ImmutableSet<FunctionVertex> determineNonBankedFunctionsAfterAllocation(
@@ -1757,13 +1796,17 @@ public class BComponentsCodePartitioner implements CodePartitioner {
      */
     private static final class AllocatingDfsVertexVisitor implements DfsVertexVisitor {
         private final BComponentsPartitionContext context;
+        private final TargetBankPicker targetBankPicker;
         private Optional<String> currentBank;
         private boolean failure;
         private int allocatedFunctionsCount;
 
-        private AllocatingDfsVertexVisitor(BComponentsPartitionContext context) {
+        private AllocatingDfsVertexVisitor(BComponentsPartitionContext context,
+                    TargetBankPicker targetBankPicker) {
             checkNotNull(context, "context cannot be null");
+            checkNotNull(targetBankPicker, "target bank picker cannot be null");
             this.context = context;
+            this.targetBankPicker = targetBankPicker;
             this.currentBank = Optional.absent();
             this.failure = false;
         }
@@ -1777,7 +1820,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
             final int functionSize = context.getFunctionSize(vertex.getUniqueName());
 
             if (!currentBank.isPresent() || context.getBankTable().getFreeSpace(currentBank.get()) < functionSize) {
-                currentBank = context.getCeilingBank(functionSize);
+                currentBank = targetBankPicker.pick(context, functionSize);
             }
 
             if (currentBank.isPresent()) {
@@ -2629,6 +2672,189 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         public void fillCommonBank(BComponentsPartitionContext context) {
             checkNotNull(context, "context cannot be null");
             // do nothing because this filler does not allocate any functions
+        }
+    }
+
+    /**
+     * A method of choosing the target bank for an allocation if all of the
+     * functions from the allocation can be simultaneously allocated to more
+     * than one bank without overflowing it.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    public enum TargetBankChoiceMethod {
+        /**
+         * All of the functions from the allocation are assigned to a bank
+         * they fit in with the smallest amount of free space.
+         */
+        FLOOR_BANK,
+
+        /**
+         * All of the functions from the allocation are assigned to a bank
+         * they fit in with the greatest amount of free space.
+         */
+        CEILING_BANK,
+    }
+
+    /**
+     * A factory for target bank pickers.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class TargetBankPickerFactory {
+        private final Function<TargetBankChoiceMethod, TargetBankPicker> factoryFunction =
+                    new FactoryFunction();
+
+        /**
+         * Get a new instance of a target bank picker.
+         *
+         * @param method Method to use for choosing the target bank by the
+         *               created picker.
+         * @return Newly created instance of a target bank picker that uses the
+         *         given method for selecting the target bank.
+         * @throws NullPointerException The method is null.
+         */
+        private TargetBankPicker create(TargetBankChoiceMethod method) {
+            checkNotNull(method, "method cannot be null");
+
+            switch (method) {
+                case FLOOR_BANK:
+                    return new FloorTargetBankPicker();
+                case CEILING_BANK:
+                    return new CeilingTargetBankPicker();
+                default:
+                    throw new RuntimeException("unexpected target bank choice method " + method);
+            }
+        }
+
+        /**
+         * Get a function that creates target bank pickers. The returned
+         * function simply calls method {@link TargetBankPickerFactory#create}.
+         *
+         * @return A function that creates target bank pickers.
+         */
+        private Function<TargetBankChoiceMethod, TargetBankPicker> getFunction() {
+            return factoryFunction;
+        }
+
+        private final class FactoryFunction implements Function<TargetBankChoiceMethod, TargetBankPicker> {
+            @Override
+            public TargetBankPicker apply(TargetBankChoiceMethod method) {
+                return create(method);
+            }
+        }
+    }
+
+    /**
+     * Interface for selecting a bank for an allocation.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private interface TargetBankPicker {
+        /**
+         * Pick a bank that has at least the given amount of free space in the
+         * current allocation (from the given context). Each implementing class
+         * should use a specific strategy.
+         *
+         * @param context Context with the current allocation.
+         * @param minimumFreeSpace Minimum amount of free space in the bank.
+         * @return Name of a bank selected according to the strategy implemented
+         *         by this picker amongst banks with at least the given amount
+         *         of free space. The object is absent if and only if all banks
+         *         have less free space than the given amount.
+         * @throws NullPointerException Context is null.
+         * @throws IllegalArgumentException The given minimum amount of free
+         *                                  space is negative.
+         */
+        Optional<String> pick(BComponentsPartitionContext context, int minimumFreeSpace);
+    }
+
+    /**
+     * A target bank picker choosing the bank with the smallest amount of free
+     * space amongst all banks with at least the given amount of free space.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class FloorTargetBankPicker implements TargetBankPicker {
+        @Override
+        public Optional<String> pick(BComponentsPartitionContext context, int minimumFreeSpace) {
+            checkNotNull(context, "context cannot be null");
+            checkArgument(minimumFreeSpace >= 0, "minimum free space cannot be negative");
+            return context.getFloorBank(minimumFreeSpace);
+        }
+    }
+
+    /**
+     * A target bank picker choosing the bank with the greatest amount of free
+     * space amongst all banks with at least the given amount of free space.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class CeilingTargetBankPicker implements TargetBankPicker {
+        @Override
+        public Optional<String> pick(BComponentsPartitionContext context, int minimumFreeSpace) {
+            checkNotNull(context, "context cannot be null");
+            checkArgument(minimumFreeSpace >= 0, "minimum free space cannot be negative");
+            return context.getCeilingBank(minimumFreeSpace);
+        }
+    }
+
+    /**
+     * Object holding information for choosing the best allocation in a single
+     * vertex.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class BestAllocationChoiceData {
+        private final FunctionVertex vertex;
+        private final FunctionVertex treeRoot;
+        private final ImmutableMap<AllocationDirection, Integer> sizes;
+        private final ImmutableMap<AllocationDirection, Double> frequencies;
+        private Optional<ExtendedTreeAllocation> bestAllocation;
+        private Optional<ImmutableSet<FunctionVertex>> subtreeVertices;
+
+        private BestAllocationChoiceData(FunctionVertex vertex, FunctionVertex treeRoot,
+                    int downTreeFunctionsSize, double downTreeFunctionsFrequency,
+                    int upTreeFunctionsSize, double upTreeFunctionsFrequency) {
+            checkNotNull(vertex, "vertex cannot be null");
+            checkNotNull(treeRoot, "tree root cannot be null");
+            checkArgument(downTreeFunctionsSize >= 0, "down tree functions size cannot be negative");
+            checkArgument(downTreeFunctionsFrequency >= 0., "down tree functions frequency cannot be negative");
+            checkArgument(upTreeFunctionsSize >= 0, "up tree functions size cannot be negative");
+            checkArgument(upTreeFunctionsFrequency >= 0., "up tree functions frequency cannot be negative");
+            this.vertex = vertex;
+            this.treeRoot = treeRoot;
+            this.bestAllocation = Optional.absent();
+            this.subtreeVertices = Optional.absent();
+
+            // Build the sizes map
+            final EnumMap<AllocationDirection, Integer> sizesMap = new EnumMap<>(AllocationDirection.class);
+            sizesMap.put(AllocationDirection.DOWN_TREE, downTreeFunctionsSize);
+            sizesMap.put(AllocationDirection.UP_TREE, upTreeFunctionsSize);
+            this.sizes = Maps.immutableEnumMap(sizesMap);
+
+            // Build the frequencies map
+            final EnumMap<AllocationDirection, Double> frequenciesMap = new EnumMap<>(AllocationDirection.class);
+            frequenciesMap.put(AllocationDirection.DOWN_TREE, downTreeFunctionsFrequency);
+            frequenciesMap.put(AllocationDirection.UP_TREE, upTreeFunctionsFrequency);
+            this.frequencies = Maps.immutableEnumMap(frequenciesMap);
+        }
+
+        private int getFunctionsSize(AllocationDirection direction) {
+            return getFromMap(sizes, direction);
+        }
+
+        private double getFunctionsFrequency(AllocationDirection direction) {
+            return getFromMap(frequencies, direction);
+        }
+
+        private <V> V getFromMap(Map<AllocationDirection, V> map, AllocationDirection direction) {
+            checkNotNull(direction, "direction cannot be null");
+            final Optional<V> result = Optional.fromNullable(map.get(direction));
+            if (!result.isPresent()) {
+                throw new RuntimeException("unexpected allocation direction " + direction);
+            }
+            return result.get();
         }
     }
 }

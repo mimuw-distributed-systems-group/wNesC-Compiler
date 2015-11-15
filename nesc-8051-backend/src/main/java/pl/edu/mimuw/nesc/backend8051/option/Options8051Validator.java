@@ -113,7 +113,16 @@ public final class Options8051Validator {
                 new ConditionalFactorValidator(),
                 new EnumOptionValidator(Options8051.OPTION_LONG_COMMON_BANK_ALLOCATION_ALGORITHM,
                         Options8051.MAP_COMMON_BANK_ALLOCATION_ALGORITHM.keySet(),
-                        "common bank allocation algorithm")
+                        "common bank allocation algorithm"),
+                new EnumOptionValidator(Options8051.OPTION_LONG_BANK_CHOICE_METHOD_CUT_VERTICES,
+                        Options8051.MAP_TARGET_BANK_CHOICE_METHOD.keySet(),
+                        "bank choice method"),
+                new EnumOptionValidator(Options8051.OPTION_LONG_BANK_CHOICE_METHOD_DFS,
+                        Options8051.MAP_TARGET_BANK_CHOICE_METHOD.keySet(),
+                        "bank choice method"),
+                new EnumOptionValidator(Options8051.OPTION_LONG_BANK_CHOICE_METHOD_ASP,
+                        Options8051.MAP_TARGET_BANK_CHOICE_METHOD.keySet(),
+                        "bank choice method")
         );
     }
 

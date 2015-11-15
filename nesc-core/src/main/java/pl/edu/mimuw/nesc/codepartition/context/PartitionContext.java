@@ -2,10 +2,10 @@ package pl.edu.mimuw.nesc.codepartition.context;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.Range;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
 import pl.edu.mimuw.nesc.codepartition.BankSchema;
@@ -88,7 +88,7 @@ public class PartitionContext {
         }
 
         if (!banksFreeSpaceMap.containsKey(newBankFreeSpace)) {
-            banksFreeSpaceMap.put(newBankFreeSpace, new HashSet<String>());
+            banksFreeSpaceMap.put(newBankFreeSpace, new TreeSet<String>());
         }
         banksFreeSpaceMap.get(newBankFreeSpace).add(bankName);
     }
@@ -184,7 +184,7 @@ public class PartitionContext {
             for (String bankName : bankSchema.getBanksNames()) {
                 final int capacity = bankSchema.getBankCapacity(bankName);
                 if (!result.containsKey(capacity)) {
-                    result.put(capacity, new HashSet<String>());
+                    result.put(capacity, new TreeSet<String>());
                 }
                 result.get(capacity).add(bankName);
             }

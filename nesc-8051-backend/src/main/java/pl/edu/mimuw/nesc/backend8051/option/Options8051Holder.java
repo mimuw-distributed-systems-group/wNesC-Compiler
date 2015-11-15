@@ -3,7 +3,6 @@ package pl.edu.mimuw.nesc.backend8051.option;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import org.apache.commons.cli.CommandLine;
 import pl.edu.mimuw.nesc.codepartition.BComponentsCodePartitioner;
@@ -60,6 +59,12 @@ public final class Options8051Holder {
      */
     private static final Function<String, BComponentsCodePartitioner.CommonBankAllocationAlgorithm> FUNCTION_PARSE_COMMON_BANK_ALLOCATION_ALGORITHM =
             new MappingFunction<>(Options8051.MAP_COMMON_BANK_ALLOCATION_ALGORITHM);
+
+    /**
+     * Function for parsing the target bank choice method.
+     */
+    private static final Function<String, BComponentsCodePartitioner.TargetBankChoiceMethod> FUNCTION_PARSE_TARGET_BANK_CHOICE_METHOD =
+            new MappingFunction<>(Options8051.MAP_TARGET_BANK_CHOICE_METHOD);
 
     /**
      * The parsed 8051 options.
@@ -251,6 +256,23 @@ public final class Options8051Holder {
     public Optional<BComponentsCodePartitioner.CommonBankAllocationAlgorithm> getCommonBankAllocationAlgorithm() {
         return getTransformedOptionValue(OPTION_LONG_COMMON_BANK_ALLOCATION_ALGORITHM,
                 FUNCTION_PARSE_COMMON_BANK_ALLOCATION_ALGORITHM);
+    }
+
+    public Optional<BComponentsCodePartitioner.TargetBankChoiceMethod> getBankChoiceMethodCutVertices() {
+        return getTargetBankChoiceMethod(OPTION_LONG_BANK_CHOICE_METHOD_CUT_VERTICES);
+    }
+
+    public Optional<BComponentsCodePartitioner.TargetBankChoiceMethod> getBankChoiceMethodDfs() {
+        return getTargetBankChoiceMethod(OPTION_LONG_BANK_CHOICE_METHOD_DFS);
+    }
+
+    public Optional<BComponentsCodePartitioner.TargetBankChoiceMethod> getBankChoiceMethodAsp() {
+        return getTargetBankChoiceMethod(OPTION_LONG_BANK_CHOICE_METHOD_ASP);
+    }
+
+    private Optional<BComponentsCodePartitioner.TargetBankChoiceMethod> getTargetBankChoiceMethod(
+                String optionName) {
+        return getTransformedOptionValue(optionName, FUNCTION_PARSE_TARGET_BANK_CHOICE_METHOD);
     }
 
     private Optional<Integer> getIntegerOptionValue(String optionName) {

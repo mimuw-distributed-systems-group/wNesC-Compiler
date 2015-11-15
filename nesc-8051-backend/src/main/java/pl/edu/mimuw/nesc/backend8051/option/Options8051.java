@@ -46,6 +46,9 @@ public final class Options8051 {
     public static final String OPTION_LONG_LOOP_FACTOR = "loop-factor";
     public static final String OPTION_LONG_CONDITIONAL_FACTOR = "conditional-factor";
     public static final String OPTION_LONG_COMMON_BANK_ALLOCATION_ALGORITHM = "common-bank-allocation-algorithm";
+    public static final String OPTION_LONG_BANK_CHOICE_METHOD_CUT_VERTICES = "bank-choice-method-cut-vertices";
+    public static final String OPTION_LONG_BANK_CHOICE_METHOD_DFS = "bank-choice-method-dfs";
+    public static final String OPTION_LONG_BANK_CHOICE_METHOD_ASP = "bank-choice-method-asp";
 
     /**
      * Separators used for options values.
@@ -88,6 +91,15 @@ public final class Options8051 {
                     "greedy-estimations", BComponentsCodePartitioner.CommonBankAllocationAlgorithm.GREEDY_DESCENDING_ESTIMATIONS,
                     "2approx", BComponentsCodePartitioner.CommonBankAllocationAlgorithm.TWO_APPROXIMATION,
                     "nop", BComponentsCodePartitioner.CommonBankAllocationAlgorithm.NO_OPERATION
+            );
+
+    /**
+     * Map for parsing a target bank choice method.
+     */
+    public static final ImmutableMap<String, BComponentsCodePartitioner.TargetBankChoiceMethod> MAP_TARGET_BANK_CHOICE_METHOD =
+            ImmutableMap.of(
+                    "floor", BComponentsCodePartitioner.TargetBankChoiceMethod.FLOOR_BANK,
+                    "ceiling", BComponentsCodePartitioner.TargetBankChoiceMethod.CEILING_BANK
             );
 
     /**
