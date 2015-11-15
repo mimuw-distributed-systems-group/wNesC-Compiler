@@ -138,10 +138,15 @@ public final class Main {
 
     /**
      * Default bank choice method for DFS allocation if the user does not
-     * specify any,
+     * specify any.
      */
     private static final BComponentsCodePartitioner.TargetBankChoiceMethod DEFAULT_BANK_CHOICE_METHOD_DFS =
             BComponentsCodePartitioner.TargetBankChoiceMethod.CEILING_BANK;
+
+    /**
+     * Default ASP allocation picker used if the user does not specify any.
+     */
+    private static final String DEFAULT_ALLOCATION_PICKER_ASP = "smallest-weights";
 
     /**
      * Default loop factor for the biconnected components heuristic used if the
@@ -509,6 +514,7 @@ public final class Main {
                     options.getSpanningForestKind().or(DEFAULT_SPANNING_FOREST_KIND),
                     options.getPreferHigherEstimateAllocations(),
                     options.getArbitrarySubtreePartitioningMode().or(DEFAULT_ARBITRARY_SUBTREE_PARTITIONING_MODE),
+                    options.getAspPicker().or(DEFAULT_ALLOCATION_PICKER_ASP),
                     options.getBankChoiceMethodCutVertices().or(DEFAULT_BANK_CHOICE_METHOD_CUT_VERTICES),
                     options.getBankChoiceMethodDfs().or(DEFAULT_BANK_CHOICE_METHOD_DFS),
                     options.getBankChoiceMethodAsp(),
@@ -580,6 +586,7 @@ public final class Main {
             .put(Options8051.OPTION_LONG_BANK_CHOICE_METHOD_CUT_VERTICES, options.getBankChoiceMethodCutVertices())
             .put(Options8051.OPTION_LONG_BANK_CHOICE_METHOD_DFS, options.getBankChoiceMethodDfs())
             .put(Options8051.OPTION_LONG_BANK_CHOICE_METHOD_ASP, options.getBankChoiceMethodAsp())
+            .put(Options8051.OPTION_LONG_ALLOCATION_PICKER_ASP, options.getAspPicker())
             .build();
 
 

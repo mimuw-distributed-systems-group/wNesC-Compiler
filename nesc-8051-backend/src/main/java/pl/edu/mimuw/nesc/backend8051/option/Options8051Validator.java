@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.cli.CommandLine;
+import pl.edu.mimuw.nesc.codepartition.BComponentsCodePartitioner;
 import pl.edu.mimuw.nesc.codesize.SDCCMemoryModel;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -122,7 +123,8 @@ public final class Options8051Validator {
                         "bank choice method"),
                 new EnumOptionValidator(Options8051.OPTION_LONG_BANK_CHOICE_METHOD_ASP,
                         Options8051.MAP_TARGET_BANK_CHOICE_METHOD.keySet(),
-                        "bank choice method")
+                        "bank choice method"),
+                new AspPickerValidator()
         );
     }
 
@@ -494,6 +496,46 @@ public final class Options8051Validator {
             } else {
                 return Optional.absent();
             }
+        }
+    }
+
+    private final class AspPickerValidator implements SingleValidator {
+        @Override
+        public Optional<String> validate() {
+            final Optional<String> value = getOptionValue(Options8051.OPTION_LONG_ALLOCATION_PICKER_ASP);
+            if (!value.isPresent()) {
+                return Optional.absent();
+            }
+
+            if (BComponentsCodePartitioner.PATTERN_ASP_ALLOCATION_PICKER_SMALLEST_WEIGHTS.matcher(value.get()).matches()) {
+                return Optional.absent();
+            }
+
+            final String msgPrefix = "invalid value for option '--"
+                    + Options8051.OPTION_LONG_ALLOCATION_PICKER_ASP + "':";
+
+            final Matcher smallestWeightsFromBiggestSizeMatcher = BComponentsCodePartitioner
+                    .PATTERN_ASP_ALLOCATION_PICKER_SMALLEST_WEIGHTS_FROM_BIGGEST_SIZE.matcher(value.get());
+            if (smallestWeightsFromBiggestSizeMatcher.matches()) {
+                return checkPatternWithSize(smallestWeightsFromBiggestSizeMatcher, msgPrefix);
+            }
+
+            final Matcher biggestSizeFromSmallestWeightsMatcher = BComponentsCodePartitioner
+                    .PATTERN_ASP_ALLOCATION_PICKER_BIGGEST_SIZE_FROM_SMALLEST_WEIGHTS.matcher(value.get());
+            if (biggestSizeFromSmallestWeightsMatcher.matches()) {
+                return checkPatternWithSize(biggestSizeFromSmallestWeightsMatcher, msgPrefix);
+            }
+
+            return Optional.of(msgPrefix + " invalid allocation picker description '"
+                    + value.get() + "'");
+        }
+
+        private Optional<String> checkPatternWithSize(Matcher pickerDescriptionMatcher, String msgPrefix) {
+            final String sizeString = pickerDescriptionMatcher.group("size");
+            return !checkNotGreaterThanMaxInt(sizeString)
+                    ? Optional.of(msgPrefix + " allocations count '"
+                        + sizeString + "' exceeds " + Integer.MAX_VALUE)
+                    : Optional.<String>absent();
         }
     }
 }

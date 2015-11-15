@@ -270,6 +270,10 @@ public final class Options8051Holder {
         return getTargetBankChoiceMethod(OPTION_LONG_BANK_CHOICE_METHOD_ASP);
     }
 
+    public Optional<String> getAspPicker() {
+        return Optional.fromNullable(cmdLine.getOptionValue(OPTION_LONG_ALLOCATION_PICKER_ASP));
+    }
+
     private Optional<BComponentsCodePartitioner.TargetBankChoiceMethod> getTargetBankChoiceMethod(
                 String optionName) {
         return getTransformedOptionValue(optionName, FUNCTION_PARSE_TARGET_BANK_CHOICE_METHOD);

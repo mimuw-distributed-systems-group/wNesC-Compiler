@@ -29,6 +29,8 @@ import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import pl.edu.mimuw.nesc.ast.Location;
 import pl.edu.mimuw.nesc.ast.gen.FunctionDecl;
 import pl.edu.mimuw.nesc.astutil.DeclaratorUtils;
@@ -58,6 +60,27 @@ import static com.google.common.base.Preconditions.checkState;
  */
 public class BComponentsCodePartitioner implements CodePartitioner {
     /**
+     * Pattern specifying the smallest weights arbitrary subtree partitioning
+     * allocation picker.
+     */
+    public static final Pattern PATTERN_ASP_ALLOCATION_PICKER_SMALLEST_WEIGHTS =
+            Pattern.compile("smallest-weights");
+
+    /**
+     * Pattern specifying the smallest weights from biggest size allocation
+     * picker.
+     */
+    public static final Pattern PATTERN_ASP_ALLOCATION_PICKER_SMALLEST_WEIGHTS_FROM_BIGGEST_SIZE =
+            Pattern.compile("smallest-weights-from-(?<size>[1-9]\\d*)-biggest-size");
+
+    /**
+     * Pattern specifying the biggest size from smallest weights allocation
+     * picker.
+     */
+    public static final Pattern PATTERN_ASP_ALLOCATION_PICKER_BIGGEST_SIZE_FROM_SMALLEST_WEIGHTS =
+            Pattern.compile("biggest-size-from-(?<size>[1-9]\\d*)-smallest-weights");
+
+    /**
      * Bank schema assumed by this partitioner.
      */
     private final BankSchema bankSchema;
@@ -73,9 +96,9 @@ public class BComponentsCodePartitioner implements CodePartitioner {
     private final Comparator<TreeAllocation> treeAllocationsComparator;
 
     /**
-     * Comparator for allocations used for extended subtree partitioning.
+     * Picker for the arbitrary subtree partitioning.
      */
-    private final Comparator<ExtendedTreeAllocation> extendedTreeAllocationsComparator;
+    private final AllocationPicker aspPicker;
 
     /**
      * Listener that will be notified about detected issues.
@@ -132,7 +155,7 @@ public class BComponentsCodePartitioner implements CodePartitioner {
             double loopFactor, double conditionalFactor, CommonBankAllocationAlgorithm commonBankAlgorithm,
             SpanningForestKind spanningForestKind, boolean preferHigherEstimateAllocations,
             ArbitrarySubtreePartitioningMode arbitrarySubtreePartitioningMode,
-            TargetBankChoiceMethod targetBankChoiceMethodCutVertices,
+            String aspPickerDescription, TargetBankChoiceMethod targetBankChoiceMethodCutVertices,
             TargetBankChoiceMethod targetBankChoiceMethodDfs,
             Optional<TargetBankChoiceMethod> targetBankChoiceMethodAsp,
             CompilationListener listener) {
@@ -141,19 +164,21 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         checkNotNull(commonBankAlgorithm, "common bank allocation algorithm cannot be null");
         checkNotNull(spanningForestKind, "spanning forest kind cannot be null");
         checkNotNull(arbitrarySubtreePartitioningMode, "arbitrary subtree partitioning mode cannot be null");
+        checkNotNull(aspPickerDescription, "arbitrary subtree partitioning picker description cannot be null");
         checkNotNull(targetBankChoiceMethodCutVertices, "target bank choice method for cut vertices allocation cannot be null");
         checkNotNull(targetBankChoiceMethodDfs, "target bank choice method for DFS allocation cannot be null");
         checkNotNull(targetBankChoiceMethodAsp, "target bank choice method for arbitrary subtree partitioning cannot be null");
         checkNotNull(listener, "listener cannot be null");
         checkArgument(loopFactor >= 1., "the loop factor must be greater than or equal to 1");
         checkArgument(0. <= conditionalFactor && conditionalFactor <= 1., "the conditional factor must be in range [0, 1]");
+        checkArgument(!aspPickerDescription.isEmpty(), "arbitrary subtree partitioning picker description cannot be an empty string");
         final TargetBankPickerFactory targetBankPickerFactory = new TargetBankPickerFactory();
         this.bankSchema = bankSchema;
         this.commonBankAllocator = new CommonBankAllocator(atomicSpec);
         this.treeAllocationsComparator = new TreeAllocationComparator(bankSchema.getCommonBankName(),
                 preferHigherEstimateAllocations);
-        this.extendedTreeAllocationsComparator = new ExtendedTreeAllocationComparator(
-                this.treeAllocationsComparator);
+        this.aspPicker = new AllocationPickerFactory(bankSchema, preferHigherEstimateAllocations)
+                .create(aspPickerDescription);
         this.commonBankFiller = new CommonBankFillerFactory().create(commonBankAlgorithm);
         this.loopFactor = loopFactor;
         this.conditionalFactor = conditionalFactor;
@@ -591,31 +616,20 @@ public class BComponentsCodePartitioner implements CodePartitioner {
 
     private Optional<TreeAllocation> findMinimumWeightAllocation(BComponentsPartitionContext context,
                 Set<FunctionVertex> treeRoots) {
-        Optional<ExtendedTreeAllocation> bestAllocation = Optional.absent();
+        aspPicker.clear();
 
         for (FunctionVertex treeRoot : treeRoots) {
-            final Optional<ExtendedTreeAllocation> bestTreeAllocation =
-                    findMinimumWeightSubtree(context, treeRoot);
-
-            if (bestTreeAllocation.isPresent() && !bestAllocation.isPresent()
-                    || bestTreeAllocation.isPresent() && extendedTreeAllocationsComparator.compare(
-                        bestAllocation.get(), bestTreeAllocation.get()) < 0) {
-                bestAllocation = Optional.of(bestTreeAllocation.get());
-            }
+            findMinimumWeightSubtree(context, treeRoot);
         }
 
-        return Optional.<TreeAllocation>of(bestAllocation.get());
+        return Optional.<TreeAllocation>fromNullable(aspPicker.pick().orNull());
     }
 
-    private Optional<ExtendedTreeAllocation> findMinimumWeightSubtree(
-            BComponentsPartitionContext context,
-            FunctionVertex treeRoot
-    ) {
+    private void findMinimumWeightSubtree(BComponentsPartitionContext context, FunctionVertex treeRoot) {
         final int allFunctionsSize = context.functionsSizesTree.compute(treeRoot.getDfsTreeNumber(),
                 treeRoot.getMaximumDfsDescendantNumber() + 1);
         final double allFunctionsFrequency = context.frequencyEstimationsTree.compute(treeRoot.getDfsTreeNumber(),
                 treeRoot.getMaximumDfsDescendantNumber() + 1);
-        Optional<ExtendedTreeAllocation> bestTreeAllocation = Optional.absent();
 
         final Set<FunctionVertex> enqueuedVertices = new HashSet<>();
         final Queue<FunctionVertex> queue = new ArrayDeque<>();
@@ -624,14 +638,8 @@ public class BComponentsCodePartitioner implements CodePartitioner {
 
         while (!queue.isEmpty()) {
             final FunctionVertex currentVertex = queue.remove();
-            final Optional<ExtendedTreeAllocation> bestSubtreeAllocation = determineBestAllocationInVertex(
-                    context, currentVertex, treeRoot, allFunctionsSize, allFunctionsFrequency);
-            final boolean isBetter = bestTreeAllocation.isPresent() && bestSubtreeAllocation.isPresent()
-                    && extendedTreeAllocationsComparator.compare(bestSubtreeAllocation.get(), bestTreeAllocation.get()) > 0;
-
-            if (!bestTreeAllocation.isPresent() || isBetter) {
-                bestTreeAllocation = bestSubtreeAllocation;
-            }
+            determineBestAllocationInVertex(context, currentVertex, treeRoot,
+                    allFunctionsSize, allFunctionsFrequency);
 
             for (FunctionVertex dfsChild : currentVertex.getDfsTreeChildren()) {
                 if (!dfsChild.getTargetBank().isPresent() && !enqueuedVertices.contains(dfsChild)) {
@@ -640,11 +648,9 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                 }
             }
         }
-
-        return bestTreeAllocation;
     }
 
-    private Optional<ExtendedTreeAllocation> determineBestAllocationInVertex(
+    private void determineBestAllocationInVertex(
                 BComponentsPartitionContext context,
                 FunctionVertex vertex,
                 FunctionVertex treeRoot,
@@ -664,8 +670,6 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         for (AllocationDirection direction : AllocationDirection.values()) {
             determineBestDirectedAllocationInVertex(context, choiceData, direction);
         }
-
-        return choiceData.bestAllocation;
     }
 
     private void determineBestDirectedAllocationInVertex(BComponentsPartitionContext context,
@@ -698,14 +702,9 @@ public class BComponentsCodePartitioner implements CodePartitioner {
             final double outerEdgesWeightsSum = computeOuterEdgesWeightsSum(choiceData.subtreeVertices.get(),
                     nonBankedVertices);
 
-            final ExtendedTreeAllocation newCandidate = new ExtendedTreeAllocation(
-                    choiceData.vertex, choiceData.treeRoot, direction, bankName,
-                    functionsSize, functionsFrequency, outerEdgesWeightsSum);
-
-            if (!choiceData.bestAllocation.isPresent()
-                    || extendedTreeAllocationsComparator.compare(choiceData.bestAllocation.get(), newCandidate) < 0) {
-                choiceData.bestAllocation = Optional.of(newCandidate);
-            }
+            aspPicker.add(new ExtendedTreeAllocation(choiceData.vertex,
+                    choiceData.treeRoot, direction, bankName, functionsSize,
+                    functionsFrequency, outerEdgesWeightsSum));
         }
     }
 
@@ -2810,7 +2809,6 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         private final FunctionVertex treeRoot;
         private final ImmutableMap<AllocationDirection, Integer> sizes;
         private final ImmutableMap<AllocationDirection, Double> frequencies;
-        private Optional<ExtendedTreeAllocation> bestAllocation;
         private Optional<ImmutableSet<FunctionVertex>> subtreeVertices;
 
         private BestAllocationChoiceData(FunctionVertex vertex, FunctionVertex treeRoot,
@@ -2824,7 +2822,6 @@ public class BComponentsCodePartitioner implements CodePartitioner {
             checkArgument(upTreeFunctionsFrequency >= 0., "up tree functions frequency cannot be negative");
             this.vertex = vertex;
             this.treeRoot = treeRoot;
-            this.bestAllocation = Optional.absent();
             this.subtreeVertices = Optional.absent();
 
             // Build the sizes map
@@ -2855,6 +2852,267 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                 throw new RuntimeException("unexpected allocation direction " + direction);
             }
             return result.get();
+        }
+    }
+
+    /**
+     * Factory for allocation pickers. It produces objects from their textual
+     * description.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class AllocationPickerFactory {
+        private final BankSchema bankSchema;
+        private final boolean preferHigherEstimateAllocations;
+
+        private AllocationPickerFactory(BankSchema bankSchema, boolean preferHigherEstimateAllocations) {
+            checkNotNull(bankSchema, "bank schema cannot be null");
+            this.bankSchema = bankSchema;
+            this.preferHigherEstimateAllocations = preferHigherEstimateAllocations;
+        }
+
+        private AllocationPicker create(String description) {
+            checkNotNull(description, "description cannot be null");
+            checkArgument(!description.isEmpty(), "description cannot be an empty string");
+
+            if (PATTERN_ASP_ALLOCATION_PICKER_SMALLEST_WEIGHTS.matcher(description).matches()) {
+                return new BestAllocationPicker(new ExtendedTreeAllocationComparator(
+                        new TreeAllocationComparator(bankSchema.getCommonBankName(),
+                                preferHigherEstimateAllocations)));
+            }
+
+            final Matcher smallestWeightsFromBiggestSizeMatcher =
+                    PATTERN_ASP_ALLOCATION_PICKER_SMALLEST_WEIGHTS_FROM_BIGGEST_SIZE.matcher(
+                            description);
+            if (smallestWeightsFromBiggestSizeMatcher.matches()) {
+                return new SmallestWeightsFromBiggestSizePicker(parseAllocationsCount(
+                        smallestWeightsFromBiggestSizeMatcher, description));
+            }
+
+            final Matcher biggestSizeFromSmallestWeightsMatcher =
+                    PATTERN_ASP_ALLOCATION_PICKER_BIGGEST_SIZE_FROM_SMALLEST_WEIGHTS.matcher(
+                            description);
+            if (biggestSizeFromSmallestWeightsMatcher.matches()) {
+                return new BiggestSizeFromSmallestWeightsPicker(parseAllocationsCount(
+                        biggestSizeFromSmallestWeightsMatcher, description));
+            }
+
+            throw new IllegalArgumentException("invalid picker description '" + description + "'");
+        }
+
+        private int parseAllocationsCount(Matcher matcher, String pickerDescription) {
+            final String allocationsCount = matcher.group("size");
+
+            try {
+                return Integer.parseInt(allocationsCount);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("invalid picker description '"
+                        + pickerDescription + "'", e);
+            }
+        }
+    }
+
+    /**
+     * Interface for choosing a candidate allocation.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private interface AllocationPicker {
+        /**
+         * Add the given candidate allocation to consider for picking an
+         * allocation that will be actually made.
+         *
+         * @param allocation Allocation to add.
+         * @throws NullPointerException Allocation is null.
+         */
+        void add(ExtendedTreeAllocation allocation);
+
+        /**
+         * Get the best allocation amongst all candidate allocation added to
+         * this picker.
+         *
+         * @return The best allocation added to this picker. The object is
+         *         absent if no allocation has been added to this picker.
+         */
+        Optional<ExtendedTreeAllocation> pick();
+
+        /**
+         * Remove all candidate allocations stored in this picker (as if method
+         * {@link AllocationPicker#add} was never called).
+         */
+        void clear();
+    }
+
+    /**
+     * Allocation picker that stores a specific number of allocations that are
+     * best according to a given storing comparator (a better allocation is the
+     * one that is greater according to the storing comparator). It picks the
+     * greatest allocation according to a picking comparator amongst all stored
+     * allocations.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static abstract class AbstractAllocationPicker implements AllocationPicker {
+        private final List<ExtendedTreeAllocation> allocations;
+        private final int maxAllocationsCount;
+        private final Comparator<ExtendedTreeAllocation> storingComparator;
+        private final Comparator<ExtendedTreeAllocation> pickingComparator;
+
+        protected AbstractAllocationPicker(int allocationsToStoreCount,
+                    Comparator<ExtendedTreeAllocation> storingComparator,
+                    Comparator<ExtendedTreeAllocation> pickingComparator) {
+            checkNotNull(storingComparator, "storing comparator cannot be null");
+            checkNotNull(pickingComparator, "picking comparator cannot be null");
+            checkArgument(allocationsToStoreCount > 0, "count of allocations to store must be positive");
+            this.allocations = new ArrayList<>();
+            this.maxAllocationsCount = allocationsToStoreCount;
+            this.storingComparator = storingComparator;
+            this.pickingComparator = pickingComparator;
+        }
+
+        @Override
+        public final void add(ExtendedTreeAllocation allocation) {
+            checkNotNull(allocation, "allocation cannot be null");
+
+            if (allocations.size() < maxAllocationsCount) {
+                allocations.add(allocation);
+            } else {
+                final ExtendedTreeAllocation worstAllocation = Collections.min(
+                        allocations, storingComparator);
+
+                if (storingComparator.compare(worstAllocation, allocation) < 0) {
+                    final int worstAllocationIndex = allocations.indexOf(worstAllocation);
+                    if (worstAllocationIndex < 0) {
+                        throw new RuntimeException("cannot find the index of the worst allocation");
+                    }
+                    allocations.set(worstAllocationIndex, allocation);
+                }
+            }
+        }
+
+        @Override
+        public final Optional<ExtendedTreeAllocation> pick() {
+            return !allocations.isEmpty()
+                    ? Optional.of(Collections.max(allocations, pickingComparator))
+                    : Optional.<ExtendedTreeAllocation>absent();
+        }
+
+        @Override
+        public final void clear() {
+            allocations.clear();
+        }
+    }
+
+    /**
+     * Allocation picker that chooses the best allocation according to a given
+     * comparator.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class BestAllocationPicker extends AbstractAllocationPicker {
+        private BestAllocationPicker(Comparator<ExtendedTreeAllocation> comparator) {
+            super(1, comparator, comparator);
+        }
+    }
+
+    private static final class SmallestWeightsFromBiggestSizePicker extends AbstractAllocationPicker {
+        private SmallestWeightsFromBiggestSizePicker(int allocationsCount) {
+            super(allocationsCount, new AllocationSizesComparator(new TotalTreeAllocationComparator()),
+                    new OuterEdgesWeightsComparator(new TotalTreeAllocationComparator()));
+        }
+
+    }
+
+    private static final class BiggestSizeFromSmallestWeightsPicker extends AbstractAllocationPicker {
+        private BiggestSizeFromSmallestWeightsPicker(int allocationsCount) {
+            super(allocationsCount, new OuterEdgesWeightsComparator(new TotalTreeAllocationComparator()),
+                    new AllocationSizesComparator(new TotalTreeAllocationComparator()));
+        }
+    }
+
+    /**
+     * Comparator that imposes a total ordering on tree allocations.
+     *
+     * @author Michał Ciszewski <mc305195@students.mimuw.edu.pl>
+     */
+    private static final class TotalTreeAllocationComparator implements Comparator<TreeAllocation> {
+        @Override
+        public int compare(TreeAllocation allocation1, TreeAllocation allocation2) {
+            checkNotNull(allocation1, "first allocation cannot be null");
+            checkNotNull(allocation2, "second allocation cannot be null");
+
+            // Compare by function unique name
+            final int functionNameResult = allocation1.vertex.getUniqueName()
+                    .compareTo(allocation2.vertex.getUniqueName());
+            if (functionNameResult != 0) {
+                return functionNameResult;
+            }
+
+            // Compare by direction
+            if (allocation1.direction != allocation2.direction) {
+                if (allocation1.direction == AllocationDirection.UP_TREE) {
+                    return 1;
+                } else if (allocation2.direction == AllocationDirection.UP_TREE) {
+                    return -1;
+                } else {
+                    throw new RuntimeException("unexpectedly no allocation is up-tree");
+                }
+            }
+
+            // Compare by name of the target bank
+            return allocation1.bankName.compareTo(allocation2.bankName);
+        }
+    }
+
+    private static final class AllocationSizesComparator implements Comparator<ExtendedTreeAllocation> {
+        private final Comparator<TreeAllocation> innerComparator;
+
+        private AllocationSizesComparator(Comparator<TreeAllocation> innerComparator) {
+            checkNotNull(innerComparator, "inner comparator cannot be null");
+            this.innerComparator = innerComparator;
+        }
+
+        @Override
+        public int compare(ExtendedTreeAllocation extendedAllocation1,
+                ExtendedTreeAllocation extendedAllocation2) {
+            checkNotNull(extendedAllocation1, "first allocation cannot be null");
+            checkNotNull(extendedAllocation2, "second allocation cannot be null");
+
+            // Cast to get access to private members of allocations
+            final TreeAllocation allocation1 = extendedAllocation1,
+                    allocation2 = extendedAllocation2;
+
+            // Compare by size
+            final int sizeResult = Integer.compare(allocation1.totalFunctionsSize,
+                    allocation2.totalFunctionsSize);
+            if (sizeResult != 0) {
+                return sizeResult;
+            }
+
+            return innerComparator.compare(extendedAllocation1, extendedAllocation2);
+        }
+    }
+
+    private static final class OuterEdgesWeightsComparator implements Comparator<ExtendedTreeAllocation> {
+        private final Comparator<TreeAllocation> innerComparator;
+
+        private OuterEdgesWeightsComparator(Comparator<TreeAllocation> innerComparator) {
+            checkNotNull(innerComparator, "inner comparator cannot be null");
+            this.innerComparator = innerComparator;
+        }
+
+        @Override
+        public int compare(ExtendedTreeAllocation allocation1, ExtendedTreeAllocation allocation2) {
+            checkNotNull(allocation1, "first allocation cannot be null");
+            checkNotNull(allocation2, "second allocation cannot be null");
+
+            final int weightsSumResult = Double.compare(allocation2.outerEdgesWeightsSum,
+                    allocation1.outerEdgesWeightsSum);
+            if (weightsSumResult != 0) {
+                return weightsSumResult;
+            }
+
+            return innerComparator.compare(allocation1, allocation2);
         }
     }
 }

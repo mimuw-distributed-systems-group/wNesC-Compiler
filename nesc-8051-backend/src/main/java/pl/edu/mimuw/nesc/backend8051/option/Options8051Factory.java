@@ -149,6 +149,12 @@ final class Options8051Factory {
                 .desc("use the specified method for choosing the target bank for the arbitrary subtree partitioning in the biconnected components heuristic; available methods: floor, ceiling; if this option is not specified, then all banks will be considered for an allocation; if the biconnected components heuristic is not selected for the partitioning, this option has no effect")
                 .argName("method")
                 .build(),
+            Option.builder()
+                .longOpt(OPTION_LONG_ALLOCATION_PICKER_ASP)
+                .hasArg()
+                .desc("use the allocation picker described by the given text for the arbitrary subtree partitioning in the biconnected components heuristic; available pickers: smallest-weights, smallest-weights-from-<n>-biggest-size, biggest-size-from-<n>-smallest-weights where n is an arbitrary positive natural number; if this option is not specified, then 'smallest-weights' is used; if the biconnected components heuristic is not used for the partitioning, this option has no effect")
+                .argName("picker-description")
+                .build(),
         };
 
         final Iterable<Option> optionsSource = FluentIterable.from(new OptionsLoader().load())

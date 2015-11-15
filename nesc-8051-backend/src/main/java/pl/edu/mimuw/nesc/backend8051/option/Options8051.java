@@ -49,6 +49,7 @@ public final class Options8051 {
     public static final String OPTION_LONG_BANK_CHOICE_METHOD_CUT_VERTICES = "bank-choice-method-cut-vertices";
     public static final String OPTION_LONG_BANK_CHOICE_METHOD_DFS = "bank-choice-method-dfs";
     public static final String OPTION_LONG_BANK_CHOICE_METHOD_ASP = "bank-choice-method-asp";
+    public static final String OPTION_LONG_ALLOCATION_PICKER_ASP = "allocation-picker-asp";
 
     /**
      * Separators used for options values.
