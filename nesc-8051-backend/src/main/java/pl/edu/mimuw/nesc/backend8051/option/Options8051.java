@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.backend8051.option;
 
 import com.google.common.collect.ImmutableMap;
 import pl.edu.mimuw.nesc.codepartition.BComponentsCodePartitioner;
+import pl.edu.mimuw.nesc.codepartition.CommonBankAllocationAlgorithm;
 
 /**
  * <p>Class with some data about the options for 8051 version of the
@@ -87,11 +88,11 @@ public final class Options8051 {
     /**
      * Map for parsing the common bank allocation algorithm.
      */
-    public static final ImmutableMap<String, BComponentsCodePartitioner.CommonBankAllocationAlgorithm> MAP_COMMON_BANK_ALLOCATION_ALGORITHM =
+    public static final ImmutableMap<String, CommonBankAllocationAlgorithm> MAP_COMMON_BANK_ALLOCATION_ALGORITHM =
             ImmutableMap.of(
-                    "greedy-estimations", BComponentsCodePartitioner.CommonBankAllocationAlgorithm.GREEDY_DESCENDING_ESTIMATIONS,
-                    "2approx", BComponentsCodePartitioner.CommonBankAllocationAlgorithm.TWO_APPROXIMATION,
-                    "nop", BComponentsCodePartitioner.CommonBankAllocationAlgorithm.NO_OPERATION
+                    "greedy-estimations", CommonBankAllocationAlgorithm.GREEDY_DESCENDING_ESTIMATIONS,
+                    "2approx", CommonBankAllocationAlgorithm.TWO_APPROXIMATION,
+                    "nop", CommonBankAllocationAlgorithm.NO_OPERATION
             );
 
     /**

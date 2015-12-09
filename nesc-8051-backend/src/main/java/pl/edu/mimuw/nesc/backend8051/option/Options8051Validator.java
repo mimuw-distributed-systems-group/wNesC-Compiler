@@ -47,7 +47,7 @@ public final class Options8051Validator {
                     + "(?<bankCapacity>\\d+)");
 
     private static final Pattern REGEXP_PARTITION_HEURISTIC =
-            Pattern.compile("simple|greedy-(?<greedyPreValue>[1-9]\\d*)|bcomponents|tmsearch-(?<tmsearchMaxIterCount>\\d+)-(?<tmsearchMaxFruitlessIterCount>\\d+)");
+            Pattern.compile("weights-(?<threshold>\\d+\\.\\d+)|simple|greedy-(?<greedyPreValue>[1-9]\\d*)|bcomponents|tmsearch-(?<tmsearchMaxIterCount>\\d+)-(?<tmsearchMaxFruitlessIterCount>\\d+)");
 
     /**
      * Set with SDCC parameters that cannot be specified by the option.
@@ -414,6 +414,15 @@ public final class Options8051Validator {
                 } else if (!checkNotGreaterThanMaxInt(matcher.group("tmsearchMaxFruitlessIterCount"))) {
                     return Optional.of(msgPrefix + "maximum count of consecutive fruitless iterations exceeds "
                             + Integer.MAX_VALUE);
+                } else {
+                    return Optional.absent();
+                }
+            } else if (value.get().startsWith("weights-")) {
+                final Optional<Double> threshold = checkParsesAsDouble(matcher.group("threshold"));
+                if (!threshold.isPresent()) {
+                    return Optional.of(msgPrefix + "the given threshold is an invalid floating-point number");
+                } else if (threshold.get() < 0.) {
+                    return Optional.of(msgPrefix + "threshold cannot be negative");
                 } else {
                     return Optional.absent();
                 }

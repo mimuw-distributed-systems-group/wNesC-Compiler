@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import org.apache.commons.cli.CommandLine;
 import pl.edu.mimuw.nesc.codepartition.BComponentsCodePartitioner;
 import pl.edu.mimuw.nesc.codepartition.BankSchema;
+import pl.edu.mimuw.nesc.codepartition.CommonBankAllocationAlgorithm;
 import pl.edu.mimuw.nesc.codesize.SDCCMemoryModel;
 import pl.edu.mimuw.nesc.common.util.MappingFunction;
 
@@ -57,7 +58,7 @@ public final class Options8051Holder {
     /**
      * Function for parsing the common bank allocation algorithm.
      */
-    private static final Function<String, BComponentsCodePartitioner.CommonBankAllocationAlgorithm> FUNCTION_PARSE_COMMON_BANK_ALLOCATION_ALGORITHM =
+    private static final Function<String, CommonBankAllocationAlgorithm> FUNCTION_PARSE_COMMON_BANK_ALLOCATION_ALGORITHM =
             new MappingFunction<>(Options8051.MAP_COMMON_BANK_ALLOCATION_ALGORITHM);
 
     /**
@@ -253,7 +254,7 @@ public final class Options8051Holder {
         return getDoubleOptionValue(OPTION_LONG_CONDITIONAL_FACTOR);
     }
 
-    public Optional<BComponentsCodePartitioner.CommonBankAllocationAlgorithm> getCommonBankAllocationAlgorithm() {
+    public Optional<CommonBankAllocationAlgorithm> getCommonBankAllocationAlgorithm() {
         return getTransformedOptionValue(OPTION_LONG_COMMON_BANK_ALLOCATION_ALGORITHM,
                 FUNCTION_PARSE_COMMON_BANK_ALLOCATION_ALGORITHM);
     }

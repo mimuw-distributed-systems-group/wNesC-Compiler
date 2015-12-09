@@ -28,10 +28,12 @@ import pl.edu.mimuw.nesc.codepartition.BComponentsCodePartitioner;
 import pl.edu.mimuw.nesc.codepartition.BankSchema;
 import pl.edu.mimuw.nesc.codepartition.BankTable;
 import pl.edu.mimuw.nesc.codepartition.CodePartitioner;
+import pl.edu.mimuw.nesc.codepartition.CommonBankAllocationAlgorithm;
 import pl.edu.mimuw.nesc.codepartition.GreedyCodePartitioner;
 import pl.edu.mimuw.nesc.codepartition.PartitionImpossibleException;
 import pl.edu.mimuw.nesc.codepartition.SimpleCodePartitioner;
 import pl.edu.mimuw.nesc.codepartition.TabuSearchCodePartitioner;
+import pl.edu.mimuw.nesc.codepartition.WeightsCodePartitioner;
 import pl.edu.mimuw.nesc.codesize.CodeSizeEstimation;
 import pl.edu.mimuw.nesc.codesize.CodeSizeEstimator;
 import pl.edu.mimuw.nesc.codesize.EstimationProgramFailedException;
@@ -126,8 +128,8 @@ public final class Main {
      * Default common bank allocation algorithm used when the user does not
      * specify any.
      */
-    private static final BComponentsCodePartitioner.CommonBankAllocationAlgorithm DEFAULT_COMMON_BANK_ALLOCATION_ALGORITHM =
-            BComponentsCodePartitioner.CommonBankAllocationAlgorithm.GREEDY_DESCENDING_ESTIMATIONS;
+    private static final CommonBankAllocationAlgorithm DEFAULT_COMMON_BANK_ALLOCATION_ALGORITHM =
+            CommonBankAllocationAlgorithm.GREEDY_DESCENDING_ESTIMATIONS;
 
     /**
      * Default bank choice method for allocation in cut vertices if the user
@@ -528,6 +530,16 @@ public final class Main {
         } else if (partitionHeuristic.startsWith("greedy-")) {
             partitioner = new GreedyCodePartitioner(bankSchema, atomicSpecification,
                     Integer.parseInt(partitionHeuristic.substring(7)));
+        } else if (partitionHeuristic.startsWith("weights-")) {
+            partitioner = new WeightsCodePartitioner(
+                    bankSchema,
+                    atomicSpecification,
+                    options.getLoopFactor().or(DEFAULT_LOOP_FACTOR),
+                    options.getConditionalFactor().or(DEFAULT_CONDITIONAL_FACTOR),
+                    Double.parseDouble(partitionHeuristic.substring(8)),
+                    options.getCommonBankAllocationAlgorithm().or(DEFAULT_COMMON_BANK_ALLOCATION_ALGORITHM),
+                    new DefaultCompilationListener()
+            );
         } else {
             throw new RuntimeException("unexpected partition heuristic '"
                     + partitionHeuristic + "'");
