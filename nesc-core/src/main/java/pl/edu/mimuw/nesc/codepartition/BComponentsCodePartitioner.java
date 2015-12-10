@@ -490,7 +490,13 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                 if (allocation.includesVertex) {
                     startVertices = ImmutableSet.of(allocation.vertex);
                 } else {
-                    startVertices = ImmutableSet.copyOf(allocation.vertex.getDfsTreeChildren());
+                    final ImmutableSet.Builder<FunctionVertex> startVerticesBuilder = ImmutableSet.builder();
+                    for (FunctionVertex dfsTreeChild : allocation.vertex.getDfsTreeChildren()) {
+                        if (!dfsTreeChild.getTargetBank().isPresent()) {
+                            startVerticesBuilder.add(dfsTreeChild);
+                        }
+                    }
+                    startVertices = startVerticesBuilder.build();
                 }
                 break;
             default:
@@ -602,9 +608,11 @@ public class BComponentsCodePartitioner implements CodePartitioner {
 
                 final AllocationDirection cutVertexMembership = determineVertexMembership(cutVertex);
 
-                addTreeAllocation(candidateAllocations, context, cutVertex,
-                        AllocationDirection.DOWN_TREE, cutVertexMembership,
-                        allFunctionsSize, allFunctionsFrequency, treeRoot);
+                if (cutVertexMembership == AllocationDirection.DOWN_TREE || hasUnassignedDfsTreeChild(cutVertex)) {
+                    addTreeAllocation(candidateAllocations, context, cutVertex,
+                            AllocationDirection.DOWN_TREE, cutVertexMembership,
+                            allFunctionsSize, allFunctionsFrequency, treeRoot);
+                }
                 addTreeAllocation(candidateAllocations, context, cutVertex,
                         AllocationDirection.UP_TREE, cutVertexMembership,
                         allFunctionsSize, allFunctionsFrequency, treeRoot);
@@ -616,6 +624,16 @@ public class BComponentsCodePartitioner implements CodePartitioner {
         }
 
         return bestAllocation;
+    }
+
+    private boolean hasUnassignedDfsTreeChild(FunctionVertex vertex) {
+        for (FunctionVertex dfsTreeChild : vertex.getDfsTreeChildren()) {
+            if (!dfsTreeChild.getTargetBank().isPresent()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void addRootAllocation(Collection<TreeAllocation> candidateAllocations,
@@ -736,8 +754,12 @@ public class BComponentsCodePartitioner implements CodePartitioner {
                 treeRoot, downTreeFunctionsSize, downTreeFunctionsFrequency,
                 upTreeFunctionsSize, upTreeFunctionsFrequency);
         for (AllocationDirection direction : AllocationDirection.values()) {
-            determineBestDirectedAllocationInVertex(context, choiceData, direction,
-                    vertexMembership);
+            if (direction != AllocationDirection.DOWN_TREE
+                    || vertexMembership == AllocationDirection.DOWN_TREE
+                    || hasUnassignedDfsTreeChild(vertex)) {
+                determineBestDirectedAllocationInVertex(context, choiceData, direction,
+                        vertexMembership);
+            }
         }
     }
 
