@@ -6,8 +6,11 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Level;
 import pl.edu.mimuw.nesc.abi.ABI;
@@ -360,6 +363,14 @@ public final class Main {
                 .setSDCCExecutable(options.getSDCCExecutable().orNull())
                 .addSDCCParameters(options.getSDCCParameters().or(DEFAULT_SDCC_PARAMS));
 
+        String temporaryDirectory = null;
+        try {
+            temporaryDirectory = Files.createTempDirectory("wnesc").toString();
+            estimatorFactory.setTemporaryDirectory(temporaryDirectory);
+        } catch(IllegalArgumentException | IOException exception) {
+            // Leave the default temporary directory.
+        }
+
         final CodeSizeEstimator estimator = estimatorFactory.newInliningEstimator(
                 options.getEstimateThreadsCount(),
                 options.getSDASExecutable(),
@@ -370,6 +381,11 @@ public final class Main {
         final CodeSizeEstimation sizeEstimation = estimator.estimate();
 
         timeMeasurer.codeSizeEstimationEnded();
+        if(temporaryDirectory != null) {
+            try {
+                org.apache.commons.io.FileUtils.deleteDirectory(new File(temporaryDirectory));
+            } catch(IOException exception) {}
+        }
         return sizeEstimation;
     }
 
