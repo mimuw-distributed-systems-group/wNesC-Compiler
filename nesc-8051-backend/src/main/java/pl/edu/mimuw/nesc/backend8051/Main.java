@@ -366,10 +366,10 @@ public final class Main {
         String temporaryDirectory = null;
         try {
             temporaryDirectory = Files.createTempDirectory("wnesc").toString();
-            estimatorFactory.setTemporaryDirectory(temporaryDirectory);
-        } catch(IllegalArgumentException | IOException exception) {
-            // Leave the default temporary directory.
+        } catch (IOException e) {
+            System.err.println("warning: cannot create a unique temporary directory for estimation, using the default one");
         }
+        estimatorFactory.setTemporaryDirectory(temporaryDirectory);
 
         final CodeSizeEstimator estimator = estimatorFactory.newInliningEstimator(
                 options.getEstimateThreadsCount(),
@@ -381,10 +381,13 @@ public final class Main {
         final CodeSizeEstimation sizeEstimation = estimator.estimate();
 
         timeMeasurer.codeSizeEstimationEnded();
-        if(temporaryDirectory != null) {
+        if (temporaryDirectory != null) {
             try {
-                org.apache.commons.io.FileUtils.deleteDirectory(new File(temporaryDirectory));
-            } catch(IOException exception) {}
+                FileUtils.deleteDirectory(temporaryDirectory);
+            } catch (IOException e) {
+                System.err.println("warning: cannot delete temporary directory "
+                        + temporaryDirectory + ": " + e.getMessage());
+            }
         }
         return sizeEstimation;
     }

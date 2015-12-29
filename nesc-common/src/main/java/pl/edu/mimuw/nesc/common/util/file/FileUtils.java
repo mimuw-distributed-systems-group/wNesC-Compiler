@@ -2,6 +2,7 @@ package pl.edu.mimuw.nesc.common.util.file;
 
 import com.google.common.io.Files;
 import java.io.File;
+import java.io.IOException;
 import pl.edu.mimuw.nesc.common.FileType;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -109,6 +110,21 @@ public final class FileUtils {
      */
     public static String normalizePath(String filePath) {
         return Files.simplifyPath(filePath);
+    }
+
+    /**
+     * Deletes a directory recursively.
+     *
+     * @param dirPath path of a directory to delete
+     * @throws IOException if deletion is unsuccessful
+     */
+    public static void deleteDirectory(String dirPath) throws IOException {
+        File root = new File(dirPath);
+        for (File file : Files.fileTreeTraverser().postOrderTraversal(root)) {
+            if (!file.delete()) {
+                throw new IOException("Cannot delete " + file.getPath());
+            }
+        }
     }
 
     private FileUtils() {
