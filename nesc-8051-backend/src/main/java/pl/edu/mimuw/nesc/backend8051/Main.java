@@ -363,13 +363,13 @@ public final class Main {
                 .setSDCCExecutable(options.getSDCCExecutable().orNull())
                 .addSDCCParameters(options.getSDCCParameters().or(DEFAULT_SDCC_PARAMS));
 
-        String temporaryDirectory = null;
+        Optional<String> temporaryDirectory = Optional.absent();
         try {
-            temporaryDirectory = Files.createTempDirectory("wnesc").toString();
+            temporaryDirectory = Optional.of(Files.createTempDirectory("wnesc").toString());
         } catch (IOException e) {
             System.err.println("warning: cannot create a unique temporary directory for estimation, using the default one");
         }
-        estimatorFactory.setTemporaryDirectory(temporaryDirectory);
+        estimatorFactory.setTemporaryDirectory(temporaryDirectory.orNull());
 
         final CodeSizeEstimator estimator = estimatorFactory.newInliningEstimator(
                 options.getEstimateThreadsCount(),
@@ -381,14 +381,15 @@ public final class Main {
         final CodeSizeEstimation sizeEstimation = estimator.estimate();
 
         timeMeasurer.codeSizeEstimationEnded();
-        if (temporaryDirectory != null) {
+        if (temporaryDirectory.isPresent()) {
             try {
-                FileUtils.deleteDirectory(temporaryDirectory);
+                FileUtils.deleteDirectory(temporaryDirectory.get());
             } catch (IOException e) {
                 System.err.println("warning: cannot delete temporary directory "
                         + temporaryDirectory + ": " + e.getMessage());
             }
         }
+
         return sizeEstimation;
     }
 
