@@ -369,28 +369,32 @@ public final class Main {
         } catch (IOException e) {
             System.err.println("warning: cannot create a unique temporary directory for estimation, using the default one");
         }
-        estimatorFactory.setTemporaryDirectory(temporaryDirectory.orNull());
 
-        final CodeSizeEstimator estimator = estimatorFactory.newInliningEstimator(
-                options.getEstimateThreadsCount(),
-                options.getSDASExecutable(),
-                refsGraph,
-                options.getMaximumInlineSize(),
-                options.getRelaxInline()
-        );
-        final CodeSizeEstimation sizeEstimation = estimator.estimate();
+        try {
+            estimatorFactory.setTemporaryDirectory(temporaryDirectory.orNull());
 
-        timeMeasurer.codeSizeEstimationEnded();
-        if (temporaryDirectory.isPresent()) {
-            try {
-                FileUtils.deleteDirectory(temporaryDirectory.get());
-            } catch (IOException e) {
-                System.err.println("warning: cannot delete temporary directory "
-                        + temporaryDirectory + ": " + e.getMessage());
+            final CodeSizeEstimator estimator = estimatorFactory.newInliningEstimator(
+                    options.getEstimateThreadsCount(),
+                    options.getSDASExecutable(),
+                    refsGraph,
+                    options.getMaximumInlineSize(),
+                    options.getRelaxInline()
+            );
+            final CodeSizeEstimation sizeEstimation = estimator.estimate();
+
+            timeMeasurer.codeSizeEstimationEnded();
+
+            return sizeEstimation;
+        } finally {
+            if (temporaryDirectory.isPresent()) {
+                try {
+                    FileUtils.deleteDirectory(temporaryDirectory.get());
+                } catch (IOException e) {
+                    System.err.println("warning: cannot delete temporary directory "
+                            + temporaryDirectory + ": " + e.getMessage());
+                }
             }
         }
-
-        return sizeEstimation;
     }
 
     /**
