@@ -6,8 +6,11 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Level;
 import pl.edu.mimuw.nesc.abi.ABI;
@@ -360,17 +363,38 @@ public final class Main {
                 .setSDCCExecutable(options.getSDCCExecutable().orNull())
                 .addSDCCParameters(options.getSDCCParameters().or(DEFAULT_SDCC_PARAMS));
 
-        final CodeSizeEstimator estimator = estimatorFactory.newInliningEstimator(
-                options.getEstimateThreadsCount(),
-                options.getSDASExecutable(),
-                refsGraph,
-                options.getMaximumInlineSize(),
-                options.getRelaxInline()
-        );
-        final CodeSizeEstimation sizeEstimation = estimator.estimate();
+        Optional<String> temporaryDirectory = Optional.absent();
+        try {
+            try {
+                temporaryDirectory = Optional.of(Files.createTempDirectory("wnesc").toString());
+            } catch (IOException e) {
+                System.err.println("warning: cannot create a unique temporary directory for estimation, using the default one");
+            }
 
-        timeMeasurer.codeSizeEstimationEnded();
-        return sizeEstimation;
+            estimatorFactory.setTemporaryDirectory(temporaryDirectory.orNull());
+
+            final CodeSizeEstimator estimator = estimatorFactory.newInliningEstimator(
+                    options.getEstimateThreadsCount(),
+                    options.getSDASExecutable(),
+                    refsGraph,
+                    options.getMaximumInlineSize(),
+                    options.getRelaxInline()
+            );
+            final CodeSizeEstimation sizeEstimation = estimator.estimate();
+
+            timeMeasurer.codeSizeEstimationEnded();
+
+            return sizeEstimation;
+        } finally {
+            if (temporaryDirectory.isPresent()) {
+                try {
+                    FileUtils.deleteDirectory(temporaryDirectory.get());
+                } catch (IOException e) {
+                    System.err.println("warning: cannot delete temporary directory "
+                            + temporaryDirectory + ": " + e.getMessage());
+                }
+            }
+        }
     }
 
     /**
