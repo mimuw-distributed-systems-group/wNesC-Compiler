@@ -365,12 +365,12 @@ public final class Main {
 
         Optional<String> temporaryDirectory = Optional.absent();
         try {
-            temporaryDirectory = Optional.of(Files.createTempDirectory("wnesc").toString());
-        } catch (IOException e) {
-            System.err.println("warning: cannot create a unique temporary directory for estimation, using the default one");
-        }
+            try {
+                temporaryDirectory = Optional.of(Files.createTempDirectory("wnesc").toString());
+            } catch (IOException e) {
+                System.err.println("warning: cannot create a unique temporary directory for estimation, using the default one");
+            }
 
-        try {
             estimatorFactory.setTemporaryDirectory(temporaryDirectory.orNull());
 
             final CodeSizeEstimator estimator = estimatorFactory.newInliningEstimator(
